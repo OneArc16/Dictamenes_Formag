@@ -1,42 +1,28 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ====== Tokens blanco + azul (tipo dashboarddna) ====== */
+:root{
+  --bg:        #f6f9ff;  /* blanco azulado */
+  --panel:     #ffffff;  /* tarjetas */
+  --text:      #0b1220;  /* casi negro azulado */
+  --muted:     #51607a;  /* texto secundario */
+  --subtle:    #e6eefc;  /* bordes/ruled lines */
+  --primary:   #2563eb;  /* brand-600 */
+  --ring:      #93c5fd;  /* brand-300 */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body { background: var(--bg); color: var(--text); }
+* { outline-color: var(--ring); }
+
+input, select, textarea {
+  @apply rounded-xl border bg-panel;
+  border-color: var(--subtle);
+  color: var(--text);
 }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+button:focus-visible, a:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 60%, transparent);
+  outline: none;
 }
