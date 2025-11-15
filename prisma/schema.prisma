@@ -1,0 +1,758 @@
+// =====================================
+// Configuración básica
+// =====================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================
+// ENUMS GENERALES
+// =====================================
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+}
+
+enum ConfirmacionTelefono {
+  SIN_CONFIRMAR
+  CONFIRMADO
+}
+
+// Procedimiento A / B del decreto
+enum ProcedimientoPcl {
+  A
+  B
+}
+
+// Clase de limitación laboral como educador
+enum ClaseLimitacionLaboral {
+  I
+  II
+  III
+  IV
+}
+
+// Gravedad Título III
+enum GravedadAnalisis {
+  CERO
+  I
+  II
+  III
+  IV
+}
+
+// Tipo de criterio de deficiencia
+enum TipoCriterioDeficiencia {
+  ENUM
+  RANGE
+  BOOLEAN
+  NUMBER
+}
+
+// Unidad de criterio
+enum UnidadCriterio {
+  NONE
+  DEGREE
+  METS
+  TNM_T
+  TNM_N
+  TNM_M
+  SCORE
+}
+
+// Actividades AVD / AIVD (Título II, Cap.1)
+enum ActividadAvdAivd {
+  MIRAR
+  ESCUCHAR
+  PENSAR
+  LEER
+  ESCRIBIR
+  COMUNICARSE_CON_MENSAJES_ESCRITOS
+  HABLA
+  PRODUCCION_MENSAJES_NO_VERBALES
+  MENSAJES_ESCRITOS
+  CONVERSACION
+  MANTENER_CAMBIAR_POSICION_CUERPO
+  USO_MANO_BRAZO
+  DESPLAZARSE_ENTORNO
+  USO_TRANSPORTE_PASAJERO
+  CONDUCCION
+  LAVARSE
+  CUIDADO_PARTES_CUERPO
+  VESTIRSE
+  COMER
+  BEBER
+  ADQUIRIR_LO_NECESARIO_PARA_VIVIR
+  ADQUIRIR_BIENES_SERVICIOS
+  PREPARAR_COMIDAS
+  QUEHACERES_CASA
+  AYUDAR_A_LOS_DEMAS
+}
+
+// Factores del análisis ocupacional (Título III)
+enum FactorAnalisisOcupacional {
+  // Psicológicos
+  ATENCION
+  MEMORIA
+  COMPRENSION_RESOLUCION_PROBLEMAS
+  INICIATIVA_AUTONOMIA
+  OBSERVACION
+  CAPACIDAD_ANALISIS_SINTESIS
+  COMPRENSION_ESPACIAL
+  ADAPTACION
+  RELACIONES
+  TOMA_DECISIONES
+
+  // Responsabilidad
+  RESP_HERRAMIENTAS_EQUIPOS
+  RESP_MATERIALES_PRODUCTOS
+  RESP_INFORMACION_VALORES
+  RESP_TRABAJO_OTROS
+  RESP_SEGURIDAD_OTROS
+
+  // Comunicación
+  COMUNICACION_ORAL
+  COMUNICACION_GESTUAL
+
+  // Conocimientos académicos
+  LECTURA
+  ESCRITURA
+  MATEMATICAS
+
+  // Sensopercepción
+  VISION
+  PERCEPCION_COLOR
+  PERCEPCION_FORMA
+  PERCEPCION_TAMANO
+  PERCEPCION_TEMPORAL
+  ORIENTACION_ESPACIAL
+  AUDICION
+  UBICACION_FUENTE_SONORA
+  DISCRIMINACION_AUDITIVA
+  SENSIBILIDAD_SUPERFICIAL
+  ESTEROGNOSIA
+  BAROGNOSIA
+  PROPIOCEPCION_SENTIDO_KINETICO
+  OLFATO
+  GUSTO
+
+  // Motricidad gruesa
+  DESPLAZAMIENTO
+  TRANSPORTAR_PESO
+  ALCANZAR
+  HALAR
+  EMPUJAR
+  LEVANTAR
+  POSICION_SENTADO
+  SUPLENCIA_SENTADO
+  POSICION_DE_PIE
+  SUPLENCIA_DE_PIE
+  POSICION_RODILLAS
+  POSICION_CUCLILLAS
+  EQUILIBRIO_ESTATICO
+
+  // Motricidad fina
+  AGARRE_MANO_LLENA
+  AGARRE_CILINDRICO
+  DIGITO_DIGITAL
+  ENGANCHE
+  PINZA_FINA
+  PINZA_TRIPODE
+  PINZA_LATERAL
+  EXACTITUD
+  PRECISION
+  PULSO
+  AGILIDAD
+  DESTREZA_MANUAL
+  DESTREZA_DIGITAL
+  ARMONIA
+}
+
+// =====================================
+// PAISES
+// =====================================
+model Pais {
+  codigo         String @id @db.Char(3)
+  nombre         String @db.VarChar(100)
+  codigoTelefono String @db.Char(3)
+
+  usuariosResidencia Usuario[] @relation("PaisResidencia")
+
+  @@map("paises")
+}
+
+// =====================================
+// DEPARTAMENTOS
+// =====================================
+model Departamento {
+  codigo String @id @db.Char(2)
+  nombre String @db.VarChar(50)
+
+  municipios     Municipio[]    @relation("DepartamentoMunicipios")
+  usuarios       Usuario[]      @relation("DepartamentoUsuarios")
+  eps            Eps[]          @relation("DepartamentoEps")
+  centrosMedicos CentroMedico[] @relation("DepartamentoCentroMedico")
+  sedes          Sede[]         @relation("DepartamentoSedes")
+
+  @@map("departamentos")
+}
+
+// =====================================
+// MUNICIPIOS
+// =====================================
+model Municipio {
+  codigo             String @id @db.Char(5)
+  nombre             String @db.VarChar(100)
+  codigoDepartamento String @db.Char(2)
+
+  departamento Departamento @relation("DepartamentoMunicipios", fields: [codigoDepartamento], references: [codigo])
+
+  usuarios       Usuario[]      @relation("MunicipioUsuarios")
+  eps            Eps[]          @relation("MunicipioEps")
+  barrios        Barrio[]       @relation("MunicipioBarrios")
+  centrosMedicos CentroMedico[] @relation("MunicipioCentroMedico")
+  sedes          Sede[]         @relation("MunicipioSedes")
+
+  @@index([codigoDepartamento])
+  @@map("municipios")
+}
+
+// =====================================
+// BARRIOS
+// =====================================
+model Barrio {
+  id              Int    @id @default(autoincrement())
+  nombre          String @db.VarChar(100)
+  codigoMunicipio String @db.Char(5)
+
+  municipio Municipio @relation("MunicipioBarrios", fields: [codigoMunicipio], references: [codigo])
+
+  usuarios Usuario[] @relation("BarrioUsuarios")
+
+  @@unique([codigoMunicipio, nombre])
+  @@index([codigoMunicipio])
+  @@map("barrios")
+}
+
+// =====================================
+// EPS
+// =====================================
+model Eps {
+  codigo             String  @id @db.VarChar(6)
+  nombreEntidad      String  @db.VarChar(255)
+  codigoDepartamento String? @db.Char(2)
+  codigoMunicipio    String? @db.Char(5)
+  digitado           Boolean @default(false)
+  nit                String  @unique @db.VarChar(15)
+  dv                 String  @db.Char(1)
+  email              String  @db.VarChar(80)
+  telefono           String  @db.VarChar(15)
+  direccion          String  @db.VarChar(100)
+
+  departamento Departamento? @relation("DepartamentoEps", fields: [codigoDepartamento], references: [codigo])
+  municipio    Municipio?    @relation("MunicipioEps", fields: [codigoMunicipio], references: [codigo])
+
+  usuarios Usuario[] @relation("EpsUsuarios")
+
+  @@index([codigoDepartamento])
+  @@index([codigoMunicipio])
+  @@map("eps")
+}
+
+// =====================================
+// CENTRO MÉDICO
+// =====================================
+model CentroMedico {
+  id                 Int     @id @default(autoincrement())
+  codigoHabilitacion String  @db.VarChar(255)
+  nombre             String  @db.VarChar(255)
+  email              String? @db.VarChar(100)
+  direccion          String? @db.VarChar(100)
+  telefono           String? @db.VarChar(20)
+  codigoDepartamento String? @db.Char(2)
+  codigoMunicipio    String? @db.Char(5)
+  logo               Bytes?
+  estado             Int     @default(1) @db.SmallInt
+  resolucion         String? @db.VarChar(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  departamento Departamento? @relation("DepartamentoCentroMedico", fields: [codigoDepartamento], references: [codigo])
+  municipio    Municipio?    @relation("MunicipioCentroMedico", fields: [codigoMunicipio], references: [codigo])
+
+  sedes Sede[]
+
+  @@index([codigoDepartamento])
+  @@index([codigoMunicipio])
+  @@map("centro_medico")
+}
+
+// =====================================
+// SEDES
+// =====================================
+model Sede {
+  id                 Int     @id @default(autoincrement())
+  centroMedicoId     Int
+  nombre             String  @db.VarChar(100)
+  codigoHabilitacion String? @db.VarChar(50)
+  direccion          String? @db.VarChar(225)
+  codigoDepartamento String? @db.Char(2)
+  codigoMunicipio    String? @db.Char(5)
+  telefono           String? @db.VarChar(50)
+  estado             Int     @default(1) @db.SmallInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  centroMedico CentroMedico @relation(fields: [centroMedicoId], references: [id])
+
+  departamento Departamento? @relation("DepartamentoSedes", fields: [codigoDepartamento], references: [codigo])
+  municipio    Municipio?    @relation("MunicipioSedes", fields: [codigoMunicipio], references: [codigo])
+
+  @@index([centroMedicoId])
+  @@index([codigoDepartamento])
+  @@index([codigoMunicipio])
+  @@map("sedes")
+}
+
+// =====================================
+// PERFILES
+// =====================================
+model Perfil {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique @db.VarChar(100)
+  estado Int    @default(1) @db.SmallInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  empleados Empleado[]
+
+  @@map("perfiles")
+}
+
+// =====================================
+// USUARIOS
+// =====================================
+model Usuario {
+  id Int @id @default(autoincrement())
+
+  carnet             String @db.VarChar(50)
+  identificacion     String @db.VarChar(20)
+  tipoIdentificacion String @db.Char(2)
+
+  primerApellido  String  @db.VarChar(50)
+  segundoApellido String? @db.VarChar(50)
+  primerNombre    String  @db.VarChar(50)
+  segundoNombre   String? @db.VarChar(50)
+
+  direccion   String? @db.VarChar(255)
+  telefono    String? @db.VarChar(15)
+  tipoUsuario String  @db.Char(2)
+
+  codigoOcupacion String? @db.Char(4)
+
+  unidadEdad String @db.Char(1)
+  edad       Int?   @db.SmallInt
+
+  sexo String @db.Char(1)
+
+  residenciaPais String @db.Char(3)
+  paisResidencia Pais   @relation("PaisResidencia", fields: [residenciaPais], references: [codigo])
+
+  zonaResidencia String @db.Char(1)
+
+  fechaNacimiento DateTime? @db.Date
+
+  estadoCivil String?       @db.VarChar(20)
+  estado      EstadoUsuario @default(ACTIVO)
+  fechaEstado DateTime?     @db.Date
+
+  sector String @db.VarChar(50)
+
+  nombreAcudiente   String? @db.VarChar(100)
+  telefonoAcudiente String? @db.VarChar(15)
+  hemoclasificacion String? @db.VarChar(3)
+  parentezco        String? @db.Char(1)
+
+  discapacidad Boolean @default(false)
+  estrato      Int?    @db.SmallInt
+
+  codigoEps String @db.VarChar(6)
+  eps       Eps    @relation("EpsUsuarios", fields: [codigoEps], references: [codigo])
+
+  categoria       String? @db.VarChar(30)
+  etnia           String? @db.VarChar(10)
+  lugarNacimiento String? @db.VarChar(5)
+
+  nroHijos    Int     @default(0) @db.SmallInt
+  escolaridad String? @db.VarChar(2)
+
+  fechaAfiliacion DateTime @default(now())
+
+  celular            String? @db.VarChar(15)
+  email              String? @db.VarChar(100)
+  religion           String? @db.VarChar(50)
+  telefonoSecundario String? @db.VarChar(15)
+
+  createdAt DateTime @default(now())
+  createdBy String?  @db.VarChar(100)
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.VarChar(100)
+
+  genero    String? @db.VarChar(20)
+  gestacion Boolean @default(false)
+
+  victimaConflictoArmado Boolean @default(false)
+  victimaMaltrato        Boolean @default(false)
+  abandonoSocial         Boolean @default(false)
+  desescolarizado        Boolean @default(false)
+  desempleado            Boolean @default(false)
+  carcelario             Boolean @default(false)
+  migrante               Boolean @default(false)
+  trabajadoraSexual      Boolean @default(false)
+  poblacionLgtbi         Boolean @default(false)
+
+  orientacionSexual String @default("NO REFIERE") @db.VarChar(50)
+
+  barrio String? @db.VarChar(50)
+
+  barrioId  Int?
+  barrioRef Barrio? @relation("BarrioUsuarios", fields: [barrioId], references: [id])
+
+  confirmacionTelefono ConfirmacionTelefono @default(SIN_CONFIRMAR)
+
+  codigoDepartamento String? @db.Char(2)
+  codigoMunicipio    String? @db.Char(5)
+  codigoPais         String  @default("057") @db.Char(3)
+
+  idSede Int?
+
+  gradoEscalafon       String @db.VarChar(2)
+  nivelEscalafon       String @db.VarChar(1)
+  formaVinculacion     String @db.VarChar(45)
+  secretaria           String @db.VarChar(45)
+  institucionEducativa String @db.VarChar(150)
+
+  departamento Departamento? @relation("DepartamentoUsuarios", fields: [codigoDepartamento], references: [codigo])
+  municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
+
+  dictamenes Dictamen[]
+
+  @@unique([identificacion, tipoIdentificacion])
+  @@index([codigoEps])
+  @@index([codigoDepartamento])
+  @@index([codigoMunicipio])
+  @@index([email])
+  @@map("usuarios")
+}
+
+// =====================================
+// EMPLEADOS
+// =====================================
+model Empleado {
+  id Int @id @default(autoincrement())
+
+  tipoDocumento   String? @db.VarChar(3)
+  numeroIdentidad String? @db.VarChar(18)
+
+  primerNombre    String  @db.VarChar(40)
+  segundoNombre   String? @db.VarChar(40)
+  primerApellido  String  @db.VarChar(40)
+  segundoApellido String? @db.VarChar(40)
+
+  direccion String? @db.VarChar(50)
+  telefonos String? @db.VarChar(30)
+
+  contrasena String? @db.VarChar(60)
+
+  activo Boolean @default(true)
+
+  registroMedico String? @db.VarChar(25)
+  licencia       String? @db.VarChar(30)
+
+  perfilId Int?
+  perfil   Perfil? @relation(fields: [perfilId], references: [id])
+
+  firma Bytes?
+
+  email  String? @db.VarChar(50)
+  idSede Int?
+
+  @@map("empleados")
+}
+
+// =====================================
+// CATÁLOGO DE DEFICIENCIAS
+// =====================================
+model Deficiencia {
+  id              Int      @id @default(autoincrement())
+  codigo          String   @unique
+  nombre          String
+  sistemaCorporal String?
+  version         String?
+  notas           String?
+  uiPolitica      Json
+  creadoEn        DateTime @default(now())
+  estado          Boolean  @default(true)
+
+  criterios            DeficienciaCriterio[]
+  reglas               DeficienciaRegla[]
+  cie10Deficiencias    Cie10Deficiencia[]
+  dictamenDeficiencias DictamenDeficiencia[]
+
+  @@map("deficiencias")
+}
+
+model DeficienciaCriterio {
+  id            Int                     @id @default(autoincrement())
+  deficienciaId Int
+  codigo        String
+  etiqueta      String
+  tipo          TipoCriterioDeficiencia
+  unidad        UnidadCriterio          @default(NONE)
+  orden         Int                     @default(0)
+  estado        Boolean                 @default(true)
+
+  deficiencia      Deficiencia       @relation(fields: [deficienciaId], references: [id])
+  opciones         CriterioOpcion[]  @relation("CriterioOpciones")
+  rangos           CriterioRango[]   @relation("CriterioRangos")
+  reglaCondiciones ReglaCondicion[]  @relation("CriterioReglaCondiciones")
+  dictamenEntradas DictamenEntrada[] @relation("CriterioDictamenEntradas")
+
+  @@unique([deficienciaId, codigo])
+  @@index([deficienciaId])
+  @@map("deficiencia_criterios")
+}
+
+model CriterioOpcion {
+  id         Int     @id @default(autoincrement())
+  criterioId Int
+  codigo     String
+  etiqueta   String
+  orden      Int     @default(0)
+  estado     Boolean @default(true)
+
+  criterio         DeficienciaCriterio @relation("CriterioOpciones", fields: [criterioId], references: [id])
+  reglaCondiciones ReglaCondicion[]    @relation("OpcionReglaCondiciones")
+  dictamenEntradas DictamenEntrada[]   @relation("OpcionDictamenEntradas")
+
+  @@unique([criterioId, codigo])
+  @@index([criterioId])
+  @@map("criterio_opciones")
+}
+
+model CriterioRango {
+  id           Int      @id @default(autoincrement())
+  criterioId   Int
+  etiqueta     String
+  valorMinimo  Decimal? @db.Decimal(10, 3)
+  valorMaximo  Decimal? @db.Decimal(10, 3)
+  minInclusivo Boolean  @default(true)
+  maxInclusivo Boolean  @default(true)
+  orden        Int      @default(0)
+  estado       Boolean  @default(true)
+
+  criterio         DeficienciaCriterio @relation("CriterioRangos", fields: [criterioId], references: [id])
+  reglaCondiciones ReglaCondicion[]    @relation("RangoReglaCondiciones")
+  dictamenEntradas DictamenEntrada[]   @relation("RangoDictamenEntradas")
+
+  @@unique([criterioId, etiqueta])
+  @@index([criterioId])
+  @@map("criterio_rangos")
+}
+
+model DeficienciaRegla {
+  id            Int     @id @default(autoincrement())
+  deficienciaId Int
+  etiqueta      String?
+  porcentajeA   Decimal @db.Decimal(6, 2)
+  porcentajeB   Decimal @db.Decimal(6, 2)
+  tablaOrigen   String?
+  notas         String?
+  estado        Boolean @default(true)
+
+  deficiencia      Deficiencia       @relation(fields: [deficienciaId], references: [id])
+  condiciones      ReglaCondicion[]  @relation("ReglaCondiciones")
+  dictamenEntradas DictamenEntrada[] @relation("ReglaDictamenEntradas")
+
+  @@index([deficienciaId])
+  @@map("deficiencia_reglas")
+}
+
+model ReglaCondicion {
+  id            Int      @id @default(autoincrement())
+  reglaId       Int
+  criterioId    Int
+  opcionId      Int?
+  rangoId       Int?
+  valorNumerico Decimal? @db.Decimal(10, 3)
+  valorBooleano Boolean?
+
+  regla    DeficienciaRegla    @relation("ReglaCondiciones", fields: [reglaId], references: [id])
+  criterio DeficienciaCriterio @relation("CriterioReglaCondiciones", fields: [criterioId], references: [id])
+  opcion   CriterioOpcion?     @relation("OpcionReglaCondiciones", fields: [opcionId], references: [id])
+  rango    CriterioRango?      @relation("RangoReglaCondiciones", fields: [rangoId], references: [id])
+
+  @@index([reglaId])
+  @@index([criterioId])
+  @@index([opcionId])
+  @@index([rangoId])
+  @@map("regla_condiciones")
+}
+
+// =====================================
+// CIE10 y vínculo con Deficiencia
+// =====================================
+model Cie10 {
+  codigo String  @id @db.VarChar(10)
+  nombre String  @db.VarChar(255)
+  estado Boolean @default(true)
+
+  cie10Deficiencias    Cie10Deficiencia[]
+  dictamenDiagnosticos DictamenDiagnostico[]
+
+  @@map("cie10")
+}
+
+model Cie10Deficiencia {
+  cie10Codigo   String @db.VarChar(10)
+  deficienciaId Int
+
+  cie10       Cie10       @relation(fields: [cie10Codigo], references: [codigo])
+  deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
+
+  @@id([cie10Codigo, deficienciaId])
+  @@index([deficienciaId])
+  @@map("cie10_deficiencias")
+}
+
+// =====================================
+// DICTAMEN
+// =====================================
+model Dictamen {
+  id               Int              @id @default(autoincrement())
+  usuarioId        Int
+  numeroDictamen   Int?
+  fechaDictamen    DateTime         @db.Date
+  creadoEn         DateTime         @default(now())
+  procedimientoPcl ProcedimientoPcl
+
+  totalTitulo1           Decimal?                @db.Decimal(6, 2)
+  totalCap1              Decimal?                @db.Decimal(6, 2)
+  claseLimitacionLaboral ClaseLimitacionLaboral?
+  totalCap2              Decimal?                @db.Decimal(6, 2)
+  totalTitulo3           Decimal?                @db.Decimal(6, 2)
+
+  antecedentesClinicos String?
+  condicionSalud       String?
+  descripcionHallazgos String?
+
+  aplicaAnalisisOcupacional Boolean @default(false)
+  estado                    Boolean @default(true)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  diagnosticos        DictamenDiagnostico[]
+  deficiencias        DictamenDeficiencia[]
+  limitacionesAvdAivd DictamenLimitacionesAvdAivd[]
+  analisisOcupacional DictamenAnalisisOcupacional[]
+
+  @@index([usuarioId])
+  @@map("dictamenes")
+}
+
+model DictamenDiagnostico {
+  id          Int    @id @default(autoincrement())
+  dictamenId  Int
+  cie10Codigo String @db.VarChar(10)
+
+  dictamen Dictamen @relation(fields: [dictamenId], references: [id])
+  cie10    Cie10    @relation(fields: [cie10Codigo], references: [codigo])
+
+  @@index([dictamenId])
+  @@index([cie10Codigo])
+  @@map("dictamen_diagnosticos")
+}
+
+model DictamenDeficiencia {
+  id                  Int              @id @default(autoincrement())
+  dictamenId          Int
+  deficienciaId       Int
+  procedimiento       ProcedimientoPcl
+  porcentajeResultado Decimal?         @db.Decimal(6, 2)
+  creadoEn            DateTime         @default(now())
+
+  dictamen    Dictamen          @relation(fields: [dictamenId], references: [id])
+  deficiencia Deficiencia       @relation(fields: [deficienciaId], references: [id])
+  entradas    DictamenEntrada[]
+
+  @@unique([dictamenId, deficienciaId])
+  @@index([deficienciaId])
+  @@map("dictamen_deficiencias")
+}
+
+model DictamenEntrada {
+  id                    Int      @id @default(autoincrement())
+  dictamenDeficienciaId Int
+  criterioId            Int?
+  opcionId              Int?
+  rangoId               Int?
+  valorNumerico         Decimal? @db.Decimal(10, 3)
+  valorBooleano         Boolean?
+  reglaCoincidenteId    Int?
+
+  dictamenDeficiencia DictamenDeficiencia  @relation(fields: [dictamenDeficienciaId], references: [id])
+  criterio            DeficienciaCriterio? @relation("CriterioDictamenEntradas", fields: [criterioId], references: [id])
+  opcion              CriterioOpcion?      @relation("OpcionDictamenEntradas", fields: [opcionId], references: [id])
+  rango               CriterioRango?       @relation("RangoDictamenEntradas", fields: [rangoId], references: [id])
+  reglaCoincidente    DeficienciaRegla?    @relation("ReglaDictamenEntradas", fields: [reglaCoincidenteId], references: [id])
+
+  @@index([dictamenDeficienciaId])
+  @@index([criterioId])
+  @@index([opcionId])
+  @@index([rangoId])
+  @@index([reglaCoincidenteId])
+  @@map("dictamen_entradas")
+}
+
+// TÍTULO II – Cap. 1
+model DictamenLimitacionesAvdAivd {
+  id         Int              @id @default(autoincrement())
+  dictamenId Int
+  actividad  ActividadAvdAivd
+  valor      Decimal          @db.Decimal(3, 1)
+
+  dictamen Dictamen @relation(fields: [dictamenId], references: [id])
+
+  @@unique([dictamenId, actividad])
+  @@index([dictamenId])
+  @@map("dictamen_limitaciones_avd_aivd")
+}
+
+// TÍTULO III – Análisis ocupacional
+model DictamenAnalisisOcupacional {
+  id         Int                       @id @default(autoincrement())
+  dictamenId Int
+  factor     FactorAnalisisOcupacional
+  gravedad   GravedadAnalisis
+  valor      Int?
+
+  dictamen Dictamen @relation(fields: [dictamenId], references: [id])
+
+  @@unique([dictamenId, factor])
+  @@index([dictamenId])
+  @@map("dictamen_analisis_ocupacional")
+}

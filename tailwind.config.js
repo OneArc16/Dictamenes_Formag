@@ -1,15 +1,13 @@
-import type { Config } from 'tailwindcss';
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+const config = {
   content: [
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/modules/**/*.{js,ts,jsx,tsx,mdx}', // si tienes modules/
+    './src/modules/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       colors: {
-        // Paleta azul tipo dashboarddna
         brand: {
           50:  '#eff6ff',
           100: '#dbeafe',
@@ -22,18 +20,17 @@ const config: Config = {
           800: '#1e40af',
           900: '#1e3a8a',
         },
-
-        // Atajos basados en variables CSS
-        bg: 'var(--bg)',           // fondo general (blanco azulado)
-        panel: 'var(--panel)',     // tarjetas/paneles (blanco)
-        subtle: 'var(--subtle)',   // bordes/lines
-        text: 'var(--text)',       // texto principal
-        muted: 'var(--muted)',     // texto secundario
-        primary: 'var(--primary)', // botón/acción
-        ring: 'var(--ring)',       // focus ring
+        bg: 'var(--bg)',
+        panel: 'var(--panel)',
+        subtle: 'var(--subtle)',
+        text: 'var(--text)',
+        muted: 'var(--muted)',
+        primary: 'var(--primary)',
+        ring: 'var(--ring)',
       },
     },
   },
   plugins: [],
 };
-export default config;
+
+export default config; // (requiere "type":"module" en package.json)

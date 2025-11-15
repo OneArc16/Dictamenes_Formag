@@ -1,18 +1,18 @@
-import { PrismaClient as AppPrismaClient } from '../../prisma/generated/app';
-import { PrismaClient as DnaPrismaClient } from '../../prisma/generated/dna';
+// lib/prisma.ts
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
-  appPrisma?: AppPrismaClient;
-  dnaPrisma?: DnaPrismaClient;
+  prisma?: PrismaClient;
 };
 
-export const appPrisma =
-  globalForPrisma.appPrisma ?? new AppPrismaClient();
+// Cliente único para la BD "dictamy"
+export const prisma =
+  globalForPrisma.prisma ?? new PrismaClient();
 
-export const dnaPrisma =
-  globalForPrisma.dnaPrisma ?? new DnaPrismaClient();
-
+// Evitar crear múltiples instancias en dev (hot reload)
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.appPrisma = appPrisma;
-  globalForPrisma.dnaPrisma = dnaPrisma;
+  globalForPrisma.prisma = prisma;
 }
+
+// (Opcional) compatibilidad con código viejo que usaba appPrisma
+export { prisma as appPrisma };

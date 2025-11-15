@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { dnaPrisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
@@ -14,47 +14,63 @@ export async function GET(req: Request) {
   // Heurística: si es numérico => buscar por documento exacto; si no, por nombres/apellidos
   const isNumeric = /^\d+$/.test(q);
 
-  // Campos que devolveremos (ajusta si quieres más/menos)
-  const select = {
-    IdUsuario: true,
-    Identificaci_n_usuario: true,
-    Tipo_identificaci_n: true,
-    Primer_nombre: true,
-    Segundo_nombre: true,
-    Primer_apellido: true,
-    Segundo_apellido: true,
-    Sexo: true,
-    Edad: true,
-    Celular: true,
-    Tel_fono: true,
-    Direcci_n: true,
-    Codigo_eps: true,
-  } as const;
-
   try {
-    const rows = await dnaPrisma.usuarios.findMany({
+    const usuarios = await prisma.usuario.findMany({
       where: isNumeric
         ? {
-            Identificaci_n_usuario: q, // documento exacto
+            // documento exacto
+            identificacion: q,
           }
         : {
             OR: [
-              { Primer_nombre: { contains: q, mode: 'insensitive' } },
-              { Segundo_nombre: { contains: q, mode: 'insensitive' } },
-              { Primer_apellido: { contains: q, mode: 'insensitive' } },
-              { Segundo_apellido: { contains: q, mode: 'insensitive' } },
-              { Identificaci_n_usuario: { contains: q, mode: 'insensitive' } },
+              { primerNombre: { contains: q, mode: 'insensitive' } },
+              { segundoNombre: { contains: q, mode: 'insensitive' } },
+              { primerApellido: { contains: q, mode: 'insensitive' } },
+              { segundoApellido: { contains: q, mode: 'insensitive' } },
+              { identificacion: { contains: q, mode: 'insensitive' } },
             ],
           },
-      select,
+      select: {
+        id: true,
+        identificacion: true,
+        tipoIdentificacion: true,
+        primerNombre: true,
+        segundoNombre: true,
+        primerApellido: true,
+        segundoApellido: true,
+        sexo: true,
+        edad: true,
+        celular: true,
+        telefono: true,
+        direccion: true,
+        codigoEps: true,
+      },
       take: 25,
-      orderBy: [{ Primer_apellido: 'asc' }, { Primer_nombre: 'asc' }],
+      orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
     });
+
+    // 🔁 Mapeo para mantener la misma forma de respuesta que tenías en DNA
+    const rows = usuarios.map((u) => ({
+      IdUsuario: u.id,
+      Identificaci_n_usuario: u.identificacion,
+      Tipo_identificaci_n: u.tipoIdentificacion,
+      Primer_nombre: u.primerNombre,
+      Segundo_nombre: u.segundoNombre,
+      Primer_apellido: u.primerApellido,
+      Segundo_apellido: u.segundoApellido,
+      Sexo: u.sexo,
+      Edad: u.edad,
+      Celular: u.celular,
+      Tel_fono: u.telefono,
+      Direcci_n: u.direccion,
+      Codigo_eps: u.codigoEps,
+    }));
 
     return NextResponse.json({ ok: true, rows });
   } catch (err: any) {
+    console.error(err);
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error consultando DNA' },
+      { ok: false, error: err?.message ?? 'Error consultando usuarios' },
       { status: 500 }
     );
   }
