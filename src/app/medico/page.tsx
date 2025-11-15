@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DictamenExportButton } from '@/components/DictamenExportButton';
 
 import Appnav from '@/components/AppNav'; // 🔁 Ajusta la ruta si tu Appnav está en otro lugar
 
@@ -34,15 +35,7 @@ export default function MedicoPage() {
   const [loading, setLoading] = useState(false);
 
   // 1) Cargar "médico actual" (stub)
-  //
-  // En una versión más avanzada, esto debería venir de:
-  //   - un endpoint tipo /api/me
-  //   - o /api/empleados/medicos que devuelva currentMedicoId
-  //
-  // Aquí solo dejamos un placeholder para que el combo exista
-  // y muestre algo por defecto.
   useEffect(() => {
-    // TODO: Reemplazar por fetch real cuando tengas el endpoint
     const medicoActual: MedicoOption = {
       id: 1,
       nombre: 'Médico actual',
@@ -105,7 +98,6 @@ export default function MedicoPage() {
     }
 
     // Solo cargamos si hay médico (en teoría siempre debería haber uno por el JWT)
-    // pero mantenemos esta guardia.
     if (medicoId !== null) {
       loadDictamenes();
     }
@@ -128,7 +120,7 @@ export default function MedicoPage() {
 
       <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
         {/* Encabezado parecido al módulo de reportes */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-800">
               Dictámenes del médico
@@ -137,6 +129,9 @@ export default function MedicoPage() {
               Visualiza y gestiona los dictámenes pendientes, reabiertos y cerrados.
             </p>
           </div>
+
+          {/* Botón de descargar listado */}
+          <DictamenExportButton rows={rows} filename="dictamenes_medico.csv" />
         </div>
 
         {/* Barra de filtros reutilizable */}
