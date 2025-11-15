@@ -283,7 +283,7 @@ async function main() {
   });
 
   // 9.3. DANIEL ANDRES CASTAÑO NAVARRO - médico
-  await prisma.empleado.upsert({
+  const medicoDaniel = await prisma.empleado.upsert({
     where: { id: 3 },
     update: {},
     create: {
@@ -310,7 +310,7 @@ async function main() {
   /* ==========================
      10. USUARIOS (DOCENTES)
      ========================== */
-  await prisma.usuario.upsert({
+  const usuarioAlexis = await prisma.usuario.upsert({
     where: {
       identificacion_tipoIdentificacion: {
         identificacion: '26802360',
@@ -442,11 +442,18 @@ async function main() {
     },
   });
 
-    /* =======================================================
-     12. CATÁLOGO DE DEFICIENCIAS – TABLA 1.5
+  /* =======================================================
+     12. LIMPIAR CATÁLOGO DEFICIENCIAS + DICTÁMENES
+     (para que el seed sea idempotente)
      ======================================================= */
 
-  // Dejamos el catálogo limpio para que el seed sea idempotente
+  await prisma.dictamenEntrada.deleteMany({});
+  await prisma.dictamenDeficiencia.deleteMany({});
+  await prisma.dictamenDiagnostico.deleteMany({});
+  await prisma.dictamenLimitacionesAvdAivd.deleteMany({});
+  await prisma.dictamenAnalisisOcupacional.deleteMany({});
+  await prisma.dictamen.deleteMany({});
+
   await prisma.cie10Deficiencia.deleteMany({});
   await prisma.reglaCondicion.deleteMany({});
   await prisma.deficienciaRegla.deleteMany({});
@@ -454,6 +461,10 @@ async function main() {
   await prisma.criterioOpcion.deleteMany({});
   await prisma.deficienciaCriterio.deleteMany({});
   await prisma.deficiencia.deleteMany({});
+
+  /* =======================================================
+     13. CATÁLOGO DE DEFICIENCIAS – TABLA 1.5
+     ======================================================= */
 
   const uiTabla15: Prisma.JsonObject = {
     codigoTabla: '1.5',
@@ -526,4 +537,144 @@ async function main() {
       valorBooleano: true, // cuando el médico marque que SÍ hay sintomatología
     },
   });
+
+  /* =======================================================
+     14. DICTÁMENES DE PRUEBA PARA MÓDULO MÉDICO
+     ======================================================= */
+
+  // 14.1. Dictamen PENDIENTE (no reabierto)
+  await prisma.dictamen.create({
+    data: {
+      usuarioId: usuarioAlexis.id,
+      numeroDictamen: 1,
+      fechaDictamen: new Date('2024-11-10'),
+      procedimientoPcl: 'A',
+      antecedentesClinicos:
+        'Hipertensión arterial esencial de varios años de evolución.',
+      condicionSalud: 'Paciente con control parcial de cifras tensionales.',
+      descripcionHallazgos: 'TA 150/95 mmHg en consulta.',
+      aplicaAnalisisOcupacional: false,
+      estado: true, // pendiente
+      reabierto: false,
+      empleadoId: medicoDaniel.id,
+
+      diagnosticos: {
+        create: [{ cie10Codigo: 'I10X' }],
+      },
+      deficiencias: {
+        create: [
+          {
+            deficienciaId: defTabla15.id,
+            procedimiento: 'A',
+            porcentajeResultado: '40.00',
+            entradas: {
+              create: [
+                {
+                  criterioId: critSintomatologia.id,
+                  valorBooleano: true,
+                  reglaCoincidenteId: reglaSintomatologia.id,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // 14.2. Dictamen CERRADO
+  await prisma.dictamen.create({
+    data: {
+      usuarioId: usuarioAlexis.id,
+      numeroDictamen: 2,
+      fechaDictamen: new Date('2024-10-15'),
+      procedimientoPcl: 'B',
+      antecedentesClinicos: 'Trastorno mixto ansioso-depresivo.',
+      condicionSalud: 'Requiere seguimiento psiquiátrico y psicológico.',
+      descripcionHallazgos:
+        'Sintomatología ansiosa y depresiva persistente con impacto funcional.',
+      aplicaAnalisisOcupacional: true,
+      estado: false, // cerrado
+      reabierto: false,
+      empleadoId: medicoDaniel.id,
+
+      diagnosticos: {
+        create: [{ cie10Codigo: 'F412' }],
+      },
+      deficiencias: {
+        create: [
+          {
+            deficienciaId: defTabla15.id,
+            procedimiento: 'B',
+            porcentajeResultado: '15.00',
+            entradas: {
+              create: [
+                {
+                  criterioId: critSintomatologia.id,
+                  valorBooleano: true,
+                  reglaCoincidenteId: reglaSintomatologia.id,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // 14.3. Dictamen PENDIENTE REABIERTO
+  await prisma.dictamen.create({
+    data: {
+      usuarioId: usuarioAlexis.id,
+      numeroDictamen: 3,
+      fechaDictamen: new Date('2024-11-12'),
+      procedimientoPcl: 'A',
+      antecedentesClinicos:
+        'Reapertura por empeoramiento de sintomatología mixta ansioso-depresiva.',
+      condicionSalud: 'Sintomatología exacerbada pese a manejo previo.',
+      descripcionHallazgos:
+        'Escalas de ansiedad y depresión con puntajes elevados.',
+      aplicaAnalisisOcupacional: true,
+      estado: true, // pendiente
+      reabierto: true, // 👈 importante para las pruebas del módulo médico
+      empleadoId: medicoDaniel.id,
+
+      diagnosticos: {
+        create: [
+          { cie10Codigo: 'F412' },
+          { cie10Codigo: 'I10X' },
+        ],
+      },
+      deficiencias: {
+        create: [
+          {
+            deficienciaId: defTabla15.id,
+            procedimiento: 'A',
+            porcentajeResultado: '40.00',
+            entradas: {
+              create: [
+                {
+                  criterioId: critSintomatologia.id,
+                  valorBooleano: true,
+                  reglaCoincidenteId: reglaSintomatologia.id,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
 }
+
+// Ejecutar seed
+main()
+  .then(async () => {
+    console.log('✅ Seed ejecutado correctamente');
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error('❌ Error en seed:', e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

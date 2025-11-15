@@ -491,6 +491,13 @@ model Empleado {
   email  String? @db.VarChar(50)
   idSede Int?
 
+  // Relación con dictámenes (médico responsable)
+  dictamenes Dictamen[]
+
+  // Únicos recomendados para login/búsqueda
+  @@unique([tipoDocumento, numeroIdentidad])
+  @@unique([email])
+
   @@map("empleados")
 }
 
@@ -660,8 +667,16 @@ model Dictamen {
   condicionSalud       String?
   descripcionHallazgos String?
 
+  /// true = Pendiente, false = Cerrado
   aplicaAnalisisOcupacional Boolean @default(false)
   estado                    Boolean @default(true)
+
+  /// Marca si el dictamen fue reabierto (sigue siendo pendiente)
+  reabierto Boolean @default(false)
+
+  /// Médico responsable del dictamen
+  empleadoId Int?
+  empleado   Empleado? @relation(fields: [empleadoId], references: [id])
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
@@ -671,6 +686,8 @@ model Dictamen {
   analisisOcupacional DictamenAnalisisOcupacional[]
 
   @@index([usuarioId])
+  @@index([empleadoId])
+  @@index([estado, reabierto, fechaDictamen])
   @@map("dictamenes")
 }
 

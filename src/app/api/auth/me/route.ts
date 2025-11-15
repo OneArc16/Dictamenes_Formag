@@ -2,20 +2,30 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 
-export const runtime = 'nodejs';
-
 export async function GET() {
   try {
-    const store = await cookies();                 // en Next moderno es async
-    const token = store.get('auth')?.value;
-    if (!token) return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth')?.value;
 
-    const payload = await verifyJwt(token);        // { sub, role, name }
+    if (!token) {
+      return NextResponse.json({ ok: false, user: null }, { status: 401 });
+    }
+
+    const payload = await verifyJwt(token);
+    if (!payload) {
+      return NextResponse.json({ ok: false, user: null }, { status: 401 });
+    }
+
+    const { sub, name, role } = payload as any;
+
     return NextResponse.json({
       ok: true,
-      user: { id: payload.sub, role: payload.role, name: payload.name },
+      user: { id: sub, name, role },
     });
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Token inválido' }, { status: 401 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, user: null, error: err?.message ?? 'Error' },
+      { status: 500 }
+    );
   }
 }
