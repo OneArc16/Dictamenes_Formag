@@ -10,6 +10,49 @@ interface DictamenTableProps {
   onOpenDictamen: (id: number) => void;
 }
 
+// Helper para formatear la fecha
+function formatFecha(value: any): string {
+  if (!value) return '';
+
+  // Si viene como Date
+  if (value instanceof Date) {
+    return value.toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  const str = String(value);
+
+  // Si viene como ISO con hora: 2025-11-15T00:00:00.000Z
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      // Usamos UTC para que no se corra un día por la zona horaria
+      return d.toLocaleDateString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
+    }
+  }
+
+  // Si viene como YYYY-MM-DD
+  const base = str.split('T')[0]; // nos quedamos con la parte de la fecha
+  const parts = base.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    if (y.length === 4) {
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
+  }
+
+  // Fallback
+  return str;
+}
+
 export function DictamenTable({
   rows,
   loading,
@@ -81,9 +124,7 @@ export function DictamenTable({
               rows.map((row) => {
                 const numero = row.numeroDictamen ?? row.id;
 
-                const fechaStr = row.fechaDictamen
-                  ? row.fechaDictamen.split('-').reverse().join('/') // YYYY-MM-DD → DD/MM/YYYY
-                  : '';
+                const fechaStr = formatFecha(row.fechaDictamen);
 
                 const titulo1 =
                   row.totalTitulo1 === null || row.totalTitulo1 === undefined
