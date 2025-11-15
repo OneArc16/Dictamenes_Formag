@@ -99,24 +99,36 @@ export default function NuevoDictamenPage() {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          usuarioId: docente.id,
-          fechaDictamen,
-          procedimientoPcl,
-          antecedentesClinicos: antecedentes || undefined,
-          condicionSalud: condicionSalud || undefined,
-          descripcionHallazgos: hallazgos || undefined,
+            usuarioId: docente.id,
+            fechaDictamen,
+            procedimientoPcl,
+            antecedentesClinicos: antecedentes || undefined,
+            condicionSalud: condicionSalud || undefined,
+            descripcionHallazgos: hallazgos || undefined,
         }),
-      });
+        });
 
-      const data = await res.json();
+        // 👇 Leemos texto crudo para evitar el crash
+        const raw = await res.text();
+        let data: any = null;
 
-      if (!res.ok || !data.ok) {
-        toast.error(data.error || 'No se pudo crear el dictamen');
+        try {
+        data = raw ? JSON.parse(raw) : null;
+        } catch (e) {
+        console.error('Respuesta NO JSON desde /api/dictamenes/medico:', raw);
+        }
+
+        if (!res.ok || !data?.ok) {
+        const msg =
+            data?.error ||
+            (raw ? `Error HTTP ${res.status}` : `Error HTTP ${res.status} (sin cuerpo)`);
+
+        toast.error(msg);
         return;
-      }
+        }
 
       toast.success('Dictamen creado correctamente');
       // Por ahora volvemos al listado del médico
