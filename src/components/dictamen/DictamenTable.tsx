@@ -1,9 +1,7 @@
-// src/components/dictamen/DictamenTable.tsx
 'use client';
 
 import { Eye } from 'lucide-react';
 import { DictamenRow } from './types';
-import { EstadoBadge } from './EstadoBadge';
 
 interface DictamenTableProps {
   rows: DictamenRow[];
@@ -15,7 +13,6 @@ interface DictamenTableProps {
 function formatFecha(value: any): string {
   if (!value) return '';
 
-  // Si viene como Date
   if (value instanceof Date) {
     return value.toLocaleDateString('es-CO', {
       day: '2-digit',
@@ -26,7 +23,7 @@ function formatFecha(value: any): string {
 
   const str = String(value);
 
-  // Si viene como ISO con hora: 2025-11-15T00:00:00.000Z
+  // ISO con hora
   if (str.includes('T')) {
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
@@ -39,7 +36,7 @@ function formatFecha(value: any): string {
     }
   }
 
-  // Si viene como YYYY-MM-DD
+  // YYYY-MM-DD
   const base = str.split('T')[0];
   const parts = base.split('-');
   if (parts.length === 3) {
@@ -72,7 +69,7 @@ export function DictamenTable({
                 Fecha
               </th>
               <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Tipo doc.
+                Secretaría
               </th>
               <th className="px-3 py-2 font-semibold text-left text-slate-500">
                 Documento
@@ -120,11 +117,23 @@ export function DictamenTable({
               rows.map((row, index) => {
                 const numero = index + 1;
                 const fechaStr = formatFecha(row.fechaDictamen);
-                const estado =
-                  (row.estado?.toUpperCase() as
-                    | 'PENDIENTE'
-                    | 'REABIERTO'
-                    | 'CERRADO') || 'PENDIENTE';
+                const estadoUpper = row.estado?.toUpperCase();
+                const isPendiente = estadoUpper === 'PENDIENTE';
+                const isReabierto = estadoUpper === 'REABIERTO';
+
+                let estadoLabel = 'Cerrado';
+                let estadoClasses =
+                  'bg-emerald-50 text-emerald-700 border border-emerald-100';
+
+                if (isPendiente) {
+                  estadoLabel = 'Pendiente';
+                  estadoClasses =
+                    'bg-amber-50 text-amber-700 border border-amber-100';
+                } else if (isReabierto) {
+                  estadoLabel = 'Reabierto';
+                  estadoClasses =
+                    'bg-indigo-50 text-indigo-700 border border-indigo-100';
+                }
 
                 return (
                   <tr key={row.id} className="hover:bg-slate-50/70">
@@ -135,7 +144,7 @@ export function DictamenTable({
                       {fechaStr}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.docenteTipoDocumento}
+                      {row.secretaria ?? ''}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
                       {row.docenteDocumento}
@@ -144,7 +153,11 @@ export function DictamenTable({
                       {row.docenteNombre}
                     </td>
                     <td className="px-3 py-2">
-                      <EstadoBadge estado={estado} reabierto={row.reabierto} />
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${estadoClasses}`}
+                      >
+                        {estadoLabel}
+                      </span>
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
                       {row.medicoNombre ?? ''}

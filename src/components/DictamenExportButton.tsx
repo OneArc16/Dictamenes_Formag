@@ -6,7 +6,7 @@ import { Download } from 'lucide-react';
 
 export type DictamenExportRow = {
   fecha: string;
-  tipoDocumento: string;
+  secretaria: string;
   documento: string;
   docente: string;
   estado: string;
@@ -31,7 +31,7 @@ export function DictamenExportButton({
     try {
       const header = [
         'Fecha',
-        'Tipo documento',
+        'secretaria',
         'Documento',
         'Docente',
         'Estado',
@@ -43,7 +43,7 @@ export function DictamenExportButton({
       for (const r of rows) {
         const cols = [
           r.fecha ?? '',
-          r.tipoDocumento ?? '',
+          r.secretaria ?? '',
           r.documento ?? '',
           r.docente ?? '',
           r.estado ?? '',

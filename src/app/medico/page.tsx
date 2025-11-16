@@ -128,9 +128,9 @@ export default function MedicoPage() {
         const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
           id: d.id,
           fechaDictamen: d.fechaDictamen,
-          docenteTipoDocumento: d.docenteTipoDocumento,
           docenteDocumento: d.docenteDocumento,
           docenteNombre: d.docenteNombre,
+          secretaria: d.secretaria,
           estado: d.estado,
           medicoNombre: d.medicoNombre,
         }));
@@ -162,7 +162,7 @@ export default function MedicoPage() {
   const exportRows: DictamenExportRow[] = rows.map(
     (r): DictamenExportRow => ({
       fecha: formatFechaExport(r.fechaDictamen),
-      tipoDocumento: r.docenteTipoDocumento ?? '',
+      secretaria: r.secretaria ?? '',
       documento: r.docenteDocumento ?? '',
       docente: r.docenteNombre ?? '',
       estado: r.estado ?? '',

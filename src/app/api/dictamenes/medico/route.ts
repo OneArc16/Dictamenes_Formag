@@ -139,9 +139,9 @@ export async function GET(req: Request) {
       fechaDictamen: d.fechaDictamen
         ? d.fechaDictamen.toISOString()
         : null,
-      docenteTipoDocumento: d.usuario.tipoIdentificacion,
       docenteDocumento: d.usuario.identificacion,
       docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
+      secretaria: d.usuario.secretaria,
       estado: d.reabierto
         ? 'REABIERTO'
         : d.estado
