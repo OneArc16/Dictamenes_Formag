@@ -1,15 +1,18 @@
-// src/components/dictamen/types.ts
+export type EstadoDictamenFiltro =
+  | 'PENDIENTES'
+  | 'REABIERTOS'
+  | 'CERRADOS'
+  | 'TODOS';
 
-export type EstadoDictamenFiltro = 'PENDIENTES' | 'CERRADOS' | 'TODOS';
+export type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
-export interface DictamenRow {
+export type DictamenRow = {
   id: number;
-  numeroDictamen: number | null;
   fechaDictamen: string | Date;
-  estado: 'PENDIENTE' | 'CERRADO';
-  reabierto: boolean;
-  docenteTipoDocumento?: string; 
-  docenteDocumento: string;
-  docenteNombre: string;
+  docenteTipoDocumento?: string;
+  docenteDocumento?: string;
+  docenteNombre?: string;
+  estado: DictamenEstado;
   medicoNombre?: string | null;
-}
+  // si ya tienes otros campos, déjalos igual
+};

@@ -174,10 +174,12 @@ function MedicoMultiSelect({
 /* ------------------ Multi-select estado ------------------ */
 
 const ESTADO_OPTIONS: { value: EstadoDictamenFiltro; label: string }[] = [
-  { value: 'PENDIENTES', label: 'Pendientes (incluye re abiertos)' },
+  { value: 'PENDIENTES', label: 'Pendientes' },
+  { value: 'REABIERTOS', label: 'Reabiertos' },
   { value: 'CERRADOS', label: 'Cerrados' },
   { value: 'TODOS', label: 'Todos' },
 ];
+
 
 interface EstadoMultiSelectProps {
   value: EstadoDictamenFiltro[];

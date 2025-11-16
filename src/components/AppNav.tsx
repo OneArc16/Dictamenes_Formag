@@ -1,8 +1,9 @@
 // src/components/AppNav.tsx
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { LogOut, User2 } from 'lucide-react';
 import ModulesButton from './ModulesButton';
 
 type AppnavProps = {
@@ -19,6 +20,37 @@ export default function Appnav({
   canSwitchModules = false,
 }: AppnavProps) {
   const router = useRouter();
+  const [userName, setUserName] = useState<string>('Usuario');
+
+  // Cargar nombre del usuario logueado (si existe endpoint /api/auth/me)
+  useEffect(() => {
+    let active = true;
+
+    async function loadMe() {
+      try {
+        const res = await fetch('/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active) return;
+
+        // esperamos algo como { ok: true, user: { name: '...' } }
+        if (data?.user?.name && typeof data.user.name === 'string') {
+          setUserName(data.user.name);
+        }
+      } catch {
+        // si falla, dejamos "Usuario" y ya
+      }
+    }
+
+    loadMe();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -37,7 +69,7 @@ export default function Appnav({
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="flex items-center justify-between max-w-6xl px-4 py-2 mx-auto">
-        {/* Lado izquierdo: título */}
+        {/* Lado izquierdo: título / branding */}
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center justify-center text-xs font-bold text-white bg-blue-600 rounded-full shadow-sm h-7 w-7">
             D
@@ -52,11 +84,17 @@ export default function Appnav({
           </div>
         </div>
 
-        {/* Lado derecho: módulos + logout */}
+        {/* Lado derecho: módulos + usuario + logout */}
         <div className="flex items-center gap-2">
           {showModulesButton && (
             <ModulesButton canSwitchModules={canSwitchModules} />
           )}
+
+          {/* Nombre del usuario logueado */}
+          <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 shadow-sm sm:inline-flex">
+            <User2 className="h-3.5 w-3.5 text-slate-500" />
+            <span className="max-w-[170px] truncate">{userName}</span>
+          </div>
 
           <button
             type="button"
