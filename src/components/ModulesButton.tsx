@@ -1,81 +1,59 @@
+// src/components/ModulesButton.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import type { LucideIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-  AppWindow,
-  BarChart3,
-  Stethoscope,
-  Users2,
+  Grid2X2,
   ChevronDown,
+  Stethoscope,
+  ShieldCheck,
+  UserSquare2,
+  BarChart3,
+  Check,
 } from 'lucide-react';
 
-export type UserRole = 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string | null;
-
-export interface ModuleItem {
-  id: string;
+type ModuleItem = {
   label: string;
   href: string;
-  description?: string;
-  roles?: string[]; // roles que lo pueden ver
-  icon?: LucideIcon;
-  accentColorClass?: string; // color del icono
-}
+  icon: React.ReactNode;
+};
 
-interface ModulesButtonProps {
-  currentRole?: UserRole;
-  modules?: ModuleItem[];
-}
+type ModulesButtonProps = {
+  /** Solo cuando sea true (ADMIN) se permite cambiar de módulo */
+  canSwitchModules?: boolean;
+};
 
-const DEFAULT_MODULES: ModuleItem[] = [
+const MODULES: ModuleItem[] = [
   {
-    id: 'medico',
-    label: 'Módulo médico',
+    label: 'Médico',
     href: '/medico',
-    description: 'Dictámenes PCL del médico.',
-    roles: ['MEDICO', 'ADMIN'],
-    icon: Stethoscope,
-    accentColorClass: 'bg-blue-50 text-blue-600',
+    icon: <Stethoscope className="h-3.5 w-3.5" />,
   },
   {
-    id: 'admisiones',
+    label: 'Administrador',
+    href: '/admin',
+    icon: <ShieldCheck className="h-3.5 w-3.5" />,
+  },
+  {
     label: 'Admisiones',
     href: '/admisiones',
-    description: 'Registro y gestión de docentes.',
-    roles: ['ADMISIONISTA', 'ADMIN'],
-    icon: Users2,
-    accentColorClass: 'bg-emerald-50 text-emerald-600',
+    icon: <UserSquare2 className="h-3.5 w-3.5" />,
   },
   {
-    id: 'reportes',
     label: 'Reportes',
     href: '/reportes',
-    description: 'Indicadores y estadísticas.',
-    roles: ['ADMIN'],
-    icon: BarChart3,
-    accentColorClass: 'bg-violet-50 text-violet-600',
+    icon: <BarChart3 className="h-3.5 w-3.5" />,
   },
 ];
 
-export function ModulesButton({
-  currentRole = null,
-  modules = DEFAULT_MODULES,
+export default function ModulesButton({
+  canSwitchModules = false,
 }: ModulesButtonProps) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
-
-  // Siempre se llama el hook
-  const visibleModules = useMemo(
-    () =>
-      modules.filter((m) =>
-        m.roles && currentRole
-          ? m.roles.includes(currentRole)
-          : !m.roles || m.roles.length === 0
-      ),
-    [modules, currentRole]
-  );
+  const pathname = usePathname() || '';
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -92,30 +70,41 @@ export function ModulesButton({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
-  // Si el rol no tiene módulos, no renderizamos nada
-  if (!visibleModules.length) {
-    return null;
-  }
+  const currentModule =
+    MODULES.find((m) =>
+      pathname === '/'
+        ? false
+        : pathname === m.href || pathname.startsWith(m.href + '/')
+    ) ?? null;
 
-  const handleToggle = () => {
-    setOpen((prev) => !prev);
-  };
+  // 👇 Si no puede cambiar de módulo, solo mostramos el módulo actual
+  const visibleModules: ModuleItem[] = canSwitchModules
+    ? MODULES
+    : currentModule
+    ? [currentModule]
+    : [];
 
   const handleNavigate = (href: string) => {
     setOpen(false);
-    router.push(href);
+    // Si ya estamos en ese módulo, no hace nada
+    if (href !== pathname) {
+      router.push(href);
+    }
   };
+
+  const buttonLabel = currentModule ? currentModule.label : 'Módulos';
 
   return (
     <div className="relative" ref={containerRef}>
-      {/* Botón principal tipo launcher */}
       <button
         type="button"
-        onClick={handleToggle}
-        className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm
+                   hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900
+                   focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-1 focus:ring-offset-white"
       >
-        <AppWindow className="h-3.5 w-3.5 text-slate-500" />
-        <span className="hidden sm:inline">Módulos</span>
+        <Grid2X2 className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">{buttonLabel}</span>
         <ChevronDown
           className={`h-3 w-3 text-slate-500 transition-transform ${
             open ? 'rotate-180' : ''
@@ -123,56 +112,35 @@ export function ModulesButton({
         />
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute right-0 z-50 max-w-xs mt-2 bg-white border shadow-xl w-80 rounded-xl border-slate-200 shadow-slate-200/70">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Selecciona un módulo
-              </p>
-              {currentRole && (
-                <p className="text-[10px] text-slate-400">
-                  Rol:{' '}
-                  <span className="font-medium uppercase">
-                    {String(currentRole)}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
+      {open && visibleModules.length > 0 && (
+        <div className="absolute right-0 w-48 py-1 mt-2 text-xs bg-white border rounded-lg shadow-lg border-slate-200 shadow-slate-200/70">
+          {visibleModules.map((mod) => {
+            const active =
+              pathname === mod.href || pathname.startsWith(mod.href + '/');
 
-          <div className="grid grid-cols-1 gap-2 p-2">
-            {visibleModules.map((m) => {
-              const Icon = m.icon ?? AppWindow;
-              const accent = m.accentColorClass ?? 'bg-slate-100 text-slate-700';
+            const baseClasses =
+              'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px]';
+            const stateClasses = active
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-700 hover:bg-slate-50';
 
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => handleNavigate(m.href)}
-                  className="group w-full text-left rounded-lg border border-slate-100 bg-white px-3 py-2.5 hover:bg-slate-50 hover:border-slate-200 transition-colors flex items-center gap-3"
-                >
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs ${accent} group-hover:scale-105 transition-transform`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-medium text-slate-800">
-                      {m.label}
-                    </span>
-                    {m.description && (
-                      <span className="text-[11px] text-slate-500">
-                        {m.description}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+            return (
+              <button
+                key={mod.href}
+                type="button"
+                onClick={() =>
+                  canSwitchModules ? handleNavigate(mod.href) : setOpen(false)
+                }
+                className={`${baseClasses} ${stateClasses}`}
+              >
+                <span className="flex items-center justify-center p-1 rounded-full bg-slate-100">
+                  {mod.icon}
+                </span>
+                <span className="flex-1 truncate">{mod.label}</span>
+                {active && <Check className="w-3 h-3 text-blue-600" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
