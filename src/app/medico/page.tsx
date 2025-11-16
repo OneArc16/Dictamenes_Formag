@@ -3,9 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DictamenExportButton } from '@/components/DictamenExportButton';
+import {
+  DictamenExportButton,
+  DictamenExportRow,
+} from '@/components/DictamenExportButton';
 
-import Appnav from '@/components/AppNav'; // 🔁 Ajusta la ruta si tu Appnav está en otro lugar
+import Appnav from '@/components/AppNav';
 
 import {
   DictamenFiltersBar,
@@ -17,6 +20,19 @@ import {
   EstadoDictamenFiltro,
 } from '@/components/dictamen/types';
 
+// Fecha para exportar (simple: YYYY-MM-DD)
+function formatFechaExport(value: any): string {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  const str = String(value);
+  if (str.includes('T')) {
+    return str.split('T')[0];
+  }
+  return str;
+}
+
 export default function MedicoPage() {
   const router = useRouter();
 
@@ -24,46 +40,81 @@ export default function MedicoPage() {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [documento, setDocumento] = useState('');
-  const [estado, setEstado] = useState<EstadoDictamenFiltro>('PENDIENTES');
 
-  // Médicos (para el combo; por ahora usamos un stub con el médico logueado)
+  // AHORA: múltiples estados
+  const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['PENDIENTES']);
+
+  // Médicos (para el combo)
   const [medicos, setMedicos] = useState<MedicoOption[]>([]);
-  const [medicoId, setMedicoId] = useState<number | null>(null);
+  // AHORA: múltiples médicos seleccionados
+  const [medicoIds, setMedicoIds] = useState<number[]>([]);
 
   // Datos
   const [rows, setRows] = useState<DictamenRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 1) Cargar "médico actual" (stub)
+  // 1) Cargar médicos desde el backend
   useEffect(() => {
-    const medicoActual: MedicoOption = {
-      id: 1,
-      nombre: 'Médico actual',
-    };
+    async function loadMedicos() {
+      try {
+        const res = await fetch('/api/medicos/options', {
+          method: 'GET',
+          credentials: 'include',
+        });
 
-    setMedicos([medicoActual]);
-    setMedicoId(medicoActual.id);
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          console.error(data.error || 'Error cargando médicos');
+          setMedicos([]);
+          setMedicoIds([]);
+          return;
+        }
+
+        const options: MedicoOption[] = data.options ?? [];
+        setMedicos(options);
+
+        if (data.medicoIdActual) {
+          setMedicoIds([data.medicoIdActual]);
+        } else if (options.length > 0) {
+          setMedicoIds([options[0].id]);
+        } else {
+          setMedicoIds([]);
+        }
+      } catch (err) {
+        console.error('Error fetching medicos:', err);
+        setMedicos([]);
+        setMedicoIds([]);
+      }
+    }
+
+    loadMedicos();
   }, []);
 
-  // 2) Cargar dictámenes del médico logueado (según filtros)
+  // 2) Cargar dictámenes según filtros
   useEffect(() => {
     async function loadDictamenes() {
       setLoading(true);
       try {
         const params = new URLSearchParams();
 
-        // El medicoId NO es necesario para el backend porque lo toma del JWT,
-        // pero dejamos esto listo por si luego quieres que un admin vea otros médicos.
-        // params.set('medicoId', String(medicoId));
+        // Enviamos los médicos seleccionados si hay
+        if (medicoIds.length > 0) {
+          params.set('medicos', medicoIds.join(','));
+        }
 
-        params.set('estado', estado);
+        // Enviamos los estados seleccionados si hay
+        if (estado.length > 0) {
+          params.set('estado', estado.join(','));
+        }
+
         if (documento) params.set('documento', documento);
         if (fechaDesde) params.set('fechaDesde', fechaDesde);
         if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
         const res = await fetch(`/api/dictamenes/medico?${params.toString()}`, {
           method: 'GET',
-          credentials: 'include', // importante para enviar la cookie auth
+          credentials: 'include',
         });
 
         const data = await res.json();
@@ -76,13 +127,11 @@ export default function MedicoPage() {
 
         const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
           id: d.id,
-          numeroDictamen: d.numeroDictamen,
           fechaDictamen: d.fechaDictamen,
           docenteTipoDocumento: d.docenteTipoDocumento,
-          estado: d.estado, // 'PENDIENTE' | 'CERRADO'
-          reabierto: d.reabierto,
           docenteDocumento: d.docenteDocumento,
           docenteNombre: d.docenteNombre,
+          estado: d.estado,
           medicoNombre: d.medicoNombre,
         }));
 
@@ -95,21 +144,31 @@ export default function MedicoPage() {
       }
     }
 
-    // Solo cargamos si hay médico (en teoría siempre debería haber uno por el JWT)
-    if (medicoId !== null) {
-      loadDictamenes();
-    }
-  }, [medicoId, estado, fechaDesde, fechaHasta, documento]);
+    // Siempre podemos llamar; si no hay medicos/estados, el backend aplica sus defaults
+    loadDictamenes();
+  }, [medicoIds, estado, fechaDesde, fechaHasta, documento]);
 
   // 3) Acción del botón Registrar
   const handleRegistrar = () => {
     router.push('/medico/dictamenes/nuevo');
   };
 
-  // 4) Acción Ver / Editar
+  // 4) Acción Ver
   const handleOpenDictamen = (id: number) => {
     router.push(`/medico/dictamenes/${id}`);
   };
+
+  // 5) Filas para exportar (formato CSV)
+  const exportRows: DictamenExportRow[] = rows.map(
+    (r): DictamenExportRow => ({
+      fecha: formatFechaExport(r.fechaDictamen),
+      tipoDocumento: r.docenteTipoDocumento ?? '',
+      documento: r.docenteDocumento ?? '',
+      docente: r.docenteNombre ?? '',
+      estado: r.estado ?? '',
+      medico: r.medicoNombre ?? '',
+    })
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
@@ -117,19 +176,23 @@ export default function MedicoPage() {
       <Appnav title="Módulo del Médico" />
 
       <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
-        {/* Encabezado parecido al módulo de reportes */}
+        {/* Encabezado */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-800">
               Dictámenes del médico
             </h1>
             <p className="text-xs text-slate-500">
-              Visualiza y gestiona los dictámenes pendientes, reabiertos y cerrados.
+              Visualiza y gestiona los dictámenes pendientes, reabiertos y
+              cerrados.
             </p>
           </div>
 
           {/* Botón de descargar listado */}
-          <DictamenExportButton rows={rows} filename="dictamenes_medico.csv" />
+          <DictamenExportButton
+            rows={exportRows}
+            filename="dictamenes_medico.csv"
+          />
         </div>
 
         {/* Barra de filtros reutilizable */}
@@ -143,13 +206,13 @@ export default function MedicoPage() {
           estado={estado}
           onEstadoChange={setEstado}
           medicos={medicos}
-          medicoId={medicoId}
-          onMedicoChange={setMedicoId}
+          medicoIds={medicoIds}
+          onMedicoChange={setMedicoIds}
           showMedicoSelect={true}
           onRegistrar={handleRegistrar}
         />
 
-        {/* Tabla reutilizable de dictámenes */}
+        {/* Tabla de dictámenes */}
         <DictamenTable
           rows={rows}
           loading={loading}
