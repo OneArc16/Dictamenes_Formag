@@ -8,10 +8,8 @@ export interface DictamenRow {
   fechaDictamen: string | Date;
   estado: 'PENDIENTE' | 'CERRADO';
   reabierto: boolean;
+  docenteTipoDocumento?: string; 
   docenteDocumento: string;
   docenteNombre: string;
-  medicoNombre: string | null;
-  procedimientoPcl: 'A' | 'B';
-  totalTitulo1: string | number | null;
-  totalTitulo3: string | number | null;
+  medicoNombre?: string | null;
 }

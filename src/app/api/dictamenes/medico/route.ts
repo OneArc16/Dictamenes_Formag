@@ -18,6 +18,7 @@ type JwtPayload = {
 };
 
 async function getMedicoIdFromToken() {
+  // En Next 16 cookies() es async-like, por eso el await
   const cookieStore = await cookies();
   const token = cookieStore.get('auth')?.value;
   if (!token) return null;
@@ -43,6 +44,19 @@ export async function GET(req: Request) {
       );
     }
 
+    // Nombre del médico (empleado) para mostrarlo en la tabla
+    const empleado = await prisma.empleado.findUnique({
+      where: { id: medicoId },
+      select: {
+        primerNombre: true,
+        primerApellido: true,
+      },
+    });
+
+    const medicoNombre = empleado
+      ? `${empleado.primerNombre} ${empleado.primerApellido}`
+      : null;
+
     const { searchParams } = new URL(req.url);
     const documento = (searchParams.get('documento') ?? '').trim();
     const fechaDesde = searchParams.get('fechaDesde'); // YYYY-MM-DD
@@ -51,8 +65,8 @@ export async function GET(req: Request) {
       (searchParams.get('estado') as EstadoFiltro | null) ?? 'PENDIENTES';
 
     const where: any = {
-      // 🔴 Si más adelante ligamos el dictamen al médico,
-      // aquí iría algo como: empleadoId: medicoId,
+      // Cuando tengas el campo medicoId/empleadoId en Dictamen, acá lo filtras:
+      // medicoId: medicoId,
     };
 
     // Documento del docente
@@ -64,12 +78,12 @@ export async function GET(req: Request) {
 
     // Estado
     if (estadoFiltro === 'PENDIENTES') {
-      where.estado = true; // incluye reabiertos si más adelante agregamos ese flag
+      where.estado = true;
     } else if (estadoFiltro === 'CERRADOS') {
       where.estado = false;
     }
 
-    // Fechas: se aplican solo si el usuario las usa en el filtro
+    // Rango de fechas: solo si el usuario lo aplica
     if (fechaDesde || fechaHasta) {
       where.fechaDictamen = {};
       if (fechaDesde) {
@@ -83,7 +97,7 @@ export async function GET(req: Request) {
     const dictamenes = await prisma.dictamen.findMany({
       where,
       include: {
-        usuario: true,
+        usuario: true, // para los datos del docente
       },
       orderBy: {
         creadoEn: 'desc',
@@ -93,16 +107,15 @@ export async function GET(req: Request) {
 
     const rows = dictamenes.map((d) => ({
       id: d.id,
-      numeroDictamen: d.numeroDictamen,
-      fechaDictamen: d.fechaDictamen,
-      estado: d.estado ? 'PENDIENTE' : 'CERRADO',
-      reabierto: false, // si luego agregamos campo, aquí se usa
+      // Lo mando como string ISO; en el front lo formateas con formatFecha
+      fechaDictamen: d.fechaDictamen
+        ? d.fechaDictamen.toISOString()
+        : null,
+      docenteTipoDocumento: d.usuario.tipoIdentificacion,
       docenteDocumento: d.usuario.identificacion,
       docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
-      medicoNombre: null, // luego podemos traerlo
-      procedimientoPcl: d.procedimientoPcl,
-      totalTitulo1: d.totalTitulo1,
-      totalTitulo3: d.totalTitulo3,
+      estado: d.estado ? 'PENDIENTE' : 'CERRADO',
+      medicoNombre, // médico logueado que está viendo/creando estos dictámenes
     }));
 
     return NextResponse.json({ ok: true, rows });
@@ -151,15 +164,13 @@ export async function POST(req: Request) {
         antecedentesClinicos: data.antecedentesClinicos ?? null,
         condicionSalud: data.condicionSalud ?? null,
         descripcionHallazgos: data.descripcionHallazgos ?? null,
-        // aplicaAnalisisOcupacional: false,  // usa default del schema
-        // estado: true,                      // usa default del schema
+        // aplicaAnalisisOcupacional y estado usan los defaults del schema
       },
       select: {
         id: true,
       },
     });
 
-    // 🔥 SIEMPRE devolvemos JSON
     return NextResponse.json({
       ok: true,
       dictamen,

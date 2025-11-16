@@ -78,14 +78,12 @@ export default function MedicoPage() {
           id: d.id,
           numeroDictamen: d.numeroDictamen,
           fechaDictamen: d.fechaDictamen,
+          docenteTipoDocumento: d.docenteTipoDocumento,
           estado: d.estado, // 'PENDIENTE' | 'CERRADO'
           reabierto: d.reabierto,
           docenteDocumento: d.docenteDocumento,
           docenteNombre: d.docenteNombre,
           medicoNombre: d.medicoNombre,
-          procedimientoPcl: d.procedimientoPcl,
-          totalTitulo1: d.totalTitulo1,
-          totalTitulo3: d.totalTitulo3,
         }));
 
         setRows(mapped);

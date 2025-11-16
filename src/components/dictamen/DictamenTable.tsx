@@ -29,7 +29,6 @@ function formatFecha(value: any): string {
   if (str.includes('T')) {
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
-      // Usamos UTC para que no se corra un día por la zona horaria
       return d.toLocaleDateString('es-CO', {
         day: '2-digit',
         month: '2-digit',
@@ -40,7 +39,7 @@ function formatFecha(value: any): string {
   }
 
   // Si viene como YYYY-MM-DD
-  const base = str.split('T')[0]; // nos quedamos con la parte de la fecha
+  const base = str.split('T')[0];
   const parts = base.split('-');
   if (parts.length === 3) {
     const [y, m, d] = parts;
@@ -49,7 +48,6 @@ function formatFecha(value: any): string {
     }
   }
 
-  // Fallback
   return str;
 }
 
@@ -73,24 +71,21 @@ export function DictamenTable({
                 Fecha
               </th>
               <th className="px-3 py-2 font-semibold text-left text-slate-500">
+                Tipo doc.
+              </th>
+              <th className="px-3 py-2 font-semibold text-left text-slate-500">
                 Documento
               </th>
               <th className="px-3 py-2 font-semibold text-left text-slate-500">
                 Docente
               </th>
               <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Procedimiento
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
                 Estado
               </th>
-              <th className="px-3 py-2 font-semibold text-center text-slate-500">
-                % Título I
+              <th className="px-3 py-2 font-semibold text-left text-slate-500">
+                Médico
               </th>
-              <th className="px-3 py-2 font-semibold text-center text-slate-500">
-                % Título III
-              </th>
-              <th className="px-3 py-2 font-semibold text-right text-slate-500 w-28">
+              <th className="w-24 px-3 py-2 font-semibold text-right text-slate-500">
                 Acciones
               </th>
             </tr>
@@ -100,7 +95,7 @@ export function DictamenTable({
             {loading && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="px-3 py-6 text-xs text-center text-slate-500"
                 >
                   Cargando dictámenes...
@@ -111,7 +106,7 @@ export function DictamenTable({
             {!loading && !hasRows && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="px-3 py-6 text-xs text-center text-slate-500"
                 >
                   No hay dictámenes para los filtros seleccionados.
@@ -121,21 +116,9 @@ export function DictamenTable({
 
             {!loading &&
               hasRows &&
-              rows.map((row) => {
-                const numero = row.numeroDictamen ?? row.id;
-
+              rows.map((row, index) => {
+                const numero = index + 1;
                 const fechaStr = formatFecha(row.fechaDictamen);
-
-                const titulo1 =
-                  row.totalTitulo1 === null || row.totalTitulo1 === undefined
-                    ? '-'
-                    : String(row.totalTitulo1);
-
-                const titulo3 =
-                  row.totalTitulo3 === null || row.totalTitulo3 === undefined
-                    ? '-'
-                    : String(row.totalTitulo3);
-
                 const isPendiente =
                   row.estado?.toUpperCase() === 'PENDIENTE';
 
@@ -148,13 +131,13 @@ export function DictamenTable({
                       {fechaStr}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
+                      {row.docenteTipoDocumento}
+                    </td>
+                    <td className="px-3 py-2 text-[11px] text-slate-700">
                       {row.docenteDocumento}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
                       {row.docenteNombre}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.procedimientoPcl}
                     </td>
                     <td className="px-3 py-2">
                       <span
@@ -167,11 +150,8 @@ export function DictamenTable({
                         {isPendiente ? 'Pendiente' : 'Cerrado'}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center text-[11px] text-slate-700">
-                      {titulo1}
-                    </td>
-                    <td className="px-3 py-2 text-center text-[11px] text-slate-700">
-                      {titulo3}
+                    <td className="px-3 py-2 text-[11px] text-slate-700">
+                      {row.medicoNombre ?? ''}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
