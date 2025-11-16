@@ -3,6 +3,7 @@
 
 import { Eye } from 'lucide-react';
 import { DictamenRow } from './types';
+import { EstadoBadge } from './EstadoBadge';
 
 interface DictamenTableProps {
   rows: DictamenRow[];
@@ -119,8 +120,11 @@ export function DictamenTable({
               rows.map((row, index) => {
                 const numero = index + 1;
                 const fechaStr = formatFecha(row.fechaDictamen);
-                const isPendiente =
-                  row.estado?.toUpperCase() === 'PENDIENTE';
+                const estado =
+                  (row.estado?.toUpperCase() as
+                    | 'PENDIENTE'
+                    | 'REABIERTO'
+                    | 'CERRADO') || 'PENDIENTE';
 
                 return (
                   <tr key={row.id} className="hover:bg-slate-50/70">
@@ -140,15 +144,7 @@ export function DictamenTable({
                       {row.docenteNombre}
                     </td>
                     <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                          isPendiente
-                            ? 'bg-amber-50 text-amber-700 border border-amber-100'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                        }`}
-                      >
-                        {isPendiente ? 'Pendiente' : 'Cerrado'}
-                      </span>
+                      <EstadoBadge estado={estado} reabierto={row.reabierto} />
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
                       {row.medicoNombre ?? ''}

@@ -98,14 +98,14 @@ export default function MedicoPage() {
       try {
         const params = new URLSearchParams();
 
-        // Enviamos los médicos seleccionados si hay
+        // 👈 nombre correcto que espera la API: medicoIds
         if (medicoIds.length > 0) {
-          params.set('medicos', medicoIds.join(','));
+          params.set('medicoIds', medicoIds.join(',')); // ej: "3,5,7"
         }
 
         // Enviamos los estados seleccionados si hay
         if (estado.length > 0) {
-          params.set('estado', estado.join(','));
+          params.set('estado', estado.join(',')); // "PENDIENTES,REABIERTOS"
         }
 
         if (documento) params.set('documento', documento);
@@ -209,6 +209,8 @@ export default function MedicoPage() {
           medicoIds={medicoIds}
           onMedicoChange={setMedicoIds}
           showMedicoSelect={true}
+          selectedMedicoIds={medicoIds}
+          onMedicoIdsChange={setMedicoIds}
           onRegistrar={handleRegistrar}
         />
 
