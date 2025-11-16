@@ -18,7 +18,7 @@ type JwtPayload = {
 };
 
 async function getMedicoIdFromToken() {
-  const cookieStore = await cookies(); // Next 16: cookies() es async-like
+  const cookieStore = await cookies();
   const token = cookieStore.get('auth')?.value;
   if (!token) return null;
 
@@ -31,32 +31,6 @@ async function getMedicoIdFromToken() {
   return medicoId;
 }
 
-// Parsear estado = PENDIENTES,REABIERTOS,...
-function parseEstados(raw: string | null): EstadoFiltro[] {
-  if (!raw) return [];
-  const parts = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const allowed: EstadoFiltro[] = ['PENDIENTES', 'REABIERTOS', 'CERRADOS', 'TODOS'];
-
-  return parts.filter((p): p is EstadoFiltro =>
-    (allowed as string[]).includes(p),
-  );
-}
-
-// Parsear medicoIds = "1,2,3"
-function parseMedicoIds(raw: string | null): number[] {
-  if (!raw) return [];
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => Number(s))
-    .filter((n) => Number.isFinite(n) && n > 0);
-}
-
 /* =============== GET: listar dictámenes ================= */
 
 export async function GET(req: Request) {
@@ -65,42 +39,48 @@ export async function GET(req: Request) {
     if (!medicoId) {
       return NextResponse.json(
         { ok: false, error: 'No autenticado' },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
     const { searchParams } = new URL(req.url);
+
     const documento = (searchParams.get('documento') ?? '').trim();
     const fechaDesde = searchParams.get('fechaDesde'); // YYYY-MM-DD
     const fechaHasta = searchParams.get('fechaHasta'); // YYYY-MM-DD
 
-    // ✅ Estados (multi)
-    let estados = parseEstados(searchParams.get('estado'));
-    if (!estados.length) {
-      // Por defecto: pendientes + reabiertos
-      estados = ['PENDIENTES', 'REABIERTOS'];
+    // Estados múltiples: "PENDIENTES,REABIERTOS"
+    const estadoParam = (searchParams.get('estado') ?? 'PENDIENTES').trim();
+    const estadosFiltro = (estadoParam
+      ? estadoParam.split(',')
+      : ['PENDIENTES']
+    )
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean) as EstadoFiltro[];
+
+    // Médicos múltiples: "3,5,7"
+    const medicoIdsParam = (searchParams.get('medicoIds') ?? '').trim();
+    let medicoIds: number[] = [];
+    if (medicoIdsParam) {
+      medicoIds = medicoIdsParam
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n));
     }
 
-    // ✅ Médicos (multi): medicoIds="1,2,3"
-    let filtroMedicoIds = parseMedicoIds(searchParams.get('medicoIds'));
-    // Fallback por si en algún momento se usa medicoId= "1"
-    if (!filtroMedicoIds.length) {
-      filtroMedicoIds = parseMedicoIds(searchParams.get('medicoId'));
-    }
+    const whereAnd: any[] = [];
 
-    const AND: any[] = [];
-
-    // 🔒 Si NO hay filtro de médico → mostrar solo los dictámenes del médico logueado
-    // Si SÍ hay filtro → dictámenes de esos médicos
-    if (filtroMedicoIds.length > 0) {
-      AND.push({ empleadoId: { in: filtroMedicoIds } });
+    // Si se enviaron médicos en el filtro, usamos esos;
+    // si no, por defecto solo el médico logueado.
+    if (medicoIds.length > 0) {
+      whereAnd.push({ empleadoId: { in: medicoIds } });
     } else {
-      AND.push({ empleadoId: medicoId });
+      whereAnd.push({ empleadoId: medicoId });
     }
 
     // Documento del docente
     if (documento) {
-      AND.push({
+      whereAnd.push({
         usuario: {
           identificacion: { contains: documento, mode: 'insensitive' },
         },
@@ -116,71 +96,68 @@ export async function GET(req: Request) {
       if (fechaHasta) {
         rango.lte = new Date(`${fechaHasta}T23:59:59`);
       }
-      AND.push({ fechaDictamen: rango });
+      whereAnd.push({ fechaDictamen: rango });
     }
 
-    // Filtro de estado / reabierto
-    if (!estados.includes('TODOS')) {
-      const OR: any[] = [];
+    // Filtro de estados
+    if (!estadosFiltro.includes('TODOS')) {
+      const orEstados: any[] = [];
 
-      if (estados.includes('PENDIENTES')) {
-        OR.push({ estado: true, reabierto: false });
+      if (estadosFiltro.includes('PENDIENTES')) {
+        orEstados.push({ estado: true, reabierto: false });
       }
-      if (estados.includes('REABIERTOS')) {
-        OR.push({ estado: true, reabierto: true });
+      if (estadosFiltro.includes('REABIERTOS')) {
+        orEstados.push({ estado: true, reabierto: true });
       }
-      if (estados.includes('CERRADOS')) {
-        OR.push({ estado: false });
+      if (estadosFiltro.includes('CERRADOS')) {
+        orEstados.push({ estado: false });
       }
 
-      if (OR.length) {
-        AND.push({ OR });
+      if (orEstados.length > 0) {
+        whereAnd.push({ OR: orEstados });
       }
     }
+
+    const where = whereAnd.length ? { AND: whereAnd } : {};
 
     const dictamenes = await prisma.dictamen.findMany({
-      where: AND.length ? { AND } : undefined,
+      where,
       include: {
-        usuario: true,   // docente
-        empleado: true,  // médico que creó el dictamen
+        usuario: true,   // Docente
+        empleado: true,  // Médico que creó el dictamen
       },
-      orderBy: {
-        creadoEn: 'desc',
-      },
+      // 🔥 Orden: primero los más recientes
+      orderBy: [
+        { fechaDictamen: 'desc' },
+        { id: 'desc' },
+      ],
       take: 100,
     });
 
-    const rows = dictamenes.map((d) => {
-      const estadoFront = d.estado
-        ? d.reabierto
-          ? 'REABIERTO'
-          : 'PENDIENTE'
-        : 'CERRADO';
-
-      const medicoNombre = d.empleado
+    const rows = dictamenes.map((d) => ({
+      id: d.id,
+      fechaDictamen: d.fechaDictamen
+        ? d.fechaDictamen.toISOString()
+        : null,
+      docenteTipoDocumento: d.usuario.tipoIdentificacion,
+      docenteDocumento: d.usuario.identificacion,
+      docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
+      estado: d.reabierto
+        ? 'REABIERTO'
+        : d.estado
+        ? 'PENDIENTE'
+        : 'CERRADO',
+      medicoNombre: d.empleado
         ? `${d.empleado.primerNombre} ${d.empleado.primerApellido}`
-        : null;
-
-      return {
-        id: d.id,
-        fechaDictamen: d.fechaDictamen
-          ? d.fechaDictamen.toISOString()
-          : null,
-        docenteTipoDocumento: d.usuario.tipoIdentificacion,
-        docenteDocumento: d.usuario.identificacion,
-        docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
-        estado: estadoFront,
-        reabierto: d.reabierto,
-        medicoNombre,
-      };
-    });
+        : null,
+    }));
 
     return NextResponse.json({ ok: true, rows });
   } catch (err: any) {
     console.error('ERROR GET /api/dictamenes/medico:', err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? 'Error consultando dictámenes' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -204,7 +181,7 @@ export async function POST(req: Request) {
     if (!medicoId) {
       return NextResponse.json(
         { ok: false, error: 'No autenticado' },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -216,12 +193,12 @@ export async function POST(req: Request) {
     const dictamen = await prisma.dictamen.create({
       data: {
         usuarioId: data.usuarioId,
-        empleadoId: medicoId, // 👈 médico que crea el dictamen
         fechaDictamen: fecha,
         procedimientoPcl: data.procedimientoPcl as ProcedimientoPcl,
         antecedentesClinicos: data.antecedentesClinicos ?? null,
         condicionSalud: data.condicionSalud ?? null,
         descripcionHallazgos: data.descripcionHallazgos ?? null,
+        empleadoId: medicoId, // médico que lo crea
       },
       select: {
         id: true,
