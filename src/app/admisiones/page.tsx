@@ -1,110 +1,230 @@
+// app/admisiones/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import AppNav from '@/components/AppNav';
-import type { Paciente } from '@/types/paciente';
-import SearchBar from '@/components/admisiones/SearchBar';
-import PatientTable from '@/components/admisiones/PatientTable';
-import AlertModal from '@/components/admisiones/AlertModal';
-import UserEditModal from '@/components/admisiones/UserEditModal';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-type Me = { id: string; name?: string; role?: string } | null;
+import {
+  DictamenExportButton,
+  DictamenExportRow,
+} from '@/components/DictamenExportButton';
+
+import Appnav from '@/components/AppNav';
+
+import {
+  DictamenFiltersBar,
+  MedicoOption,
+} from '@/components/dictamen/DictamenFiltersBar';
+
+import { DictamenTable } from '@/components/dictamen/DictamenTable';
+import {
+  DictamenRow,
+  EstadoDictamenFiltro,
+} from '@/components/dictamen/types';
+
+// Fecha para exportar (simple: YYYY-MM-DD)
+function formatFechaExport(value: any): string {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  const str = String(value);
+  if (str.includes('T')) {
+    return str.split('T')[0];
+  }
+  return str;
+}
 
 export default function AdmisionesPage() {
-  const [me, setMe] = useState<Me>(null);
+  const router = useRouter();
+
+  // Filtros
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [documento, setDocumento] = useState('');
+
+  // 🔹 En admisiones: por defecto TODOS los estados
+  const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['TODOS']);
+
+  // Médicos (para el combo)
+  const [medicos, setMedicos] = useState<MedicoOption[]>([]);
+  // 🔹 En admisiones: por defecto NINGÚN médico seleccionado
+  //     -> No se envía parámetro "medicos" y el backend devuelve TODOS.
+  const [medicoIds, setMedicoIds] = useState<number[]>([]);
+
+  // Datos
+  const [rows, setRows] = useState<DictamenRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // 1) Cargar médicos desde el backend
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    async function loadMedicos() {
       try {
-        const res = await fetch('/api/auth/me', { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (mounted) setMe(data?.user ?? null);
+        const res = await fetch('/api/medicos/options', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          console.error(data.error || 'Error cargando médicos');
+          setMedicos([]);
+          setMedicoIds([]);
+          return;
         }
-      } catch {}
-    })();
-    return () => { mounted = false; };
+
+        const options: MedicoOption[] = data.options ?? [];
+        setMedicos(options);
+
+        // 🟢 Importante:
+        // En admisiones NO seleccionamos ningún médico por defecto,
+        // así el backend devuelve dictámenes de TODOS los médicos.
+        setMedicoIds([]);
+      } catch (err) {
+        console.error('Error fetching medicos:', err);
+        setMedicos([]);
+        setMedicoIds([]);
+      }
+    }
+
+    loadMedicos();
   }, []);
 
-  const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState<Paciente[]>([]);
-  const [selected, setSelected] = useState<Paciente | null>(null);
-  const [pending, setPending] = useState<Paciente | null>(null);
-  const [showAlert, setShowAlert] = useState(false);
+  // 2) Cargar dictámenes según filtros
+  useEffect(() => {
+    async function loadDictamenes() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
 
-  const titulo = useMemo(() => 'Buscador de pacientes', []);
+        // Enviamos los médicos seleccionados solo si hay alguno
+        if (medicoIds.length > 0) {
+          params.set('medicos', medicoIds.join(','));
+        }
 
-  async function buscar() {
-    if (!q.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/pacientes/search?q=${encodeURIComponent(q.trim())}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data?.error ?? 'Error consultando DNA');
-      const list = (data.rows as Paciente[]) ?? [];
-      setRows(list);
+        // Enviamos los estados seleccionados solo si hay alguno
+        if (estado.length > 0) {
+          params.set('estado', estado.join(','));
+        }
 
-      // regla: si solo hay 1 y no es FIDU24 -> aviso primero
-      if (list.length === 1) {
-        const p = list[0];
-        const esFidu = (p.Codigo_eps ?? '').toUpperCase() === 'FIDU24';
-        if (!esFidu) { setPending(p); setShowAlert(true); }
-        else { setSelected(p); }
+        if (documento) params.set('documento', documento);
+        if (fechaDesde) params.set('fechaDesde', fechaDesde);
+        if (fechaHasta) params.set('fechaHasta', fechaHasta);
+
+        const res = await fetch(
+          `/api/dictamenes/admisiones?${params.toString()}`,
+          {
+            method: 'GET',
+            credentials: 'include',
+          }
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          console.error(data.error || 'Error en la consulta');
+          setRows([]);
+          return;
+        }
+
+        const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
+          id: d.id,
+          fechaDictamen: d.fechaDictamen,
+          docenteDocumento: d.docenteDocumento,
+          docenteNombre: d.docenteNombre,
+          secretaria: d.secretaria,
+          estado: d.estado,
+          medicoNombre: d.medicoNombre,
+        }));
+
+        setRows(mapped);
+      } catch (err) {
+        console.error(err);
+        setRows([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-      setRows([]);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  function limpiar() {
-    setQ(''); setRows([]); setSelected(null); setPending(null); setShowAlert(false);
-  }
+    loadDictamenes();
+  }, [medicoIds, estado, fechaDesde, fechaHasta, documento]);
 
-  function openDetail(p: Paciente) {
-    const esFidu = (p.Codigo_eps ?? '').toUpperCase() === 'FIDU24';
-    if (!esFidu) { setPending(p); setShowAlert(true); }
-    else { setSelected(p); }
-  }
+  // 3) Acción del botón Registrar
+  const handleRegistrar = () => {
+    // Si quieres que el admisionista también pueda crear dictámenes:
+    router.push('/medico/dictamenes/nuevo');
+    // O puedes cambiarlo luego a una ruta propia de admisiones si lo prefieres.
+  };
 
-  function onAlertClose() {
-    setShowAlert(false);
-    if (pending) { setSelected(pending); setPending(null); }
-  }
+  // 4) Acción Ver
+  const handleOpenDictamen = (id: number) => {
+    router.push(`/medico/dictamenes/${id}`);
+  };
 
-  function onSaved(updated: Paciente) {
-    // reflejar cambios en la tabla
-    setRows((prev) => prev.map((r) => (r.IdUsuario === updated.IdUsuario ? { ...r, ...updated } : r)));
-  }
+  // 5) Filas para exportar (formato CSV)
+  const exportRows: DictamenExportRow[] = rows.map(
+    (r): DictamenExportRow => ({
+      fecha: formatFechaExport(r.fechaDictamen),
+      secretaria: r.secretaria ?? '',
+      documento: r.docenteDocumento ?? '',
+      docente: r.docenteNombre ?? '',
+      estado: r.estado ?? '',
+      medico: r.medicoNombre ?? '',
+    })
+  );
 
   return (
-    <div className="min-h-dvh bg-bg text-text">
-      <AppNav name={me?.name} role={me?.role} />
+    <div className="flex flex-col min-h-screen bg-slate-100">
+      {/* Barra de navegación principal */}
+      <Appnav title="Módulo de Admisiones" />
 
-      <header className="border-b border-subtle bg-panel/85 backdrop-blur">
-        <div className="flex items-center justify-between max-w-6xl px-4 mx-auto h-14">
-          <h1 className="text-lg font-semibold">{titulo}</h1>
+      <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
+        {/* Encabezado (calcado del médico, texto adaptado) */}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">
+              Dictámenes de docentes
+            </h1>
+            <p className="text-xs text-slate-500">
+              Visualiza y gestiona los dictámenes de cualquier médico y
+              cualquier estado.
+            </p>
+          </div>
+
+          {/* Botón de descargar listado */}
+          <DictamenExportButton
+            rows={exportRows}
+            filename="dictamenes_admisiones.csv"
+          />
         </div>
-      </header>
 
-      <main className="max-w-6xl px-4 py-6 mx-auto">
-        <SearchBar value={q} loading={loading} onChange={setQ} onSearch={buscar} onClear={limpiar} />
-        <div className="mt-6">
-          <PatientTable rows={rows} loading={loading} onSelect={openDetail} />
-        </div>
-      </main>
-
-      {showAlert && <AlertModal onClose={onAlertClose} />}
-      {selected && (
-        <UserEditModal
-          paciente={selected}
-          onClose={() => setSelected(null)}
-          onSaved={onSaved}
+        {/* Barra de filtros reutilizable */}
+        <DictamenFiltersBar
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
+          onFechaDesdeChange={setFechaDesde}
+          onFechaHastaChange={setFechaHasta}
+          documento={documento}
+          onDocumentoChange={setDocumento}
+          estado={estado}
+          onEstadoChange={setEstado}
+          medicos={medicos}
+          medicoIds={medicoIds}
+          onMedicoChange={setMedicoIds}
+          showMedicoSelect={true}
+          selectedMedicoIds={medicoIds}
+          onMedicoIdsChange={setMedicoIds}
+          onRegistrar={handleRegistrar}
         />
-      )}
+
+        {/* Tabla de dictámenes (la misma del módulo médico) */}
+        <DictamenTable
+          rows={rows}
+          loading={loading}
+          onOpenDictamen={handleOpenDictamen}
+        />
+      </main>
     </div>
   );
 }
