@@ -230,6 +230,10 @@ model Barrio {
   nombre          String @db.VarChar(100)
   codigoMunicipio String @db.Char(5)
 
+  localidad    String? @db.VarChar(100)
+  codigoPostal String? @db.VarChar(10)
+  comuna       String? @db.VarChar(50)
+
   municipio Municipio @relation("MunicipioBarrios", fields: [codigoMunicipio], references: [codigo])
 
   usuarios Usuario[] @relation("BarrioUsuarios")
@@ -238,6 +242,7 @@ model Barrio {
   @@index([codigoMunicipio])
   @@map("barrios")
 }
+
 
 // =====================================
 // EPS
