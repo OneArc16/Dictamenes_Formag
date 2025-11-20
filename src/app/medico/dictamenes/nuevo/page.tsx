@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Appnav from '@/components/AppNav';
 import toast from 'react-hot-toast';
+import { RegistrarDocenteButton } from '@/components/RegistrarDocenteModal';
 
 interface Docente {
   id: number;
