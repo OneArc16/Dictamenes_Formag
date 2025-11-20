@@ -53,8 +53,98 @@ type ModalProps = {
   onClose: () => void;
 };
 
+// =====================
+// Toast local
+// =====================
+type ToastType = 'success' | 'error' | 'info';
+
+type ToastProps = {
+  open: boolean;
+  type: ToastType;
+  message: string;
+  onClose: () => void;
+};
+
+function Toast({ open, type, message, onClose }: ToastProps) {
+  if (!open) return null;
+
+  const bgClass =
+    type === 'success'
+      ? 'bg-emerald-600'
+      : type === 'error'
+      ? 'bg-red-600'
+      : 'bg-slate-800';
+
+  return (
+    <div className="fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
+      <div
+        className={`flex items-center gap-3 rounded-xl ${bgClass} px-4 py-3 text-sm text-white shadow-2xl`}
+      >
+        <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full bg-white/10">
+          {type === 'success' ? '✓' : type === 'error' ? '!' : 'i'}
+        </span>
+        <span>{message}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-3 text-xs text-white/80 hover:text-white"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Tipos para combos
+type PaisOption = { codigo: string; nombre: string };
+type DepartamentoOption = { codigo: string; nombre: string };
+type MunicipioOption = {
+  codigo: string;
+  nombre: string;
+  codigoDepartamento: string;
+};
+type BarrioOption = {
+  id: number;
+  nombre: string;
+  codigoMunicipio: string;
+};
+type SecretariaOption = { nombre: string };
+type InstitucionOption = { nombre: string };
+
+
 function DocenteModal({ open, onClose }: ModalProps) {
   const [form, setForm] = useState<DocenteForm>(emptyForm);
+
+  const [paises, setPaises] = useState<PaisOption[]>([]);
+  const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
+  const [municipios, setMunicipios] = useState<MunicipioOption[]>([]);
+  const [barrios, setBarrios] = useState<BarrioOption[]>([]);
+
+  const [selectedPaisCodigo, setSelectedPaisCodigo] = useState('');
+  const [selectedDepartamento, setSelectedDepartamento] = useState('');
+  const [selectedMunicipio, setSelectedMunicipio] = useState('');
+
+  const [ubicacionLoaded, setUbicacionLoaded] = useState(false);
+
+  const [secretarias, setSecretarias] = useState<SecretariaOption[]>([]);
+  const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
+
+
+  // 🔔 Toast
+  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const showToast = (type: ToastType, message: string) => {
+    setToast({ type, message });
+  };
+
+  // Auto-cerrar toast
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   // Cargar datos guardados al montar
   useEffect(() => {
@@ -69,10 +159,115 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   }, []);
 
+  // Cargar combos desde la BD (solo 1 vez, cuando se abre el modal)
+  useEffect(() => {
+    if (!open || ubicacionLoaded) return;
+
+    async function loadUbicacion() {
+      try {
+        const res = await fetch('/api/ubicacion/opciones', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          console.error(
+            data.error || 'Error cargando opciones de ubicación'
+          );
+          return;
+        }
+
+        const paisesMapped: PaisOption[] = (data.paises ?? []).map(
+          (p: any) => ({ codigo: p.codigo, nombre: p.nombre })
+        );
+        const departamentosMapped: DepartamentoOption[] = (
+          data.departamentos ?? []
+        ).map((d: any) => ({
+          codigo: d.codigo,
+          nombre: d.nombre,
+        }));
+        const municipiosMapped: MunicipioOption[] = (
+          data.municipios ?? []
+        ).map((m: any) => ({
+          codigo: m.codigo,
+          nombre: m.nombre,
+          codigoDepartamento: m.codigoDepartamento,
+        }));
+        const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
+          (b: any) => ({
+            id: b.id,
+            nombre: b.nombre,
+            codigoMunicipio: b.codigoMunicipio,
+          })
+        );
+
+        const secretariasMapped: SecretariaOption[] = (data.secretarias ?? []).map(
+          (s: any) => ({ nombre: s.nombre })
+        );
+        const institucionesMapped: InstitucionOption[] = (data.instituciones ?? []).map(
+          (i: any) => ({ nombre: i.nombre })
+);
+        setPaises(paisesMapped);
+        setDepartamentos(departamentosMapped);
+        setMunicipios(municipiosMapped);
+        setBarrios(barriosMapped);
+        setUbicacionLoaded(true);
+        setSecretarias(secretariasMapped);
+        setInstituciones(institucionesMapped);
+        setUbicacionLoaded(true);
+
+        // Sincronizar valores actuales del formulario con los combos
+        if (form.pais) {
+          const p = paisesMapped.find(
+            (x) => x.nombre === form.pais
+          );
+          if (p) setSelectedPaisCodigo(p.codigo);
+        } else {
+          const defaultPais =
+            paisesMapped.find((x) => x.codigo === '057') ??
+            paisesMapped[0];
+          if (defaultPais) {
+            setSelectedPaisCodigo(defaultPais.codigo);
+            setForm((prev) => ({
+              ...prev,
+              pais: defaultPais.nombre,
+            }));
+          }
+        }
+
+        if (form.departamento) {
+          const d = departamentosMapped.find(
+            (x) => x.nombre === form.departamento
+          );
+          if (d) setSelectedDepartamento(d.codigo);
+        }
+
+        if (form.municipio) {
+          const m = municipiosMapped.find(
+            (x) => x.nombre === form.municipio
+          );
+          if (m) setSelectedMunicipio(m.codigo);
+        }
+      } catch (err) {
+        console.error(
+          'Error cargando opciones de ubicación',
+          err
+        );
+      }
+    }
+
+    loadUbicacion();
+  }, [open, ubicacionLoaded, form.pais, form.departamento, form.municipio]);
+
   // Guardar en localStorage cada vez que cambie algo
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(form)
+      );
     } catch (err) {
       console.error('Error guardando en localStorage', err);
     }
@@ -87,10 +282,126 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
   const handleLimpiar = () => {
     setForm(emptyForm);
+    setSelectedDepartamento('');
+    setSelectedMunicipio('');
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // 🔍 Buscar docente por número de documento
+  const handleBuscarDocente = async () => {
+    if (!form.numeroDocumento) {
+      showToast('error', 'Ingresa un número de documento');
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `/api/docentes/search?q=${encodeURIComponent(
+          form.numeroDocumento
+        )}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        }
+      );
+
+      const contentType = res.headers.get('content-type') || '';
+      let data: any;
+
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        console.error(
+          'Respuesta no JSON de /api/docentes/search:',
+          text
+        );
+        showToast('error', 'Error buscando docente');
+        return;
+      }
+
+      if (!res.ok || !data?.ok) {
+        showToast('error', data?.error ?? 'Error buscando docente');
+        return;
+      }
+
+      const rows = data.rows ?? [];
+      if (!rows.length) {
+        showToast('info', 'Este docente no existe');
+        return;
+      }
+
+      const d = rows[0];
+
+      // Mapear los campos que conocemos
+      setForm((prev) => {
+        const updated: DocenteForm = {
+          ...prev,
+          tipoDocumento:
+            d.tipoIdentificacion ?? d.tipoDocumento ?? prev.tipoDocumento,
+          numeroDocumento:
+            d.identificacion ?? d.numeroDocumento ?? prev.numeroDocumento,
+          fechaNacimiento:
+            (d.fechaNacimiento &&
+              String(d.fechaNacimiento).slice(0, 10)) ??
+            prev.fechaNacimiento,
+          primerNombre: d.primerNombre ?? prev.primerNombre,
+          segundoNombre: d.segundoNombre ?? prev.segundoNombre,
+          primerApellido: d.primerApellido ?? prev.primerApellido,
+          segundoApellido: d.segundoApellido ?? prev.segundoApellido,
+          sexo: d.sexo ?? prev.sexo,
+          direccion: d.direccion ?? prev.direccion,
+          barrio: d.barrio ?? prev.barrio,
+          departamento: d.departamento ?? prev.departamento,
+          municipio: d.municipio ?? prev.municipio,
+          zona: d.zonaResidencia ?? d.zona ?? prev.zona,
+          telefono: d.telefono ?? prev.telefono,
+          pais: prev.pais, // normalmente todos COLOMBIA
+          secretariaLabora: d.secretaria ?? prev.secretariaLabora,
+          gradoEscalafon: d.gradoEscalafon ?? prev.gradoEscalafon,
+          nivelEscalafon: d.nivelEscalafon ?? prev.nivelEscalafon,
+          institucionLabora:
+            d.institucionEducativa ?? prev.institucionLabora,
+        };
+
+        // Sincronizar combos si ya tenemos data cargada
+        if (paises.length) {
+          const p = paises.find((x) => x.nombre === updated.pais);
+          if (p) setSelectedPaisCodigo(p.codigo);
+        }
+
+        if (departamentos.length && updated.departamento) {
+          const dep = departamentos.find(
+            (x) => x.nombre === updated.departamento
+          );
+          if (dep) {
+            setSelectedDepartamento(dep.codigo);
+          }
+        }
+
+        if (municipios.length && updated.municipio) {
+          const mun = municipios.find(
+            (x) => x.nombre === updated.municipio
+          );
+          if (mun) {
+            setSelectedMunicipio(mun.codigo);
+          }
+        }
+
+        return updated;
+      });
+
+      showToast('success', 'Docente cargado correctamente');
+    } catch (err) {
+      console.error('Error buscando docente:', err);
+      showToast('error', 'Error buscando docente');
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -106,6 +417,16 @@ function DocenteModal({ open, onClose }: ModalProps) {
   };
 
   if (!open) return null;
+
+  const municipiosFiltrados = selectedDepartamento
+    ? municipios.filter(
+        (m) => m.codigoDepartamento === selectedDepartamento
+      )
+    : municipios;
+
+  const barriosFiltrados = selectedMunicipio
+    ? barrios.filter((b) => b.codigoMunicipio === selectedMunicipio)
+    : barrios;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -148,9 +469,15 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione…</option>
-                    <option value="CC">Cédula de ciudadanía (CC)</option>
-                    <option value="TI">Tarjeta de identidad (TI)</option>
-                    <option value="CE">Cédula de extranjería (CE)</option>
+                    <option value="CC">
+                      Cédula de ciudadanía (CC)
+                    </option>
+                    <option value="TI">
+                      Tarjeta de identidad (TI)
+                    </option>
+                    <option value="CE">
+                      Cédula de extranjería (CE)
+                    </option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
@@ -168,10 +495,11 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     />
                     <button
                       type="button"
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                      // onClick={handleBuscarDocente} // lo implementas luego
+                      onClick={handleBuscarDocente}
+                      disabled={searching}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-60"
                     >
-                      Buscar
+                      {searching ? 'Buscando…' : 'Buscar'}
                     </button>
                   </div>
                 </div>
@@ -190,8 +518,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
                 </div>
               </div>
 
-              {/* Nombres */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Nombres + apellidos en una sola fila (4 columnas) */}
+              <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Primer nombre
@@ -214,10 +542,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </div>
-
-              {/* Apellidos */}
-              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Primer apellido
@@ -278,36 +602,86 @@ function DocenteModal({ open, onClose }: ModalProps) {
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Barrio / Vereda
-                  </label>
-                  <input
-                    name="barrio"
-                    value={form.barrio}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
                     Departamento / Estado
                   </label>
-                  <input
+                  <select
                     name="departamento"
-                    value={form.departamento}
-                    onChange={handleChange}
+                    value={selectedDepartamento}
+                    onChange={(e) => {
+                      const codigo = e.target.value;
+                      setSelectedDepartamento(codigo);
+                      setSelectedMunicipio('');
+                      const dep = departamentos.find(
+                        (d) => d.codigo === codigo
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        departamento: dep?.nombre ?? '',
+                        municipio: '',
+                        barrio: '',
+                      }));
+                    }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Seleccione…</option>
+                    {departamentos.map((d) => (
+                      <option key={d.codigo} value={d.codigo}>
+                        {d.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Ciudad / Municipio
                   </label>
-                  <input
+                  <select
                     name="municipio"
-                    value={form.municipio}
-                    onChange={handleChange}
+                    value={selectedMunicipio}
+                    onChange={(e) => {
+                      const codigo = e.target.value;
+                      setSelectedMunicipio(codigo);
+                      const muni = municipiosFiltrados.find(
+                        (m) => m.codigo === codigo
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        municipio: muni?.nombre ?? '',
+                        barrio: '',
+                      }));
+                    }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Seleccione…</option>
+                    {municipiosFiltrados.map((m) => (
+                      <option key={m.codigo} value={m.codigo}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Barrio / Vereda
+                  </label>
+                  <select
+                    name="barrio"
+                    value={form.barrio}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        barrio: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    {barriosFiltrados.map((b) => (
+                      <option key={b.id} value={b.nombre}>
+                        {b.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -343,12 +717,29 @@ function DocenteModal({ open, onClose }: ModalProps) {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     País
                   </label>
-                  <input
+                  <select
                     name="pais"
-                    value={form.pais}
-                    onChange={handleChange}
+                    value={selectedPaisCodigo}
+                    onChange={(e) => {
+                      const codigo = e.target.value;
+                      setSelectedPaisCodigo(codigo);
+                      const p = paises.find(
+                        (x) => x.codigo === codigo
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        pais: p?.nombre ?? '',
+                      }));
+                    }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Seleccione…</option>
+                    {paises.map((p) => (
+                      <option key={p.codigo} value={p.codigo}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -360,7 +751,9 @@ function DocenteModal({ open, onClose }: ModalProps) {
               <span className="px-2 py-1 text-xs bg-white border rounded">
                 🧑‍🏫
               </span>
-              <h3 className="text-sm font-semibold">Datos laborales del docente</h3>
+              <h3 className="text-sm font-semibold">
+                Datos laborales del docente
+              </h3>
             </header>
 
             <div className="p-4 space-y-4">
@@ -369,26 +762,39 @@ function DocenteModal({ open, onClose }: ModalProps) {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Secretaría donde labora
                   </label>
-                  <input
+                  <select
                     name="secretariaLabora"
                     value={form.secretariaLabora}
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Seleccione…</option>
+                    {secretarias.map((s) => (
+                      <option key={s.nombre} value={s.nombre}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Institución donde labora
                   </label>
-                  <input
+                  <select
                     name="institucionLabora"
                     value={form.institucionLabora}
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Seleccione…</option>
+                    {instituciones.map((i) => (
+                      <option key={i.nombre} value={i.nombre}>
+                        {i.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -414,11 +820,10 @@ function DocenteModal({ open, onClose }: ModalProps) {
                   >
                     <option value="">Seleccione…</option>
                     <option value="NO_APLICA">No aplica</option>
-                    <option value="PREESCOLAR">Preescolar</option>
-                    <option value="BASICA">Básica</option>
-                    <option value="MEDIA">Media</option>
-                    <option value="SUPERIOR">Superior</option>
-                    {/* ajustas estos valores a lo que definas en BD */}
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
                   </select>
                 </div>
               </div>
@@ -452,6 +857,14 @@ function DocenteModal({ open, onClose }: ModalProps) {
             </div>
           </div>
         </form>
+
+        {/* Toast de mensajes */}
+        <Toast
+          open={!!toast}
+          type={toast?.type ?? 'info'}
+          message={toast?.message ?? ''}
+          onClose={() => setToast(null)}
+        />
       </div>
     </div>
   );
@@ -473,4 +886,9 @@ export function RegistrarDocenteButton() {
       <DocenteModal open={open} onClose={() => setOpen(false)} />
     </>
   );
+}
+
+// 🔹 Exportar el componente que usas en page.tsx
+export function RegistrarDocenteModal(props: ModalProps) {
+  return <DocenteModal {...props} />;
 }

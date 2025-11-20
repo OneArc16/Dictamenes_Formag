@@ -194,7 +194,33 @@ async function main() {
   });
 
   /* ==========================
-     8. PERFILES
+     8. SECRETARÍAS
+     ========================== */
+  const secretariaCesar = await prisma.secretaria.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      nombre: 'SECRETARÍA DE EDUCACIÓN DEL CESAR',
+      codigo: 'SEC-CESAR',
+    },
+  });
+
+  /* ==========================
+     9. INSTITUCIONES EDUCATIVAS
+     ========================== */
+  const institucionLoperena = await prisma.institucionEducativa.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      nombre: 'LOPERENA GARUPAL',
+      secretariaId: secretariaCesar.id,
+    },
+  });
+
+  /* ==========================
+     10. PERFILES
      ========================== */
   const perfilAdmisionista = await prisma.perfil.upsert({
     where: { nombre: 'ADMISIONISTA' },
@@ -230,9 +256,9 @@ async function main() {
   });
 
   /* ==========================
-     9. EMPLEADOS
+     11. EMPLEADOS
      ========================== */
-  // 9.1. KELLY JOHANNA TAMARA SALGADO - admisionista
+  // 11.1. KELLY JOHANNA TAMARA SALGADO - admisionista
   await prisma.empleado.upsert({
     where: { id: 1 },
     update: {},
@@ -257,7 +283,7 @@ async function main() {
     },
   });
 
-  // 9.2. JONH CAMILO PERTUZ PERTUZ - administrador
+  // 11.2. JONH CAMILO PERTUZ PERTUZ - administrador
   await prisma.empleado.upsert({
     where: { id: 2 },
     update: {},
@@ -282,7 +308,7 @@ async function main() {
     },
   });
 
-  // 9.3. DANIEL ANDRES CASTAÑO NAVARRO - médico
+  // 11.3. DANIEL ANDRES CASTAÑO NAVARRO - médico
   const medicoDaniel = await prisma.empleado.upsert({
     where: { id: 3 },
     update: {},
@@ -308,7 +334,7 @@ async function main() {
   });
 
   /* ==========================
-     10. USUARIOS (DOCENTES)
+     12. USUARIOS (DOCENTES)
      ========================== */
   const usuarioAlexis = await prisma.usuario.upsert({
     where: {
@@ -404,13 +430,14 @@ async function main() {
       gradoEscalafon: '2',
       nivelEscalafon: 'A',
       formaVinculacion: 'EN PROPIEDAD',
-      secretaria: 'CESAR',
-      institucionEducativa: 'LOPERENA GARUPAL',
+
+      secretariaId: secretariaCesar.id,
+      institucionEducativaId: institucionLoperena.id,
     },
   });
 
   /* ==========================
-     11. CIE10
+     13. CIE10
      ========================== */
   await prisma.cie10.upsert({
     where: { codigo: 'I10X' },
@@ -443,7 +470,7 @@ async function main() {
   });
 
   /* =======================================================
-     12. LIMPIAR CATÁLOGO DEFICIENCIAS + DICTÁMENES
+     14. LIMPIAR CATÁLOGO DEFICIENCIAS + DICTÁMENES
      (para que el seed sea idempotente)
      ======================================================= */
 
@@ -463,7 +490,7 @@ async function main() {
   await prisma.deficiencia.deleteMany({});
 
   /* =======================================================
-     13. CATÁLOGO DE DEFICIENCIAS – TABLA 1.5
+     15. CATÁLOGO DE DEFICIENCIAS – TABLA 1.5
      ======================================================= */
 
   const uiTabla15: Prisma.JsonObject = {
@@ -539,10 +566,10 @@ async function main() {
   });
 
   /* =======================================================
-     14. DICTÁMENES DE PRUEBA PARA MÓDULO MÉDICO
+     16. DICTÁMENES DE PRUEBA PARA MÓDULO MÉDICO
      ======================================================= */
 
-  // 14.1. Dictamen PENDIENTE (no reabierto)
+  // 16.1. Dictamen PENDIENTE (no reabierto)
   await prisma.dictamen.create({
     data: {
       usuarioId: usuarioAlexis.id,
@@ -582,7 +609,7 @@ async function main() {
     },
   });
 
-  // 14.2. Dictamen CERRADO
+  // 16.2. Dictamen CERRADO
   await prisma.dictamen.create({
     data: {
       usuarioId: usuarioAlexis.id,
@@ -622,7 +649,7 @@ async function main() {
     },
   });
 
-  // 14.3. Dictamen PENDIENTE REABIERTO
+  // 16.3. Dictamen PENDIENTE REABIERTO
   await prisma.dictamen.create({
     data: {
       usuarioId: usuarioAlexis.id,
@@ -640,10 +667,7 @@ async function main() {
       empleadoId: medicoDaniel.id,
 
       diagnosticos: {
-        create: [
-          { cie10Codigo: 'F412' },
-          { cie10Codigo: 'I10X' },
-        ],
+        create: [{ cie10Codigo: 'F412' }, { cie10Codigo: 'I10X' }],
       },
       deficiencias: {
         create: [

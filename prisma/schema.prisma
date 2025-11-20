@@ -331,6 +331,40 @@ model Sede {
 }
 
 // =====================================
+// SECRETARÍAS DE EDUCACIÓN
+// =====================================
+model Secretaria {
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(150)
+  // opcional: si manejas código FOMAG / MEN / etc.
+  codigo String? @unique @db.VarChar(10)
+
+  usuarios      Usuario[]             @relation("SecretariaUsuarios")
+  instituciones InstitucionEducativa[] @relation("SecretariaInstituciones")
+
+  @@map("secretarias")
+}
+
+// =====================================
+// INSTITUCIONES EDUCATIVAS
+// =====================================
+model InstitucionEducativa {
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(150)
+
+  // opcional: código DANE u otro identificador
+  codigoDane String? @unique @db.VarChar(15)
+
+  secretariaId Int?
+  secretaria   Secretaria? @relation("SecretariaInstituciones", fields: [secretariaId], references: [id])
+
+  usuarios Usuario[] @relation("InstitucionUsuarios")
+
+  @@map("instituciones_educativas")
+}
+
+
+// =====================================
 // PERFILES
 // =====================================
 model Perfil {
@@ -448,8 +482,13 @@ model Usuario {
   gradoEscalafon       String @db.VarChar(2)
   nivelEscalafon       String @db.VarChar(1)
   formaVinculacion     String @db.VarChar(45)
-  secretaria           String @db.VarChar(45)
-  institucionEducativa String @db.VarChar(150)
+
+  secretariaId   Int?
+  secretariaRef  Secretaria?          @relation("SecretariaUsuarios", fields: [secretariaId], references: [id])
+
+  institucionEducativaId  Int?
+  institucionEducativaRef InstitucionEducativa? @relation("InstitucionUsuarios", fields: [institucionEducativaId], references: [id])
+
 
   departamento Departamento? @relation("DepartamentoUsuarios", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
