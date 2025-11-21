@@ -4,24 +4,37 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const [paises, departamentos, municipios, barrios, secretariasRows] =
-      await Promise.all([
-        prisma.pais.findMany({
-          orderBy: { nombre: 'asc' },
-        }),
-        prisma.departamento.findMany({
-          orderBy: { nombre: 'asc' },
-        }),
-        prisma.municipio.findMany({
-          orderBy: { nombre: 'asc' },
-        }),
-        prisma.barrio.findMany({
-          orderBy: { nombre: 'asc' },
-        }),
-        prisma.secretaria.findMany({
-          orderBy: { nombre: 'asc' },
-        }),
-      ]);
+    const [
+      paises,
+      departamentos,
+      municipios,
+      barrios,
+      secretariasRows,
+      institucionesRows,
+      epsRows,
+    ] = await Promise.all([
+      prisma.pais.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.departamento.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.municipio.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.barrio.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.secretaria.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.institucionEducativa.findMany({
+        orderBy: { nombre: 'asc' },
+      }),
+      prisma.eps.findMany({
+        orderBy: { nombreEntidad: 'asc' },
+      }),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -43,12 +56,26 @@ export async function GET() {
         nombre: b.nombre,
         codigoMunicipio: b.codigoMunicipio,
       })),
+      // 🔹 Secretarías
       secretarias: secretariasRows.map((s) => ({
         id: s.id,
         nombre: s.nombre,
       })),
-      // 👇 OJO: ya NO devolvemos instituciones aquí
-      instituciones: [],
+      // 🔹 Instituciones (por si las usas en otros lados)
+      instituciones: institucionesRows.map((i) => ({
+        id: i.id,
+        nombre: i.nombre,
+        idDepartamento: i.idDepartamento,
+        idMunicipio: i.idMunicipio,
+        idSecretaria: i.idSecretaria,
+        codigoIed: i.codigoIed,
+        direccion: i.direccion,
+      })),
+      // 🔹 EPS para el combo de aseguradora
+      eps: epsRows.map((e) => ({
+        codigo: e.codigo,
+        nombre: e.nombreEntidad,
+      })),
     });
   } catch (error) {
     console.error('Error cargando opciones de ubicación', error);

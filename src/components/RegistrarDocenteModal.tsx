@@ -8,6 +8,7 @@ type DocenteForm = {
   tipoDocumento: string;
   numeroDocumento: string;
   fechaNacimiento: string;
+  edad: string; // 🔹 edad calculada automáticamente
   primerNombre: string;
   segundoNombre: string;
   primerApellido: string;
@@ -20,7 +21,11 @@ type DocenteForm = {
   zona: string;
   telefono: string;
   pais: string;
+  codigoEps: string; // 🔹 código EPS
+  categoria: string; // 🔹 contributivo / especial
   secretariaLabora: string;
+  formaVinculacion: string; // 🔹 propiedad / provisionalidad
+  estadoCivil: string; // 🔹 estado civil
   gradoEscalafon: string;
   nivelEscalafon: string;
   institucionLabora: string;
@@ -30,6 +35,7 @@ const emptyForm: DocenteForm = {
   tipoDocumento: '',
   numeroDocumento: '',
   fechaNacimiento: '',
+  edad: '',
   primerNombre: '',
   segundoNombre: '',
   primerApellido: '',
@@ -42,7 +48,11 @@ const emptyForm: DocenteForm = {
   zona: '',
   telefono: '',
   pais: 'COLOMBIA',
+  codigoEps: '',
+  categoria: '',
   secretariaLabora: '',
+  formaVinculacion: '',
+  estadoCivil: '',
   gradoEscalafon: '',
   nivelEscalafon: '',
   institucionLabora: '',
@@ -109,6 +119,7 @@ type BarrioOption = {
   nombre: string;
   codigoMunicipio: string;
 };
+type EpsOption = { codigo: string; nombre: string };
 
 // 🔹 Ajustados a lo que devuelve el route /api/ubicacion/opciones
 type SecretariaOption = { id: number; nombre: string };
@@ -127,6 +138,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioOption[]>([]);
   const [barrios, setBarrios] = useState<BarrioOption[]>([]);
+  const [epsList, setEpsList] = useState<EpsOption[]>([]); // 🔹 EPS
 
   const [selectedPaisCodigo, setSelectedPaisCodigo] = useState('');
   const [selectedDepartamento, setSelectedDepartamento] = useState('');
@@ -137,12 +149,13 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const [secretarias, setSecretarias] = useState<SecretariaOption[]>([]);
   const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
 
-  // ⭐ NUEVO: id seleccionado de secretaría y estado de carga de instituciones
   const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
   const [loadingInstituciones, setLoadingInstituciones] = useState(false);
 
   // 🔔 Toast
-  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
+  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(
+    null,
+  );
   const [searching, setSearching] = useState(false);
 
   const showToast = (type: ToastType, message: string) => {
@@ -169,7 +182,38 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   }, []);
 
-  // ⭐ NUEVA FUNCIÓN: cargar instituciones según secretaría (y opcional municipio)
+  // ⭐ Calcular edad automáticamente cuando cambia la fecha de nacimiento
+  useEffect(() => {
+    if (!form.fechaNacimiento) {
+      setForm((prev) =>
+        prev.edad !== '' ? { ...prev, edad: '' } : prev,
+      );
+      return;
+    }
+
+    const birth = new Date(form.fechaNacimiento);
+    if (Number.isNaN(birth.getTime())) {
+      setForm((prev) =>
+        prev.edad !== '' ? { ...prev, edad: '' } : prev,
+      );
+      return;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+
+    const ageStr = age >= 0 ? String(age) : '';
+
+    setForm((prev) =>
+      prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev,
+    );
+  }, [form.fechaNacimiento]);
+
+  // ⭐ Cargar instituciones según secretaría (y opcional municipio)
   const fetchInstituciones = async (
     secretariaId?: string,
     municipioCodigo?: string,
@@ -274,14 +318,17 @@ function DocenteModal({ open, onClose }: ModalProps) {
           nombre: s.nombre,
         }));
 
-        // ⚠️ IMPORTANTE: aquí ya NO cargamos todas las instituciones masivamente
-        // const institucionesMapped: InstitucionOption[] = ...
+        const epsMapped: EpsOption[] = (data.eps ?? []).map((e: any) => ({
+          codigo: e.codigo,
+          nombre: e.nombre,
+        }));
 
         setPaises(paisesMapped);
         setDepartamentos(departamentosMapped);
         setMunicipios(municipiosMapped);
         setBarrios(barriosMapped);
         setSecretarias(secretariasMapped);
+        setEpsList(epsMapped);
         setUbicacionLoaded(true);
 
         // Sincronizar valores actuales del formulario con los combos
@@ -290,8 +337,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
           if (p) setSelectedPaisCodigo(p.codigo);
         } else {
           const defaultPais =
-            paisesMapped.find((x) => x.codigo === '057') ??
-            paisesMapped[0];
+            paisesMapped.find((x) => x.codigo === '057') ?? paisesMapped[0];
           if (defaultPais) {
             setSelectedPaisCodigo(defaultPais.codigo);
             setForm((prev) => ({
@@ -309,13 +355,11 @@ function DocenteModal({ open, onClose }: ModalProps) {
         }
 
         if (form.municipio) {
-          const m = municipiosMapped.find(
-            (x) => x.nombre === form.municipio,
-          );
+          const m = municipiosMapped.find((x) => x.nombre === form.municipio);
           if (m) setSelectedMunicipio(m.codigo);
         }
 
-        // Si ya había una secretaría guardada en el form, sincronizar el combo
+        // Secretaría previamente guardada
         if (form.secretariaLabora) {
           const sec = secretariasMapped.find(
             (s) => s.nombre === form.secretariaLabora,
@@ -323,7 +367,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
           if (sec) {
             const secId = String(sec.id);
             setSelectedSecretariaId(secId);
-            // Cargar instituciones de esa secretaría
             fetchInstituciones(secId, form.municipio || undefined);
           }
         }
@@ -375,9 +418,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
     setSearching(true);
     try {
       const res = await fetch(
-        `/api/docentes/search?q=${encodeURIComponent(
-          form.numeroDocumento,
-        )}`,
+        `/api/docentes/search?q=${encodeURIComponent(form.numeroDocumento)}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -391,10 +432,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
         data = await res.json();
       } else {
         const text = await res.text();
-        console.error(
-          'Respuesta no JSON de /api/docentes/search:',
-          text,
-        );
+        console.error('Respuesta no JSON de /api/docentes/search:', text);
         showToast('error', 'Error buscando docente');
         return;
       }
@@ -412,85 +450,83 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
       const d = rows[0];
 
-      // Mapear los campos que conocemos
-      setForm((prev) => {
-        const updated: DocenteForm = {
-          ...prev,
-          tipoDocumento:
-            d.tipoIdentificacion ??
-            d.tipoDocumento ??
-            prev.tipoDocumento,
-          numeroDocumento:
-            d.identificacion ??
-            d.numeroDocumento ??
-            prev.numeroDocumento,
-          fechaNacimiento:
-            (d.fechaNacimiento &&
-              String(d.fechaNacimiento).slice(0, 10)) ??
-            prev.fechaNacimiento,
-          primerNombre: d.primerNombre ?? prev.primerNombre,
-          segundoNombre: d.segundoNombre ?? prev.segundoNombre,
-          primerApellido: d.primerApellido ?? prev.primerApellido,
-          segundoApellido:
-            d.segundoApellido ?? prev.segundoApellido,
-          sexo: d.sexo ?? prev.sexo,
-          direccion: d.direccion ?? prev.direccion,
-          barrio: d.barrio ?? prev.barrio,
-          departamento: d.departamento ?? prev.departamento,
-          municipio: d.municipio ?? prev.municipio,
-          zona: d.zonaResidencia ?? d.zona ?? prev.zona,
-          telefono: d.telefono ?? prev.telefono,
-          pais: prev.pais, // normalmente todos COLOMBIA
-          secretariaLabora:
-            d.secretaria ?? prev.secretariaLabora,
-          gradoEscalafon:
-            d.gradoEscalafon ?? prev.gradoEscalafon,
-          nivelEscalafon:
-            d.nivelEscalafon ?? prev.nivelEscalafon,
-          institucionLabora:
-            d.institucionEducativa ?? prev.institucionLabora,
-        };
+      const codigoEpsRes =
+        (d as any).codigoEps ??
+        (d as any).Codigo_eps ??
+        (d as any).codigo_eps ??
+        (d as any).CODIGO_EPS ??
+        (d as any).Codigo_Eps;
 
-        // Sincronizar combos si ya tenemos data cargada
-        if (paises.length) {
-          const p = paises.find((x) => x.nombre === updated.pais);
-          if (p) setSelectedPaisCodigo(p.codigo);
+      const updated: DocenteForm = {
+        ...form,
+        tipoDocumento:
+          d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
+        numeroDocumento:
+          d.identificacion ?? d.numeroDocumento ?? form.numeroDocumento,
+        fechaNacimiento:
+          (d.fechaNacimiento && String(d.fechaNacimiento).slice(0, 10)) ??
+          form.fechaNacimiento,
+        edad:
+          d.edad != null
+            ? String(d.edad)
+            : form.edad,
+        primerNombre: d.primerNombre ?? form.primerNombre,
+        segundoNombre: d.segundoNombre ?? form.segundoNombre,
+        primerApellido: d.primerApellido ?? form.primerApellido,
+        segundoApellido: d.segundoApellido ?? form.segundoApellido,
+        sexo: d.sexo ?? form.sexo,
+        direccion: d.direccion ?? form.direccion,
+        barrio: d.barrio ?? form.barrio,
+        departamento: d.departamento ?? form.departamento,
+        municipio: d.municipio ?? form.municipio,
+        zona: d.zonaResidencia ?? d.zona ?? form.zona,
+        telefono: d.telefono ?? form.telefono,
+        pais: form.pais,
+        codigoEps: codigoEpsRes ?? form.codigoEps,
+        categoria: d.categoria ?? form.categoria,
+        secretariaLabora: d.secretaria ?? form.secretariaLabora,
+        formaVinculacion: d.formaVinculacion ?? form.formaVinculacion,
+        estadoCivil: d.estadoCivil ?? form.estadoCivil,
+        gradoEscalafon: d.gradoEscalafon ?? form.gradoEscalafon,
+        nivelEscalafon: d.nivelEscalafon ?? form.nivelEscalafon,
+        institucionLabora:
+          d.institucionEducativa ?? form.institucionLabora,
+      };
+
+      // Sincronizar combos si ya tenemos data cargada
+      if (paises.length) {
+        const p = paises.find((x) => x.nombre === updated.pais);
+        if (p) setSelectedPaisCodigo(p.codigo);
+      }
+
+      if (departamentos.length && updated.departamento) {
+        const dep = departamentos.find(
+          (x) => x.nombre === updated.departamento,
+        );
+        if (dep) {
+          setSelectedDepartamento(dep.codigo);
         }
+      }
 
-        if (departamentos.length && updated.departamento) {
-          const dep = departamentos.find(
-            (x) => x.nombre === updated.departamento,
-          );
-          if (dep) {
-            setSelectedDepartamento(dep.codigo);
-          }
+      if (municipios.length && updated.municipio) {
+        const mun = municipios.find((x) => x.nombre === updated.municipio);
+        if (mun) {
+          setSelectedMunicipio(mun.codigo);
         }
+      }
 
-        if (municipios.length && updated.municipio) {
-          const mun = municipios.find(
-            (x) => x.nombre === updated.municipio,
-          );
-          if (mun) {
-            setSelectedMunicipio(mun.codigo);
-          }
+      if (secretarias.length && updated.secretariaLabora) {
+        const sec = secretarias.find(
+          (s) => s.nombre === updated.secretariaLabora,
+        );
+        if (sec) {
+          const secId = String(sec.id);
+          setSelectedSecretariaId(secId);
+          fetchInstituciones(secId, updated.municipio || undefined);
         }
+      }
 
-        // Si tenemos secretarías cargadas, seleccionamos la correspondiente
-        if (secretarias.length && updated.secretariaLabora) {
-          const sec = secretarias.find(
-            (s) => s.nombre === updated.secretariaLabora,
-          );
-          if (sec) {
-            const secId = String(sec.id);
-            setSelectedSecretariaId(secId);
-            // Cargar instituciones para esa secretaría + municipio
-            fetchInstituciones(secId, updated.municipio || undefined);
-          }
-        }
-
-        return updated;
-      });
-
+      setForm(updated);
       showToast('success', 'Docente cargado correctamente');
     } catch (err) {
       console.error('Error buscando docente:', err);
@@ -509,15 +545,11 @@ function DocenteModal({ open, onClose }: ModalProps) {
   if (!open) return null;
 
   const municipiosFiltrados = selectedDepartamento
-    ? municipios.filter(
-        (m) => m.codigoDepartamento === selectedDepartamento,
-      )
+    ? municipios.filter((m) => m.codigoDepartamento === selectedDepartamento)
     : municipios;
 
   const barriosFiltrados = selectedMunicipio
-    ? barrios.filter(
-        (b) => b.codigoMunicipio === selectedMunicipio,
-      )
+    ? barrios.filter((b) => b.codigoMunicipio === selectedMunicipio)
     : barrios;
 
   return (
@@ -548,8 +580,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
             </header>
 
             <div className="p-4 space-y-4">
-              {/* Primera fila: tipo doc, número + buscar, fecha nacimiento */}
-              <div className="grid gap-4 md:grid-cols-3">
+              {/* Primera fila: tipo doc, número + buscar, fecha nacimiento, edad */}
+              <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Tipo de documento
@@ -561,15 +593,9 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione…</option>
-                    <option value="CC">
-                      Cédula de ciudadanía (CC)
-                    </option>
-                    <option value="TI">
-                      Tarjeta de identidad (TI)
-                    </option>
-                    <option value="CE">
-                      Cédula de extranjería (CE)
-                    </option>
+                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="TI">Tarjeta de identidad (TI)</option>
+                    <option value="CE">Cédula de extranjería (CE)</option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
@@ -606,6 +632,18 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     value={form.fechaNacimiento}
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Edad (años)
+                  </label>
+                  <input
+                    name="edad"
+                    value={form.edad}
+                    readOnly
+                    className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
               </div>
@@ -712,7 +750,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
                         municipio: '',
                         barrio: '',
                       }));
-                      // Al cambiar departamento, reseteamos instituciones (el filtro depende de municipio)
                       if (selectedSecretariaId) {
                         fetchInstituciones(selectedSecretariaId);
                       }
@@ -745,7 +782,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
                         municipio: muni?.nombre ?? '',
                         barrio: '',
                       }));
-                      // Al cambiar municipio, actualizamos instituciones si ya hay secretaría
                       if (selectedSecretariaId) {
                         fetchInstituciones(
                           selectedSecretariaId,
@@ -826,9 +862,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     onChange={(e) => {
                       const codigo = e.target.value;
                       setSelectedPaisCodigo(codigo);
-                      const p = paises.find(
-                        (x) => x.codigo === codigo,
-                      );
+                      const p = paises.find((x) => x.codigo === codigo);
                       setForm((prev) => ({
                         ...prev,
                         pais: p?.nombre ?? '',
@@ -842,6 +876,48 @@ function DocenteModal({ open, onClose }: ModalProps) {
                         {p.nombre}
                       </option>
                     ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Aseguradora (EPS) + Categoría (para aprovechar espacio) */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="md:col-span-2">
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Aseguradora (EPS)
+                  </label>
+                  <select
+                    name="codigoEps"
+                    value={form.codigoEps}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        codigoEps: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    {epsList.map((eps) => (
+                      <option key={eps.codigo} value={eps.codigo}>
+                        {eps.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Categoría
+                  </label>
+                  <select
+                    name="categoria"
+                    value={form.categoria}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    <option value="CONTRIBUTIVO">Contributivo</option>
+                    <option value="ESPECIAL">Especial</option>
                   </select>
                 </div>
               </div>
@@ -860,6 +936,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
             </header>
 
             <div className="p-4 space-y-4">
+              {/* Secretaría + Institución */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -923,6 +1000,45 @@ function DocenteModal({ open, onClose }: ModalProps) {
                   </select>
                 </div>
               </div>
+
+              {/* Forma de vinculación + Estado civil */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Forma de vinculación
+                  </label>
+                  <select
+                    name="formaVinculacion"
+                    value={form.formaVinculacion}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    <option value="PROPIEDAD">Propiedad</option>
+                    <option value="PROVISIONALIDAD">Provisionalidad</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Estado civil
+                  </label>
+                  <select
+                    name="estadoCivil"
+                    value={form.estadoCivil}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    <option value="SOLTERO(A)">Soltero(a)</option>
+                    <option value="CASADO(A)">Casado(a)</option>
+                    <option value="UNIÓN LIBRE">Unión libre</option>
+                    <option value="SEPARADO(A)">Separado(a)</option>
+                    <option value="VIUDO(A)">Viudo(a)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Escalafón */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
