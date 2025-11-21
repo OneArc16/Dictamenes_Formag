@@ -123,8 +123,12 @@ export async function GET(req: Request) {
     const dictamenes = await prisma.dictamen.findMany({
       where,
       include: {
-        usuario: true,   // Docente
-        empleado: true,  // Médico que creó el dictamen
+        usuario: {
+          include: {
+            secretariaRef: true, // 👈 aquí traemos la secretaria
+          },
+        }, // Docente
+        empleado: true, // Médico que creó el dictamen
       },
       // 🔥 Orden: primero los más recientes
       orderBy: [
@@ -141,7 +145,8 @@ export async function GET(req: Request) {
         : null,
       docenteDocumento: d.usuario.identificacion,
       docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
-      secretaria: d.usuario.secretaria,
+      // 👇 usamos el nombre de la secretaria relacionada
+      secretaria: d.usuario.secretariaRef?.nombre ?? null,
       estado: d.reabierto
         ? 'REABIERTO'
         : d.estado

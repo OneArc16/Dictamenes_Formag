@@ -116,8 +116,22 @@ export function DictamenTable({
               hasRows &&
               rows.map((row, index) => {
                 const numero = index + 1;
-                const fechaStr = formatFecha(row.fechaDictamen);
-                const estadoUpper = row.estado?.toUpperCase();
+
+                // 🔹 Soportar tanto el shape nuevo como el anterior
+                const anyRow = row as any;
+                const fechaValue = anyRow.fecha ?? row.fechaDictamen;
+                const fechaStr = formatFecha(fechaValue);
+
+                const documento =
+                  anyRow.documento ?? row.docenteDocumento ?? '';
+                const docenteNombre =
+                  anyRow.docente ?? row.docenteNombre ?? '';
+                const medicoNombre =
+                  anyRow.medico ?? row.medicoNombre ?? '';
+                const secretaria = anyRow.secretaria ?? row.secretaria ?? '';
+
+                const estadoRaw = anyRow.estado ?? row.estado;
+                const estadoUpper = estadoRaw?.toUpperCase();
                 const isPendiente = estadoUpper === 'PENDIENTE';
                 const isReabierto = estadoUpper === 'REABIERTO';
 
@@ -143,14 +157,15 @@ export function DictamenTable({
                     <td className="px-3 py-2 text-[11px] text-slate-700">
                       {fechaStr}
                     </td>
+                    {/* 🔹 Secretaría */}
                     <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.secretaria ?? ''}
+                      {secretaria || '—'}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.docenteDocumento}
+                      {documento}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.docenteNombre}
+                      {docenteNombre}
                     </td>
                     <td className="px-3 py-2">
                       <span
@@ -160,7 +175,7 @@ export function DictamenTable({
                       </span>
                     </td>
                     <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {row.medicoNombre ?? ''}
+                      {medicoNombre}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
