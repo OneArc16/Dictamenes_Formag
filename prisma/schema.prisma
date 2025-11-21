@@ -198,6 +198,7 @@ model Departamento {
   eps            Eps[]          @relation("DepartamentoEps")
   centrosMedicos CentroMedico[] @relation("DepartamentoCentroMedico")
   sedes          Sede[]         @relation("DepartamentoSedes")
+  instituciones  InstitucionEducativa[] @relation("DepartamentoInstituciones")
 
   @@map("departamentos")
 }
@@ -217,6 +218,7 @@ model Municipio {
   barrios        Barrio[]       @relation("MunicipioBarrios")
   centrosMedicos CentroMedico[] @relation("MunicipioCentroMedico")
   sedes          Sede[]         @relation("MunicipioSedes")
+  instituciones  InstitucionEducativa[] @relation("MunicipioInstituciones")
 
   @@index([codigoDepartamento])
   @@map("municipios")
@@ -336,32 +338,47 @@ model Sede {
 model Secretaria {
   id     Int    @id @default(autoincrement())
   nombre String @db.VarChar(150)
-  // opcional: si manejas código FOMAG / MEN / etc.
-  codigo String? @unique @db.VarChar(10)
 
+  // relaciones
   usuarios      Usuario[]             @relation("SecretariaUsuarios")
   instituciones InstitucionEducativa[] @relation("SecretariaInstituciones")
 
   @@map("secretarias")
 }
 
+
 // =====================================
 // INSTITUCIONES EDUCATIVAS
 // =====================================
 model InstitucionEducativa {
-  id     Int    @id @default(autoincrement())
-  nombre String @db.VarChar(150)
+  id      Int    @id @default(autoincrement())
+  nombre  String @db.VarChar(150)
 
-  // opcional: código DANE u otro identificador
-  codigoDane String? @unique @db.VarChar(15)
+  // FK al departamento (departamentos.codigo)
+  idDepartamento String? @db.Char(2) @map("id_departamento")
+  // FK al municipio (municipios.codigo)
+  idMunicipio    String? @db.Char(5) @map("id_municipio")
+  // FK a la secretaria (secretarias.id)
+  idSecretaria   Int?    @map("id_secretaria")
 
-  secretariaId Int?
-  secretaria   Secretaria? @relation("SecretariaInstituciones", fields: [secretariaId], references: [id])
+  // código IED
+  codigoIed String? @db.VarChar(20) @map("codigo_ied")
+
+  direccion String? @db.VarChar(255)
+
+  // relaciones
+  departamento Departamento? @relation("DepartamentoInstituciones", fields: [idDepartamento], references: [codigo])
+  municipio    Municipio?    @relation("MunicipioInstituciones", fields: [idMunicipio], references: [codigo])
+  secretaria   Secretaria?   @relation("SecretariaInstituciones", fields: [idSecretaria], references: [id])
 
   usuarios Usuario[] @relation("InstitucionUsuarios")
 
+  @@index([idDepartamento])
+  @@index([idMunicipio])
+  @@index([idSecretaria])
   @@map("instituciones_educativas")
 }
+
 
 
 // =====================================

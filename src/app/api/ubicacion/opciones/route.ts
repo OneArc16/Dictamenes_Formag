@@ -4,43 +4,24 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const [
-      paises,
-      departamentos,
-      municipios,
-      barrios,
-      secretariasRows,
-      institucionesRows,
-    ] = await Promise.all([
-      prisma.pais.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-      prisma.departamento.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-      prisma.municipio.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-      prisma.barrio.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-      // 🔹 NUEVO: secretarías tomadas de la tabla `secretarias`
-      prisma.secretaria.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-      // 🔹 NUEVO: instituciones tomadas de la tabla `instituciones_educativas`
-      prisma.institucionEducativa.findMany({
-        orderBy: { nombre: 'asc' },
-      }),
-    ]);
-
-    const secretarias = secretariasRows.map((s) => ({
-      nombre: s.nombre,
-    }));
-
-    const instituciones = institucionesRows.map((i) => ({
-      nombre: i.nombre,
-    }));
+    const [paises, departamentos, municipios, barrios, secretariasRows] =
+      await Promise.all([
+        prisma.pais.findMany({
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.departamento.findMany({
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.municipio.findMany({
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.barrio.findMany({
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.secretaria.findMany({
+          orderBy: { nombre: 'asc' },
+        }),
+      ]);
 
     return NextResponse.json({
       ok: true,
@@ -62,15 +43,18 @@ export async function GET() {
         nombre: b.nombre,
         codigoMunicipio: b.codigoMunicipio,
       })),
-      // 🔹 NUEVO
-      secretarias,
-      instituciones,
+      secretarias: secretariasRows.map((s) => ({
+        id: s.id,
+        nombre: s.nombre,
+      })),
+      // 👇 OJO: ya NO devolvemos instituciones aquí
+      instituciones: [],
     });
   } catch (error) {
     console.error('Error cargando opciones de ubicación', error);
     return NextResponse.json(
       { ok: false, error: 'Error cargando opciones de ubicación' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

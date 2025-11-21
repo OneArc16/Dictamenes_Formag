@@ -1,3 +1,4 @@
+// app/api/docentes/search/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -11,17 +12,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, rows: [] });
   }
 
-  // Heurística: si es numérico => buscar por documento exacto; si no, por nombres/apellidos
   const isNumeric = /^\d+$/.test(q);
 
   try {
     const usuarios = await prisma.usuario.findMany({
       where: isNumeric
         ? {
-            // documento exacto
+            // SOLO docentes, documento EXACTO
+            tipoUsuario: 'DO',
             identificacion: q,
           }
         : {
+            // SOLO docentes, búsqueda por nombre / apellido / doc parcial
+            tipoUsuario: 'DO',
             OR: [
               { primerNombre: { contains: q, mode: 'insensitive' } },
               { segundoNombre: { contains: q, mode: 'insensitive' } },
@@ -38,32 +41,64 @@ export async function GET(req: Request) {
         segundoNombre: true,
         primerApellido: true,
         segundoApellido: true,
-        sexo: true,
+        fechaNacimiento: true,
         edad: true,
-        celular: true,
-        telefono: true,
+        sexo: true,
         direccion: true,
-        codigoEps: true,
+        telefono: true,
+        zonaResidencia: true,
+        barrio: true,
+
+        gradoEscalafon: true,
+        nivelEscalafon: true,
+
+        // Relaciones
+        eps: {
+          select: { nombreEntidad: true },
+        },
+        departamento: {
+          select: { nombre: true },
+        },
+        municipio: {
+          select: { nombre: true },
+        },
+        secretariaRef: {
+          select: { nombre: true },
+        },
+        institucionEducativaRef: {
+          select: { nombre: true },
+        },
       },
       take: 25,
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
     });
 
-    // 🔁 Mapeo para mantener la misma forma de respuesta que tenías en DNA
     const rows = usuarios.map((u) => ({
-      IdUsuario: u.id,
-      Identificaci_n_usuario: u.identificacion,
-      Tipo_identificaci_n: u.tipoIdentificacion,
-      Primer_nombre: u.primerNombre,
-      Segundo_nombre: u.segundoNombre,
-      Primer_apellido: u.primerApellido,
-      Segundo_apellido: u.segundoApellido,
-      Sexo: u.sexo,
-      Edad: u.edad,
-      Celular: u.celular,
-      Tel_fono: u.telefono,
-      Direcci_n: u.direccion,
-      Codigo_eps: u.codigoEps,
+      id: u.id,
+      identificacion: u.identificacion,
+      tipoIdentificacion: u.tipoIdentificacion,
+      primerNombre: u.primerNombre,
+      segundoNombre: u.segundoNombre,
+      primerApellido: u.primerApellido,
+      segundoApellido: u.segundoApellido,
+      fechaNacimiento: u.fechaNacimiento,
+      edad: u.edad,
+      sexo: u.sexo,
+      direccion: u.direccion,
+      telefono: u.telefono,
+      zonaResidencia: u.zonaResidencia,
+      barrio: u.barrio,
+
+      // Estos nombres son los que usa el modal
+      departamento: u.departamento?.nombre ?? null,
+      municipio: u.municipio?.nombre ?? null,
+      secretaria: u.secretariaRef?.nombre ?? null,
+      institucionEducativa: u.institucionEducativaRef?.nombre ?? null,
+      gradoEscalafon: u.gradoEscalafon,
+      nivelEscalafon: u.nivelEscalafon,
+
+      // EPS por si la necesitas luego
+      eps: u.eps?.nombreEntidad ?? null,
     }));
 
     return NextResponse.json({ ok: true, rows });
@@ -71,7 +106,7 @@ export async function GET(req: Request) {
     console.error(err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? 'Error consultando usuarios' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

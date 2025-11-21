@@ -109,9 +109,16 @@ type BarrioOption = {
   nombre: string;
   codigoMunicipio: string;
 };
-type SecretariaOption = { nombre: string };
-type InstitucionOption = { nombre: string };
 
+// 🔹 Ajustados a lo que devuelve el route /api/ubicacion/opciones
+type SecretariaOption = { id: number; nombre: string };
+type InstitucionOption = {
+  id: number;
+  nombre: string;
+  idDepartamento: string | null;
+  idMunicipio: string | null;
+  idSecretaria: number | null;
+};
 
 function DocenteModal({ open, onClose }: ModalProps) {
   const [form, setForm] = useState<DocenteForm>(emptyForm);
@@ -130,6 +137,9 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const [secretarias, setSecretarias] = useState<SecretariaOption[]>([]);
   const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
 
+  // ⭐ NUEVO: id seleccionado de secretaría y estado de carga de instituciones
+  const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
+  const [loadingInstituciones, setLoadingInstituciones] = useState(false);
 
   // 🔔 Toast
   const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
@@ -159,6 +169,60 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   }, []);
 
+  // ⭐ NUEVA FUNCIÓN: cargar instituciones según secretaría (y opcional municipio)
+  const fetchInstituciones = async (
+    secretariaId?: string,
+    municipioCodigo?: string,
+  ) => {
+    if (!secretariaId) {
+      setInstituciones([]);
+      return;
+    }
+
+    try {
+      setLoadingInstituciones(true);
+
+      const params = new URLSearchParams();
+      if (secretariaId) params.set('secretariaId', secretariaId);
+      if (municipioCodigo) params.set('municipio', municipioCodigo);
+
+      const qs = params.toString();
+      const url = qs
+        ? `/api/instituciones/by-secretaria?${qs}`
+        : '/api/instituciones/by-secretaria';
+
+      const res = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        console.error(data.error || 'Error cargando instituciones');
+        setInstituciones([]);
+        return;
+      }
+
+      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
+        (i: any) => ({
+          id: i.id,
+          nombre: i.nombre,
+          idDepartamento: i.idDepartamento ?? null,
+          idMunicipio: i.idMunicipio ?? null,
+          idSecretaria: i.idSecretaria ?? null,
+        }),
+      );
+
+      setInstituciones(mapped);
+    } catch (err) {
+      console.error('Error cargando instituciones', err);
+      setInstituciones([]);
+    } finally {
+      setLoadingInstituciones(false);
+    }
+  };
+
   // Cargar combos desde la BD (solo 1 vez, cuando se abre el modal)
   useEffect(() => {
     if (!open || ubicacionLoaded) return;
@@ -174,13 +238,13 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
         if (!res.ok || !data.ok) {
           console.error(
-            data.error || 'Error cargando opciones de ubicación'
+            data.error || 'Error cargando opciones de ubicación',
           );
           return;
         }
 
         const paisesMapped: PaisOption[] = (data.paises ?? []).map(
-          (p: any) => ({ codigo: p.codigo, nombre: p.nombre })
+          (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
         );
         const departamentosMapped: DepartamentoOption[] = (
           data.departamentos ?? []
@@ -200,29 +264,29 @@ function DocenteModal({ open, onClose }: ModalProps) {
             id: b.id,
             nombre: b.nombre,
             codigoMunicipio: b.codigoMunicipio,
-          })
+          }),
         );
 
-        const secretariasMapped: SecretariaOption[] = (data.secretarias ?? []).map(
-          (s: any) => ({ nombre: s.nombre })
-        );
-        const institucionesMapped: InstitucionOption[] = (data.instituciones ?? []).map(
-          (i: any) => ({ nombre: i.nombre })
-);
+        const secretariasMapped: SecretariaOption[] = (
+          data.secretarias ?? []
+        ).map((s: any) => ({
+          id: s.id,
+          nombre: s.nombre,
+        }));
+
+        // ⚠️ IMPORTANTE: aquí ya NO cargamos todas las instituciones masivamente
+        // const institucionesMapped: InstitucionOption[] = ...
+
         setPaises(paisesMapped);
         setDepartamentos(departamentosMapped);
         setMunicipios(municipiosMapped);
         setBarrios(barriosMapped);
-        setUbicacionLoaded(true);
         setSecretarias(secretariasMapped);
-        setInstituciones(institucionesMapped);
         setUbicacionLoaded(true);
 
         // Sincronizar valores actuales del formulario con los combos
         if (form.pais) {
-          const p = paisesMapped.find(
-            (x) => x.nombre === form.pais
-          );
+          const p = paisesMapped.find((x) => x.nombre === form.pais);
           if (p) setSelectedPaisCodigo(p.codigo);
         } else {
           const defaultPais =
@@ -239,42 +303,50 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
         if (form.departamento) {
           const d = departamentosMapped.find(
-            (x) => x.nombre === form.departamento
+            (x) => x.nombre === form.departamento,
           );
           if (d) setSelectedDepartamento(d.codigo);
         }
 
         if (form.municipio) {
           const m = municipiosMapped.find(
-            (x) => x.nombre === form.municipio
+            (x) => x.nombre === form.municipio,
           );
           if (m) setSelectedMunicipio(m.codigo);
         }
+
+        // Si ya había una secretaría guardada en el form, sincronizar el combo
+        if (form.secretariaLabora) {
+          const sec = secretariasMapped.find(
+            (s) => s.nombre === form.secretariaLabora,
+          );
+          if (sec) {
+            const secId = String(sec.id);
+            setSelectedSecretariaId(secId);
+            // Cargar instituciones de esa secretaría
+            fetchInstituciones(secId, form.municipio || undefined);
+          }
+        }
       } catch (err) {
-        console.error(
-          'Error cargando opciones de ubicación',
-          err
-        );
+        console.error('Error cargando opciones de ubicación', err);
       }
     }
 
     loadUbicacion();
-  }, [open, ubicacionLoaded, form.pais, form.departamento, form.municipio]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ubicacionLoaded]);
 
   // Guardar en localStorage cada vez que cambie algo
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(form)
-      );
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
     } catch (err) {
       console.error('Error guardando en localStorage', err);
     }
   }, [form]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -284,6 +356,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
     setForm(emptyForm);
     setSelectedDepartamento('');
     setSelectedMunicipio('');
+    setSelectedSecretariaId('');
+    setInstituciones([]);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch (err) {
@@ -302,12 +376,12 @@ function DocenteModal({ open, onClose }: ModalProps) {
     try {
       const res = await fetch(
         `/api/docentes/search?q=${encodeURIComponent(
-          form.numeroDocumento
+          form.numeroDocumento,
         )}`,
         {
           method: 'GET',
           credentials: 'include',
-        }
+        },
       );
 
       const contentType = res.headers.get('content-type') || '';
@@ -319,7 +393,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
         const text = await res.text();
         console.error(
           'Respuesta no JSON de /api/docentes/search:',
-          text
+          text,
         );
         showToast('error', 'Error buscando docente');
         return;
@@ -343,9 +417,13 @@ function DocenteModal({ open, onClose }: ModalProps) {
         const updated: DocenteForm = {
           ...prev,
           tipoDocumento:
-            d.tipoIdentificacion ?? d.tipoDocumento ?? prev.tipoDocumento,
+            d.tipoIdentificacion ??
+            d.tipoDocumento ??
+            prev.tipoDocumento,
           numeroDocumento:
-            d.identificacion ?? d.numeroDocumento ?? prev.numeroDocumento,
+            d.identificacion ??
+            d.numeroDocumento ??
+            prev.numeroDocumento,
           fechaNacimiento:
             (d.fechaNacimiento &&
               String(d.fechaNacimiento).slice(0, 10)) ??
@@ -353,7 +431,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
           primerNombre: d.primerNombre ?? prev.primerNombre,
           segundoNombre: d.segundoNombre ?? prev.segundoNombre,
           primerApellido: d.primerApellido ?? prev.primerApellido,
-          segundoApellido: d.segundoApellido ?? prev.segundoApellido,
+          segundoApellido:
+            d.segundoApellido ?? prev.segundoApellido,
           sexo: d.sexo ?? prev.sexo,
           direccion: d.direccion ?? prev.direccion,
           barrio: d.barrio ?? prev.barrio,
@@ -362,9 +441,12 @@ function DocenteModal({ open, onClose }: ModalProps) {
           zona: d.zonaResidencia ?? d.zona ?? prev.zona,
           telefono: d.telefono ?? prev.telefono,
           pais: prev.pais, // normalmente todos COLOMBIA
-          secretariaLabora: d.secretaria ?? prev.secretariaLabora,
-          gradoEscalafon: d.gradoEscalafon ?? prev.gradoEscalafon,
-          nivelEscalafon: d.nivelEscalafon ?? prev.nivelEscalafon,
+          secretariaLabora:
+            d.secretaria ?? prev.secretariaLabora,
+          gradoEscalafon:
+            d.gradoEscalafon ?? prev.gradoEscalafon,
+          nivelEscalafon:
+            d.nivelEscalafon ?? prev.nivelEscalafon,
           institucionLabora:
             d.institucionEducativa ?? prev.institucionLabora,
         };
@@ -377,7 +459,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
         if (departamentos.length && updated.departamento) {
           const dep = departamentos.find(
-            (x) => x.nombre === updated.departamento
+            (x) => x.nombre === updated.departamento,
           );
           if (dep) {
             setSelectedDepartamento(dep.codigo);
@@ -386,10 +468,23 @@ function DocenteModal({ open, onClose }: ModalProps) {
 
         if (municipios.length && updated.municipio) {
           const mun = municipios.find(
-            (x) => x.nombre === updated.municipio
+            (x) => x.nombre === updated.municipio,
           );
           if (mun) {
             setSelectedMunicipio(mun.codigo);
+          }
+        }
+
+        // Si tenemos secretarías cargadas, seleccionamos la correspondiente
+        if (secretarias.length && updated.secretariaLabora) {
+          const sec = secretarias.find(
+            (s) => s.nombre === updated.secretariaLabora,
+          );
+          if (sec) {
+            const secId = String(sec.id);
+            setSelectedSecretariaId(secId);
+            // Cargar instituciones para esa secretaría + municipio
+            fetchInstituciones(secId, updated.municipio || undefined);
           }
         }
 
@@ -408,24 +503,21 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // TODO: aquí conectas con tu API de Dictamy para guardar en BD
     console.log('Datos a enviar:', form);
-
-    // Si guardas correctamente en BD, puedes limpiar memoria:
-    // handleLimpiar();
-    // onClose();
   };
 
   if (!open) return null;
 
   const municipiosFiltrados = selectedDepartamento
     ? municipios.filter(
-        (m) => m.codigoDepartamento === selectedDepartamento
+        (m) => m.codigoDepartamento === selectedDepartamento,
       )
     : municipios;
 
   const barriosFiltrados = selectedMunicipio
-    ? barrios.filter((b) => b.codigoMunicipio === selectedMunicipio)
+    ? barrios.filter(
+        (b) => b.codigoMunicipio === selectedMunicipio,
+      )
     : barrios;
 
   return (
@@ -518,7 +610,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
                 </div>
               </div>
 
-              {/* Nombres + apellidos en una sola fila (4 columnas) */}
+              {/* Nombres + apellidos */}
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -612,7 +704,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
                       setSelectedDepartamento(codigo);
                       setSelectedMunicipio('');
                       const dep = departamentos.find(
-                        (d) => d.codigo === codigo
+                        (d) => d.codigo === codigo,
                       );
                       setForm((prev) => ({
                         ...prev,
@@ -620,6 +712,10 @@ function DocenteModal({ open, onClose }: ModalProps) {
                         municipio: '',
                         barrio: '',
                       }));
+                      // Al cambiar departamento, reseteamos instituciones (el filtro depende de municipio)
+                      if (selectedSecretariaId) {
+                        fetchInstituciones(selectedSecretariaId);
+                      }
                     }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -642,13 +738,20 @@ function DocenteModal({ open, onClose }: ModalProps) {
                       const codigo = e.target.value;
                       setSelectedMunicipio(codigo);
                       const muni = municipiosFiltrados.find(
-                        (m) => m.codigo === codigo
+                        (m) => m.codigo === codigo,
                       );
                       setForm((prev) => ({
                         ...prev,
                         municipio: muni?.nombre ?? '',
                         barrio: '',
                       }));
+                      // Al cambiar municipio, actualizamos instituciones si ya hay secretaría
+                      if (selectedSecretariaId) {
+                        fetchInstituciones(
+                          selectedSecretariaId,
+                          codigo || undefined,
+                        );
+                      }
                     }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -724,7 +827,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
                       const codigo = e.target.value;
                       setSelectedPaisCodigo(codigo);
                       const p = paises.find(
-                        (x) => x.codigo === codigo
+                        (x) => x.codigo === codigo,
                       );
                       setForm((prev) => ({
                         ...prev,
@@ -764,13 +867,32 @@ function DocenteModal({ open, onClose }: ModalProps) {
                   </label>
                   <select
                     name="secretariaLabora"
-                    value={form.secretariaLabora}
-                    onChange={handleChange}
+                    value={selectedSecretariaId}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSelectedSecretariaId(value);
+                      const secretaria = secretarias.find(
+                        (s) => String(s.id) === value,
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        secretariaLabora: secretaria?.nombre ?? '',
+                        institucionLabora: '',
+                      }));
+                      if (value) {
+                        fetchInstituciones(
+                          value,
+                          selectedMunicipio || undefined,
+                        );
+                      } else {
+                        setInstituciones([]);
+                      }
+                    }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione…</option>
                     {secretarias.map((s) => (
-                      <option key={s.nombre} value={s.nombre}>
+                      <option key={s.id} value={s.id}>
                         {s.nombre}
                       </option>
                     ))}
@@ -786,9 +908,15 @@ function DocenteModal({ open, onClose }: ModalProps) {
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">
+                      {!selectedSecretariaId
+                        ? 'Seleccione primero una secretaría'
+                        : loadingInstituciones
+                        ? 'Cargando instituciones…'
+                        : 'Seleccione…'}
+                    </option>
                     {instituciones.map((i) => (
-                      <option key={i.nombre} value={i.nombre}>
+                      <option key={i.id} value={i.nombre}>
                         {i.nombre}
                       </option>
                     ))}

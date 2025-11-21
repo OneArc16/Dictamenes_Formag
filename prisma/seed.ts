@@ -202,7 +202,6 @@ async function main() {
     create: {
       id: 1,
       nombre: 'SECRETARÍA DE EDUCACIÓN DEL CESAR',
-      codigo: 'SEC-CESAR',
     },
   });
 
@@ -215,7 +214,11 @@ async function main() {
     create: {
       id: 1,
       nombre: 'LOPERENA GARUPAL',
-      secretariaId: secretariaCesar.id,
+      idDepartamento: '20',      // CESAR
+      idMunicipio: '20001',      // VALLEDUPAR
+      idSecretaria: secretariaCesar.id,
+      codigoIed: '20001001',     // código de ejemplo
+      direccion: 'Barrio Loperena Garupal',
     },
   });
 
