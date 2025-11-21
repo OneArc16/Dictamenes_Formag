@@ -2,56 +2,100 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
+function mapSexoToFrontend(sexo: string | null): string {
+  if (!sexo) return '';
+  const s = sexo.toUpperCase();
+
+  // BD: H = Hombre, M = Mujer
+  // Formulario: M = Masculino, F = Femenino
+  if (s === 'H') return 'M'; // Masculino
+  if (s === 'M' || s === 'F') return 'F'; // por si hay datos viejos con F
+  return 'O';
+}
+
+function mapZonaToFrontend(z: string | null): string {
+  if (!z) return '';
+  const v = z.toUpperCase();
+  if (v === 'U') return 'URBANA';
+  if (v === 'R') return 'RURAL';
+  return '';
+}
+
+function mapNivelEscalafonToFrontend(n: string | null): string {
+  if (!n) return '';
+  if (n === '0') return 'NO_APLICA';
+  return n.toUpperCase(); // A, B, C, D
+}
+
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const q = (searchParams.get('q') ?? '').trim();
+
+  if (!q) {
+    return NextResponse.json({ ok: true, rows: [] });
+  }
+
+  const isNumeric = /^\d+$/.test(q);
+
   try {
-    const { searchParams } = new URL(req.url);
-    const q = (searchParams.get('q') ?? '').trim();
-
-    if (!q) {
-      return NextResponse.json({ ok: true, rows: [] });
-    }
-
-    const isNumeric = /^\d+$/.test(q);
-
-    const where: any = {
-      tipoUsuario: 'DO', // solo docentes
-    };
-
-    if (isNumeric) {
-      where.identificacion = { contains: q, mode: 'insensitive' };
-    } else {
-      where.OR = [
-        { primerNombre: { contains: q, mode: 'insensitive' } },
-        { segundoNombre: { contains: q, mode: 'insensitive' } },
-        { primerApellido: { contains: q, mode: 'insensitive' } },
-        { segundoApellido: { contains: q, mode: 'insensitive' } },
-      ];
-    }
-
     const usuarios = await prisma.usuario.findMany({
-      where,
+      where: isNumeric
+        ? {
+            identificacion: q,
+          }
+        : {
+            OR: [
+              { primerNombre: { contains: q, mode: 'insensitive' } },
+              { segundoNombre: { contains: q, mode: 'insensitive' } },
+              { primerApellido: { contains: q, mode: 'insensitive' } },
+              { segundoApellido: { contains: q, mode: 'insensitive' } },
+              { identificacion: { contains: q, mode: 'insensitive' } },
+            ],
+          },
       select: {
         id: true,
-        carnet: true,
         identificacion: true,
         tipoIdentificacion: true,
         primerNombre: true,
         segundoNombre: true,
         primerApellido: true,
         segundoApellido: true,
-        fechaNacimiento: true,
-        edad: true,
-        sexo: true,
-        direccion: true,
-        telefono: true,
-        zonaResidencia: true,
-        barrio: true,
 
-        // Relaciones tal como están en el schema
+        // 🔹 Campos que te faltaban
+        sexo: true,
+        edad: true,
+        telefono: true,
+        celular: true,
+        direccion: true,
+
+        estadoCivil: true,
+        zonaResidencia: true,
+        categoria: true,
+        gradoEscalafon: true,
+        nivelEscalafon: true,
+        formaVinculacion: true,
+
+        fechaNacimiento: true,
+
+        codigoEps: true,
+        eps: {
+          select: {
+            nombreEntidad: true,
+          },
+        },
+
+        codigoDepartamento: true,
+        codigoMunicipio: true,
         departamento: {
           select: { nombre: true },
         },
         municipio: {
+          select: { nombre: true },
+        },
+        barrio: true,
+        barrioRef: {
           select: { nombre: true },
         },
         secretariaRef: {
@@ -60,52 +104,81 @@ export async function GET(req: Request) {
         institucionEducativaRef: {
           select: { nombre: true },
         },
-
-        gradoEscalafon: true,
-        nivelEscalafon: true,
-        eps: {
-          select: { nombreEntidad: true },
-        },
       },
-      take: 10,
+      take: 25,
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
     });
 
-    const rows = usuarios.map((u) => ({
-      id: u.id,
-      identificacion: u.identificacion,
-      tipoIdentificacion: u.tipoIdentificacion,
-      primerNombre: u.primerNombre,
-      segundoNombre: u.segundoNombre,
-      primerApellido: u.primerApellido,
-      segundoApellido: u.segundoApellido,
-      fechaNacimiento: u.fechaNacimiento,
-      nombre: `${u.primerNombre} ${u.segundoNombre ?? ''} ${u.primerApellido} ${
-        u.segundoApellido ?? ''
-      }`
-        .replace(/\s+/g, ' ')
-        .trim(),
-      edad: u.edad,
-      sexo: u.sexo,
-      direccion: u.direccion,
-      telefono: u.telefono,
-      zonaResidencia: u.zonaResidencia,
-      barrio: u.barrio,
-      departamento: u.departamento?.nombre ?? null,
-      municipio: u.municipio?.nombre ?? null,
-      secretaria: u.secretariaRef?.nombre ?? null,
-      institucionEducativa: u.institucionEducativaRef?.nombre ?? null,
-      gradoEscalafon: u.gradoEscalafon,
-      nivelEscalafon: u.nivelEscalafon,
-      eps: u.eps?.nombreEntidad ?? null,
-    }));
+    const rows = usuarios.map((u) => {
+      const telefono = u.celular || u.telefono || null;
+      const departamentoNombre = u.departamento?.nombre ?? null;
+      const municipioNombre = u.municipio?.nombre ?? null;
+      const barrioNombre = u.barrioRef?.nombre ?? u.barrio ?? null;
+      const secretariaNombre = u.secretariaRef?.nombre ?? null;
+      const institucionNombre = u.institucionEducativaRef?.nombre ?? null;
+      const nombreEps = u.eps?.nombreEntidad ?? null;
+
+      return {
+        // 🔹 Campos "limpios" para el nuevo formulario
+        id: u.id,
+        identificacion: u.identificacion,
+        tipoIdentificacion: u.tipoIdentificacion,
+        primerNombre: u.primerNombre,
+        segundoNombre: u.segundoNombre,
+        primerApellido: u.primerApellido,
+        segundoApellido: u.segundoApellido,
+
+        sexo: mapSexoToFrontend(u.sexo),
+        edad: u.edad,
+        telefono,
+        direccion: u.direccion,
+
+        estadoCivil: u.estadoCivil,
+        zonaResidencia: mapZonaToFrontend(u.zonaResidencia),
+        categoria: u.categoria,
+        gradoEscalafon: u.gradoEscalafon,
+        nivelEscalafon: mapNivelEscalafonToFrontend(u.nivelEscalafon),
+        formaVinculacion: u.formaVinculacion,
+
+        fechaNacimiento: u.fechaNacimiento,
+
+        // 🔹 Aseguradora / EPS
+        codigoEps: u.codigoEps,
+        aseguradoraCodigo: u.codigoEps,
+        aseguradoraNombre: nombreEps,
+        epsNombre: nombreEps,
+
+        // 🔹 Ubicación
+        departamento: departamentoNombre,
+        municipio: municipioNombre,
+        barrio: barrioNombre,
+
+        secretaria: secretariaNombre,
+        institucionEducativa: institucionNombre,
+
+        // 🔹 Campos con nombres "viejos" por si algún otro lado los usa
+        IdUsuario: u.id,
+        Identificaci_n_usuario: u.identificacion,
+        Tipo_identificaci_n: u.tipoIdentificacion,
+        Primer_nombre: u.primerNombre,
+        Segundo_nombre: u.segundoNombre,
+        Primer_apellido: u.primerApellido,
+        Segundo_apellido: u.segundoApellido,
+        Sexo: mapSexoToFrontend(u.sexo),
+        Edad: u.edad,
+        Celular: u.celular,
+        Tel_fono: u.telefono,
+        Direcci_n: u.direccion,
+        Codigo_eps: u.codigoEps,
+      };
+    });
 
     return NextResponse.json({ ok: true, rows });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error buscando docente' },
-      { status: 500 }
+      { ok: false, error: err?.message ?? 'Error consultando usuarios' },
+      { status: 500 },
     );
   }
 }

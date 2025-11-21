@@ -158,6 +158,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
   );
   const [searching, setSearching] = useState(false);
 
+  const [saving, setSaving] = useState(false);
+
   const showToast = (type: ToastType, message: string) => {
     setToast({ type, message });
   };
@@ -539,8 +541,47 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('Datos a enviar:', form);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/docentes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ form }),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        console.error('Respuesta no JSON de /api/docentes:', text);
+        showToast('error', 'Error guardando docente');
+        return;
+      }
+
+      if (!res.ok || !data?.ok) {
+        showToast('error', data?.error ?? 'Error guardando docente');
+        return;
+      }
+
+      showToast('success', 'Docente guardado correctamente');
+
+      // 👉 Si quieres limpiar y cerrar al guardar, descomenta:
+      // handleLimpiar();
+      // onClose();
+    } catch (err) {
+      console.error('Error guardando docente:', err);
+      showToast('error', 'Error guardando docente');
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   if (!open) return null;
 
@@ -609,6 +650,12 @@ function DocenteModal({ open, onClose }: ModalProps) {
                       name="numeroDocumento"
                       value={form.numeroDocumento}
                       onChange={handleChange}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleBuscarDocente();
+                        }
+                      }}
                       className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
@@ -1092,12 +1139,13 @@ function DocenteModal({ open, onClose }: ModalProps) {
               >
                 Cancelar
               </button>
-              <button
+                <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                Guardar
-              </button>
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                {saving ? 'Guardando…' : 'Guardar'}
+                </button>
             </div>
           </div>
         </form>
