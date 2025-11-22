@@ -186,7 +186,7 @@ export async function POST(req: Request) {
     if (!medicoId) {
       return NextResponse.json(
         { ok: false, error: 'No autenticado' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -195,15 +195,27 @@ export async function POST(req: Request) {
 
     const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
 
+    // Textos por defecto si vienen vacíos
+    const antecedentesClinicos =
+      (data.antecedentesClinicos ?? '').trim() ||
+      'PENDIENTE POR DILIGENCIAR';
+    const condicionSalud =
+      (data.condicionSalud ?? '').trim() ||
+      'PENDIENTE POR DILIGENCIAR';
+    const descripcionHallazgos =
+      (data.descripcionHallazgos ?? '').trim() ||
+      'PENDIENTE POR DILIGENCIAR';
+
     const dictamen = await prisma.dictamen.create({
       data: {
         usuarioId: data.usuarioId,
         fechaDictamen: fecha,
         procedimientoPcl: data.procedimientoPcl as ProcedimientoPcl,
-        antecedentesClinicos: data.antecedentesClinicos ?? null,
-        condicionSalud: data.condicionSalud ?? null,
-        descripcionHallazgos: data.descripcionHallazgos ?? null,
-        empleadoId: medicoId, // médico que lo crea
+        antecedentesClinicos,
+        condicionSalud,
+        descripcionHallazgos,
+        empleadoId: medicoId,
+        // estado: true y reabierto: false ya quedan así por DEFAULT
       },
       select: {
         id: true,

@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
-function emptyToNull(v: any) {
+// Helpers básicos
+function emptyToNull(v: any): string | null {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
   return s === '' ? null : s;
@@ -13,6 +14,12 @@ function emptyToNull(v: any) {
 function toUpperOrNull(v: any): string | null {
   const s = emptyToNull(v);
   return s ? s.toUpperCase() : null;
+}
+
+function truncate(v: any, max: number): string | null {
+  const s = emptyToNull(v);
+  if (!s) return null;
+  return s.length > max ? s.slice(0, max) : s;
 }
 
 function calcularEdadYFecha(fechaStr?: string): {
@@ -58,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================
-    // 1) Buscar si ya existe el usuario
+    // 1) Buscar si ya existe
     // ==========================
     const existing = await prisma.usuario.findFirst({
       where: {
@@ -69,16 +76,17 @@ export async function POST(req: Request) {
     });
 
     // ==========================
-    // 2) Calcular edad y fecha de nacimiento
+    // 2) Edad y fecha de nacimiento
     // ==========================
     const { fechaNacimiento, edad } = calcularEdadYFecha(
       form.fechaNacimiento,
     );
 
     // ==========================
-    // 3) Resolver país de residencia (FK a paises)
+    // 3) País de residencia (FK a paises.codigo)
+    //    En tu seed el código de Colombia es "COL"
     // ==========================
-    let residenciaPaisCodigo = '057'; // Colombia por defecto
+    let residenciaPaisCodigo = 'COL'; // por defecto
 
     if (form.pais) {
       const paisDb = await prisma.pais.findFirst({
@@ -90,14 +98,11 @@ export async function POST(req: Request) {
         },
         select: { codigo: true },
       });
-
-      if (paisDb) {
-        residenciaPaisCodigo = paisDb.codigo;
-      }
+      if (paisDb) residenciaPaisCodigo = paisDb.codigo;
     }
 
     // ==========================
-    // 4) Resolver departamento y municipio (por nombre)
+    // 4) Depto y municipio (opcionales)
     // ==========================
     let codigoDepartamento: string | null = null;
     let codigoMunicipio: string | null = null;
@@ -123,7 +128,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================
-    // 5) Resolver barrioId por nombre + municipio (opcional)
+    // 5) BarrioId (opcional)
     // ==========================
     let barrioId: number | null = null;
     if (codigoMunicipio && form.barrio) {
@@ -138,7 +143,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================
-    // 6) Resolver Secretaría e Institución por nombre (opcionales)
+    // 6) Secretaría e institución (opcionales)
     // ==========================
     let secretariaId: number | null = null;
     if (form.secretariaLabora) {
@@ -163,7 +168,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================
-    // 7) Resolver EPS / Aseguradora (código)
+    // 7) EPS obligatoria
     // ==========================
     let codigoEps: string = String(
       form.codigoEps ?? form.aseguradoraCodigo ?? '',
@@ -187,7 +192,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-
     codigoEps = epsDb.codigo;
 
     // ==========================
@@ -196,13 +200,10 @@ export async function POST(req: Request) {
     const zonaResidencia =
       form.zona === 'RURAL' || form.zona === 'R'
         ? 'R'
-        : form.zona === 'URBANA' || form.zona === 'U'
-        ? 'U'
         : 'U';
 
     // ==========================
-    // 9) Validar nombres obligatorios mínimos
-    //     y ponerlos en MAYÚSCULA
+    // 9) Nombres obligatorios en mayúscula
     // ==========================
     const primerNombreRaw = String(form.primerNombre ?? '').trim();
     const primerApellidoRaw = String(form.primerApellido ?? '').trim();
@@ -222,7 +223,9 @@ export async function POST(req: Request) {
     const segundoNombre = toUpperOrNull(form.segundoNombre);
     const segundoApellido = toUpperOrNull(form.segundoApellido);
 
-    // ===== Escalafón: grado (máx 2 caracteres) y nivel (1 carácter) =====
+    // ==========================
+    // 10) Escalafón
+    // ==========================
     const gradoEscalafonRaw = String(form.gradoEscalafon ?? '').trim();
     const gradoEscalafonDb =
       gradoEscalafonRaw.length > 2
@@ -234,10 +237,8 @@ export async function POST(req: Request) {
 
     if (nivelEscalafonRaw) {
       if (nivelEscalafonRaw === 'NO_APLICA') {
-        // Mapeamos "NO_APLICA" a un solo carácter
         nivelEscalafonDb = '0';
       } else {
-        // Cualquier otro valor, nos quedamos con el primer carácter
         nivelEscalafonDb = nivelEscalafonRaw.charAt(0);
       }
     }
@@ -253,52 +254,47 @@ export async function POST(req: Request) {
     }
 
     // ==========================
-    // 10) Mapear sexo del formulario a código BD
-    //     Front:
-    //       F -> Femenino
-    //       M -> Masculino
-    //     BD:
-    //       H -> Hombre
-    //       M -> Mujer
+    // 11) Sexo (front -> BD)
+    //      F (form) -> M (Mujer)
+    //      M (form) -> H (Hombre)
     // ==========================
     const sexoForm = String(form.sexo ?? '').trim();
     let sexoDb: string;
-
     if (sexoForm === 'M') {
-      // Masculino en el form -> 'H' en BD
       sexoDb = 'H';
     } else if (sexoForm === 'F') {
-      // Femenino en el form -> 'M' en BD
       sexoDb = 'M';
     } else {
-      // Otro / vacío -> 'O' (ajusta si tu BD usa otro código)
       sexoDb = 'O';
     }
 
-    // Forma de vinculación (propiedad / provisionalidad, etc.)
+    // ==========================
+    // 12) Forma de vinculación
+    // ==========================
+    const formaVinculacionRaw = String(form.formaVinculacion ?? '').trim();
     const formaVinculacion =
-      String(form.formaVinculacion ?? '').trim().toUpperCase() || 'PROPIEDAD';
+      (formaVinculacionRaw || 'PROPIEDAD').toUpperCase();
 
     // ==========================
-    // 11) Armar data para Prisma
+    // 13) Data MÍNIMA para crear/actualizar usuario
+    //     (solo campos obligatorios + algunos importantes)
     // ==========================
-    const dataUsuario = {
-      carnet: numeroDocumento,
-      identificacion: numeroDocumento,
-      tipoIdentificacion: tipoDocumento,
+    const dataUsuario: any = {
+      carnet: truncate(numeroDocumento, 50),
+      identificacion: truncate(numeroDocumento, 20),
+      tipoIdentificacion: truncate(tipoDocumento, 2),
 
-      primerNombre,
-      segundoNombre,
-      primerApellido,
-      segundoApellido,
+      primerNombre: truncate(primerNombre, 50),
+      segundoNombre: truncate(segundoNombre, 50),
+      primerApellido: truncate(primerApellido, 50),
+      segundoApellido: truncate(segundoApellido, 50),
 
-      direccion: emptyToNull(form.direccion),
-      telefono: emptyToNull(form.telefono),
+      // Contacto básico (opcionales)
+      direccion: truncate(form.direccion, 255),
+      telefono: truncate(form.telefono, 15),
 
-      tipoUsuario: 'DO', // Docente
-      codigoOcupacion: emptyToNull(form.codigoOcupacion),
-
-      unidadEdad: 'A', // Años
+      tipoUsuario: 'DO',     // Docente
+      unidadEdad: 'A',       // Años
       edad: edad ?? null,
       sexo: sexoDb,
 
@@ -306,46 +302,35 @@ export async function POST(req: Request) {
       zonaResidencia,
 
       fechaNacimiento,
-      estadoCivil: emptyToNull(form.estadoCivil),
+      estadoCivil: truncate(form.estadoCivil, 20),
 
-      sector: emptyToNull(form.sector) ?? 'EDUCATIVO',
-
-      discapacidad: false,
-      estrato: form.estrato ? Number(form.estrato) : null,
+      sector: truncate(form.sector || 'EDUCATIVO', 50),
 
       codigoEps,
-      categoria: emptyToNull(form.categoria),
+      categoria: truncate(form.categoria, 30),
 
-      etnia: emptyToNull(form.etnia),
-      lugarNacimiento: emptyToNull(form.lugarNacimiento),
+      celular: truncate(form.celular ?? form.telefono, 15),
+      email: truncate(form.email, 100),
 
-      nroHijos: form.nroHijos ? Number(form.nroHijos) : 0,
-      escolaridad: emptyToNull(form.escolaridad),
-
-      celular: emptyToNull(form.celular ?? form.telefono),
-      email: emptyToNull(form.email),
-      religion: emptyToNull(form.religion),
-      telefonoSecundario: emptyToNull(form.telefonoSecundario),
-
-      barrio: emptyToNull(form.barrio),
+      // Ubicación opcional
+      barrio: truncate(form.barrio, 50),
       barrioId,
-
       codigoDepartamento,
       codigoMunicipio,
 
+      // Datos docentes
       gradoEscalafon: gradoEscalafonDb,
       nivelEscalafon: nivelEscalafonDb,
-      formaVinculacion,
+      formaVinculacion: truncate(formaVinculacion, 45),
 
       secretariaId,
       institucionEducativaId,
     };
 
     // ==========================
-    // 12) Crear o actualizar usuario
+    // 14) Crear o actualizar
     // ==========================
     let usuario;
-
     if (existing) {
       usuario = await prisma.usuario.update({
         where: { id: existing.id },
@@ -359,9 +344,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, usuario });
   } catch (error: any) {
-    console.error('Error guardando docente:', error);
+    console.error('Error guardando docente:', error, error?.meta);
     return NextResponse.json(
-      { ok: false, error: error?.message ?? 'Error guardando docente' },
+      {
+        ok: false,
+        error: error?.message ?? 'Error guardando docente',
+      },
       { status: 500 },
     );
   }

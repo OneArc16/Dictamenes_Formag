@@ -538,49 +538,101 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (saving) return;
 
-    setSaving(true);
-    try {
-      const res = await fetch('/api/docentes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ form }),
-      });
+  const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
+    { key: 'tipoDocumento', label: 'Tipo de documento' },
+    { key: 'numeroDocumento', label: 'Número de documento' },
+    { key: 'primerNombre', label: 'Primer nombre' },
+    { key: 'primerApellido', label: 'Primer apellido' },
+    { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
+  ];
 
-      const contentType = res.headers.get('content-type') || '';
-      let data: any = null;
+  const faltantes = camposObligatorios.filter(({ key }) => {
+    const valor = (form[key] ?? '').toString().trim();
+    return !valor;
+  });
 
-      if (contentType.includes('application/json')) {
-        data = await res.json();
-      } else {
-        const text = await res.text();
-        console.error('Respuesta no JSON de /api/docentes:', text);
-        showToast('error', 'Error guardando docente');
-        return;
-      }
+  if (faltantes.length > 0) {
+    const nombres = faltantes.map((f) => f.label).join(', ');
+    console.warn('Campos obligatorios faltantes:', nombres, { formActual: form });
+    showToast('error', `Faltan datos del formulario: ${nombres}`);
+    return;
+  }
 
-      if (!res.ok || !data?.ok) {
-        showToast('error', data?.error ?? 'Error guardando docente');
-        return;
-      }
+  setSaving(true);
 
-      showToast('success', 'Docente guardado correctamente');
+  try {
+    // 1️⃣ Guardar / actualizar DOCENTE
+    const resDocente = await fetch('/api/docentes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ form }),   // ✅ ENVIAR { form: ... }
+    });
 
-      // 👉 Si quieres limpiar y cerrar al guardar, descomenta:
-      // handleLimpiar();
-      // onClose();
-    } catch (err) {
-      console.error('Error guardando docente:', err);
-      showToast('error', 'Error guardando docente');
-    } finally {
+    const dataDocente = await resDocente.json();
+
+    if (!resDocente.ok || !dataDocente?.ok) {
+      console.error('Error guardando docente', dataDocente);
+      showToast('error', dataDocente?.error ?? 'Error guardando docente');
       setSaving(false);
+      return;
     }
-  };
+
+    const usuarioId: number | undefined = dataDocente.usuario?.id;
+    if (!usuarioId) {
+      console.error(
+        'No llegó usuario.id en la respuesta de /api/docentes',
+        dataDocente,
+      );
+      showToast('error', 'No se pudo obtener el ID del docente');
+      setSaving(false);
+      return;
+    }
+
+    // 2️⃣ Crear DICTAMEN para ese docente
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const fechaDictamen = `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
+
+    const resDictamen = await fetch('/api/dictamenes/medico', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        usuarioId,
+        fechaDictamen,
+        procedimientoPcl: 'A',
+      }),
+    });
+
+    const dataDictamen = await resDictamen.json();
+
+    if (!resDictamen.ok || !dataDictamen?.ok) {
+      console.error('Error creando dictamen', dataDictamen);
+      showToast('error', dataDictamen?.error ?? 'Error creando dictamen');
+      setSaving(false);
+      return;
+    }
+
+    showToast('success', 'Docente y dictamen registrados correctamente');
+
+    handleLimpiar();
+    setTimeout(() => {
+      onClose();
+    },1200);
+  } catch (err) {
+    console.error('Error guardando docente / dictamen:', err);
+    showToast('error', 'Error guardando docente / dictamen');
+  } finally {
+    setSaving(false);
+  }
+};
 
 
   if (!open) return null;
@@ -604,7 +656,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
             onClick={onClose}
             className="text-sm text-gray-500 hover:text-gray-700"
           >
-            ✕
           </button>
         </div>
 
@@ -1140,11 +1191,11 @@ function DocenteModal({ open, onClose }: ModalProps) {
                 Cancelar
               </button>
                 <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
                 >
-                {saving ? 'Guardando…' : 'Guardar'}
+                  {saving ? 'Guardando…' : 'Guardar'}
                 </button>
             </div>
           </div>
