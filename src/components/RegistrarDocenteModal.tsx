@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 
+import { SearchableSelect } from '@/components/forms/SearchableSelect';
+
+
 const STORAGE_KEY = 'dictamy_registro_docente';
 
 type DocenteForm = {
@@ -542,6 +545,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (saving) return;
 
+  // 🔎 Validación simplificada + debug en consola
   const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
     { key: 'tipoDocumento', label: 'Tipo de documento' },
     { key: 'numeroDocumento', label: 'Número de documento' },
@@ -557,7 +561,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   if (faltantes.length > 0) {
     const nombres = faltantes.map((f) => f.label).join(', ');
-    console.warn('Campos obligatorios faltantes:', nombres, { formActual: form });
+    console.warn('Campos obligatorios faltantes:', nombres, {
+      formActual: form,
+    });
     showToast('error', `Faltan datos del formulario: ${nombres}`);
     return;
   }
@@ -570,15 +576,15 @@ const handleSubmit = async (e: React.FormEvent) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ form }),   // ✅ ENVIAR { form: ... }
+      body: JSON.stringify({ form }),
     });
+
 
     const dataDocente = await resDocente.json();
 
     if (!resDocente.ok || !dataDocente?.ok) {
       console.error('Error guardando docente', dataDocente);
       showToast('error', dataDocente?.error ?? 'Error guardando docente');
-      setSaving(false);
       return;
     }
 
@@ -589,7 +595,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         dataDocente,
       );
       showToast('error', 'No se pudo obtener el ID del docente');
-      setSaving(false);
       return;
     }
 
@@ -607,7 +612,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       body: JSON.stringify({
         usuarioId,
         fechaDictamen,
-        procedimientoPcl: 'A',
+        procedimientoPcl: 'A', // por ahora A por defecto
       }),
     });
 
@@ -616,16 +621,19 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!resDictamen.ok || !dataDictamen?.ok) {
       console.error('Error creando dictamen', dataDictamen);
       showToast('error', dataDictamen?.error ?? 'Error creando dictamen');
-      setSaving(false);
       return;
     }
 
+    // 3️⃣ Todo OK -> mostramos toast y luego cerramos el modal
     showToast('success', 'Docente y dictamen registrados correctamente');
 
+    // Limpiar formulario
     handleLimpiar();
+
+    // Pequeño delay para que se vea el toast antes de cerrar
     setTimeout(() => {
       onClose();
-    },1200);
+    }, 1200);
   } catch (err) {
     console.error('Error guardando docente / dictamen:', err);
     showToast('error', 'Error guardando docente / dictamen');
@@ -634,6 +642,61 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
+const handleActualizarDatos = async () => {
+  if (saving) return;
+
+  // Usamos la misma validación básica
+  const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
+    { key: 'tipoDocumento', label: 'Tipo de documento' },
+    { key: 'numeroDocumento', label: 'Número de documento' },
+    { key: 'primerNombre', label: 'Primer nombre' },
+    { key: 'primerApellido', label: 'Primer apellido' },
+    { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
+  ];
+
+  const faltantes = camposObligatorios.filter(({ key }) => {
+    const valor = (form[key] ?? '').toString().trim();
+    return !valor;
+  });
+
+  if (faltantes.length > 0) {
+    const nombres = faltantes.map((f) => f.label).join(', ');
+    console.warn(
+      'Campos obligatorios faltantes (actualizar):',
+      nombres,
+      { formActual: form },
+    );
+    showToast('error', `Faltan datos del formulario: ${nombres}`);
+    return;
+  }
+
+  setSaving(true);
+
+  try {
+    const resDocente = await fetch('/api/docentes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ form }),
+    });
+
+
+    const dataDocente = await resDocente.json();
+
+    if (!resDocente.ok || !dataDocente?.ok) {
+      console.error('Error actualizando docente', dataDocente);
+      showToast('error', dataDocente?.error ?? 'Error actualizando docente');
+      return;
+    }
+
+    showToast('success', 'Datos del docente actualizados correctamente');
+  } catch (err) {
+    console.error('Error actualizando datos del docente:', err);
+    showToast('error', 'Error actualizando datos del docente');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (!open) return null;
 
@@ -984,24 +1047,20 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Aseguradora (EPS)
                   </label>
-                  <select
-                    name="codigoEps"
+                  <SearchableSelect
                     value={form.codigoEps}
-                    onChange={(e) =>
+                    options={epsList.map((eps) => ({
+                      value: eps.codigo,
+                      label: eps.nombre,
+                    }))}
+                    onChange={(value) =>
                       setForm((prev) => ({
                         ...prev,
-                        codigoEps: e.target.value,
+                        codigoEps: value,
                       }))
                     }
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {epsList.map((eps) => (
-                      <option key={eps.codigo} value={eps.codigo}>
-                        {eps.nombre}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Seleccione EPS…"
+                  />
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -1040,63 +1099,61 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Secretaría donde labora
                   </label>
-                  <select
-                    name="secretariaLabora"
-                    value={selectedSecretariaId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSelectedSecretariaId(value);
+                  <SearchableSelect
+                    value={selectedSecretariaId} // aquí guardamos el ID (string)
+                    options={secretarias.map((s) => ({
+                      value: String(s.id),
+                      label: s.nombre,
+                    }))}
+                    placeholder="Seleccione secretaría…"
+                    onChange={(newId) => {
+                      setSelectedSecretariaId(newId);
+
                       const secretaria = secretarias.find(
-                        (s) => String(s.id) === value,
+                        (s) => String(s.id) === newId,
                       );
+
                       setForm((prev) => ({
                         ...prev,
                         secretariaLabora: secretaria?.nombre ?? '',
                         institucionLabora: '',
                       }));
-                      if (value) {
-                        fetchInstituciones(
-                          value,
-                          selectedMunicipio || undefined,
-                        );
+
+                      if (newId) {
+                        fetchInstituciones(newId, selectedMunicipio || undefined);
                       } else {
                         setInstituciones([]);
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {secretarias.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
-                <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Institución donde labora
-                  </label>
-                  <select
-                    name="institucionLabora"
-                    value={form.institucionLabora}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">
-                      {!selectedSecretariaId
-                        ? 'Seleccione primero una secretaría'
-                        : loadingInstituciones
-                        ? 'Cargando instituciones…'
-                        : 'Seleccione…'}
-                    </option>
-                    {instituciones.map((i) => (
-                      <option key={i.id} value={i.nombre}>
-                        {i.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-700">
+                      Institución donde labora
+                    </label>
+                    <SearchableSelect
+                      value={form.institucionLabora}
+                      options={instituciones.map((i) => ({
+                        value: i.nombre, // usamos el nombre como valor
+                        label: i.nombre,
+                      }))}
+                      placeholder={
+                        !selectedSecretariaId
+                          ? 'Seleccione primero una secretaría'
+                          : loadingInstituciones
+                          ? 'Cargando instituciones…'
+                          : 'Seleccione institución…'
+                      }
+                      disabled={!selectedSecretariaId || loadingInstituciones}
+                      onChange={(newValue) => {
+                        const inst = instituciones.find((i) => i.nombre === newValue);
+                        setForm((prev) => ({
+                          ...prev,
+                          institucionLabora: inst?.nombre ?? '',
+                        }));
+                      }}
+                    />
+                  </div>
               </div>
 
               {/* Forma de vinculación + Estado civil */}
@@ -1173,32 +1230,41 @@ const handleSubmit = async (e: React.FormEvent) => {
           </section>
 
           {/* Botones inferiores */}
-          <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              onClick={handleLimpiar}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Limpiar
-            </button>
+<div className="flex items-center justify-between pt-2">
+  <button
+    type="button"
+    onClick={handleLimpiar}
+    className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+  >
+    Limpiar
+  </button>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {saving ? 'Guardando…' : 'Guardar'}
-                </button>
-            </div>
-          </div>
+  <div className="flex gap-2">
+    <button
+      type="button"
+      onClick={onClose}
+      className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+    >
+      Cancelar
+    </button>
+    <button
+      type="button"
+      onClick={handleActualizarDatos}
+      disabled={saving}
+      className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md text-slate-700 hover:bg-gray-50 disabled:opacity-60"
+    >
+      {saving ? 'Guardando…' : 'Actualizar datos'}
+    </button>
+    <button
+      type="submit"
+      disabled={saving}
+      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+    >
+      {saving ? 'Guardando…' : 'Registrar dictamen'}
+    </button>
+  </div>
+</div>
+
         </form>
 
         {/* Toast de mensajes */}
