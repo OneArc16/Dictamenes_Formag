@@ -960,30 +960,26 @@ const handleActualizarDatos = async () => {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Barrio / Vereda
-                  </label>
-                  <select
-                    name="barrio"
-                    value={form.barrio}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        barrio: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {barriosFiltrados.map((b) => (
-                      <option key={b.id} value={b.nombre}>
-                        {b.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-700">
+                      Barrio / Vereda
+                    </label>
+                    <SearchableSelect
+                      value={form.barrio}
+                      options={barriosFiltrados.map((b) => ({
+                        value: b.nombre,
+                        label: b.nombre,
+                      }))}
+                      placeholder="Seleccione barrio…"
+                      onChange={(newBarrio) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          barrio: newBarrio,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
 
               {/* Zona, teléfono, país */}
               <div className="grid gap-4 md:grid-cols-3">
@@ -1017,27 +1013,26 @@ const handleActualizarDatos = async () => {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     País
                   </label>
-                  <select
-                    name="pais"
-                    value={selectedPaisCodigo}
-                    onChange={(e) => {
-                      const codigo = e.target.value;
-                      setSelectedPaisCodigo(codigo);
-                      const p = paises.find((x) => x.codigo === codigo);
+                  <SearchableSelect
+                    value={selectedPaisCodigo} // guardamos el CÓDIGO del país (057, VEN, etc.)
+                    options={paises.map((p) => ({
+                      value: p.codigo,
+                      label: p.nombre,
+                    }))}
+                    placeholder="Seleccione país…"
+                    onChange={(newCodigo) => {
+                      setSelectedPaisCodigo(newCodigo);
+
+                      const pais = paises.find((p) => p.codigo === newCodigo);
+
                       setForm((prev) => ({
                         ...prev,
-                        pais: p?.nombre ?? '',
+                        // en el form seguimos guardando el NOMBRE ("COLOMBIA"),
+                        // como veníamos haciendo antes
+                        pais: pais?.nombre ?? '',
                       }));
                     }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {paises.map((p) => (
-                      <option key={p.codigo} value={p.codigo}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
