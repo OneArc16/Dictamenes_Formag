@@ -195,16 +195,13 @@ export async function POST(req: Request) {
 
     const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
 
-    // Textos por defecto si vienen vacíos
-    const antecedentesClinicos =
-      (data.antecedentesClinicos ?? '').trim() ||
-      'PENDIENTE POR DILIGENCIAR';
-    const condicionSalud =
-      (data.condicionSalud ?? '').trim() ||
-      'PENDIENTE POR DILIGENCIAR';
-    const descripcionHallazgos =
-      (data.descripcionHallazgos ?? '').trim() ||
-      'PENDIENTE POR DILIGENCIAR';
+    // 🔹 Ahora, si vienen vacíos, quedan en null (NO se escribe "PENDIENTE POR DILIGENCIAR")
+    const antecedentesClinicos: string | null =
+      (data.antecedentesClinicos ?? '').trim() || null;
+    const condicionSalud: string | null =
+      (data.condicionSalud ?? '').trim() || null;
+    const descripcionHallazgos: string | null =
+      (data.descripcionHallazgos ?? '').trim() || null;
 
     const dictamen = await prisma.dictamen.create({
       data: {

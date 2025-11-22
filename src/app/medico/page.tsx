@@ -179,7 +179,7 @@ export default function MedicoPage() {
 
   // 4) Acción Ver
   const handleOpenDictamen = (id: number) => {
-    router.push(`/medico/dictamenes/${id}`);
+    router.push(`/medico/dictamen/${id}`);
   };
 
   // 5) Filas para exportar (formato CSV)
