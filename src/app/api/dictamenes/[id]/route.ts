@@ -142,7 +142,9 @@ const UpdateAntecedentesSchema = z.object({
   antecedentesClinicos: z.string().optional(),
   condicionSalud: z.string().optional(),
   descripcionHallazgos: z.string().optional(),
+  procedimientoPcl: z.enum(['A', 'B']).optional(),
 });
+
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
@@ -187,6 +189,9 @@ export async function PUT(req: Request, context: RouteContext) {
         antecedentesClinicos: data.antecedentesClinicos ?? null,
         condicionSalud: data.condicionSalud ?? null,
         descripcionHallazgos: data.descripcionHallazgos ?? null,
+        ...(data.procedimientoPcl && {
+          procedimientoPcl: data.procedimientoPcl as ProcedimientoPcl,
+        }),
       },
       select: { id: true },
     });

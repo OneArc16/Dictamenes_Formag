@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams  } from 'next/navigation';
-
+import { useRouter, useParams } from 'next/navigation';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
@@ -78,9 +77,14 @@ type AntecedentesFormProps = {
     condicionSalud: string;
     descripcionHallazgos: string;
   };
+  procedimientoPcl: 'A' | 'B';
 };
 
-function AntecedentesForm({ dictamenId, initial }: AntecedentesFormProps) {
+function AntecedentesForm({
+  dictamenId,
+  initial,
+  procedimientoPcl,
+}: AntecedentesFormProps) {
   const [antecedentesClinicos, setAntecedentesClinicos] = useState(
     initial.antecedentesClinicos,
   );
@@ -110,6 +114,7 @@ function AntecedentesForm({ dictamenId, initial }: AntecedentesFormProps) {
           antecedentesClinicos,
           condicionSalud,
           descripcionHallazgos,
+          procedimientoPcl, // 👈 se envía A/B al backend
         }),
       });
 
@@ -206,11 +211,11 @@ export default function DictamenDetallePage({ params }: PageProps) {
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(
     null,
   );
+  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tab actual (por ahora solo usamos Antecedentes,
-  // pero dejamos la estructura lista para más pestañas).
+  // Tab actual
   type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
@@ -239,7 +244,9 @@ export default function DictamenDetallePage({ params }: PageProps) {
           return;
         }
 
-        setDictamen(data.dictamen as DictamenDetalle);
+        const d = data.dictamen as DictamenDetalle;
+        setDictamen(d);
+        setProcedimientoPcl(d.procedimientoPcl ?? 'A');
         setError(null);
       } catch (err) {
         console.error('Error cargando dictamen:', err);
@@ -338,12 +345,17 @@ export default function DictamenDetallePage({ params }: PageProps) {
             </span>
           </div>
           <div className="text-slate-600">
-            Procedimiento:{' '}
-            <span className="font-medium">
-              {dictamen.procedimientoPcl === 'A'
-                ? 'Procedimiento A'
-                : 'Procedimiento B'}
-            </span>
+            <span className="mr-2">Procedimiento:</span>
+            <select
+              value={procedimientoPcl}
+              onChange={(e) =>
+                setProcedimientoPcl(e.target.value as 'A' | 'B')
+              }
+              className="px-2 py-1 text-xs bg-white border rounded-md border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="A">Procedimiento A</option>
+              <option value="B">Procedimiento B</option>
+            </select>
           </div>
           <div className="text-slate-600">
             Médico:{' '}
@@ -395,6 +407,7 @@ export default function DictamenDetallePage({ params }: PageProps) {
                 descripcionHallazgos:
                   dictamen.descripcionHallazgos ?? '',
               }}
+              procedimientoPcl={procedimientoPcl}
             />
           )}
 
