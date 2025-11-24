@@ -895,70 +895,64 @@ const handleActualizarDatos = async () => {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Departamento / Estado
                   </label>
-                  <select
-                    name="departamento"
+                  <SearchableSelect
                     value={selectedDepartamento}
-                    onChange={(e) => {
-                      const codigo = e.target.value;
-                      setSelectedDepartamento(codigo);
+                    options={departamentos.map((d) => ({
+                      value: d.codigo,
+                      label: d.nombre,
+                    }))}
+                    placeholder="Seleccione departamento…"
+                    onChange={(newCodigo) => {
+                      setSelectedDepartamento(newCodigo);
                       setSelectedMunicipio('');
-                      const dep = departamentos.find(
-                        (d) => d.codigo === codigo,
-                      );
+
+                      const dep = departamentos.find((d) => d.codigo === newCodigo);
+
                       setForm((prev) => ({
                         ...prev,
                         departamento: dep?.nombre ?? '',
                         municipio: '',
                         barrio: '',
                       }));
+
                       if (selectedSecretariaId) {
                         fetchInstituciones(selectedSecretariaId);
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {departamentos.map((d) => (
-                      <option key={d.codigo} value={d.codigo}>
-                        {d.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Ciudad / Municipio
                   </label>
-                  <select
-                    name="municipio"
+                  <SearchableSelect
                     value={selectedMunicipio}
-                    onChange={(e) => {
-                      const codigo = e.target.value;
-                      setSelectedMunicipio(codigo);
+                    options={municipiosFiltrados.map((m) => ({
+                      value: m.codigo,
+                      label: m.nombre,
+                    }))}
+                    placeholder="Seleccione municipio…"
+                    onChange={(newCodigo) => {
+                      setSelectedMunicipio(newCodigo);
+
                       const muni = municipiosFiltrados.find(
-                        (m) => m.codigo === codigo,
+                        (m) => m.codigo === newCodigo,
                       );
+
                       setForm((prev) => ({
                         ...prev,
                         municipio: muni?.nombre ?? '',
                         barrio: '',
                       }));
+
                       if (selectedSecretariaId) {
                         fetchInstituciones(
                           selectedSecretariaId,
-                          codigo || undefined,
+                          newCodigo || undefined,
                         );
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione…</option>
-                    {municipiosFiltrados.map((m) => (
-                      <option key={m.codigo} value={m.codigo}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                   <div>
                     <label className="block mb-1 text-xs font-medium text-gray-700">
