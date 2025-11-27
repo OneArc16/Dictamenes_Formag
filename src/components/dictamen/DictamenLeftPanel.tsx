@@ -20,7 +20,7 @@ type MedicoInfo = {
 type DictamenLeftPanelProps = {
   estado: DictamenEstado;
   docente: DocenteInfo;
-  medico: MedicoInfo;
+  medico: MedicoInfo; // ya no lo usamos en la UI, pero dejo la prop por compatibilidad
   fechaDictamen: string; // YYYY-MM-DD o ''
   onChangeFecha: (value: string) => void;
   procedimientoPcl: 'A' | 'B';
@@ -82,6 +82,7 @@ export default function DictamenLeftPanel({
             <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
               Docente
             </h2>
+            {/* Nombre COMPLETO del docente */}
             <p className="mt-1 text-lg font-semibold text-slate-900">
               {docente.nombreCompleto}
             </p>
@@ -164,12 +165,7 @@ export default function DictamenLeftPanel({
             </select>
           </div>
 
-          <div>
-            <p className="text-xs text-slate-500">Médico</p>
-            <p className="font-medium text-slate-900">
-              {medico?.nombreCompleto ?? '—'}
-            </p>
-          </div>
+          {/* Bloque de "Médico" eliminado porque ya aparece en el header */}
         </div>
       </div>
     </>

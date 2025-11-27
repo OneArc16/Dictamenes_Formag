@@ -15,6 +15,44 @@ type JwtPayload = {
   [key: string]: any;
 };
 
+// ======================
+// Helpers
+// ======================
+
+function getNombreCompletoUsuario(u: {
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+}) {
+  return [
+    u.primerNombre,
+    u.segundoNombre,
+    u.primerApellido,
+    u.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+function getNombreCompletoEmpleado(e: {
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+}) {
+  return [
+    e.primerNombre,
+    e.segundoNombre,
+    e.primerApellido,
+    e.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
 async function getMedicoIdFromToken() {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth')?.value;
@@ -108,7 +146,13 @@ export async function GET(_req: Request, context: RouteContext) {
           id: docente.id,
           documento: docente.identificacion,
           tipoDocumento: docente.tipoIdentificacion,
-          nombreCompleto: `${docente.primerNombre} ${docente.primerApellido}`,
+          // 🔹 ahora con nombre COMPLETO
+          nombreCompleto: getNombreCompletoUsuario({
+            primerNombre: docente.primerNombre,
+            segundoNombre: docente.segundoNombre ?? null,
+            primerApellido: docente.primerApellido,
+            segundoApellido: docente.segundoApellido ?? null,
+          }),
           edad: docente.edad,
           sexo: docente.sexo,
           secretaria: docente.secretariaRef?.nombre ?? null,
@@ -118,7 +162,13 @@ export async function GET(_req: Request, context: RouteContext) {
         medico: medico
           ? {
               id: medico.id,
-              nombreCompleto: `${medico.primerNombre} ${medico.primerApellido}`,
+              // 🔹 también nombre completo del médico
+              nombreCompleto: getNombreCompletoEmpleado({
+                primerNombre: medico.primerNombre,
+                segundoNombre: medico.segundoNombre ?? null,
+                primerApellido: medico.primerApellido,
+                segundoApellido: medico.segundoApellido ?? null,
+              }),
             }
           : null,
       },
@@ -144,7 +194,6 @@ const UpdateAntecedentesSchema = z.object({
   descripcionHallazgos: z.string().optional(),
   procedimientoPcl: z.enum(['A', 'B']).optional(),
 });
-
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
