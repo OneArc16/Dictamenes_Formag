@@ -2,6 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import AppNav from '@/components/AppNav';
+import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
+import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
+
+// 🔹 Tabs como componentes separados
+import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
+import TabExamenFisico from '@/components/dictamen/tabs/TabExamenFisico';
+import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
+import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
+
+/* =====================
+   Tipos
+   ===================== */
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
@@ -33,7 +46,11 @@ type PageProps = {
   params: { id: string };
 };
 
-function formatFecha(fecha: string | null): string {
+/* =====================
+   Helpers
+   ===================== */
+
+function formatFechaHumana(fecha: string | null): string {
   if (!fecha) return '—';
   const d = new Date(`${fecha}T00:00:00`);
   if (Number.isNaN(d.getTime())) return fecha;
@@ -67,134 +84,226 @@ function estadoBadge(estado: DictamenEstado) {
 }
 
 /* =====================
-   Formulario Antecedentes
+   Tabs layout
    ===================== */
 
-type AntecedentesFormProps = {
-  dictamenId: number;
-  initial: {
-    antecedentesClinicos: string;
-    condicionSalud: string;
-    descripcionHallazgos: string;
-  };
+type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
+
+type DictamenTabsProps = {
+  dictamen: DictamenDetalle;
   procedimientoPcl: 'A' | 'B';
 };
 
-function AntecedentesForm({
-  dictamenId,
-  initial,
-  procedimientoPcl,
-}: AntecedentesFormProps) {
-  const [antecedentesClinicos, setAntecedentesClinicos] = useState(
-    initial.antecedentesClinicos,
-  );
-  const [condicionSalud, setCondicionSalud] = useState(
-    initial.condicionSalud,
-  );
-  const [descripcionHallazgos, setDescripcionHallazgos] = useState(
-    initial.descripcionHallazgos,
-  );
-
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = async () => {
-    if (saving) return;
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/dictamenes/${dictamenId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          antecedentesClinicos,
-          condicionSalud,
-          descripcionHallazgos,
-          procedimientoPcl, // 👈 se envía A/B al backend
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        setError(
-          data?.error ?? 'Error guardando antecedentes del dictamen',
-        );
-        return;
-      }
-
-      setMessage('Antecedentes guardados correctamente.');
-    } catch (err) {
-      console.error('Error guardando antecedentes:', err);
-      setError('Error guardando antecedentes del dictamen.');
-    } finally {
-      setSaving(false);
-      setTimeout(() => {
-        setMessage(null);
-        setError(null);
-      }, 3000);
-    }
-  };
+function DictamenTabs({ dictamen, procedimientoPcl }: DictamenTabsProps) {
+  const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block mb-1 text-xs font-semibold text-slate-700">
-          Antecedentes clínicos
-        </label>
-        <textarea
-          value={antecedentesClinicos}
-          onChange={(e) => setAntecedentesClinicos(e.target.value)}
-          rows={4}
-          className="w-full px-3 py-2 text-sm border rounded-md shadow-sm border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
+    <div className="bg-white border shadow-sm rounded-xl">
+      {/* Header de pestañas */}
+      <div className="flex px-4 border-b bg-slate-50">
+        {([
+          ['ANTECEDENTES', 'Antecedentes'],
+          ['EXAMEN', 'Examen físico'],
+          ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
+          ['DEFICIENCIAS', 'Deficiencias / PCL'],
+        ] as [TabId, string][]).map(([id, label]) => {
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
+                active
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
-      <div>
-        <label className="block mb-1 text-xs font-semibold text-slate-700">
-          Condición de salud actual
-        </label>
-        <textarea
-          value={condicionSalud}
-          onChange={(e) => setCondicionSalud(e.target.value)}
-          rows={4}
-          className="w-full px-3 py-2 text-sm border rounded-md shadow-sm border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
+      {/* Contenido de pestaña */}
+      <div className="p-4 text-sm">
+        {tab === 'ANTECEDENTES' && (
+          <TabAntecedentes
+            dictamenId={dictamen.id}
+            initial={{
+              antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+              condicionSalud: dictamen.condicionSalud ?? '',
+              descripcionHallazgos:
+                dictamen.descripcionHallazgos ?? '',
+            }}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
 
-      <div>
-        <label className="block mb-1 text-xs font-semibold text-slate-700">
-          Descripción de hallazgos relevantes
-        </label>
-        <textarea
-          value={descripcionHallazgos}
-          onChange={(e) => setDescripcionHallazgos(e.target.value)}
-          rows={5}
-          className="w-full px-3 py-2 text-sm border rounded-md shadow-sm border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
+        {tab === 'EXAMEN' && (
+          <TabExamenFisico
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
 
-      <div className="flex items-center justify-between pt-2">
-        <div className="text-xs">
-          {message && (
-            <span className="text-emerald-600">{message}</span>
+        {tab === 'DIAGNOSTICOS' && (
+          <TabDiagnosticos
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
+
+        {tab === 'DEFICIENCIAS' && (
+          <TabDeficiencias
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =====================
+   Panel izquierdo reutilizable
+   ===================== */
+
+type DictamenLeftPanelProps = {
+  dictamen: DictamenDetalle;
+  fechaDictamen: string; // YYYY-MM-DD o ''
+  onChangeFecha: (value: string) => void;
+  procedimientoPcl: 'A' | 'B';
+  onChangeProcedimiento: (value: 'A' | 'B') => void;
+  onEditDocente?: () => void;
+};
+
+function DictamenLeftPanel({
+  dictamen,
+  fechaDictamen,
+  onChangeFecha,
+  procedimientoPcl,
+  onChangeProcedimiento,
+  onEditDocente,
+}: DictamenLeftPanelProps) {
+  const estadoInfo = estadoBadge(dictamen.estado);
+
+  return (
+    <>
+      {/* Card docente */}
+      <div className="p-4 bg-white border shadow-sm rounded-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+              Docente
+            </h2>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {dictamen.docente.nombreCompleto}
+            </p>
+            <p className="text-xs text-slate-600">
+              {dictamen.docente.tipoDocumento}{' '}
+              {dictamen.docente.documento}
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              {dictamen.docente.edad != null
+                ? `${dictamen.docente.edad} años`
+                : 'Edad no registrada'}
+            </p>
+
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              Secretaría
+            </p>
+            <p className="text-xs text-slate-700">
+              {dictamen.docente.secretaria ||
+                'Sin secretaría registrada'}
+            </p>
+
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              Institución
+            </p>
+            <p className="text-xs text-slate-700">
+              {dictamen.docente.institucion ||
+                'Sin institución registrada'}
+            </p>
+          </div>
+
+          {onEditDocente && (
+            <button
+              type="button"
+              onClick={onEditDocente}
+              className="px-3 py-1 text-xs font-semibold border rounded-full border-sky-600 text-sky-700 hover:bg-sky-50"
+            >
+              Editar
+            </button>
           )}
-          {error && <span className="text-red-600">{error}</span>}
         </div>
-
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
-        >
-          {saving ? 'Guardando…' : 'Guardar antecedentes'}
-        </button>
       </div>
+
+      {/* Card datos del dictamen */}
+      <div className="p-4 bg-white border shadow-sm rounded-xl">
+        <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+          Datos del dictamen
+        </h2>
+
+        <div className="mt-3 space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Estado</span>
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${estadoInfo.classes}`}
+            >
+              {estadoInfo.label}
+            </span>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500">Fecha de dictamen</p>
+            <input
+              type="date"
+              value={fechaDictamen || ''}
+              onChange={(e) => onChangeFecha(e.target.value)}
+              className="w-full px-2 py-1 mt-1 text-xs bg-white border rounded-md border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Actual: {formatFechaHumana(fechaDictamen || null)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500">Procedimiento</p>
+            <select
+              value={procedimientoPcl}
+              onChange={(e) =>
+                onChangeProcedimiento(e.target.value as 'A' | 'B')
+              }
+              className="w-full px-2 py-1 mt-1 text-xs bg-white border rounded-md border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="A">Procedimiento A</option>
+              <option value="B">Procedimiento B</option>
+            </select>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500">Médico</p>
+            <p className="font-medium text-slate-900">
+              {dictamen.medico?.nombreCompleto ?? '—'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* =====================
+   Panel derecho (placeholder)
+   ===================== */
+
+function RightPanelPlaceholder() {
+  return (
+    <div className="h-full p-4 text-xs border border-dashed rounded-xl bg-slate-50/80 text-slate-400">
+      Espacio reservado para el panel derecho.
+      <br />
+      (Todavía por definir contenido).
     </div>
   );
 }
@@ -203,7 +312,7 @@ function AntecedentesForm({
    Página principal
    ===================== */
 
-export default function DictamenDetallePage({ params }: PageProps) {
+export default function DictamenDetallePage({}: PageProps) {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
@@ -211,13 +320,14 @@ export default function DictamenDetallePage({ params }: PageProps) {
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(
     null,
   );
-  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
+  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>(
+    'A',
+  );
+  const [fechaDictamen, setFechaDictamen] = useState<string>(''); // editable
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tab actual
-  type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
-  const [tab, setTab] = useState<TabId>('ANTECEDENTES');
+  const [showEditDocente, setShowEditDocente] = useState(false);
 
   useEffect(() => {
     if (!dictamenId || Number.isNaN(dictamenId)) {
@@ -247,6 +357,7 @@ export default function DictamenDetallePage({ params }: PageProps) {
         const d = data.dictamen as DictamenDetalle;
         setDictamen(d);
         setProcedimientoPcl(d.procedimientoPcl ?? 'A');
+        setFechaDictamen(d.fechaDictamen ?? '');
         setError(null);
       } catch (err) {
         console.error('Error cargando dictamen:', err);
@@ -261,164 +372,91 @@ export default function DictamenDetallePage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="px-6 py-6">
-        <button
-          type="button"
-          onClick={() => router.push('/medico')}
-          className="mb-4 text-xs text-blue-600 hover:underline"
-        >
-          ← Volver al listado
-        </button>
-        <div className="px-4 py-6 text-sm bg-white border rounded-xl text-slate-500">
-          Cargando dictamen…
-        </div>
+      <div className="min-h-screen bg-slate-50">
+        <AppNav />
+        <main className="px-4 py-4 mx-auto max-w-7xl lg:px-8">
+          <button
+            type="button"
+            onClick={() => router.push('/medico')}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Volver al listado
+          </button>
+
+          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">
+            Cargando dictamen…
+          </div>
+        </main>
       </div>
     );
   }
 
   if (error || !dictamen) {
     return (
-      <div className="px-6 py-6">
-        <button
-          type="button"
-          onClick={() => router.push('/medico')}
-          className="mb-4 text-xs text-blue-600 hover:underline"
-        >
-          ← Volver al listado
-        </button>
-        <div className="px-4 py-6 text-sm text-red-600 bg-white border rounded-xl">
-          {error ?? 'No se encontró el dictamen.'}
-        </div>
+      <div className="min-h-screen bg-slate-50">
+        <AppNav />
+        <main className="px-4 py-4 mx-auto max-w-7xl lg:px-8">
+          <button
+            type="button"
+            onClick={() => router.push('/medico')}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Volver al listado
+          </button>
+
+          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">
+            {error ?? 'No se encontró el dictamen.'}
+          </div>
+        </main>
       </div>
     );
   }
 
-  const estadoInfo = estadoBadge(dictamen.estado);
-
   return (
-    <div className="px-6 py-6 space-y-4">
-      {/* Breadcrumb / volver */}
-      <button
-        type="button"
-        onClick={() => router.push('/medico')}
-        className="text-xs text-blue-600 hover:underline"
-      >
-        ← Volver al listado de dictámenes
-      </button>
+    <div className="min-h-screen bg-slate-50">
+      <AppNav />
 
-      {/* Cabecera de datos básicos */}
-      <div className="flex flex-col gap-4 p-4 bg-white border shadow-sm rounded-xl md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1 text-sm">
-          <div className="text-xs font-semibold tracking-wide uppercase text-slate-500">
-            Docente
-          </div>
-          <div className="text-base font-semibold text-slate-900">
-            {dictamen.docente.nombreCompleto}
-          </div>
-          <div className="text-xs text-slate-600">
-            {dictamen.docente.tipoDocumento}{' '}
-            {dictamen.docente.documento} ·{' '}
-            {dictamen.docente.edad != null
-              ? `${dictamen.docente.edad} años`
-              : 'Edad no registrada'}
-          </div>
-          <div className="text-xs text-slate-600">
-            {dictamen.docente.secretaria
-              ? dictamen.docente.secretaria
-              : 'Sin secretaría registrada'}
-            {dictamen.docente.institucion
-              ? ` · ${dictamen.docente.institucion}`
-              : ''}
-          </div>
+      {/* Modal de actualizar docente */}
+      {showEditDocente && (
+        <ActualizarDocenteModal
+          open={showEditDocente}
+          onClose={() => setShowEditDocente(false)}
+          numeroDocumento={dictamen.docente.documento}
+        />
+      )}
+
+      <main className="px-4 py-4 mx-auto max-w-7xl lg:px-8">
+        {/* Volver */}
+        <button
+          type="button"
+          onClick={() => router.push('/medico')}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          ← Volver al listado de dictámenes
+        </button>
+
+        <div className="mt-4">
+          <DictamenFormLayout
+            left={
+              <DictamenLeftPanel
+                dictamen={dictamen}
+                fechaDictamen={fechaDictamen}
+                onChangeFecha={setFechaDictamen}
+                procedimientoPcl={procedimientoPcl}
+                onChangeProcedimiento={setProcedimientoPcl}
+                onEditDocente={() => setShowEditDocente(true)}
+              />
+            }
+            center={
+              <DictamenTabs
+                dictamen={dictamen}
+                procedimientoPcl={procedimientoPcl}
+              />
+            }
+            right={<RightPanelPlaceholder />}
+          />
         </div>
-
-        <div className="flex flex-col items-start gap-2 text-xs md:items-end">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${estadoInfo.classes}`}
-          >
-            Estado: {estadoInfo.label}
-          </span>
-          <div className="text-slate-600">
-            Fecha dictamen:{' '}
-            <span className="font-medium">
-              {formatFecha(dictamen.fechaDictamen)}
-            </span>
-          </div>
-          <div className="text-slate-600">
-            <span className="mr-2">Procedimiento:</span>
-            <select
-              value={procedimientoPcl}
-              onChange={(e) =>
-                setProcedimientoPcl(e.target.value as 'A' | 'B')
-              }
-              className="px-2 py-1 text-xs bg-white border rounded-md border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="A">Procedimiento A</option>
-              <option value="B">Procedimiento B</option>
-            </select>
-          </div>
-          <div className="text-slate-600">
-            Médico:{' '}
-            <span className="font-medium">
-              {dictamen.medico?.nombreCompleto ?? '—'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Contenedor con pestañas */}
-      <div className="bg-white border shadow-sm rounded-xl">
-        {/* Tabs */}
-        <div className="flex px-4 border-b bg-slate-50">
-          {([
-            ['ANTECEDENTES', 'Antecedentes'],
-            ['EXAMEN', 'Examen físico'],
-            ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
-            ['DEFICIENCIAS', 'Deficiencias / PCL'],
-          ] as [TabId, string][]).map(([id, label]) => {
-            const active = tab === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={`relative px-3 py-2 text-xs font-medium border-b-2 ${
-                  active
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Contenido de la pestaña */}
-        <div className="p-4 text-sm">
-          {tab === 'ANTECEDENTES' && (
-            <AntecedentesForm
-              key={dictamen.id}
-              dictamenId={dictamen.id}
-              initial={{
-                antecedentesClinicos:
-                  dictamen.antecedentesClinicos ?? '',
-                condicionSalud: dictamen.condicionSalud ?? '',
-                descripcionHallazgos:
-                  dictamen.descripcionHallazgos ?? '',
-              }}
-              procedimientoPcl={procedimientoPcl}
-            />
-          )}
-
-          {tab !== 'ANTECEDENTES' && (
-            <div className="text-xs text-slate-500">
-              Esta pestaña la vamos construyendo después. Por ahora
-              la única operativa es <strong>Antecedentes</strong>.
-            </div>
-          )}
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
