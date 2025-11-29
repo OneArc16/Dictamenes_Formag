@@ -65,6 +65,7 @@ type UpdateDocenteModalProps = {
   open: boolean;
   onClose: () => void;
   numeroDocumento: string;
+  onUpdate?: () => void; // 👈 SOLO CAMBIO AQUÍ
 };
 
 // =====================
@@ -138,6 +139,7 @@ export function ActualizarDocenteModal({
   open,
   onClose,
   numeroDocumento,
+  onUpdate, // 👈 Y AQUÍ
 }: UpdateDocenteModalProps) {
   const [form, setForm] = useState<DocenteForm>({
     ...emptyForm,
@@ -605,7 +607,9 @@ export function ActualizarDocenteModal({
       }
 
       showToast('success', 'Datos del docente actualizados correctamente');
-
+      if (onUpdate) {        // 👈 AQUÍ YA EXISTE LA PROP Y SE USA BIEN
+        onUpdate();
+      }
       // Opcional: cerrar automáticamente después de un momento
       setTimeout(() => {
         onClose();

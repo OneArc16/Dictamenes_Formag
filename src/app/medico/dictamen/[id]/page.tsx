@@ -66,6 +66,39 @@ export default function DictamenDetallePage({}: PageProps) {
 
   const [showEditDocente, setShowEditDocente] = useState(false);
 
+  // 🔹 función reutilizable para traer el dictamen
+  const fetchDictamen = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
+
+      const res = await fetch(`/api/dictamenes/${dictamenId}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        setError(
+          data?.error ?? 'Error cargando información del dictamen',
+        );
+        return;
+      }
+
+      const d = data.dictamen as DictamenDetalle;
+      setDictamen(d);
+      setProcedimientoPcl(d.procedimientoPcl ?? 'A');
+      setFechaDictamen(d.fechaDictamen ?? '');
+      setError(null);
+    } catch (err) {
+      console.error('Error cargando dictamen:', err);
+      setError('Error cargando información del dictamen.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // 🔹 carga inicial (con loading)
   useEffect(() => {
     if (!dictamenId || Number.isNaN(dictamenId)) {
       setError('ID de dictamen inválido.');
@@ -73,39 +106,15 @@ export default function DictamenDetallePage({}: PageProps) {
       return;
     }
 
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/dictamenes/${dictamenId}`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data?.ok) {
-          setError(
-            data?.error ?? 'Error cargando información del dictamen',
-          );
-          setLoading(false);
-          return;
-        }
-
-        const d = data.dictamen as DictamenDetalle;
-        setDictamen(d);
-        setProcedimientoPcl(d.procedimientoPcl ?? 'A');
-        setFechaDictamen(d.fechaDictamen ?? '');
-        setError(null);
-      } catch (err) {
-        console.error('Error cargando dictamen:', err);
-        setError('Error cargando información del dictamen.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    fetchDictamen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
+
+  // 🔹 se usará cuando el modal termine de actualizar al docente
+  const handleDocenteUpdated = async () => {
+    // refresh silencioso, sin parpadeos
+    await fetchDictamen(true);
+  };
 
   if (loading) {
     return (
@@ -159,6 +168,8 @@ export default function DictamenDetallePage({}: PageProps) {
           open={showEditDocente}
           onClose={() => setShowEditDocente(false)}
           numeroDocumento={dictamen.docente.documento}
+          // 👇 refresca la info del docente sin mostrar "Cargando…"
+          onUpdate={handleDocenteUpdated}
         />
       )}
 

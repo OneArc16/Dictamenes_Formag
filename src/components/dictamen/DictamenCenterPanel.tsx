@@ -30,8 +30,8 @@ export default function DictamenCenterPanel({
       <div className="flex px-4 border-b bg-slate-50">
         {([
           ['ANTECEDENTES', 'Antecedentes'],
-          ['EXAMEN', 'Examen físico'],
           ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
+          ['EXAMEN', 'Examen físico'],
           ['DEFICIENCIAS', 'Deficiencias / PCL'],
         ] as [TabId, string][]).map(([id, label]) => {
           const active = tab === id;
@@ -72,7 +72,7 @@ export default function DictamenCenterPanel({
             procedimientoPcl={procedimientoPcl}
           />
         )}
-
+  
         {tab === 'DIAGNOSTICOS' && (
           <TabDiagnosticos
             dictamenId={dictamen.id}
