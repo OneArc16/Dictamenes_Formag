@@ -65,7 +65,7 @@ type UpdateDocenteModalProps = {
   open: boolean;
   onClose: () => void;
   numeroDocumento: string;
-  onUpdate?: () => void; // 👈 SOLO CAMBIO AQUÍ
+  onUpdate?: () => void;
 };
 
 // =====================
@@ -139,7 +139,7 @@ export function ActualizarDocenteModal({
   open,
   onClose,
   numeroDocumento,
-  onUpdate, // 👈 Y AQUÍ
+  onUpdate,
 }: UpdateDocenteModalProps) {
   const [form, setForm] = useState<DocenteForm>({
     ...emptyForm,
@@ -178,6 +178,63 @@ export function ActualizarDocenteModal({
 
   const showToast = (type: ToastType, message: string) => {
     setToast({ type, message });
+  };
+
+    // 🔎 Búsqueda async de instituciones para actualización
+  const handleSearchInstitucion = async (term: string) => {
+    if (!selectedSecretariaId) {
+      setInstituciones([]);
+      return;
+    }
+
+    if (!term || term.length < 3) {
+      setInstituciones([]);
+      return;
+    }
+
+    try {
+      setLoadingInstituciones(true);
+
+      const params = new URLSearchParams();
+      params.set('q', term);
+      params.set('secretariaId', selectedSecretariaId);
+      if (selectedMunicipio) {
+        params.set('municipio', selectedMunicipio);
+      }
+
+      const res = await fetch(
+        `/api/instituciones/search?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error buscando instituciones');
+        setInstituciones([]);
+        return;
+      }
+
+      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
+        (i: any) => ({
+          id: i.id,
+          nombre: i.nombre,
+          idDepartamento: i.idDepartamento ?? null,
+          idMunicipio: i.idMunicipio ?? null,
+          idSecretaria: i.idSecretaria ?? null,
+        }),
+      );
+
+      setInstituciones(mapped);
+    } catch (err) {
+      console.error('Error buscando instituciones:', err);
+      setInstituciones([]);
+    } finally {
+      setLoadingInstituciones(false);
+    }
   };
 
   // Auto-cerrar toast
@@ -227,7 +284,9 @@ export function ActualizarDocenteModal({
     );
   }, [form.fechaNacimiento]);
 
-  // Cargar instituciones por secretaría
+  // ==========================
+  // Fetch instituciones (ya estaba)
+  // ==========================
   const fetchInstituciones = async (
     secretariaId?: string,
     municipioCodigo?: string,
@@ -281,7 +340,132 @@ export function ActualizarDocenteModal({
     }
   };
 
-  // Cargar combos de ubicación una sola vez cuando se abre
+  // ==========================
+  // Fetch dinámicos ubicación
+  // ==========================
+  const fetchDepartamentos = async (paisCodigo: string) => {
+    if (!paisCodigo) {
+      setDepartamentos([]);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.set('paisCodigo', paisCodigo);
+
+      const res = await fetch(
+        `/api/ubicacion/departamentos?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error cargando departamentos');
+        setDepartamentos([]);
+        return;
+      }
+
+      const mapped: DepartamentoOption[] = (data.departamentos ?? []).map(
+        (d: any) => ({
+          codigo: d.codigo,
+          nombre: d.nombre,
+        }),
+      );
+
+      setDepartamentos(mapped);
+    } catch (err) {
+      console.error('Error cargando departamentos', err);
+      setDepartamentos([]);
+    }
+  };
+
+  const fetchMunicipios = async (departamentoCodigo: string) => {
+    if (!departamentoCodigo) {
+      setMunicipios([]);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.set('departamento', departamentoCodigo);
+
+      const res = await fetch(
+        `/api/ubicacion/municipios?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error cargando municipios');
+        setMunicipios([]);
+        return;
+      }
+
+      const mapped: MunicipioOption[] = (data.municipios ?? []).map(
+        (m: any) => ({
+          codigo: m.codigo,
+          nombre: m.nombre,
+          codigoDepartamento: m.codigoDepartamento,
+        }),
+      );
+
+      setMunicipios(mapped);
+    } catch (err) {
+      console.error('Error cargando municipios', err);
+      setMunicipios([]);
+    }
+  };
+
+  const fetchBarrios = async (municipioCodigo: string) => {
+    if (!municipioCodigo) {
+      setBarrios([]);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.set('municipio', municipioCodigo);
+
+      const res = await fetch(
+        `/api/ubicacion/barrios?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error cargando barrios');
+        setBarrios([]);
+        return;
+      }
+
+      const mapped: BarrioOption[] = (data.barrios ?? []).map(
+        (b: any) => ({
+          id: b.id,
+          nombre: b.nombre,
+          codigoMunicipio: b.codigoMunicipio,
+        }),
+      );
+
+      setBarrios(mapped);
+    } catch (err) {
+      console.error('Error cargando barrios', err);
+      setBarrios([]);
+    }
+  };
+
+  // Cargar combos base (países, EPS, secretarías) una sola vez
   useEffect(() => {
     if (!open || ubicacionLoaded) return;
 
@@ -304,26 +488,6 @@ export function ActualizarDocenteModal({
         const paisesMapped: PaisOption[] = (data.paises ?? []).map(
           (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
         );
-        const departamentosMapped: DepartamentoOption[] = (
-          data.departamentos ?? []
-        ).map((d: any) => ({
-          codigo: d.codigo,
-          nombre: d.nombre,
-        }));
-        const municipiosMapped: MunicipioOption[] = (
-          data.municipios ?? []
-        ).map((m: any) => ({
-          codigo: m.codigo,
-          nombre: m.nombre,
-          codigoDepartamento: m.codigoDepartamento,
-        }));
-        const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
-          (b: any) => ({
-            id: b.id,
-            nombre: b.nombre,
-            codigoMunicipio: b.codigoMunicipio,
-          }),
-        );
 
         const secretariasMapped: SecretariaOption[] = (
           data.secretarias ?? []
@@ -338,9 +502,6 @@ export function ActualizarDocenteModal({
         }));
 
         setPaises(paisesMapped);
-        setDepartamentos(departamentosMapped);
-        setMunicipios(municipiosMapped);
-        setBarrios(barriosMapped);
         setSecretarias(secretariasMapped);
         setEpsList(epsMapped);
         setUbicacionLoaded(true);
@@ -351,6 +512,39 @@ export function ActualizarDocenteModal({
 
     loadUbicacion();
   }, [open, ubicacionLoaded]);
+
+  // Cuando cambia el país -> cargar departamentos
+  useEffect(() => {
+    if (!selectedPaisCodigo) {
+      setDepartamentos([]);
+      setMunicipios([]);
+      setBarrios([]);
+      return;
+    }
+    fetchDepartamentos(selectedPaisCodigo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPaisCodigo]);
+
+  // Cuando cambia el departamento -> cargar municipios
+  useEffect(() => {
+    if (!selectedDepartamento) {
+      setMunicipios([]);
+      setBarrios([]);
+      return;
+    }
+    fetchMunicipios(selectedDepartamento);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDepartamento]);
+
+  // Cuando cambia el municipio -> cargar barrios
+  useEffect(() => {
+    if (!selectedMunicipio) {
+      setBarrios([]);
+      return;
+    }
+    fetchBarrios(selectedMunicipio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMunicipio]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -443,35 +637,6 @@ export function ActualizarDocenteModal({
           d.institucionEducativa ?? form.institucionLabora,
       };
 
-      // Sincronizar combos
-      if (paises.length) {
-        const p = paises.find((x) => x.nombre === updated.pais);
-        if (p) setSelectedPaisCodigo(p.codigo);
-      }
-
-      if (departamentos.length && updated.departamento) {
-        const dep = departamentos.find(
-          (x) => x.nombre === updated.departamento,
-        );
-        if (dep) setSelectedDepartamento(dep.codigo);
-      }
-
-      if (municipios.length && updated.municipio) {
-        const mun = municipios.find((x) => x.nombre === updated.municipio);
-        if (mun) setSelectedMunicipio(mun.codigo);
-      }
-
-      if (secretarias.length && updated.secretariaLabora) {
-        const sec = secretarias.find(
-          (s) => s.nombre === updated.secretariaLabora,
-        );
-        if (sec) {
-          const secId = String(sec.id);
-          setSelectedSecretariaId(secId);
-          fetchInstituciones(secId, updated.municipio || undefined);
-        }
-      }
-
       setForm(updated);
       setDocenteLoaded(true);
       showToast('success', 'Docente cargado correctamente');
@@ -484,21 +649,14 @@ export function ActualizarDocenteModal({
   };
 
   // Al abrir el modal y tener documento + combos cargados, buscarmos automáticamente
- useEffect(() => {
-  if (
-    open &&
-    numeroDocumento &&
-    !docenteLoaded &&
-    !searching
-  ) {
-    // 🔹 Apenas se abre el modal y tenemos documento, buscamos al docente
-    handleBuscarDocente(numeroDocumento);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [open, numeroDocumento, docenteLoaded, searching]);
+  useEffect(() => {
+    if (open && numeroDocumento && !docenteLoaded && !searching) {
+      handleBuscarDocente(numeroDocumento);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, numeroDocumento, docenteLoaded, searching]);
 
-  // 🔹 Cuando ya tengo ubicaciones y los datos del docente cargados,
-  // sincronizo los combos (país, departamento, municipio, secretaría)
+  // Sincronizar combos cuando ya tengo ubicaciones + datos del docente
   useEffect(() => {
     if (!open || !ubicacionLoaded || !docenteLoaded) return;
 
@@ -532,10 +690,10 @@ export function ActualizarDocenteModal({
       if (sec) {
         const secId = String(sec.id);
         setSelectedSecretariaId(secId);
-        // Si quieres filtrar por municipio también, puedes pasar el código aquí
         fetchInstituciones(secId, undefined);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
     ubicacionLoaded,
@@ -553,7 +711,6 @@ export function ActualizarDocenteModal({
     selectedMunicipio,
     selectedSecretariaId,
   ]);
-
 
   const handleActualizarDatos = async () => {
     if (saving) return;
@@ -607,10 +764,9 @@ export function ActualizarDocenteModal({
       }
 
       showToast('success', 'Datos del docente actualizados correctamente');
-      if (onUpdate) {        // 👈 AQUÍ YA EXISTE LA PROP Y SE USA BIEN
+      if (onUpdate) {
         onUpdate();
       }
-      // Opcional: cerrar automáticamente después de un momento
       setTimeout(() => {
         onClose();
       }, 1200);
@@ -1078,17 +1234,20 @@ export function ActualizarDocenteModal({
                       !selectedSecretariaId
                         ? 'Seleccione primero una secretaría'
                         : loadingInstituciones
-                        ? 'Cargando instituciones…'
-                        : 'Seleccione institución…'
+                        ? 'Buscando instituciones…'
+                        : 'Empiece a escribir para buscar…'
                     }
-                    disabled={!selectedSecretariaId || loadingInstituciones}
+                    disabled={!selectedSecretariaId}
+                    onSearch={handleSearchInstitucion}
+                    isLoading={loadingInstituciones}
+                    minSearchLength={3}
                     onChange={(newValue) => {
                       const inst = instituciones.find(
                         (i) => i.nombre === newValue,
                       );
                       setForm((prev) => ({
                         ...prev,
-                        institucionLabora: inst?.nombre ?? '',
+                        institucionLabora: inst?.nombre ?? newValue,
                       }));
                     }}
                   />

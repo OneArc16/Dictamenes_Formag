@@ -170,6 +170,65 @@ function DocenteModal({ open, onClose }: ModalProps) {
     setToast({ type, message });
   };
 
+    // 🔎 Búsqueda async de instituciones (autocomplete)
+  const handleSearchInstitucion = async (term: string) => {
+    // Si no hay secretaría, no buscamos (para acotar resultados)
+    if (!selectedSecretariaId) {
+      setInstituciones([]);
+      return;
+    }
+
+    // El SearchableSelect ya garantiza min 3 caracteres, pero por si acaso:
+    if (!term || term.length < 3) {
+      setInstituciones([]);
+      return;
+    }
+
+    try {
+      setLoadingInstituciones(true);
+
+      const params = new URLSearchParams();
+      params.set('q', term);
+      params.set('secretariaId', selectedSecretariaId);
+      if (selectedMunicipio) {
+        params.set('municipio', selectedMunicipio);
+      }
+
+      const res = await fetch(
+        `/api/instituciones/search?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error buscando instituciones');
+        setInstituciones([]);
+        return;
+      }
+
+      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
+        (i: any) => ({
+          id: i.id,
+          nombre: i.nombre,
+          idDepartamento: i.idDepartamento ?? null,
+          idMunicipio: i.idMunicipio ?? null,
+          idSecretaria: i.idSecretaria ?? null,
+        }),
+      );
+
+      setInstituciones(mapped);
+    } catch (err) {
+      console.error('Error buscando instituciones:', err);
+      setInstituciones([]);
+    } finally {
+      setLoadingInstituciones(false);
+    }
+  };
+
   // Auto-cerrar toast
   useEffect(() => {
     if (!toast) return;
@@ -1262,33 +1321,34 @@ async function fetchMunicipios(departamentoCodigo: string) {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Institución donde labora
                   </label>
-                  <SearchableSelect
-                    value={form.institucionLabora}
-                    options={instituciones.map((i) => ({
-                      value: i.nombre,
-                      label: i.nombre,
-                    }))}
-                    placeholder={
-                      !selectedSecretariaId
-                        ? 'Seleccione primero una secretaría'
-                        : loadingInstituciones
-                        ? 'Cargando instituciones…'
-                        : 'Seleccione institución…'
-                    }
-                    disabled={!selectedSecretariaId || loadingInstituciones}
-                    onChange={(newValue) => {
-                      const inst = instituciones.find(
-                        (i) => i.nombre === newValue,
-                      );
-                      setForm((prev) => ({
-                        ...prev,
-                        institucionLabora: inst?.nombre ?? '',
-                      }));
-                    }}
-                  />
+                    <SearchableSelect
+                      value={form.institucionLabora}
+                      options={instituciones.map((i) => ({
+                        value: i.nombre, // usamos el nombre como valor
+                        label: i.nombre,
+                      }))}
+                      placeholder={
+                        !selectedSecretariaId
+                          ? 'Seleccione primero una secretaría'
+                          : loadingInstituciones
+                          ? 'Buscando instituciones…'
+                          : 'Empiece a escribir para buscar…'
+                      }
+                      disabled={!selectedSecretariaId}
+                      /** 🔹 Aquí activamos el modo autocomplete async */
+                      onSearch={handleSearchInstitucion}
+                      isLoading={loadingInstituciones}
+                      minSearchLength={3}
+                      onChange={(newValue) => {
+                        const inst = instituciones.find((i) => i.nombre === newValue);
+                        setForm((prev) => ({
+                          ...prev,
+                          institucionLabora: inst?.nombre ?? newValue,
+                        }));
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-
               {/* Forma de vinculación + Estado civil */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
