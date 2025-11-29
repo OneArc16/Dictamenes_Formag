@@ -4,14 +4,13 @@ import React, { useEffect, useState } from 'react';
 
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
 
-
 const STORAGE_KEY = 'dictamy_registro_docente';
 
 type DocenteForm = {
   tipoDocumento: string;
   numeroDocumento: string;
   fechaNacimiento: string;
-  edad: string; // 🔹 edad calculada automáticamente
+  edad: string;
   primerNombre: string;
   segundoNombre: string;
   primerApellido: string;
@@ -24,11 +23,11 @@ type DocenteForm = {
   zona: string;
   telefono: string;
   pais: string;
-  codigoEps: string; // 🔹 código EPS
-  categoria: string; // 🔹 contributivo / especial
+  codigoEps: string;
+  categoria: string;
   secretariaLabora: string;
-  formaVinculacion: string; // 🔹 propiedad / provisionalidad
-  estadoCivil: string; // 🔹 estado civil
+  formaVinculacion: string;
+  estadoCivil: string;
   gradoEscalafon: string;
   nivelEscalafon: string;
   institucionLabora: string;
@@ -141,11 +140,15 @@ function DocenteModal({ open, onClose }: ModalProps) {
   const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioOption[]>([]);
   const [barrios, setBarrios] = useState<BarrioOption[]>([]);
-  const [epsList, setEpsList] = useState<EpsOption[]>([]); // 🔹 EPS
+  const [epsList, setEpsList] = useState<EpsOption[]>([]);
 
   const [selectedPaisCodigo, setSelectedPaisCodigo] = useState('');
   const [selectedDepartamento, setSelectedDepartamento] = useState('');
   const [selectedMunicipio, setSelectedMunicipio] = useState('');
+
+  const [loadingDepartamentos, setLoadingDepartamentos] = useState(false);
+  const [loadingMunicipios, setLoadingMunicipios] = useState(false);
+  const [loadingBarrios, setLoadingBarrios] = useState(false);
 
   const [ubicacionLoaded, setUbicacionLoaded] = useState(false);
 
@@ -218,6 +221,144 @@ function DocenteModal({ open, onClose }: ModalProps) {
     );
   }, [form.fechaNacimiento]);
 
+  // ==========================
+  // Cascada: deptos, municipios, barrios
+  // ==========================
+  async function fetchBarrios(municipioCodigo: string) {
+    if (!municipioCodigo) {
+      setBarrios([]);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.set('municipio', municipioCodigo);
+
+      const res = await fetch(
+        `/api/ubicacion/barrios?${params.toString()}`,
+        { method: 'GET', credentials: 'include' },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error cargando barrios');
+        setBarrios([]);
+        return;
+      }
+
+      setBarrios(data.barrios ?? []);
+    } catch (err) {
+      console.error('Error cargando barrios', err);
+      setBarrios([]);
+    }
+  }
+
+
+
+async function fetchMunicipios(departamentoCodigo: string) {
+  // Si no hay departamento, dejamos vacía la lista y salimos
+  if (!departamentoCodigo) {
+    setMunicipios([]);
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    params.set('departamento', departamentoCodigo);
+
+    const res = await fetch(
+      `/api/ubicacion/municipios?${params.toString()}`,
+      { method: 'GET', credentials: 'include' },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data?.ok) {
+      console.error(data?.error || 'Error cargando municipios');
+      setMunicipios([]);
+      return;
+    }
+
+    setMunicipios(data.municipios ?? []);
+  } catch (err) {
+    console.error('Error cargando municipios', err);
+    setMunicipios([]);
+  }
+}
+
+  async function fetchDepartamentos(
+    paisCodigo: string,
+    opts?: {
+      departamentoNombre?: string;
+      municipioNombre?: string;
+      barrioNombre?: string;
+    },
+  ) {
+    if (!paisCodigo) {
+      setDepartamentos([]);
+      setMunicipios([]);
+      setBarrios([]);
+      setSelectedDepartamento('');
+      setSelectedMunicipio('');
+      return;
+    }
+
+    try {
+      setLoadingDepartamentos(true);
+
+      const res = await fetch(
+        `/api/ubicacion/departamentos?paisCodigo=${encodeURIComponent(
+          paisCodigo,
+        )}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        console.error(data?.error || 'Error cargando departamentos');
+        setDepartamentos([]);
+        return;
+      }
+
+      const mapped: DepartamentoOption[] = (data.departamentos ?? []).map(
+        (d: any) => ({
+          codigo: d.codigo,
+          nombre: d.nombre,
+        }),
+      );
+
+      setDepartamentos(mapped);
+
+      // Preseleccionar depto/mun/barrio si venían del docente
+      if (opts?.departamentoNombre) {
+        const dep = mapped.find(
+          (d) => d.nombre === opts.departamentoNombre,
+        );
+        if (dep) {
+          setSelectedDepartamento(dep.codigo);
+          setForm((prev) => ({
+            ...prev,
+            departamento: dep.nombre,
+          }));
+          await fetchMunicipios(dep.codigo, {
+            municipioNombre: opts.municipioNombre,
+            barrioNombre: opts.barrioNombre,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando departamentos', err);
+      setDepartamentos([]);
+    } finally {
+      setLoadingDepartamentos(false);
+    }
+  }
+
   // ⭐ Cargar instituciones según secretaría (y opcional municipio)
   const fetchInstituciones = async (
     secretariaId?: string,
@@ -272,7 +413,7 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   };
 
-  // Cargar combos desde la BD (solo 1 vez, cuando se abre el modal)
+  // Cargar combos "ligeros" desde la BD (paises, EPS, secretarias) solo 1 vez
   useEffect(() => {
     if (!open || ubicacionLoaded) return;
 
@@ -295,26 +436,6 @@ function DocenteModal({ open, onClose }: ModalProps) {
         const paisesMapped: PaisOption[] = (data.paises ?? []).map(
           (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
         );
-        const departamentosMapped: DepartamentoOption[] = (
-          data.departamentos ?? []
-        ).map((d: any) => ({
-          codigo: d.codigo,
-          nombre: d.nombre,
-        }));
-        const municipiosMapped: MunicipioOption[] = (
-          data.municipios ?? []
-        ).map((m: any) => ({
-          codigo: m.codigo,
-          nombre: m.nombre,
-          codigoDepartamento: m.codigoDepartamento,
-        }));
-        const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
-          (b: any) => ({
-            id: b.id,
-            nombre: b.nombre,
-            codigoMunicipio: b.codigoMunicipio,
-          }),
-        );
 
         const secretariasMapped: SecretariaOption[] = (
           data.secretarias ?? []
@@ -329,22 +450,23 @@ function DocenteModal({ open, onClose }: ModalProps) {
         }));
 
         setPaises(paisesMapped);
-        setDepartamentos(departamentosMapped);
-        setMunicipios(municipiosMapped);
-        setBarrios(barriosMapped);
         setSecretarias(secretariasMapped);
         setEpsList(epsMapped);
         setUbicacionLoaded(true);
 
-        // Sincronizar valores actuales del formulario con los combos
+        // ======================
+        // País por defecto / del docente
+        // ======================
+        let paisCodigoSeleccionado = selectedPaisCodigo;
+
         if (form.pais) {
           const p = paisesMapped.find((x) => x.nombre === form.pais);
-          if (p) setSelectedPaisCodigo(p.codigo);
+          if (p) paisCodigoSeleccionado = p.codigo;
         } else {
           const defaultPais =
             paisesMapped.find((x) => x.codigo === '057') ?? paisesMapped[0];
           if (defaultPais) {
-            setSelectedPaisCodigo(defaultPais.codigo);
+            paisCodigoSeleccionado = defaultPais.codigo;
             setForm((prev) => ({
               ...prev,
               pais: defaultPais.nombre,
@@ -352,16 +474,14 @@ function DocenteModal({ open, onClose }: ModalProps) {
           }
         }
 
-        if (form.departamento) {
-          const d = departamentosMapped.find(
-            (x) => x.nombre === form.departamento,
-          );
-          if (d) setSelectedDepartamento(d.codigo);
-        }
-
-        if (form.municipio) {
-          const m = municipiosMapped.find((x) => x.nombre === form.municipio);
-          if (m) setSelectedMunicipio(m.codigo);
+        if (paisCodigoSeleccionado) {
+          setSelectedPaisCodigo(paisCodigoSeleccionado);
+          // Cargar departamentos (y, si ya hay info del docente, también mun/barrio)
+          await fetchDepartamentos(paisCodigoSeleccionado, {
+            departamentoNombre: form.departamento || undefined,
+            municipioNombre: form.municipio || undefined,
+            barrioNombre: form.barrio || undefined,
+          });
         }
 
         // Secretaría previamente guardada
@@ -372,7 +492,8 @@ function DocenteModal({ open, onClose }: ModalProps) {
           if (sec) {
             const secId = String(sec.id);
             setSelectedSecretariaId(secId);
-            fetchInstituciones(secId, form.municipio || undefined);
+            // Por ahora cargamos instituciones solo por secretaría
+            fetchInstituciones(secId);
           }
         }
       } catch (err) {
@@ -405,6 +526,9 @@ function DocenteModal({ open, onClose }: ModalProps) {
     setSelectedDepartamento('');
     setSelectedMunicipio('');
     setSelectedSecretariaId('');
+    setDepartamentos([]);
+    setMunicipios([]);
+    setBarrios([]);
     setInstituciones([]);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -498,25 +622,18 @@ function DocenteModal({ open, onClose }: ModalProps) {
           d.institucionEducativa ?? form.institucionLabora,
       };
 
-      // Sincronizar combos si ya tenemos data cargada
-      if (paises.length) {
+      setForm(updated);
+
+      // Sincronizar combos con el docente usando la nueva cascada
+      if (paises.length && updated.pais) {
         const p = paises.find((x) => x.nombre === updated.pais);
-        if (p) setSelectedPaisCodigo(p.codigo);
-      }
-
-      if (departamentos.length && updated.departamento) {
-        const dep = departamentos.find(
-          (x) => x.nombre === updated.departamento,
-        );
-        if (dep) {
-          setSelectedDepartamento(dep.codigo);
-        }
-      }
-
-      if (municipios.length && updated.municipio) {
-        const mun = municipios.find((x) => x.nombre === updated.municipio);
-        if (mun) {
-          setSelectedMunicipio(mun.codigo);
+        if (p) {
+          setSelectedPaisCodigo(p.codigo);
+          await fetchDepartamentos(p.codigo, {
+            departamentoNombre: updated.departamento || undefined,
+            municipioNombre: updated.municipio || undefined,
+            barrioNombre: updated.barrio || undefined,
+          });
         }
       }
 
@@ -527,11 +644,10 @@ function DocenteModal({ open, onClose }: ModalProps) {
         if (sec) {
           const secId = String(sec.id);
           setSelectedSecretariaId(secId);
-          fetchInstituciones(secId, updated.municipio || undefined);
+          fetchInstituciones(secId);
         }
       }
 
-      setForm(updated);
       showToast('success', 'Docente cargado correctamente');
     } catch (err) {
       console.error('Error buscando docente:', err);
@@ -541,162 +657,163 @@ function DocenteModal({ open, onClose }: ModalProps) {
     }
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (saving) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
 
-  // 🔎 Validación simplificada + debug en consola
-  const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
-    { key: 'tipoDocumento', label: 'Tipo de documento' },
-    { key: 'numeroDocumento', label: 'Número de documento' },
-    { key: 'primerNombre', label: 'Primer nombre' },
-    { key: 'primerApellido', label: 'Primer apellido' },
-    { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
-  ];
+    // 🔎 Validación simplificada + debug en consola
+    const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
+      { key: 'tipoDocumento', label: 'Tipo de documento' },
+      { key: 'numeroDocumento', label: 'Número de documento' },
+      { key: 'primerNombre', label: 'Primer nombre' },
+      { key: 'primerApellido', label: 'Primer apellido' },
+      { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
+    ];
 
-  const faltantes = camposObligatorios.filter(({ key }) => {
-    const valor = (form[key] ?? '').toString().trim();
-    return !valor;
-  });
-
-  if (faltantes.length > 0) {
-    const nombres = faltantes.map((f) => f.label).join(', ');
-    console.warn('Campos obligatorios faltantes:', nombres, {
-      formActual: form,
-    });
-    showToast('error', `Faltan datos del formulario: ${nombres}`);
-    return;
-  }
-
-  setSaving(true);
-
-  try {
-    // 1️⃣ Guardar / actualizar DOCENTE
-    const resDocente = await fetch('/api/docentes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ form }),
+    const faltantes = camposObligatorios.filter(({ key }) => {
+      const valor = (form[key] ?? '').toString().trim();
+      return !valor;
     });
 
-
-    const dataDocente = await resDocente.json();
-
-    if (!resDocente.ok || !dataDocente?.ok) {
-      console.error('Error guardando docente', dataDocente);
-      showToast('error', dataDocente?.error ?? 'Error guardando docente');
+    if (faltantes.length > 0) {
+      const nombres = faltantes.map((f) => f.label).join(', ');
+      console.warn('Campos obligatorios faltantes:', nombres, {
+        formActual: form,
+      });
+      showToast('error', `Faltan datos del formulario: ${nombres}`);
       return;
     }
 
-    const usuarioId: number | undefined = dataDocente.usuario?.id;
-    if (!usuarioId) {
-      console.error(
-        'No llegó usuario.id en la respuesta de /api/docentes',
-        dataDocente,
+    setSaving(true);
+
+    try {
+      // 1️⃣ Guardar / actualizar DOCENTE
+      const resDocente = await fetch('/api/docentes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ form }),
+      });
+
+      const dataDocente = await resDocente.json();
+
+      if (!resDocente.ok || !dataDocente?.ok) {
+        console.error('Error guardando docente', dataDocente);
+        showToast('error', dataDocente?.error ?? 'Error guardando docente');
+        return;
+      }
+
+      const usuarioId: number | undefined = dataDocente.usuario?.id;
+      if (!usuarioId) {
+        console.error(
+          'No llegó usuario.id en la respuesta de /api/docentes',
+          dataDocente,
+        );
+        showToast('error', 'No se pudo obtener el ID del docente');
+        return;
+      }
+
+      // 2️⃣ Crear DICTAMEN para ese docente
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const fechaDictamen = `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
+
+      const resDictamen = await fetch('/api/dictamenes/medico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          usuarioId,
+          fechaDictamen,
+          procedimientoPcl: 'A', // por ahora A por defecto
+        }),
+      });
+
+      const dataDictamen = await resDictamen.json();
+
+      if (!resDictamen.ok || !dataDictamen?.ok) {
+        console.error('Error creando dictamen', dataDictamen);
+        showToast('error', dataDictamen?.error ?? 'Error creando dictamen');
+        return;
+      }
+
+      // 3️⃣ Todo OK -> mostramos toast y luego cerramos el modal
+      showToast('success', 'Docente y dictamen registrados correctamente');
+
+      // Limpiar formulario
+      handleLimpiar();
+
+      // Pequeño delay para que se vea el toast antes de cerrar
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch (err) {
+      console.error('Error guardando docente / dictamen:', err);
+      showToast('error', 'Error guardando docente / dictamen');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleActualizarDatos = async () => {
+    if (saving) return;
+
+    // Usamos la misma validación básica
+    const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
+      { key: 'tipoDocumento', label: 'Tipo de documento' },
+      { key: 'numeroDocumento', label: 'Número de documento' },
+      { key: 'primerNombre', label: 'Primer nombre' },
+      { key: 'primerApellido', label: 'Primer apellido' },
+      { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
+    ];
+
+    const faltantes = camposObligatorios.filter(({ key }) => {
+      const valor = (form[key] ?? '').toString().trim();
+      return !valor;
+    });
+
+    if (faltantes.length > 0) {
+      const nombres = faltantes.map((f) => f.label).join(', ');
+      console.warn(
+        'Campos obligatorios faltantes (actualizar):',
+        nombres,
+        { formActual: form },
       );
-      showToast('error', 'No se pudo obtener el ID del docente');
+      showToast('error', `Faltan datos del formulario: ${nombres}`);
       return;
     }
 
-    // 2️⃣ Crear DICTAMEN para ese docente
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const fechaDictamen = `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
+    setSaving(true);
 
-    const resDictamen = await fetch('/api/dictamenes/medico', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        usuarioId,
-        fechaDictamen,
-        procedimientoPcl: 'A', // por ahora A por defecto
-      }),
-    });
+    try {
+      const resDocente = await fetch('/api/docentes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ form }),
+      });
 
-    const dataDictamen = await resDictamen.json();
+      const dataDocente = await resDocente.json();
 
-    if (!resDictamen.ok || !dataDictamen?.ok) {
-      console.error('Error creando dictamen', dataDictamen);
-      showToast('error', dataDictamen?.error ?? 'Error creando dictamen');
-      return;
+      if (!resDocente.ok || !dataDocente?.ok) {
+        console.error('Error actualizando docente', dataDocente);
+        showToast(
+          'error',
+          dataDocente?.error ?? 'Error actualizando docente',
+        );
+        return;
+      }
+
+      showToast('success', 'Datos del docente actualizados correctamente');
+    } catch (err) {
+      console.error('Error actualizando datos del docente:', err);
+      showToast('error', 'Error actualizando datos del docente');
+    } finally {
+      setSaving(false);
     }
-
-    // 3️⃣ Todo OK -> mostramos toast y luego cerramos el modal
-    showToast('success', 'Docente y dictamen registrados correctamente');
-
-    // Limpiar formulario
-    handleLimpiar();
-
-    // Pequeño delay para que se vea el toast antes de cerrar
-    setTimeout(() => {
-      onClose();
-    }, 1200);
-  } catch (err) {
-    console.error('Error guardando docente / dictamen:', err);
-    showToast('error', 'Error guardando docente / dictamen');
-  } finally {
-    setSaving(false);
-  }
-};
-
-const handleActualizarDatos = async () => {
-  if (saving) return;
-
-  // Usamos la misma validación básica
-  const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
-    { key: 'tipoDocumento', label: 'Tipo de documento' },
-    { key: 'numeroDocumento', label: 'Número de documento' },
-    { key: 'primerNombre', label: 'Primer nombre' },
-    { key: 'primerApellido', label: 'Primer apellido' },
-    { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
-  ];
-
-  const faltantes = camposObligatorios.filter(({ key }) => {
-    const valor = (form[key] ?? '').toString().trim();
-    return !valor;
-  });
-
-  if (faltantes.length > 0) {
-    const nombres = faltantes.map((f) => f.label).join(', ');
-    console.warn(
-      'Campos obligatorios faltantes (actualizar):',
-      nombres,
-      { formActual: form },
-    );
-    showToast('error', `Faltan datos del formulario: ${nombres}`);
-    return;
-  }
-
-  setSaving(true);
-
-  try {
-    const resDocente = await fetch('/api/docentes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ form }),
-    });
-
-
-    const dataDocente = await resDocente.json();
-
-    if (!resDocente.ok || !dataDocente?.ok) {
-      console.error('Error actualizando docente', dataDocente);
-      showToast('error', dataDocente?.error ?? 'Error actualizando docente');
-      return;
-    }
-
-    showToast('success', 'Datos del docente actualizados correctamente');
-  } catch (err) {
-    console.error('Error actualizando datos del docente:', err);
-    showToast('error', 'Error actualizando datos del docente');
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   if (!open) return null;
 
@@ -718,8 +835,7 @@ const handleActualizarDatos = async () => {
             type="button"
             onClick={onClose}
             className="text-sm text-gray-500 hover:text-gray-700"
-          >
-          </button>
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -905,6 +1021,7 @@ const handleActualizarDatos = async () => {
                     onChange={(newCodigo) => {
                       setSelectedDepartamento(newCodigo);
                       setSelectedMunicipio('');
+                      setBarrios([]); // 👈 limpiamos barrios porque cambia el departamento
 
                       const dep = departamentos.find((d) => d.codigo === newCodigo);
 
@@ -914,6 +1031,8 @@ const handleActualizarDatos = async () => {
                         municipio: '',
                         barrio: '',
                       }));
+
+                      fetchMunicipios(newCodigo);
 
                       if (selectedSecretariaId) {
                         fetchInstituciones(selectedSecretariaId);
@@ -925,55 +1044,62 @@ const handleActualizarDatos = async () => {
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Ciudad / Municipio
                   </label>
-                  <SearchableSelect
-                    value={selectedMunicipio}
-                    options={municipiosFiltrados.map((m) => ({
-                      value: m.codigo,
-                      label: m.nombre,
-                    }))}
-                    placeholder="Seleccione municipio…"
-                    onChange={(newCodigo) => {
-                      setSelectedMunicipio(newCodigo);
-
-                      const muni = municipiosFiltrados.find(
-                        (m) => m.codigo === newCodigo,
-                      );
-
-                      setForm((prev) => ({
-                        ...prev,
-                        municipio: muni?.nombre ?? '',
-                        barrio: '',
-                      }));
-
-                      if (selectedSecretariaId) {
-                        fetchInstituciones(
-                          selectedSecretariaId,
-                          newCodigo || undefined,
-                        );
-                      }
-                    }}
-                  />
-                </div>
-                  <div>
-                    <label className="block mb-1 text-xs font-medium text-gray-700">
-                      Barrio / Vereda
-                    </label>
                     <SearchableSelect
-                      value={form.barrio}
-                      options={barriosFiltrados.map((b) => ({
-                        value: b.nombre,
-                        label: b.nombre,
+                      value={selectedMunicipio}
+                      options={municipiosFiltrados.map((m) => ({
+                        value: m.codigo,
+                        label: m.nombre,
                       }))}
-                      placeholder="Seleccione barrio…"
-                      onChange={(newBarrio) =>
+                      placeholder="Seleccione municipio…"
+                      onChange={(newCodigo) => {
+                        setSelectedMunicipio(newCodigo);
+
+                        const muni = municipiosFiltrados.find(
+                          (m) => m.codigo === newCodigo,
+                        );
+
                         setForm((prev) => ({
                           ...prev,
-                          barrio: newBarrio,
-                        }))
-                      }
+                          municipio: muni?.nombre ?? '',
+                          barrio: '',
+                        }));
+
+                        // 👇 nueva llamada para cargar barrios
+                        fetchBarrios(newCodigo);
+
+                        if (selectedSecretariaId) {
+                          fetchInstituciones(
+                            selectedSecretariaId,
+                            newCodigo || undefined,
+                          );
+                        }
+                      }}
                     />
                   </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Barrio / Vereda
+                  </label>
+                  <SearchableSelect
+                    value={form.barrio}
+                    options={barriosFiltrados.map((b) => ({
+                      value: b.nombre,
+                      label: b.nombre,
+                    }))}
+                    placeholder={
+                      loadingBarrios
+                        ? 'Cargando barrios…'
+                        : 'Seleccione barrio…'
+                    }
+                    onChange={(newBarrio) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        barrio: newBarrio,
+                      }))
+                    }
+                  />
                 </div>
+              </div>
 
               {/* Zona, teléfono, país */}
               <div className="grid gap-4 md:grid-cols-3">
@@ -1008,29 +1134,42 @@ const handleActualizarDatos = async () => {
                     País
                   </label>
                   <SearchableSelect
-                    value={selectedPaisCodigo} // guardamos el CÓDIGO del país (057, VEN, etc.)
+                    value={selectedPaisCodigo}
                     options={paises.map((p) => ({
                       value: p.codigo,
                       label: p.nombre,
                     }))}
                     placeholder="Seleccione país…"
-                    onChange={(newCodigo) => {
+                    onChange={async (newCodigo) => {
                       setSelectedPaisCodigo(newCodigo);
 
-                      const pais = paises.find((p) => p.codigo === newCodigo);
+                      const pais = paises.find(
+                        (p) => p.codigo === newCodigo,
+                      );
 
                       setForm((prev) => ({
                         ...prev,
-                        // en el form seguimos guardando el NOMBRE ("COLOMBIA"),
-                        // como veníamos haciendo antes
                         pais: pais?.nombre ?? '',
+                        departamento: '',
+                        municipio: '',
+                        barrio: '',
                       }));
+
+                      setSelectedDepartamento('');
+                      setSelectedMunicipio('');
+                      setDepartamentos([]);
+                      setMunicipios([]);
+                      setBarrios([]);
+
+                      if (newCodigo) {
+                        await fetchDepartamentos(newCodigo);
+                      }
                     }}
                   />
                 </div>
               </div>
 
-              {/* Aseguradora (EPS) + Categoría (para aprovechar espacio) */}
+              {/* Aseguradora (EPS) + Categoría */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="md:col-span-2">
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -1089,7 +1228,7 @@ const handleActualizarDatos = async () => {
                     Secretaría donde labora
                   </label>
                   <SearchableSelect
-                    value={selectedSecretariaId} // aquí guardamos el ID (string)
+                    value={selectedSecretariaId}
                     options={secretarias.map((s) => ({
                       value: String(s.id),
                       label: s.nombre,
@@ -1109,40 +1248,45 @@ const handleActualizarDatos = async () => {
                       }));
 
                       if (newId) {
-                        fetchInstituciones(newId, selectedMunicipio || undefined);
+                        fetchInstituciones(
+                          newId,
+                          selectedMunicipio || undefined,
+                        );
                       } else {
                         setInstituciones([]);
                       }
                     }}
                   />
                 </div>
-                  <div>
-                    <label className="block mb-1 text-xs font-medium text-gray-700">
-                      Institución donde labora
-                    </label>
-                    <SearchableSelect
-                      value={form.institucionLabora}
-                      options={instituciones.map((i) => ({
-                        value: i.nombre, // usamos el nombre como valor
-                        label: i.nombre,
-                      }))}
-                      placeholder={
-                        !selectedSecretariaId
-                          ? 'Seleccione primero una secretaría'
-                          : loadingInstituciones
-                          ? 'Cargando instituciones…'
-                          : 'Seleccione institución…'
-                      }
-                      disabled={!selectedSecretariaId || loadingInstituciones}
-                      onChange={(newValue) => {
-                        const inst = instituciones.find((i) => i.nombre === newValue);
-                        setForm((prev) => ({
-                          ...prev,
-                          institucionLabora: inst?.nombre ?? '',
-                        }));
-                      }}
-                    />
-                  </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Institución donde labora
+                  </label>
+                  <SearchableSelect
+                    value={form.institucionLabora}
+                    options={instituciones.map((i) => ({
+                      value: i.nombre,
+                      label: i.nombre,
+                    }))}
+                    placeholder={
+                      !selectedSecretariaId
+                        ? 'Seleccione primero una secretaría'
+                        : loadingInstituciones
+                        ? 'Cargando instituciones…'
+                        : 'Seleccione institución…'
+                    }
+                    disabled={!selectedSecretariaId || loadingInstituciones}
+                    onChange={(newValue) => {
+                      const inst = instituciones.find(
+                        (i) => i.nombre === newValue,
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        institucionLabora: inst?.nombre ?? '',
+                      }));
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Forma de vinculación + Estado civil */}
@@ -1219,41 +1363,40 @@ const handleActualizarDatos = async () => {
           </section>
 
           {/* Botones inferiores */}
-<div className="flex items-center justify-between pt-2">
-  <button
-    type="button"
-    onClick={handleLimpiar}
-    className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-  >
-    Limpiar
-  </button>
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={handleLimpiar}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Limpiar
+            </button>
 
-  <div className="flex gap-2">
-    <button
-      type="button"
-      onClick={onClose}
-      className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-    >
-      Cancelar
-    </button>
-    <button
-      type="button"
-      onClick={handleActualizarDatos}
-      disabled={saving}
-      className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md text-slate-700 hover:bg-gray-50 disabled:opacity-60"
-    >
-      {saving ? 'Guardando…' : 'Actualizar datos'}
-    </button>
-    <button
-      type="submit"
-      disabled={saving}
-      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
-    >
-      {saving ? 'Guardando…' : 'Registrar dictamen'}
-    </button>
-  </div>
-</div>
-
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleActualizarDatos}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md text-slate-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {saving ? 'Guardando…' : 'Actualizar datos'}
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+              >
+                {saving ? 'Guardando…' : 'Registrar dictamen'}
+              </button>
+            </div>
+          </div>
         </form>
 
         {/* Toast de mensajes */}
@@ -1286,7 +1429,6 @@ export function RegistrarDocenteButton() {
   );
 }
 
-// 🔹 Exportar el componente que usas en page.tsx
 export function RegistrarDocenteModal(props: ModalProps) {
   return <DocenteModal {...props} />;
 }
