@@ -14,11 +14,8 @@ export type SearchableSelectProps = {
   placeholder?: string;
   disabled?: boolean;
 
-  /** Opcional: búsqueda async en el servidor */
   onSearch?: (term: string) => void;
-  /** Mínimo de caracteres para disparar onSearch (por defecto 3) */
   minSearchLength?: number;
-  /** Mostrar "Buscando..." mientras el padre carga datos */
   isLoading?: boolean;
 };
 
@@ -38,20 +35,17 @@ export function SearchableSelect({
   const selectedOption =
     options.find((o) => o.value === value) ?? null;
 
-  /* 🔹 Mantener el input sincronizado con la opción seleccionada
-     pero SOLO cuando cambia el value externo */
+  // Sincronizar input con el value externo
   useEffect(() => {
     if (selectedOption) {
-      // Hay algo seleccionado -> mostramos su label
       setQuery(selectedOption.label);
     } else if (!value) {
-      // Value vacío -> limpiamos el input
       setQuery('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, selectedOption?.label, selectedOption?.value]);
 
-  /* 🔍 Filtro en cliente cuando NO usamos búsqueda async */
+  // Filtro en cliente si NO hay búsqueda async
   const clientFilteredOptions =
     onSearch
       ? options
@@ -61,8 +55,7 @@ export function SearchableSelect({
         )
       : options;
 
-  /* 🔄 Disparar onSearch (autocomplete) con debounce,
-     solo cuando cambia el texto que escribe el usuario */
+  // Disparar onSearch con debounce
   useEffect(() => {
     if (!onSearch) return;
     if (query.length < minSearchLength) return;
@@ -72,18 +65,16 @@ export function SearchableSelect({
     }, 300);
 
     return () => clearTimeout(id);
-    // 🔸 NO ponemos onSearch aquí para evitar llamar de nuevo
-    // con el mismo término si el padre recrea la función.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, minSearchLength]);
 
   const handleSelect = (opt: SearchableOption) => {
-    onChange(opt.value);      // avisamos al padre
+    onChange(opt.value);
     setOpen(false);
-    setQuery(opt.label);      // dejamos visible el nombre elegido
+    setQuery(opt.label);
   };
 
   const handleBlur = () => {
-    // Solo cerramos el dropdown, no tocamos el texto
     setTimeout(() => {
       setOpen(false);
     }, 150);
@@ -110,7 +101,7 @@ export function SearchableSelect({
       {open && !disabled && (
         <div className="absolute left-0 right-0 z-20 mt-1 overflow-auto bg-white border rounded-md shadow-lg max-h-56">
           {onSearch ? (
-            // 🔹 MODO ASYNC (autocomplete)
+            // 🔹 MODO ASYNC
             query.length < minSearchLength ? (
               <div className="px-3 py-2 text-xs text-slate-500">
                 Escriba al menos {minSearchLength} caracteres para buscar…
@@ -125,13 +116,13 @@ export function SearchableSelect({
               </div>
             ) : (
               <ul className="py-1 text-sm">
-                {clientFilteredOptions.map((opt) => (
-                  <li key={opt.value}>
+                {clientFilteredOptions.map((opt, idx) => (
+                  <li key={`${opt.value}-${idx}`}>
                     <button
                       type="button"
                       className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
                       onMouseDown={(e) => {
-                        e.preventDefault(); // evita perder el foco antes de seleccionar
+                        e.preventDefault();
                         handleSelect(opt);
                       }}
                     >
@@ -142,15 +133,15 @@ export function SearchableSelect({
               </ul>
             )
           ) : (
-            // 🔹 MODO NORMAL (filtrado en memoria)
+            // 🔹 MODO NORMAL
             clientFilteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-slate-500">
                 Sin opciones
               </div>
             ) : (
               <ul className="py-1 text-sm">
-                {clientFilteredOptions.map((opt) => (
-                  <li key={opt.value}>
+                {clientFilteredOptions.map((opt, idx) => (
+                  <li key={`${opt.value}-${idx}`}>
                     <button
                       type="button"
                       className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
