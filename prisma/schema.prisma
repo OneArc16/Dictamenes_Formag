@@ -29,6 +29,13 @@ enum ProcedimientoPcl {
   B
 }
 
+enum TipoDiagnostico {
+  CONFIRMADO_NUEVO
+  IMPRESION_DIAGNOSTICA
+  CONFIRMADO_REPETIDO
+}
+
+
 // Clase de limitación laboral como educador
 enum ClaseLimitacionLaboral {
   I
@@ -756,6 +763,7 @@ model DictamenDiagnostico {
   id          Int    @id @default(autoincrement())
   dictamenId  Int
   cie10Codigo String @db.VarChar(10)
+  tipo        TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
   cie10    Cie10    @relation(fields: [cie10Codigo], references: [codigo])
