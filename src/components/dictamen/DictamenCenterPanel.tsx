@@ -5,6 +5,7 @@ import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
 import TabExamenFisico from '@/components/dictamen/tabs/TabExamenFisico';
 import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
 import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
+import { useCie10Options } from '@/hooks/useCie10Options';
 
 type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
 
@@ -14,6 +15,11 @@ type DictamenCenterPanelProps = {
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
+    // ⬇️ Diagnósticos que vienen de la BD
+    diagnosticos: {
+      cie10Codigo: string;
+      tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+    }[];
   };
   procedimientoPcl: 'A' | 'B';
 };
@@ -23,6 +29,12 @@ export default function DictamenCenterPanel({
   procedimientoPcl,
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
+
+  const {
+    data: cie10Options = [],
+    isLoading: cie10Loading,
+    error: cie10Error,
+  } = useCie10Options();
 
   return (
     <div className="bg-white border shadow-sm rounded-xl">
@@ -54,6 +66,12 @@ export default function DictamenCenterPanel({
 
       {/* Contenido de pestaña */}
       <div className="p-4 text-sm">
+        {cie10Error && tab === 'DIAGNOSTICOS' && (
+          <div className="mb-3 text-[11px] text-red-600">
+            Error cargando el catálogo CIE10. Intenta recargar la página.
+          </div>
+        )}
+
         {tab === 'ANTECEDENTES' && (
           <TabAntecedentes
             dictamenId={dictamen.id}
@@ -72,11 +90,14 @@ export default function DictamenCenterPanel({
             procedimientoPcl={procedimientoPcl}
           />
         )}
-  
+
         {tab === 'DIAGNOSTICOS' && (
           <TabDiagnosticos
             dictamenId={dictamen.id}
             procedimientoPcl={procedimientoPcl}
+            cie10Options={cie10Options}
+            // ⬇️ Diagnósticos iniciales que ya existen en la BD
+            initialDiagnosticos={dictamen.diagnosticos ?? []}
           />
         )}
 

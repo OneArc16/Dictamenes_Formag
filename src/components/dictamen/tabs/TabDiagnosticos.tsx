@@ -16,11 +16,18 @@ import {
 
 type ProcedimientoPcl = 'A' | 'B';
 
+type InitialDiagnostico = {
+  cie10Codigo: string;
+  tipo: TipoDiagnosticoLocal;
+};
+
 type Props = {
   dictamenId: number;
   procedimientoPcl: ProcedimientoPcl;
   /** Lista de CIE10: value = código, label = "código - nombre" */
   cie10Options: SearchableOption[];
+  /** Diagnósticos que ya existen en la BD (para precargar) */
+  initialDiagnosticos?: InitialDiagnostico[];
 };
 
 const TIPO_DIAGNOSTICO_OPTIONS: { value: TipoDiagnosticoLocal; label: string }[] =
@@ -34,6 +41,7 @@ export default function TabDiagnosticos({
   dictamenId,
   procedimientoPcl,
   cie10Options,
+  initialDiagnosticos,
 }: Props) {
   const {
     diagnosticos,
@@ -44,11 +52,32 @@ export default function TabDiagnosticos({
 
   const [savingRemote, setSavingRemote] = useState(false);
 
-  // Al cargar por primera vez, si no hay nada en el borrador,
-  // generamos las 5 filas iniciales
+  const cie10Loaded = !!cie10Options && cie10Options.length > 0;
+
+  // Al cargar por primera vez:
+  // 1) Si hay diagnósticos en BD, los usamos.
+  // 2) Si no hay, generamos 5 filas vacías.
   useEffect(() => {
     if (!loaded) return;
     if (diagnosticos.length > 0) return;
+    if (!cie10Loaded) return; // esperamos a tener catálogo para poder armar labels
+
+    if (initialDiagnosticos && initialDiagnosticos.length > 0) {
+      const now = Date.now();
+      const rowsFromDb: DiagnosticoRowDraft[] = initialDiagnosticos.map(
+        (dx, idx) => {
+          const opt = cie10Options.find((o) => o.value === dx.cie10Codigo);
+          return {
+            id: `row-db-${idx + 1}-${now}`,
+            cie10Codigo: dx.cie10Codigo,
+            cie10Label: opt?.label ?? dx.cie10Codigo,
+            tipo: dx.tipo,
+          };
+        }
+      );
+      setDiagnosticos(rowsFromDb);
+      return;
+    }
 
     const now = Date.now();
     const iniciales: DiagnosticoRowDraft[] = Array.from({ length: 5 }).map(
@@ -59,7 +88,14 @@ export default function TabDiagnosticos({
     );
 
     setDiagnosticos(iniciales);
-  }, [loaded, diagnosticos.length, setDiagnosticos]);
+  }, [
+    loaded,
+    diagnosticos.length,
+    setDiagnosticos,
+    initialDiagnosticos,
+    cie10Loaded,
+    cie10Options,
+  ]);
 
   const handleRowChange = (
     index: number,
@@ -144,6 +180,11 @@ export default function TabDiagnosticos({
           (procedimiento {procedimientoPcl}).
         </p>
         <div className="flex items-center gap-3 text-[11px] text-slate-400">
+          {!cie10Loaded && (
+            <span className="text-amber-600">
+              Cargando catálogo CIE10…
+            </span>
+          )}
           {savingDraft && <span>Guardando borrador…</span>}
           {savingRemote && <span>Guardando en servidor…</span>}
         </div>
@@ -172,6 +213,7 @@ export default function TabDiagnosticos({
                 value={row.cie10Codigo ?? ''}
                 options={cie10Options}
                 placeholder="Buscar por código o nombre CIE10…"
+                disabled={!cie10Loaded}
                 onChange={(value, option) =>
                   handleRowChange(index, {
                     cie10Codigo: value || undefined,
@@ -232,8 +274,8 @@ export default function TabDiagnosticos({
         <button
           type="button"
           onClick={handleSaveRemote}
-          disabled={savingRemote || !loaded}
-          className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
+          disabled={savingRemote || !loaded || !cie10Loaded}
+          className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-1.5 text-[11px] font-semibold text-white.shadow-sm transition.hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
         >
           Guardar diagnósticos
         </button>
