@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-
+import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
 
 const STORAGE_KEY = 'dictamy_registro_docente';
@@ -472,97 +472,138 @@ async function fetchMunicipios(departamentoCodigo: string) {
     }
   };
 
-  // Cargar combos "ligeros" desde la BD (paises, EPS, secretarias) solo 1 vez
+// 🔹 React Query: traer opciones de ubicación (paises, deptos, municipios, barrios, secretarias, eps)
+  const {
+    data: ubicacionData,
+    isLoading: ubicacionLoading,
+    error: ubicacionError,
+  } = useQuery({
+    queryKey: ['ubicacion-opciones'],
+    queryFn: async () => {
+      const res = await fetch('/api/ubicacion/opciones', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error ?? 'Error cargando opciones de ubicación');
+      }
+
+      return data;
+    },
+    // solo cuando el modal esté abierto y aún no hayamos mapeado la info
+    enabled: open && !ubicacionLoaded,
+    staleTime: 1000 * 60 * 10, // 10 min en caché
+  });
+  
   useEffect(() => {
-    if (!open || ubicacionLoaded) return;
+  if (!open) return;
+  if (ubicacionLoaded) return;
+  if (!ubicacionData) return;
 
-    async function loadUbicacion() {
-      try {
-        const res = await fetch('/api/ubicacion/opciones', {
-          method: 'GET',
-          credentials: 'include',
-        });
+  try {
+    const data = ubicacionData;
 
-        const data = await res.json();
+    const paisesMapped: PaisOption[] = (data.paises ?? []).map(
+      (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
+    );
+    const departamentosMapped: DepartamentoOption[] = (
+      data.departamentos ?? []
+    ).map((d: any) => ({
+      codigo: d.codigo,
+      nombre: d.nombre,
+    }));
+    const municipiosMapped: MunicipioOption[] = (
+      data.municipios ?? []
+    ).map((m: any) => ({
+      codigo: m.codigo,
+      nombre: m.nombre,
+      codigoDepartamento: m.codigoDepartamento,
+    }));
+    const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
+      (b: any) => ({
+        id: b.id,
+        nombre: b.nombre,
+        codigoMunicipio: b.codigoMunicipio,
+      }),
+    );
 
-        if (!res.ok || !data.ok) {
-          console.error(
-            data.error || 'Error cargando opciones de ubicación',
-          );
-          return;
-        }
+    const secretariasMapped: SecretariaOption[] = (
+      data.secretarias ?? []
+    ).map((s: any) => ({
+      id: s.id,
+      nombre: s.nombre,
+    }));
 
-        const paisesMapped: PaisOption[] = (data.paises ?? []).map(
-          (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
-        );
+    const epsMapped: EpsOption[] = (data.eps ?? []).map((e: any) => ({
+      codigo: e.codigo,
+      nombre: e.nombre,
+    }));
 
-        const secretariasMapped: SecretariaOption[] = (
-          data.secretarias ?? []
-        ).map((s: any) => ({
-          id: s.id,
-          nombre: s.nombre,
+    // Guardar en estado local (igual que antes)
+    setPaises(paisesMapped);
+    setDepartamentos(departamentosMapped);
+    setMunicipios(municipiosMapped);
+    setBarrios(barriosMapped);
+    setSecretarias(secretariasMapped);
+    setEpsList(epsMapped);
+
+    // Marcar que ya se cargó/mapeó una vez
+    setUbicacionLoaded(true);
+
+    // 🔁 Sincronizar con lo que ya tenga el form (igual que hacías antes)
+
+    // País
+    if (form.pais) {
+      const p = paisesMapped.find((x) => x.nombre === form.pais);
+      if (p) setSelectedPaisCodigo(p.codigo);
+    } else {
+      const defaultPais =
+        paisesMapped.find((x) => x.codigo === '057') ?? paisesMapped[0];
+      if (defaultPais) {
+        setSelectedPaisCodigo(defaultPais.codigo);
+        setForm((prev) => ({
+          ...prev,
+          pais: defaultPais.nombre,
         }));
-
-        const epsMapped: EpsOption[] = (data.eps ?? []).map((e: any) => ({
-          codigo: e.codigo,
-          nombre: e.nombre,
-        }));
-
-        setPaises(paisesMapped);
-        setSecretarias(secretariasMapped);
-        setEpsList(epsMapped);
-        setUbicacionLoaded(true);
-
-        // ======================
-        // País por defecto / del docente
-        // ======================
-        let paisCodigoSeleccionado = selectedPaisCodigo;
-
-        if (form.pais) {
-          const p = paisesMapped.find((x) => x.nombre === form.pais);
-          if (p) paisCodigoSeleccionado = p.codigo;
-        } else {
-          const defaultPais =
-            paisesMapped.find((x) => x.codigo === '057') ?? paisesMapped[0];
-          if (defaultPais) {
-            paisCodigoSeleccionado = defaultPais.codigo;
-            setForm((prev) => ({
-              ...prev,
-              pais: defaultPais.nombre,
-            }));
-          }
-        }
-
-        if (paisCodigoSeleccionado) {
-          setSelectedPaisCodigo(paisCodigoSeleccionado);
-          // Cargar departamentos (y, si ya hay info del docente, también mun/barrio)
-          await fetchDepartamentos(paisCodigoSeleccionado, {
-            departamentoNombre: form.departamento || undefined,
-            municipioNombre: form.municipio || undefined,
-            barrioNombre: form.barrio || undefined,
-          });
-        }
-
-        // Secretaría previamente guardada
-        if (form.secretariaLabora) {
-          const sec = secretariasMapped.find(
-            (s) => s.nombre === form.secretariaLabora,
-          );
-          if (sec) {
-            const secId = String(sec.id);
-            setSelectedSecretariaId(secId);
-            // Por ahora cargamos instituciones solo por secretaría
-            fetchInstituciones(secId);
-          }
-        }
-      } catch (err) {
-        console.error('Error cargando opciones de ubicación', err);
       }
     }
 
-    loadUbicacion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, ubicacionLoaded]);
+    // Departamento
+    if (form.departamento) {
+      const d = departamentosMapped.find(
+        (x) => x.nombre === form.departamento,
+      );
+      if (d) setSelectedDepartamento(d.codigo);
+    }
+
+    // Municipio
+    if (form.municipio) {
+      const m = municipiosMapped.find((x) => x.nombre === form.municipio);
+      if (m) setSelectedMunicipio(m.codigo);
+    }
+
+    // Secretaría ya guardada
+    if (form.secretariaLabora) {
+      const sec = secretariasMapped.find(
+        (s) => s.nombre === form.secretariaLabora,
+      );
+      if (sec) {
+        const secId = String(sec.id);
+        setSelectedSecretariaId(secId);
+        // Si quieres, aquí puedes llamar a fetchInstituciones(secId, form.municipio || undefined)
+        fetchInstituciones(secId, form.municipio || undefined);
+      }
+    }
+  } catch (err) {
+    console.error('Error mapeando ubicacionData:', err);
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [open, ubicacionData, ubicacionLoaded]);
+
 
   // Guardar en localStorage cada vez que cambie algo
   useEffect(() => {
