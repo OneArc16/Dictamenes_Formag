@@ -3,12 +3,14 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const PUBLIC_PREFIXES = [
-  '/login', '/api/auth/login',
-  '/favicon', '/_next', '/assets'
+  '/api/auth/login', // 👈 /login ya no va aquí
+  '/favicon',
+  '/_next',
+  '/assets',
 ];
 
 function isPublic(pathname: string) {
-  return PUBLIC_PREFIXES.some(p => pathname.startsWith(p));
+  return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
 function roleToPath(role?: string) {
@@ -20,17 +22,33 @@ function roleToPath(role?: string) {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Rutas públicas "reales" (estáticos, api de login, etc.)
   if (isPublic(pathname)) return NextResponse.next();
 
   const token = req.cookies.get('auth')?.value;
-  if (!token) return NextResponse.redirect(new URL('/login', req.url));
+
+  // 🔹 Sin token:
+  //    - si NO está en /login → mandarlo a /login
+  //    - si ya está en /login → dejarlo ver el formulario
+  if (!token) {
+    if (pathname !== '/login') {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+    return NextResponse.next();
+  }
 
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
     const role = payload.role as string | undefined;
 
-    // Gates por ruta
+    // 🔹 Si YA está autenticado y va a /login, redirigir a su módulo
+    if (pathname === '/login') {
+      return NextResponse.redirect(new URL(roleToPath(role), req.url));
+    }
+
+    // 🔹 Gates por ruta protegida
     if (pathname.startsWith('/admin') && role !== 'ADMIN') {
       return NextResponse.redirect(new URL(roleToPath(role), req.url));
     }
@@ -43,7 +61,10 @@ export async function middleware(req: NextRequest) {
 
     return NextResponse.next();
   } catch {
-    return NextResponse.redirect(new URL('/login', req.url));
+    // Token inválido / expirado → limpiar cookie y mandar a login
+    const res = NextResponse.redirect(new URL('/login', req.url));
+    res.cookies.delete('auth');
+    return res;
   }
 }
 

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut, User2 } from 'lucide-react';
 import ModulesButton from './ModulesButton';
 
-type AppnavProps = {
+type AppNavProps = {
   title?: string;
   /** Ocultar o mostrar el botón de módulos */
   showModulesButton?: boolean;
@@ -14,15 +14,15 @@ type AppnavProps = {
   canSwitchModules?: boolean;
 };
 
-export default function Appnav({
+export default function AppNav({
   title = 'Módulo',
   showModulesButton = true,
   canSwitchModules = false,
-}: AppnavProps) {
+}: AppNavProps) {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('Usuario');
 
-  // Cargar nombre del usuario logueado (si existe endpoint /api/auth/me)
+  // Cargar nombre del usuario logueado desde /api/auth/me (decodifica el JWT)
   useEffect(() => {
     let active = true;
 
@@ -33,16 +33,22 @@ export default function Appnav({
           credentials: 'include',
         });
 
+        // Si el token no es válido o la ruta redirige, simplemente no hacemos nada
         if (!res.ok) return;
+
         const data = await res.json();
         if (!active) return;
 
-        // esperamos algo como { ok: true, user: { name: '...' } }
-        if (data?.user?.name && typeof data.user.name === 'string') {
+        // Esperamos algo como { ok: true, user: { name: '...' } }
+        if (
+          data?.ok &&
+          data?.user?.name &&
+          typeof data.user.name === 'string'
+        ) {
           setUserName(data.user.name);
         }
       } catch {
-        // si falla, dejamos "Usuario" y ya
+        // Si falla, dejamos "Usuario" y ya
       }
     }
 
@@ -68,7 +74,7 @@ export default function Appnav({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between max-w-6xl px-4 py-2 mx-auto">
+      <div className="flex items-center justify-between px-4 py-2 mx-auto max-w-7xl">
         {/* Lado izquierdo: título / branding */}
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center justify-center text-xs font-bold text-white bg-blue-600 rounded-full shadow-sm h-7 w-7">

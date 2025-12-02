@@ -1,23 +1,23 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';   // 👈 YA NO usamos dnaPrisma
+import { prisma } from '@/lib/prisma';
 import { signJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 const LoginSchema = z.object({
-  username: z.string().min(3),   // Documento o email
-  password: z.string().min(1),   // Empleado.contrasena
+  username: z.string().min(3), // Documento o email
+  password: z.string().min(1), // Empleado.contrasena
 });
 
 // Mapeo de perfil (id o nombre) → rol del sistema
 function perfilToRole(perfilId?: number | null, perfilNombre?: string | null) {
-  // Por ID (si los manejas como antes)
+  // Por ID
   if (perfilId === 2) return 'ADMIN';
   if (perfilId === 1) return 'ADMISIONISTA';
   if (perfilId === 3) return 'MEDICO';
 
-  // Por nombre (fallback, por si usas texto)
+  // Por nombre (fallback)
   if (perfilNombre?.toUpperCase() === 'ADMIN') return 'ADMIN';
   if (perfilNombre?.toUpperCase() === 'ADMISIONISTA') return 'ADMISIONISTA';
   if (perfilNombre?.toUpperCase() === 'MEDICO') return 'MEDICO';
@@ -31,16 +31,13 @@ export async function POST(req: Request) {
     const { username, password } = LoginSchema.parse(body);
 
     const login = username.trim();
-    const pass  = password.trim();
+    const pass = password.trim();
 
-    // 1) Buscar empleado en dictamy por número de identidad o email
+    // 1) Buscar empleado por número de identidad o email
     const empleado = await prisma.empleado.findFirst({
       where: {
         activo: true,
-        OR: [
-          { numeroIdentidad: login },
-          { email: login },
-        ],
+        OR: [{ numeroIdentidad: login }, { email: login }],
       },
       include: {
         perfil: true,
@@ -50,40 +47,37 @@ export async function POST(req: Request) {
     if (!empleado) {
       return NextResponse.json(
         { ok: false, error: 'Usuario o contraseña inválidos' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // 2) Verificar contraseña
-    //    Opción A (texto plano, como en DNA):
+    // 2) Verificar contraseña (texto plano)
     const claveDB = (empleado.contrasena ?? '').trim();
     if (!claveDB || claveDB !== pass) {
       return NextResponse.json(
         { ok: false, error: 'Usuario o contraseña inválidos' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    //    👉 Si en algún momento quieres usar bcrypt:
-    // import bcrypt from 'bcryptjs';
-    // const ok = await bcrypt.compare(pass, empleado.contrasena ?? '');
-    // if (!ok) { ... }
-
     // 3) Mapear rol desde el perfil
-    const role = perfilToRole(empleado.perfilId ?? null, empleado.perfil?.nombre ?? null);
+    const role = perfilToRole(
+      empleado.perfilId ?? null,
+      empleado.perfil?.nombre ?? null,
+    );
     if (!role) {
       return NextResponse.json(
         { ok: false, error: 'Sin rol asignado (perfil inválido)' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    // 4) Firmar JWT
+    // 4) Firmar JWT (un solo argumento, el payload)
     const nombreCompleto = `${empleado.primerNombre} ${empleado.primerApellido}`.trim();
 
     const token = await signJwt({
-      sub: String(empleado.id),         // ID interno del empleado en dictamy
-      role: role as any,                // 'ADMIN' | 'ADMISIONISTA' | 'MEDICO'
+      sub: String(empleado.id), // ID interno del empleado en dictamy
+      role: role as any, // 'ADMIN' | 'ADMISIONISTA' | 'MEDICO'
       name: nombreCompleto || 'Usuario',
     });
 
@@ -102,7 +96,7 @@ export async function POST(req: Request) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 8, // 8h
+      maxAge: 60 * 60 * 24 * 7, // 🔥 cookie válida 7 días
     });
 
     return res;
