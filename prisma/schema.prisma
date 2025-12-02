@@ -720,7 +720,7 @@ model Cie10Deficiencia {
 model Dictamen {
   id               Int              @id @default(autoincrement())
   usuarioId        Int
-  numeroDictamen   Int?
+  numeroDictamen   String?          @db.VarChar(30)
   fechaDictamen    DateTime         @db.Date
   creadoEn         DateTime         @default(now())
   procedimientoPcl ProcedimientoPcl

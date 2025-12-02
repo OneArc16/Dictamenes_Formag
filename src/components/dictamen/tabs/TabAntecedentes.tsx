@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import toast from 'react-hot-toast';
 import { useDictamenDraft } from '@/hooks/useDictamenDraft';
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
     descripcionHallazgos: string;
   };
   procedimientoPcl: 'A' | 'B';
+  fechaDictamen: string | null; // ⬅️ nueva prop
 };
 
 type DraftAntecedentes = {
@@ -18,12 +20,14 @@ type DraftAntecedentes = {
   condicionSalud: string;
   descripcionHallazgos: string;
   procedimientoPcl: 'A' | 'B';
+  fechaDictamen: string | null;
 };
 
 export default function TabAntecedentes({
   dictamenId,
   initial,
   procedimientoPcl,
+  fechaDictamen,
 }: Props) {
   // 🔹 Estado en Dexie (borrador local)
   const {
@@ -38,22 +42,36 @@ export default function TabAntecedentes({
       condicionSalud: initial.condicionSalud ?? '',
       descripcionHallazgos: initial.descripcionHallazgos ?? '',
       procedimientoPcl,
+      fechaDictamen: fechaDictamen ?? null,
     },
-    // debounceMs: 800 // opcional
   });
 
   // 🔹 Estado de guardado en BACKEND (API)
   const [saving, setSaving] = React.useState(false);
-  const [message, setMessage] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+
+  // ⬇️ Sincronizar cambio de procedimiento (A/B) con Dexie
+  React.useEffect(() => {
+    if (!loaded) return;
+    if (draft.procedimientoPcl !== procedimientoPcl) {
+      updateField('procedimientoPcl', procedimientoPcl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [procedimientoPcl, loaded]);
+
+  // ⬇️ Sincronizar cambio de FECHA con Dexie
+  React.useEffect(() => {
+    if (!loaded) return;
+    if (draft.fechaDictamen !== fechaDictamen) {
+      updateField('fechaDictamen', fechaDictamen ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaDictamen, loaded]);
 
   const handleSave = async () => {
     if (saving) return;
     if (!loaded) return; // esperamos a que cargue el borrador inicial
 
     setSaving(true);
-    setMessage(null);
-    setError(null);
 
     try {
       const res = await fetch(`/api/dictamenes/${dictamenId}`, {
@@ -65,28 +83,30 @@ export default function TabAntecedentes({
           condicionSalud: draft.condicionSalud,
           descripcionHallazgos: draft.descripcionHallazgos,
           procedimientoPcl: draft.procedimientoPcl,
+          fechaDictamen: draft.fechaDictamen, // ⬅️ también mandamos la fecha
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // por si el backend no devuelve JSON
+      }
 
       if (!res.ok || !data?.ok) {
-        setError(
-          data?.error ?? 'Error guardando antecedentes del dictamen',
-        );
+        const msg =
+          data?.error ?? 'Error guardando antecedentes del dictamen.';
+        toast.error(msg);
         return;
       }
 
-      setMessage('Antecedentes guardados correctamente.');
+      toast.success('Antecedentes guardados correctamente.');
     } catch (err) {
       console.error('Error guardando antecedentes:', err);
-      setError('Error guardando antecedentes del dictamen.');
+      toast.error('Error guardando antecedentes del dictamen.');
     } finally {
       setSaving(false);
-      setTimeout(() => {
-        setMessage(null);
-        setError(null);
-      }, 3000);
     }
   };
 
@@ -143,29 +163,18 @@ export default function TabAntecedentes({
         />
       </div>
 
-      {/* Si en esta pestaña luego quieres que el médico cambie A/B,
-          aquí podríamos meter un select / radio y usar updateField('procedimientoPcl', ...) */}
-
       <div className="flex items-center justify-between pt-2">
-        <div className="space-y-1 text-xs">
-          {message && (
-            <div className="text-emerald-600">{message}</div>
-          )}
-          {error && <div className="text-red-600">{error}</div>}
-
-          {/* Estado del autosave local en Dexie */}
-          <div className="text-[11px] text-slate-400">
-            {savingDraft
-              ? 'Guardando borrador local…'
-              : 'Borrador guardado localmente'}
-          </div>
+        <div className="text-[11px] text-slate-400">
+          {savingDraft
+            ? 'Guardando borrador local…'
+            : 'Borrador guardado localmente'}
         </div>
 
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+          className="inline-flex.items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
         >
           {saving ? 'Guardando…' : 'Guardar antecedentes'}
         </button>

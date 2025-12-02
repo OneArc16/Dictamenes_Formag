@@ -15,24 +15,29 @@ type DictamenCenterPanelProps = {
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
-    // ⬇️ Diagnósticos que vienen de la BD
-    diagnosticos: {
+    // ⬇️ Diagnósticos de la BD (ahora OPCIONALES)
+    diagnosticos?: {
       cie10Codigo: string;
-      tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+      tipo:
+        | 'CONFIRMADO_NUEVO'
+        | 'IMPRESION_DIAGNOSTICA'
+        | 'CONFIRMADO_REPETIDO';
     }[];
   };
   procedimientoPcl: 'A' | 'B';
+  fechaDictamen: string;
 };
 
 export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
+  fechaDictamen,
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
   const {
     data: cie10Options = [],
-    isLoading: cie10Loading,
+    isLoading: cie10Loading, // si no lo usas puedes quitarlo
     error: cie10Error,
   } = useCie10Options();
 
@@ -81,6 +86,7 @@ export default function DictamenCenterPanel({
               descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
             }}
             procedimientoPcl={procedimientoPcl}
+            fechaDictamen={fechaDictamen}
           />
         )}
 
@@ -96,7 +102,7 @@ export default function DictamenCenterPanel({
             dictamenId={dictamen.id}
             procedimientoPcl={procedimientoPcl}
             cie10Options={cie10Options}
-            // ⬇️ Diagnósticos iniciales que ya existen en la BD
+            // ⬇️ usamos [] si no vienen diagnósticos en la BD
             initialDiagnosticos={dictamen.diagnosticos ?? []}
           />
         )}

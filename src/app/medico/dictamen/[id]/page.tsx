@@ -54,13 +54,12 @@ export default function DictamenDetallePage({}: PageProps) {
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
 
-  const [dictamen, setDictamen] = useState<DictamenDetalle | null>(
-    null,
-  );
-  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>(
-    'A',
-  );
-  const [fechaDictamen, setFechaDictamen] = useState<string>(''); // editable
+  const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
+
+  // Estado compartido para ambos paneles
+  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
+  const [fechaDictamen, setFechaDictamen] = useState<string>(''); // YYYY-MM-DD
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,8 +86,16 @@ export default function DictamenDetallePage({}: PageProps) {
 
       const d = data.dictamen as DictamenDetalle;
       setDictamen(d);
+
+      // Procedimiento A/B desde backend
       setProcedimientoPcl(d.procedimientoPcl ?? 'A');
-      setFechaDictamen(d.fechaDictamen ?? '');
+
+      // Normalizamos la fecha a formato YYYY-MM-DD para el <input type="date" />
+      const rawFecha = d.fechaDictamen;
+      const uiFecha =
+        rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
+      setFechaDictamen(uiFecha);
+
       setError(null);
     } catch (err) {
       console.error('Error cargando dictamen:', err);
@@ -118,7 +125,7 @@ export default function DictamenDetallePage({}: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen.bg-slate-50">
         <AppNav />
         <main className="px-4 py-4 lg:px-8">
           <button
@@ -208,6 +215,7 @@ export default function DictamenDetallePage({}: PageProps) {
                     dictamen.descripcionHallazgos ?? '',
                 }}
                 procedimientoPcl={procedimientoPcl}
+                fechaDictamen={fechaDictamen} // ⬅️ ahora también se pasa al centro
               />
             }
             right={<DictamenRightPanel />}
