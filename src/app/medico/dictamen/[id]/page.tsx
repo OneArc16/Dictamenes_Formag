@@ -63,6 +63,8 @@ export default function DictamenDetallePage({}: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [dictamenLoaded, setDictamenLoaded] = useState(false);
+
   const [showEditDocente, setShowEditDocente] = useState(false);
 
   // 🔹 función reutilizable para traer el dictamen
@@ -97,6 +99,8 @@ export default function DictamenDetallePage({}: PageProps) {
       setFechaDictamen(uiFecha);
 
       setError(null);
+
+      setDictamenLoaded(true);
     } catch (err) {
       console.error('Error cargando dictamen:', err);
       setError('Error cargando información del dictamen.');
@@ -116,6 +120,40 @@ export default function DictamenDetallePage({}: PageProps) {
     fetchDictamen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
+
+  useEffect(() => {
+  // aún no cargamos el dictamen o no hay fecha → no hacemos nada
+  if (!dictamenLoaded) return;
+  if (!fechaDictamen) return;
+  if (!dictamenId || Number.isNaN(dictamenId)) return;
+
+  const controller = new AbortController();
+
+  const saveFecha = async () => {
+    try {
+      const res = await fetch(`/api/dictamenes/${dictamenId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ fechaDictamen }), // 👈 solo mandamos la fecha
+        signal: controller.signal,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        console.error('Error actualizando fecha de dictamen', data);
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('Error actualizando fecha de dictamen:', err);
+    }
+  };
+
+  saveFecha();
+
+  return () => controller.abort();
+}, [fechaDictamen, dictamenId, dictamenLoaded]);
+
 
   // 🔹 se usará cuando el modal termine de actualizar al docente
   const handleDocenteUpdated = async () => {
