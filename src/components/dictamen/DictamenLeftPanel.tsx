@@ -182,7 +182,7 @@ export default function DictamenLeftPanel({
               {docente.tipoDocumento} {docente.documento}
             </p>
             <p className="mt-1 text-xs text-slate-600">
-              {docente.edad != null
+              Edad: {docente.edad != null
                 ? `${docente.edad} años`
                 : 'Edad no registrada'}
             </p>

@@ -228,12 +228,21 @@ export function ActualizarDocenteModal({
     );
   }, [form.fechaNacimiento]);
 
-  // Cargar instituciones por secretaría
-  const fetchInstituciones = async (
-    secretariaId?: string,
-    municipioCodigo?: string,
-  ) => {
+  /* ======================================================
+     🔹 Búsqueda async de instituciones (typeahead)
+     ====================================================== */
+  // 🔹 Búsqueda async de instituciones (solo por secretaría + texto)
+  const searchInstituciones = async (term: string) => {
+    const secretariaId = selectedSecretariaId;
+
     if (!secretariaId) {
+      setInstituciones([]);
+      return;
+    }
+
+    const trimmed = term.trim();
+    if (trimmed.length < 3) {
+      // Por debajo del mínimo limpiamos resultados
       setInstituciones([]);
       return;
     }
@@ -242,18 +251,17 @@ export function ActualizarDocenteModal({
       setLoadingInstituciones(true);
 
       const params = new URLSearchParams();
-      if (secretariaId) params.set('secretariaId', secretariaId);
-      if (municipioCodigo) params.set('municipio', municipioCodigo);
+      params.set('q', trimmed);
+      params.set('secretariaId', secretariaId);
+      // 👆 OJO: ya NO mandamos municipio para evitar sobre-filtrar
 
-      const qs = params.toString();
-      const url = qs
-        ? `/api/instituciones/by-secretaria?${qs}`
-        : '/api/instituciones/by-secretaria';
-
-      const res = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-      });
+      const res = await fetch(
+        `/api/instituciones/search?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        },
+      );
 
       const data = await res.json();
 
@@ -263,17 +271,22 @@ export function ActualizarDocenteModal({
         return;
       }
 
-      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
-        (i: any) => ({
+      // 🔹 Quitamos duplicados por nombre
+      const byNombre = new Map<string, InstitucionOption>();
+      for (const i of data.instituciones ?? []) {
+        const item: InstitucionOption = {
           id: i.id,
           nombre: i.nombre,
           idDepartamento: i.idDepartamento ?? null,
           idMunicipio: i.idMunicipio ?? null,
           idSecretaria: i.idSecretaria ?? null,
-        }),
-      );
+        };
+        if (!byNombre.has(item.nombre)) {
+          byNombre.set(item.nombre, item);
+        }
+      }
 
-      setInstituciones(mapped);
+      setInstituciones(Array.from(byNombre.values()));
     } catch (err) {
       console.error('Error cargando instituciones', err);
       setInstituciones([]);
@@ -282,8 +295,9 @@ export function ActualizarDocenteModal({
     }
   };
 
+
   /* ======================================================
-     🔹 React Query: opciones de ubicación (una sola fuente)
+     🔹 React Query: opciones de ubicación (una sola vez)
      ====================================================== */
 
   const { data: ubicacionData } = useQuery({
@@ -361,7 +375,10 @@ export function ActualizarDocenteModal({
       setEpsList(epsMapped);
       setUbicacionLoaded(true);
     } catch (err) {
-      console.error('Error mapeando ubicacionData en ActualizarDocente:', err);
+      console.error(
+        'Error mapeando ubicacionData en ActualizarDocente:',
+        err,
+      );
     }
   }, [open, ubicacionData, ubicacionLoaded]);
 
@@ -427,7 +444,8 @@ export function ActualizarDocenteModal({
         ...form,
         tipoDocumento:
           d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
-        numeroDocumento: d.identificacion ?? d.numeroDocumento ?? doc,
+        numeroDocumento:
+          d.identificacion ?? d.numeroDocumento ?? doc,
         fechaNacimiento:
           (d.fechaNacimiento && String(d.fechaNacimiento).slice(0, 10)) ??
           form.fechaNacimiento,
@@ -480,7 +498,6 @@ export function ActualizarDocenteModal({
         if (sec) {
           const secId = String(sec.id);
           setSelectedSecretariaId(secId);
-          fetchInstituciones(secId, updated.municipio || undefined);
         }
       }
 
@@ -535,7 +552,6 @@ export function ActualizarDocenteModal({
       if (sec) {
         const secId = String(sec.id);
         setSelectedSecretariaId(secId);
-        fetchInstituciones(secId, undefined);
       }
     }
   }, [
@@ -555,6 +571,17 @@ export function ActualizarDocenteModal({
     selectedMunicipio,
     selectedSecretariaId,
   ]);
+
+  // Prefetch de la institución actual cuando ya sabemos secretaría
+  useEffect(() => {
+    if (!open) return;
+    if (!selectedSecretariaId) return;
+    if (!form.institucionLabora) return;
+    if (instituciones.length) return; // ya tenemos opciones
+
+    // Traemos opciones alrededor de la institución actual
+    searchInstituciones(form.institucionLabora);
+  }, [open, selectedSecretariaId, form.institucionLabora, instituciones.length]);
 
   const handleActualizarDatos = async () => {
     if (saving) return;
@@ -860,9 +887,8 @@ export function ActualizarDocenteModal({
                         barrio: '',
                       }));
 
-                      if (selectedSecretariaId) {
-                        fetchInstituciones(selectedSecretariaId);
-                      }
+                      // Al cambiar depto limpiamos instituciones
+                      setInstituciones([]);
                     }}
                   />
                 </div>
@@ -890,12 +916,8 @@ export function ActualizarDocenteModal({
                         barrio: '',
                       }));
 
-                      if (selectedSecretariaId) {
-                        fetchInstituciones(
-                          selectedSecretariaId,
-                          newCodigo || undefined,
-                        );
-                      }
+                      // Al cambiar municipio limpiamos instituciones
+                      setInstituciones([]);
                     }}
                   />
                 </div>
@@ -1053,14 +1075,8 @@ export function ActualizarDocenteModal({
                         institucionLabora: '',
                       }));
 
-                      if (newId) {
-                        fetchInstituciones(
-                          newId,
-                          selectedMunicipio || undefined,
-                        );
-                      } else {
-                        setInstituciones([]);
-                      }
+                      // Al cambiar secretaría limpiamos instituciones
+                      setInstituciones([]);
                     }}
                   />
                 </div>
@@ -1077,11 +1093,15 @@ export function ActualizarDocenteModal({
                     placeholder={
                       !selectedSecretariaId
                         ? 'Seleccione primero una secretaría'
-                        : loadingInstituciones
-                        ? 'Cargando instituciones…'
-                        : 'Seleccione institución…'
+                        : 'Escriba al menos 3 letras para buscar…'
                     }
-                    disabled={!selectedSecretariaId || loadingInstituciones}
+                    disabled={!selectedSecretariaId}
+                    onSearch={(term) => {
+                      if (!selectedSecretariaId) return;
+                      searchInstituciones(term);
+                    }}
+                    minSearchLength={3}
+                    isLoading={loadingInstituciones}
                     onChange={(newValue) => {
                       const inst = instituciones.find(
                         (i) => i.nombre === newValue,
