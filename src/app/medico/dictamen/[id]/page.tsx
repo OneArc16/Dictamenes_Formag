@@ -6,7 +6,6 @@ import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
 import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
 
-// Paneles reutilizables
 import DictamenLeftPanel from '@/components/dictamen/DictamenLeftPanel';
 import DictamenCenterPanel from '@/components/dictamen/DictamenCenterPanel';
 import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
@@ -19,6 +18,7 @@ type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
 type DictamenDetalle = {
   id: number;
+  numeroDictamen: string | null;
   fechaDictamen: string | null;
   procedimientoPcl: 'A' | 'B';
   estado: DictamenEstado;
@@ -41,28 +41,39 @@ type DictamenDetalle = {
   } | null;
 };
 
-type PageProps = {
-  params: { id: string };
-};
+/* =====================
+   Helper número dictamen
+   ===================== */
+
+// Formato: ddMMyyyy + id en 9 dígitos -> 01012025123456789
+function buildNumeroDictamen(id: number, fecha: string | null) {
+  if (!fecha) return '';
+
+  const [yyyy, mm, dd] = fecha.split('-'); // YYYY-MM-DD
+  const datePart = `${dd}${mm}${yyyy}`; // 01012025
+  const consecutivo = String(id).padStart(9, '0'); // 123456789 -> 9 dígitos
+
+  return `${datePart}${consecutivo}`;
+}
 
 /* =====================
    Página principal
    ===================== */
 
-export default function DictamenDetallePage({}: PageProps) {
+export default function DictamenDetallePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
 
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
 
-  // Estado compartido para ambos paneles
+  // Estado compartido
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
   const [fechaDictamen, setFechaDictamen] = useState<string>(''); // YYYY-MM-DD
+  const [numeroDictamen, setNumeroDictamen] = useState<string>(''); // mostrado en el panel
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [dictamenLoaded, setDictamenLoaded] = useState(false);
 
   const [showEditDocente, setShowEditDocente] = useState(false);
@@ -90,16 +101,23 @@ export default function DictamenDetallePage({}: PageProps) {
       setDictamen(d);
 
       // Procedimiento A/B desde backend
-      setProcedimientoPcl(d.procedimientoPcl ?? 'A');
+      const proc = d.procedimientoPcl ?? 'A';
+      setProcedimientoPcl(proc);
 
-      // Normalizamos la fecha a formato YYYY-MM-DD para el <input type="date" />
+      // Normalizamos la fecha a formato YYYY-MM-DD para el input
       const rawFecha = d.fechaDictamen;
       const uiFecha =
         rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
-      setError(null);
+      // Número de dictamen (si no viene, lo calculamos)
+      const num =
+        d.numeroDictamen ??
+        buildNumeroDictamen(d.id, uiFecha || null);
 
+      setNumeroDictamen(num);
+
+      setError(null);
       setDictamenLoaded(true);
     } catch (err) {
       console.error('Error cargando dictamen:', err);
@@ -109,7 +127,7 @@ export default function DictamenDetallePage({}: PageProps) {
     }
   };
 
-  // 🔹 carga inicial (con loading)
+  // 🔹 carga inicial
   useEffect(() => {
     if (!dictamenId || Number.isNaN(dictamenId)) {
       setError('ID de dictamen inválido.');
@@ -121,49 +139,86 @@ export default function DictamenDetallePage({}: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
 
+  // 🔹 guardar fecha en el backend cada vez que cambia
   useEffect(() => {
-  // aún no cargamos el dictamen o no hay fecha → no hacemos nada
-  if (!dictamenLoaded) return;
-  if (!fechaDictamen) return;
-  if (!dictamenId || Number.isNaN(dictamenId)) return;
+    if (!dictamenLoaded) return;
+    if (!fechaDictamen) return;
+    if (!dictamenId || Number.isNaN(dictamenId)) return;
 
-  const controller = new AbortController();
+    const controller = new AbortController();
 
-  const saveFecha = async () => {
-    try {
-      const res = await fetch(`/api/dictamenes/${dictamenId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ fechaDictamen }), // 👈 solo mandamos la fecha
-        signal: controller.signal,
-      });
+    const saveFecha = async () => {
+      try {
+        const res = await fetch(`/api/dictamenes/${dictamenId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ fechaDictamen }),
+          signal: controller.signal,
+        });
 
-      const data = await res.json();
-      if (!res.ok || !data?.ok) {
-        console.error('Error actualizando fecha de dictamen', data);
+        const data = await res.json();
+
+        if (!res.ok || !data?.ok) {
+          console.error('Error actualizando fecha de dictamen', data);
+          return;
+        }
+
+        // ⬅️ si el backend devuelve el dictamen actualizado, usamos su número
+        const updated = data.dictamen as DictamenDetalle | undefined;
+        if (updated?.numeroDictamen) {
+          setNumeroDictamen(updated.numeroDictamen);
+        } else {
+          // fallback: lo calculamos nosotros
+          setNumeroDictamen(
+            buildNumeroDictamen(dictamenId, fechaDictamen || null),
+          );
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        console.error('Error actualizando fecha de dictamen:', err);
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      console.error('Error actualizando fecha de dictamen:', err);
-    }
+    };
+
+    saveFecha();
+
+    return () => controller.abort();
+  }, [fechaDictamen, dictamenId, dictamenLoaded]);
+
+
+  // 🔹 handlers que ACTUALIZAN también el número en el front
+  const handleChangeFecha = (newFecha: string) => {
+  setFechaDictamen(newFecha);
+
+  // UI optimista: calculamos el número inmediatamente
+  if (!dictamenId || Number.isNaN(dictamenId)) return;
+  setNumeroDictamen(
+    buildNumeroDictamen(dictamenId, newFecha || null),
+  );
   };
 
-  saveFecha();
 
-  return () => controller.abort();
-}, [fechaDictamen, dictamenId, dictamenLoaded]);
+  const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
+    setProcedimientoPcl(nuevoProc);
 
+    // si en algún momento el procedimiento entra en la lógica del número,
+    // aquí lo puedes usar; por ahora el formato sólo depende de fecha + id
+    if (!dictamenId || Number.isNaN(dictamenId)) return;
+    const nuevoNumero = buildNumeroDictamen(
+      dictamenId,
+      fechaDictamen || null,
+    );
+    setNumeroDictamen(nuevoNumero);
+  };
 
   // 🔹 se usará cuando el modal termine de actualizar al docente
   const handleDocenteUpdated = async () => {
-    // refresh silencioso, sin parpadeos
-    await fetchDictamen(true);
+    await fetchDictamen(true); // refresh silencioso
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen.bg-slate-50">
+      <div className="min-h-screen bg-slate-50">
         <AppNav />
         <main className="px-4 py-4 lg:px-8">
           <button
@@ -213,7 +268,6 @@ export default function DictamenDetallePage({}: PageProps) {
           open={showEditDocente}
           onClose={() => setShowEditDocente(false)}
           numeroDocumento={dictamen.docente.documento}
-          // 👇 refresca la info del docente sin mostrar "Cargando…"
           onUpdate={handleDocenteUpdated}
         />
       )}
@@ -232,13 +286,15 @@ export default function DictamenDetallePage({}: PageProps) {
           <DictamenFormLayout
             left={
               <DictamenLeftPanel
+                dictamenId={dictamen.id}
                 estado={dictamen.estado}
                 docente={dictamen.docente}
                 medico={dictamen.medico}
+                numeroDictamen={numeroDictamen}
                 fechaDictamen={fechaDictamen}
-                onChangeFecha={setFechaDictamen}
+                onChangeFecha={handleChangeFecha}
                 procedimientoPcl={procedimientoPcl}
-                onChangeProcedimiento={setProcedimientoPcl}
+                onChangeProcedimiento={handleChangeProcedimiento}
                 onEditDocente={() => setShowEditDocente(true)}
               />
             }
@@ -253,7 +309,7 @@ export default function DictamenDetallePage({}: PageProps) {
                     dictamen.descripcionHallazgos ?? '',
                 }}
                 procedimientoPcl={procedimientoPcl}
-                fechaDictamen={fechaDictamen} // ⬅️ ahora también se pasa al centro
+                fechaDictamen={fechaDictamen}
               />
             }
             right={<DictamenRightPanel />}

@@ -132,6 +132,7 @@ export async function GET(_req: Request, context: RouteContext) {
       ok: true,
       dictamen: {
         id: dictamen.id,
+        numeroDictamen: dictamen.numeroDictamen ?? null,
         fechaDictamen: dictamen.fechaDictamen
           ? dictamen.fechaDictamen.toISOString().slice(0, 10)
           : null,
