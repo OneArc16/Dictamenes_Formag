@@ -271,7 +271,7 @@ export default function TabDiagnosticos({
                 </div>
                 {showPrimaryError && (
                   <p className="mt-1 text-[11px] text-red-600">
-                    Debes colocar el diagnóstico principal (Diagnóstico 1).
+                    Debes colocar el diagnóstico principal.
                   </p>
                 )}
               </div>
