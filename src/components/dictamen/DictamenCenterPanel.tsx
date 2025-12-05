@@ -21,6 +21,7 @@ type DictamenCenterPanelProps = {
         | 'CONFIRMADO_NUEVO'
         | 'IMPRESION_DIAGNOSTICA'
         | 'CONFIRMADO_REPETIDO';
+      cie10Label?: string | null;
     }[];
   };
   procedimientoPcl: 'A' | 'B';

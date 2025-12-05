@@ -16,6 +16,7 @@ type ProcedimientoPcl = 'A' | 'B';
 type InitialDiagnostico = {
   cie10Codigo: string;
   tipo: TipoDiagnosticoLocal;
+  cie10Label?: string | null;
 };
 
 type Props = {
@@ -76,8 +77,7 @@ export default function TabDiagnosticos({
         initialDiagnosticos.map((dx, idx) => ({
           id: `row-db-${idx + 1}-${now}`,
           cie10Codigo: dx.cie10Codigo,
-          // de momento usamos el código como label si no tenemos el nombre
-          cie10Label: dx.cie10Codigo,
+          cie10Label: dx.cie10Label ?? dx.cie10Codigo,
           tipo: dx.tipo,
         }));
       setDiagnosticos(rowsFromDb);
@@ -250,11 +250,11 @@ export default function TabDiagnosticos({
                 >
                   <Cie10DiagnosticoSelect
                     value={row.cie10Codigo ?? ''}
-                    label={row.cie10Label ?? row.cie10Codigo ?? ''}
-                    onChange={(code, label) =>
+                    initialLabel={row.cie10Label} // viene de Dexie / BD si lo tienes guardado
+                    onChange={(value, option) =>
                       handleRowChange(index, {
-                        cie10Codigo: code || undefined,
-                        cie10Label: label,
+                        cie10Codigo: value || undefined,
+                        cie10Label: option?.label, // guardamos "CÓDIGO - NOMBRE" en el draft
                       })
                     }
                   />

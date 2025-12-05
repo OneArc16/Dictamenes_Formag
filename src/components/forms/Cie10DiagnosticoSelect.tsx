@@ -1,69 +1,79 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import {
+  SearchableOption,
+} from '@/components/forms/SearchableSelect'; // solo para el tipo
 import { useCie10Search } from '@/hooks/useCie10Search';
 
 type Cie10DiagnosticoSelectProps = {
-  /** Código CIE10 seleccionado (ej: "J45") */
-  value: string;
-  /** Texto que queremos mostrar cuando hay diagnóstico seleccionado (ej: "J45 - ASMA") */
-  label?: string;
-  /** Se dispara cuando el usuario selecciona un diagnóstico de la lista */
-  onChange: (code: string, label: string) => void;
+  value: string; // código CIE10
+  onChange: (value: string, option?: SearchableOption) => void;
   placeholder?: string;
-  disabled?: boolean;
+  /** Etiqueta inicial, por ejemplo: "I10X - HIPERTENSIÓN ESENCIAL" */
+  initialLabel?: string;
 };
 
 export function Cie10DiagnosticoSelect({
   value,
-  label,
   onChange,
   placeholder = 'Buscar por código o nombre CIE10…',
-  disabled,
+  initialLabel,
 }: Cie10DiagnosticoSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  const { options, loading, error, search } = useCie10Search();
+  // Label “estable” que mostramos cuando el input está cerrado
+  const [displayLabel, setDisplayLabel] = useState<string>(
+    initialLabel ?? value ?? ''
+  );
 
-  // 🧠 Texto que se debe mostrar cuando NO está abierto el dropdown
-  const displayTextWhenClosed =
-    label || value || '';
+  const {
+    options,
+    loading,
+    error,
+    search,
+  } = useCie10Search();
 
-  // Sincronizar el texto visible cuando:
-  // - cambia el código
-  // - cambia el label
-  // - se cierra el dropdown
+  // Cuando cambia el value o la initialLabel desde fuera
+  useEffect(() => {
+    if (!value) {
+      setDisplayLabel('');
+      return;
+    }
+    setDisplayLabel(initialLabel ?? value);
+  }, [value, initialLabel]);
+
+  // Cuando se cierra el dropdown, dejamos el label seleccionado en el input
   useEffect(() => {
     if (!open) {
-      setQuery(displayTextWhenClosed);
+      setQuery(displayLabel ?? '');
     }
-  }, [open, displayTextWhenClosed]);
+  }, [open, displayLabel]);
 
-  const handleInputChange = (
-  e: React.ChangeEvent<HTMLInputElement>,
-) => {
-  const newQuery = e.target.value;
-  setQuery(newQuery);
-  setOpen(true);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setQuery(q);
+    setOpen(true);
 
-  if (newQuery.length >= 3) {
-    search(newQuery);
-  }
-};
+    // solo buscamos si hay al menos 3 caracteres
+    if (q.trim().length >= 3) {
+      search(q.trim());
+    }
+  };
 
-
-  const handleSelect = (code: string, label: string) => {
-    onChange(code, label);
+  const handleSelect = (opt: SearchableOption) => {
+    onChange(opt.value, opt);
+    setDisplayLabel(opt.label ?? opt.value);
     setOpen(false);
-    setQuery(label);
+    setQuery(opt.label ?? opt.value);
   };
 
   const handleBlur = () => {
-    // delay para permitir click en opciones
+    // pequeño delay para permitir el click en la opción
     setTimeout(() => {
       setOpen(false);
-      setQuery(displayTextWhenClosed);
+      setQuery(displayLabel ?? '');
     }, 150);
   };
 
@@ -71,70 +81,65 @@ export function Cie10DiagnosticoSelect({
     <div className="relative">
       <input
         type="text"
-        value={open ? query : displayTextWhenClosed}
+        value={open ? query : displayLabel}
         onChange={handleInputChange}
         onFocus={() => {
           setOpen(true);
-          if (!query) {
-            setQuery(displayTextWhenClosed);
+          if (!query && displayLabel) {
+            setQuery(displayLabel);
           }
         }}
         onBlur={handleBlur}
-        disabled={disabled}
         placeholder={placeholder}
         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 
-      {open && !disabled && (
+      {/* Mensaje de ayuda cuando escribe menos de 3 caracteres */}
+      {open && query.trim().length > 0 && query.trim().length < 3 && (
+        <div className="absolute left-0 right-0 z-20 mt-1 px-3 py-2 text-[11px] text-slate-500 bg-white border rounded-md shadow-sm">
+          Escribe al menos 3 caracteres para buscar en el catálogo CIE10.
+        </div>
+      )}
+
+      {open && query.trim().length >= 3 && (
         <div className="absolute left-0 right-0 z-20 mt-1 overflow-auto bg-white border rounded-md shadow-lg max-h-56">
-          {/* Mensajes superiores */}
-          {error && (
-            <div className="px-3 py-2 text-[11px] text-red-600 bg-red-50 border-b border-red-100">
-              {error}
+          {loading && (
+            <div className="px-3 py-2 text-[11px] text-slate-500">
+              Buscando CIE10…
             </div>
           )}
 
-          {!error && query.length < 3 && (
-            <div className="px-3 py-2 text-[11px] text-slate-400">
-              Escribe al menos 3 caracteres para buscar.
+          {!loading && options.length === 0 && (
+            <div className="px-3 py-2 text-[11px] text-slate-500">
+              No se encontraron diagnósticos para “{query}”.
             </div>
           )}
 
-          {query.length >= 3 && (
-            <>
-              {loading && (
-                <div className="px-3 py-2 text-[11px] text-slate-400">
-                  Buscando…
-                </div>
-              )}
-
-              {!loading && options.length === 0 && (
-                <div className="px-3 py-2 text-[11px] text-slate-400">
-                  Sin resultados para "{query}".
-                </div>
-              )}
-
-              {!loading && options.length > 0 && (
-                <ul className="py-1 text-sm">
-                  {options.map((opt) => (
-                    <li key={opt.value}>
-                      <button
-                        type="button"
-                        className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
-                        onMouseDown={(e) => {
-                          e.preventDefault(); // evita blur del input
-                          handleSelect(opt.value, opt.label);
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
+          {!loading && options.length > 0 && (
+            <ul className="py-1 text-sm">
+              {options.map((opt, index) => (
+                <li key={`${opt.value}-${index}`}>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // evita blur
+                      handleSelect(opt);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
+      )}
+
+      {error && (
+        <p className="mt-1 text-[11px] text-red-600">
+          {error}
+        </p>
       )}
     </div>
   );

@@ -16,6 +16,12 @@ import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
+type DictamenDiagnosticoDTO = {
+  cie10Codigo: string;
+  tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+  cie10Label?: string | null;
+};
+
 type DictamenDetalle = {
   id: number;
   numeroDictamen: string | null;
@@ -25,6 +31,7 @@ type DictamenDetalle = {
   antecedentesClinicos: string | null;
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
+  diagnosticos: DictamenDiagnosticoDTO[];
   docente: {
     id: number;
     documento: string;
@@ -39,14 +46,6 @@ type DictamenDetalle = {
     id: number;
     nombreCompleto: string;
   } | null;
-
-  diagnosticos: {
-    cie10Codigo: string;
-    tipo:
-      | 'CONFIRMADO_NUEVO'
-      | 'IMPRESION_DIAGNOSTICA'
-      | 'CONFIRMADO_REPETIDO';
-  }[];
 };
 
 /* =====================
@@ -108,6 +107,8 @@ export default function DictamenDetallePage() {
 
       const d = data.dictamen as DictamenDetalle;
       setDictamen(d);
+      setProcedimientoPcl(d.procedimientoPcl ?? 'A');
+      setFechaDictamen(d.fechaDictamen ?? '');
 
       // Procedimiento A/B desde backend
       const proc = d.procedimientoPcl ?? 'A';

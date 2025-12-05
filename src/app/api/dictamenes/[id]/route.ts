@@ -99,7 +99,7 @@ export async function GET(_req: Request, context: RouteContext) {
     const dictamen = await prisma.dictamen.findFirst({
       where: {
         id,
-        empleadoId: medicoId, // solo ve sus propios dictámenes
+        empleadoId: medicoId,
       },
       include: {
         usuario: {
@@ -109,18 +109,15 @@ export async function GET(_req: Request, context: RouteContext) {
           },
         },
         empleado: true,
-
-        // 👇 AHORA SÍ INCLUIMOS LOS DIAGNÓSTICOS
+        // ⬇️ NUEVO: traer los diagnósticos con su CIE10
         diagnosticos: {
-          select: {
-            cie10Codigo: true,
-            tipo: true,
+          include: {
+            cie10: true,
           },
           orderBy: { id: 'asc' },
         },
       },
     });
-
     if (!dictamen) {
       return NextResponse.json(
         { ok: false, error: 'Dictamen no encontrado.' },
@@ -148,18 +145,24 @@ export async function GET(_req: Request, context: RouteContext) {
         procedimientoPcl: dictamen.procedimientoPcl as ProcedimientoPcl,
         estado,
 
-        // ⬇️ campos que usan las pestañas
         antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
         condicionSalud: dictamen.condicionSalud ?? '',
         descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
 
-        // ⬇️ DIAGNÓSTICOS DESDE BD (para precargar en TabDiagnosticos)
-        diagnosticos: dictamen.diagnosticos,
+        // ⬇️ NUEVO: diagnósticos del dictamen
+        diagnosticos: dictamen.diagnosticos.map((dx) => ({
+          cie10Codigo: dx.cie10Codigo,
+          tipo: dx.tipo, // enum de Prisma
+          cie10Label: dx.cie10
+            ? `${dx.cie10Codigo} - ${dx.cie10.nombre}`
+            : dx.cie10Codigo,
+        })),
 
         docente: {
           id: docente.id,
           documento: docente.identificacion,
           tipoDocumento: docente.tipoIdentificacion,
+          // 🔹 ahora con nombre COMPLETO
           nombreCompleto: getNombreCompletoUsuario({
             primerNombre: docente.primerNombre,
             segundoNombre: docente.segundoNombre ?? null,
@@ -221,7 +224,6 @@ export async function PUT(req: Request, context: RouteContext) {
       );
     }
 
-    // 👇 igual que en el GET, desempaquetamos params
     const { id: idParam } = await context.params;
     const id = Number(idParam);
 
@@ -235,7 +237,7 @@ export async function PUT(req: Request, context: RouteContext) {
     const json = await req.json();
     const data = UpdateAntecedentesSchema.parse(json);
 
-    // validar que el dictamen pertenece al médico logueado
+    // Validar que el dictamen pertenece al médico logueado
     const existing = await prisma.dictamen.findUnique({
       where: { id },
       select: {
@@ -253,20 +255,29 @@ export async function PUT(req: Request, context: RouteContext) {
       );
     }
 
-    // armamos el objeto de actualización de forma dinámica
-    const updateData: any = {
-      antecedentesClinicos: data.antecedentesClinicos ?? null,
-      condicionSalud: data.condicionSalud ?? null,
-      descripcionHallazgos: data.descripcionHallazgos ?? null,
-    };
+    // 👇 SOLO tocamos los campos que vienen en el body
+    const updateData: any = {};
 
-    if (data.procedimientoPcl) {
+    if ('antecedentesClinicos' in data) {
+      updateData.antecedentesClinicos =
+        data.antecedentesClinicos ?? null;
+    }
+
+    if ('condicionSalud' in data) {
+      updateData.condicionSalud = data.condicionSalud ?? null;
+    }
+
+    if ('descripcionHallazgos' in data) {
+      updateData.descripcionHallazgos =
+        data.descripcionHallazgos ?? null;
+    }
+
+    if ('procedimientoPcl' in data && data.procedimientoPcl) {
       updateData.procedimientoPcl =
         data.procedimientoPcl as ProcedimientoPcl;
     }
 
-    if (data.fechaDictamen) {
-      // convertir 'YYYY-MM-DD' a Date
+    if ('fechaDictamen' in data && data.fechaDictamen) {
       const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
 
       if (Number.isNaN(fecha.getTime())) {
@@ -278,13 +289,19 @@ export async function PUT(req: Request, context: RouteContext) {
 
       updateData.fechaDictamen = fecha;
 
-      // si tenemos el documento del docente, recalculamos el número
       const doc = existing.usuario?.identificacion;
       if (doc) {
         const [year, month, day] = data.fechaDictamen.split('-'); // YYYY-MM-DD
         const numeroDictamen = `${day}${month}${year}${doc}`; // ddMMyyyy + documento
         updateData.numeroDictamen = numeroDictamen;
       }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { ok: false, error: 'No se enviaron campos para actualizar.' },
+        { status: 400 },
+      );
     }
 
     const updated = await prisma.dictamen.update({
@@ -310,3 +327,4 @@ export async function PUT(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }
+
