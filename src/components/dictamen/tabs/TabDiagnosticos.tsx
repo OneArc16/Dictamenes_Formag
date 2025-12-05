@@ -131,7 +131,7 @@ export default function TabDiagnosticos({
     if (!first || !first.cie10Codigo || first.cie10Codigo.trim() === '') {
       setPrimaryError(true);
       toast.error(
-        'Debes colocar el diagnóstico principal (Diagnóstico 1).',
+        'Debes colocar el Diagnóstico principal.',
       );
       return;
     }
@@ -211,32 +211,60 @@ export default function TabDiagnosticos({
 
       {/* Filas */}
       <div className="space-y-3">
-        {diagnosticos.map((row, index) => (
-          <div
-            key={row.id}
-            className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_auto] items-start gap-2"
-          >
-            {/* CIE10 */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-slate-500">
-                Diagnóstico {index + 1}
-              </label>
-              <SearchableSelect
-                value={row.cie10Codigo ?? ''}
-                options={cie10SearchOptions}
-                placeholder="Buscar por código o nombre CIE10…"
-                onChange={(value, option) =>
-                  handleRowChange(index, {
-                    cie10Codigo: value || undefined,
-                    cie10Label: option?.label,
-                  })
-                }
-                // 🔹 aquí activamos la búsqueda remota
-                onSearch={searchCie10}
-                loading={cie10Loading}
-                minChars={3}
-              />
-            </div>
+        {diagnosticos.map((row, index) => {
+          const isPrimary = index === 0;
+          const showPrimaryError =
+            isPrimary &&
+            primaryError &&
+            (!row.cie10Codigo || row.cie10Codigo.trim() === '');
+
+          return (
+            <div
+              key={row.id}
+              className={`grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_auto] items-start gap-2 ${
+                showPrimaryError ? 'rounded-md bg-red-50/40 p-2' : ''
+              }`}
+            >
+              {/* CIE10 */}
+              <div className="flex flex-col gap-1">
+                <label
+                  className={`text-[11px] ${
+                    showPrimaryError
+                      ? 'text-red-600 font-semibold'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  Diagnóstico {index + 1}
+                  {isPrimary && ' (principal)'}
+                </label>
+                <div
+                  className={
+                    showPrimaryError
+                      ? 'rounded-md border border-red-400 p-[2px]'
+                      : ''
+                  }
+                >
+                  <SearchableSelect
+                    value={row.cie10Codigo ?? ''}
+                    options={cie10SearchOptions}
+                    placeholder="Buscar por código o nombre CIE10…"
+                    onChange={(value, option) =>
+                      handleRowChange(index, {
+                        cie10Codigo: value || undefined,
+                        cie10Label: option?.label,
+                      })
+                    }
+                    onSearch={searchCie10}
+                    loading={cie10Loading}
+                    minChars={3}
+                  />
+                </div>
+                {showPrimaryError && (
+                  <p className="mt-1 text-[11px] text-red-600">
+                    Debes colocar el diagnóstico principal.
+                  </p>
+                )}
+              </div>
 
             {/* Tipo de diagnóstico */}
             <div className="flex flex-col gap-1">

@@ -16,14 +16,6 @@ import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
-type DictamenDiagnosticoDetalle = {
-  cie10Codigo: string;
-  tipo:
-    | 'CONFIRMADO_NUEVO'
-    | 'IMPRESION_DIAGNOSTICA'
-    | 'CONFIRMADO_REPETIDO';
-};
-
 type DictamenDetalle = {
   id: number;
   numeroDictamen: string | null;
@@ -47,8 +39,6 @@ type DictamenDetalle = {
     id: number;
     nombreCompleto: string;
   } | null;
-  // 👇 lo hacemos opcional, porque puede no venir en alguna respuesta
-  diagnosticos?: DictamenDiagnosticoDetalle[];
 };
 
 /* =====================
@@ -108,29 +98,22 @@ export default function DictamenDetallePage() {
       }
 
       const d = data.dictamen as DictamenDetalle;
-
-      // ✅ Normalizamos para que SIEMPRE haya array (aunque esté vacío)
-      const dictamenNormalizado: DictamenDetalle = {
-        ...d,
-        diagnosticos: d.diagnosticos ?? [],
-      };
-
-      setDictamen(dictamenNormalizado);
+      setDictamen(d);
 
       // Procedimiento A/B desde backend
-      const proc = dictamenNormalizado.procedimientoPcl ?? 'A';
+      const proc = d.procedimientoPcl ?? 'A';
       setProcedimientoPcl(proc);
 
       // Normalizamos la fecha a formato YYYY-MM-DD para el input
-      const rawFecha = dictamenNormalizado.fechaDictamen;
+      const rawFecha = d.fechaDictamen;
       const uiFecha =
         rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
       // Número de dictamen (si no viene, lo calculamos)
       const num =
-        dictamenNormalizado.numeroDictamen ??
-        buildNumeroDictamen(dictamenNormalizado.id, uiFecha || null);
+        d.numeroDictamen ??
+        buildNumeroDictamen(d.id, uiFecha || null);
 
       setNumeroDictamen(num);
 
@@ -182,10 +165,7 @@ export default function DictamenDetallePage() {
         }
 
         // ⬅️ si el backend devuelve el dictamen actualizado, usamos su número
-        const updated = data.dictamen as {
-          numeroDictamen?: string | null;
-        };
-
+        const updated = data.dictamen as DictamenDetalle | undefined;
         if (updated?.numeroDictamen) {
           setNumeroDictamen(updated.numeroDictamen);
         } else {
@@ -205,16 +185,18 @@ export default function DictamenDetallePage() {
     return () => controller.abort();
   }, [fechaDictamen, dictamenId, dictamenLoaded]);
 
+
   // 🔹 handlers que ACTUALIZAN también el número en el front
   const handleChangeFecha = (newFecha: string) => {
-    setFechaDictamen(newFecha);
+  setFechaDictamen(newFecha);
 
-    // UI optimista: calculamos el número inmediatamente
-    if (!dictamenId || Number.isNaN(dictamenId)) return;
-    setNumeroDictamen(
-      buildNumeroDictamen(dictamenId, newFecha || null),
-    );
+  // UI optimista: calculamos el número inmediatamente
+  if (!dictamenId || Number.isNaN(dictamenId)) return;
+  setNumeroDictamen(
+    buildNumeroDictamen(dictamenId, newFecha || null),
+  );
   };
+
 
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
     setProcedimientoPcl(nuevoProc);
@@ -320,11 +302,11 @@ export default function DictamenDetallePage() {
               <DictamenCenterPanel
                 dictamen={{
                   id: dictamen.id,
-                  antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+                  antecedentesClinicos:
+                    dictamen.antecedentesClinicos ?? '',
                   condicionSalud: dictamen.condicionSalud ?? '',
-                  descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
-                  // 👇 aquí pasamos lo que vino del backend (o [] si no vino)
-                  diagnosticos: dictamen.diagnosticos ?? [],
+                  descripcionHallazgos:
+                    dictamen.descripcionHallazgos ?? '',
                 }}
                 procedimientoPcl={procedimientoPcl}
                 fechaDictamen={fechaDictamen}
