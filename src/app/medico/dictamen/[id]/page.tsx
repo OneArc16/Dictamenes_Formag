@@ -39,6 +39,14 @@ type DictamenDetalle = {
     id: number;
     nombreCompleto: string;
   } | null;
+
+  diagnosticos: {
+    cie10Codigo: string;
+    tipo:
+      | 'CONFIRMADO_NUEVO'
+      | 'IMPRESION_DIAGNOSTICA'
+      | 'CONFIRMADO_REPETIDO';
+  }[];
 };
 
 /* =====================
@@ -89,6 +97,7 @@ export default function DictamenDetallePage() {
       });
 
       const data = await res.json();
+      console.log('DICTAMEN API:', data.dictamen);
 
       if (!res.ok || !data?.ok) {
         setError(
@@ -307,6 +316,7 @@ export default function DictamenDetallePage() {
                   condicionSalud: dictamen.condicionSalud ?? '',
                   descripcionHallazgos:
                     dictamen.descripcionHallazgos ?? '',
+                    diagnosticos: dictamen.diagnosticos ?? []
                 }}
                 procedimientoPcl={procedimientoPcl}
                 fechaDictamen={fechaDictamen}

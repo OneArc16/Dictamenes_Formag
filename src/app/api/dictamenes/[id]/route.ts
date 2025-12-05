@@ -67,7 +67,7 @@ async function getMedicoIdFromToken() {
   return medicoId;
 }
 
-// 👇 tipo de contexto con params como Promise
+// 👇 tipo de contexto con params como Promise (para evitar el error de Next)
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -85,7 +85,7 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    // 👇 aquí desempaquetamos el Promise de params
+    // 👇 desempaquetamos el Promise de params
     const { id: idParam } = await context.params;
     const id = Number(idParam);
 
@@ -109,6 +109,15 @@ export async function GET(_req: Request, context: RouteContext) {
           },
         },
         empleado: true,
+
+        // 👇 AHORA SÍ INCLUIMOS LOS DIAGNÓSTICOS
+        diagnosticos: {
+          select: {
+            cie10Codigo: true,
+            tipo: true,
+          },
+          orderBy: { id: 'asc' },
+        },
       },
     });
 
@@ -122,7 +131,7 @@ export async function GET(_req: Request, context: RouteContext) {
     const docente = dictamen.usuario;
     const medico = dictamen.empleado;
 
-    const estado = dictamen.reabierto
+    const estado: 'PENDIENTE' | 'REABIERTO' | 'CERRADO' = dictamen.reabierto
       ? 'REABIERTO'
       : dictamen.estado
       ? 'PENDIENTE'
@@ -139,15 +148,18 @@ export async function GET(_req: Request, context: RouteContext) {
         procedimientoPcl: dictamen.procedimientoPcl as ProcedimientoPcl,
         estado,
 
+        // ⬇️ campos que usan las pestañas
         antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
         condicionSalud: dictamen.condicionSalud ?? '',
         descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+
+        // ⬇️ DIAGNÓSTICOS DESDE BD (para precargar en TabDiagnosticos)
+        diagnosticos: dictamen.diagnosticos,
 
         docente: {
           id: docente.id,
           documento: docente.identificacion,
           tipoDocumento: docente.tipoIdentificacion,
-          // 🔹 ahora con nombre COMPLETO
           nombreCompleto: getNombreCompletoUsuario({
             primerNombre: docente.primerNombre,
             segundoNombre: docente.segundoNombre ?? null,
@@ -163,7 +175,6 @@ export async function GET(_req: Request, context: RouteContext) {
         medico: medico
           ? {
               id: medico.id,
-              // 🔹 también nombre completo del médico
               nombreCompleto: getNombreCompletoEmpleado({
                 primerNombre: medico.primerNombre,
                 segundoNombre: medico.segundoNombre ?? null,
@@ -194,10 +205,10 @@ const UpdateAntecedentesSchema = z.object({
   condicionSalud: z.string().optional(),
   descripcionHallazgos: z.string().optional(),
   procedimientoPcl: z.enum(['A', 'B']).optional(),
-    fechaDictamen: z
+  fechaDictamen: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
+    .optional(),
 });
 
 export async function PUT(req: Request, context: RouteContext) {
@@ -224,7 +235,7 @@ export async function PUT(req: Request, context: RouteContext) {
     const json = await req.json();
     const data = UpdateAntecedentesSchema.parse(json);
 
-    // (Opcional) validar que el dictamen pertenece al médico logueado
+    // validar que el dictamen pertenece al médico logueado
     const existing = await prisma.dictamen.findUnique({
       where: { id },
       select: {
@@ -235,7 +246,6 @@ export async function PUT(req: Request, context: RouteContext) {
       },
     });
 
-
     if (!existing || existing.empleadoId !== medicoId) {
       return NextResponse.json(
         { ok: false, error: 'No tiene permiso sobre este dictamen.' },
@@ -244,48 +254,48 @@ export async function PUT(req: Request, context: RouteContext) {
     }
 
     // armamos el objeto de actualización de forma dinámica
-const updateData: any = {
-  antecedentesClinicos: data.antecedentesClinicos ?? null,
-  condicionSalud: data.condicionSalud ?? null,
-  descripcionHallazgos: data.descripcionHallazgos ?? null,
-};
+    const updateData: any = {
+      antecedentesClinicos: data.antecedentesClinicos ?? null,
+      condicionSalud: data.condicionSalud ?? null,
+      descripcionHallazgos: data.descripcionHallazgos ?? null,
+    };
 
-if (data.procedimientoPcl) {
-  updateData.procedimientoPcl = data.procedimientoPcl as ProcedimientoPcl;
-}
-
-if (data.fechaDictamen) {
-  // convertir 'YYYY-MM-DD' a Date
-  const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
-
-    if (Number.isNaN(fecha.getTime())) {
-      return NextResponse.json(
-        { ok: false, error: 'Fecha de dictamen inválida.' },
-        { status: 400 },
-      );
+    if (data.procedimientoPcl) {
+      updateData.procedimientoPcl =
+        data.procedimientoPcl as ProcedimientoPcl;
     }
 
-    updateData.fechaDictamen = fecha;
+    if (data.fechaDictamen) {
+      // convertir 'YYYY-MM-DD' a Date
+      const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
 
-    // si tenemos el documento del docente, recalculamos el número
-    const doc = existing.usuario?.identificacion;
-    if (doc) {
-      const [year, month, day] = data.fechaDictamen.split('-'); // YYYY-MM-DD
-      const numeroDictamen = `${day}${month}${year}${doc}`;      // ddMMyyyy + documento
-      updateData.numeroDictamen = numeroDictamen;
+      if (Number.isNaN(fecha.getTime())) {
+        return NextResponse.json(
+          { ok: false, error: 'Fecha de dictamen inválida.' },
+          { status: 400 },
+        );
+      }
+
+      updateData.fechaDictamen = fecha;
+
+      // si tenemos el documento del docente, recalculamos el número
+      const doc = existing.usuario?.identificacion;
+      if (doc) {
+        const [year, month, day] = data.fechaDictamen.split('-'); // YYYY-MM-DD
+        const numeroDictamen = `${day}${month}${year}${doc}`; // ddMMyyyy + documento
+        updateData.numeroDictamen = numeroDictamen;
+      }
     }
-  }
 
-  const updated = await prisma.dictamen.update({
-    where: { id },
-    data: updateData,
-    select: {
-      id: true,
-      fechaDictamen: true,
-      numeroDictamen: true,
-    },
-  });
-
+    const updated = await prisma.dictamen.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        fechaDictamen: true,
+        numeroDictamen: true,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

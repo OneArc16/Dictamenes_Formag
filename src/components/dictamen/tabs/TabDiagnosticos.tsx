@@ -9,12 +9,7 @@ import {
   TipoDiagnosticoLocal,
 } from '@/hooks/useDiagnosticosDraft';
 
-import {
-  SearchableSelect,
-  SearchableOption,
-} from '@/components/forms/SearchableSelect';
-
-import { useCie10Search } from '@/hooks/useCie10Search';
+import { Cie10DiagnosticoSelect } from '@/components/forms/Cie10DiagnosticoSelect';
 
 type ProcedimientoPcl = 'A' | 'B';
 
@@ -26,8 +21,8 @@ type InitialDiagnostico = {
 type Props = {
   dictamenId: number;
   procedimientoPcl: ProcedimientoPcl;
-  /** Lista de CIE10 (ya no la usamos para el combo, pero la dejo opcional por compatibilidad) */
-  cie10Options?: SearchableOption[];
+  /** Ya no usamos este prop, lo dejamos opcional por compatibilidad */
+  cie10Options?: never;
   /** Diagnósticos que ya existen en la BD (para precargar) */
   initialDiagnosticos?: InitialDiagnostico[];
 };
@@ -44,7 +39,6 @@ const TIPO_DIAGNOSTICO_OPTIONS: {
 export default function TabDiagnosticos({
   dictamenId,
   procedimientoPcl,
-  cie10Options, // ya no se usa en el combo, solo lo dejo por si luego lo necesitas
   initialDiagnosticos,
 }: Props) {
   const {
@@ -55,31 +49,34 @@ export default function TabDiagnosticos({
   } = useDiagnosticosDraft(dictamenId);
 
   const [savingRemote, setSavingRemote] = useState(false);
+  const [primaryError, setPrimaryError] = useState(false); // error en diagnóstico principal
 
-  // 🔎 Búsqueda remota CIE10 (con mínimo 3 caracteres y debounce)
-  const {
-    options: cie10SearchOptions,
-    loading: cie10Loading,
-    error: cie10Error,
-    search: searchCie10,
-  } = useCie10Search();
-
-  // Al cargar por primera vez:
-  // 1) Si hay diagnósticos en BD, los usamos.
-  // 2) Si no hay, generamos 5 filas vacías.
+  /**
+   * Inicialización:
+   * 1) Si Dexie ya tiene diagnósticos con CIE10 → respetamos Dexie (borrador).
+   * 2) Si NO hay ningún diagnóstico con CIE10 en Dexie:
+   *    2.1) Si initialDiagnosticos (BD) tiene datos → usamos esos.
+   *    2.2) Si tampoco hay en BD → creamos 5 filas vacías.
+   */
   useEffect(() => {
     if (!loaded) return;
-    if (diagnosticos.length > 0) return;
+
+    const hasAnyRealDx = diagnosticos.some(
+      (r) => r.cie10Codigo && r.cie10Codigo.trim() !== '',
+    );
+
+    // Si hay algo real en Dexie, NO tocamos nada (respetamos el borrador)
+    if (hasAnyRealDx) return;
 
     const now = Date.now();
 
+    // 1) Si vienen diagnósticos desde BD, los usamos
     if (initialDiagnosticos && initialDiagnosticos.length > 0) {
       const rowsFromDb: DiagnosticoRowDraft[] =
         initialDiagnosticos.map((dx, idx) => ({
           id: `row-db-${idx + 1}-${now}`,
           cie10Codigo: dx.cie10Codigo,
-          // El label lo podremos volver a recuperar cuando el médico busque de nuevo;
-          // por ahora guardamos al menos el código.
+          // de momento usamos el código como label si no tenemos el nombre
           cie10Label: dx.cie10Codigo,
           tipo: dx.tipo,
         }));
@@ -87,15 +84,18 @@ export default function TabDiagnosticos({
       return;
     }
 
-    const iniciales: DiagnosticoRowDraft[] = Array.from({ length: 5 }).map(
-      (_, idx) => ({
+    // 2) Si no hay nada en BD y además el borrador está vacío, creamos 5 filas
+    if (diagnosticos.length === 0) {
+      const iniciales: DiagnosticoRowDraft[] = Array.from({
+        length: 5,
+      }).map((_, idx) => ({
         id: `row-${idx + 1}-${now}`,
         tipo: 'IMPRESION_DIAGNOSTICA',
-      }),
-    );
+      }));
 
-    setDiagnosticos(iniciales);
-  }, [loaded, diagnosticos.length, setDiagnosticos, initialDiagnosticos]);
+      setDiagnosticos(iniciales);
+    }
+  }, [loaded, diagnosticos, initialDiagnosticos, setDiagnosticos]);
 
   const handleRowChange = (
     index: number,
@@ -104,6 +104,15 @@ export default function TabDiagnosticos({
     const rows = [...diagnosticos];
     rows[index] = { ...rows[index], ...patch };
     setDiagnosticos(rows);
+
+    // Si estamos modificando el diagnóstico 1 y ahora tiene código, limpiamos el error
+    if (
+      index === 0 &&
+      patch.cie10Codigo &&
+      patch.cie10Codigo.trim() !== ''
+    ) {
+      setPrimaryError(false);
+    }
   };
 
   const handleAddRow = () => {
@@ -131,7 +140,7 @@ export default function TabDiagnosticos({
     if (!first || !first.cie10Codigo || first.cie10Codigo.trim() === '') {
       setPrimaryError(true);
       toast.error(
-        'Debes colocar el Diagnóstico principal.',
+        'Debes colocar el diagnóstico principal (Diagnóstico 1).',
       );
       return;
     }
@@ -144,6 +153,7 @@ export default function TabDiagnosticos({
       }));
 
     if (payload.length === 0) {
+      // Seguridad extra, aunque ya validamos el primero
       toast.error('Debes registrar al menos un diagnóstico con CIE10.');
       return;
     }
@@ -196,12 +206,6 @@ export default function TabDiagnosticos({
         </div>
       </div>
 
-      {cie10Error && (
-        <div className="px-3 py-2 text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-md">
-          {cie10Error}
-        </div>
-      )}
-
       {/* Encabezado */}
       <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_auto] items-center gap-2 border-b border-slate-200 pb-2 text-[11px] font-semibold text-slate-500">
         <div>Diagnóstico (CIE10)</div>
@@ -244,63 +248,60 @@ export default function TabDiagnosticos({
                       : ''
                   }
                 >
-                  <SearchableSelect
+                  <Cie10DiagnosticoSelect
                     value={row.cie10Codigo ?? ''}
-                    options={cie10SearchOptions}
-                    placeholder="Buscar por código o nombre CIE10…"
-                    onChange={(value, option) =>
+                    label={row.cie10Label ?? row.cie10Codigo ?? ''}
+                    onChange={(code, label) =>
                       handleRowChange(index, {
-                        cie10Codigo: value || undefined,
-                        cie10Label: option?.label,
+                        cie10Codigo: code || undefined,
+                        cie10Label: label,
                       })
                     }
-                    onSearch={searchCie10}
-                    loading={cie10Loading}
-                    minChars={3}
                   />
                 </div>
                 {showPrimaryError && (
                   <p className="mt-1 text-[11px] text-red-600">
-                    Debes colocar el diagnóstico principal.
+                    Debes colocar el diagnóstico principal (Diagnóstico 1).
                   </p>
                 )}
               </div>
 
-            {/* Tipo de diagnóstico */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-slate-500">
-                Tipo de diagnóstico
-              </label>
-              <select
-                className="w-full h-8 px-2 text-xs transition bg-white border rounded-md shadow-sm outline-none border-slate-300 text-slate-700 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                value={row.tipo}
-                onChange={(e) =>
-                  handleRowChange(index, {
-                    tipo: e.target.value as TipoDiagnosticoLocal,
-                  })
-                }
-              >
-                {TIPO_DIAGNOSTICO_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              {/* Tipo de diagnóstico */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-slate-500">
+                  Tipo de diagnóstico
+                </label>
+                <select
+                  className="w-full h-8 px-2 text-xs transition bg-white border rounded-md shadow-sm outline-none border-slate-300 text-slate-700 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  value={row.tipo}
+                  onChange={(e) =>
+                    handleRowChange(index, {
+                      tipo: e.target.value as TipoDiagnosticoLocal,
+                    })
+                  }
+                >
+                  {TIPO_DIAGNOSTICO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Quitar */}
-            <div className="flex items-center justify-center pt-6">
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 px-2 py-1 text-[11px] text-slate-500 transition hover:border-rose-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={() => handleRemoveRow(index)}
-                disabled={diagnosticos.length <= 1}
-              >
-                Quitar
-              </button>
+              {/* Quitar */}
+              <div className="flex items-center justify-center pt-6">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 px-2 py-1 text-[11px] text-slate-500 transition hover:border-rose-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => handleRemoveRow(index)}
+                  disabled={diagnosticos.length <= 1}
+                >
+                  Quitar
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Botones */}
@@ -308,7 +309,7 @@ export default function TabDiagnosticos({
         <button
           type="button"
           onClick={handleAddRow}
-          className="inline-flex.items-center.gap-1.rounded-md.border.border-dashed.border-sky-400.bg-sky-50.px-3.py-1.5.text-[11px].font-medium.text-sky-700.transition.hover:bg-sky-100"
+          className="inline-flex items-center gap-1 rounded-md border border-dashed border-sky-400 bg-sky-50 px-3 py-1.5 text-[11px] font-medium text-sky-700 transition hover:bg-sky-100"
         >
           <span className="text-base leading-none">＋</span>
           Agregar diagnóstico
@@ -318,7 +319,7 @@ export default function TabDiagnosticos({
           type="button"
           onClick={handleSaveRemote}
           disabled={savingRemote || !loaded}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700.disabled:opacity-60"
+          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
         >
           Guardar diagnósticos
         </button>
