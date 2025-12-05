@@ -75,6 +75,9 @@ type RouteContext = {
 // ======================
 // GET: detalle dictamen
 // ======================
+// ======================
+// GET: detalle dictamen
+// ======================
 export async function GET(_req: Request, context: RouteContext) {
   try {
     const medicoId = await getMedicoIdFromToken();
@@ -109,6 +112,14 @@ export async function GET(_req: Request, context: RouteContext) {
           },
         },
         empleado: true,
+
+        // 👇👇 **IMPORTANTE: traer los diagnósticos asociados al dictamen**
+        diagnosticos: {
+          select: {
+            cie10Codigo: true,
+            tipo: true,
+          },
+        },
       },
     });
 
@@ -147,7 +158,6 @@ export async function GET(_req: Request, context: RouteContext) {
           id: docente.id,
           documento: docente.identificacion,
           tipoDocumento: docente.tipoIdentificacion,
-          // 🔹 ahora con nombre COMPLETO
           nombreCompleto: getNombreCompletoUsuario({
             primerNombre: docente.primerNombre,
             segundoNombre: docente.segundoNombre ?? null,
@@ -163,7 +173,6 @@ export async function GET(_req: Request, context: RouteContext) {
         medico: medico
           ? {
               id: medico.id,
-              // 🔹 también nombre completo del médico
               nombreCompleto: getNombreCompletoEmpleado({
                 primerNombre: medico.primerNombre,
                 segundoNombre: medico.segundoNombre ?? null,
@@ -172,6 +181,13 @@ export async function GET(_req: Request, context: RouteContext) {
               }),
             }
           : null,
+
+        // 👇👇 **AQUÍ devolvemos los diagnósticos al front**
+        diagnosticos:
+          dictamen.diagnosticos?.map((dx) => ({
+            cie10Codigo: dx.cie10Codigo,
+            tipo: dx.tipo,
+          })) ?? [],
       },
     });
   } catch (err: any) {

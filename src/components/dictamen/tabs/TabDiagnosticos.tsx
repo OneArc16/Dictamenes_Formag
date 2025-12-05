@@ -139,7 +139,7 @@ export default function TabDiagnosticos({
     if (!first || !first.cie10Codigo || first.cie10Codigo.trim() === '') {
       setPrimaryError(true);
       toast.error(
-        'Debes colocar el Diagnóstico principal.',
+        'Debes colocar el diagnóstico principal (Diagnóstico 1).',
       );
       return;
     }
@@ -271,7 +271,7 @@ export default function TabDiagnosticos({
                 </div>
                 {showPrimaryError && (
                   <p className="mt-1 text-[11px] text-red-600">
-                    Debes colocar el diagnóstico principal.
+                    Debes colocar el diagnóstico principal (Diagnóstico 1).
                   </p>
                 )}
               </div>
