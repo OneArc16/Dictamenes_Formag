@@ -573,119 +573,83 @@ model Empleado {
 // CATÁLOGO DE DEFICIENCIAS
 // =====================================
 model Deficiencia {
-  id              Int      @id @default(autoincrement())
-  codigo          String   @unique
-  nombre          String
-  sistemaCorporal String?
-  version         String?
-  notas           String?
-  uiPolitica      Json
-  creadoEn        DateTime @default(now())
-  estado          Boolean  @default(true)
+  id        Int     @id @default(autoincrement())
+  tabla String @db.VarChar(10)
+  nombre    String  @db.VarChar(255)
+  capitulo  String? @db.VarChar(20)
+  decreto   String? @db.VarChar(50)
+  tipoTabla String? @db.VarChar(50) @map("tipo_tabla")
 
-  criterios            DeficienciaCriterio[]
-  reglas               DeficienciaRegla[]
+  // Relaciones nuevas
+  nervios     DeficienciaNervio[]
+  clases      DeficienciaClase[]
+  movimientos DeficienciaMovimiento[]
+
+  // Relaciones existentes
   cie10Deficiencias    Cie10Deficiencia[]
   dictamenDeficiencias DictamenDeficiencia[]
 
   @@map("deficiencias")
 }
 
-model DeficienciaCriterio {
-  id            Int                     @id @default(autoincrement())
-  deficienciaId Int
-  codigo        String
-  etiqueta      String
-  tipo          TipoCriterioDeficiencia
-  unidad        UnidadCriterio          @default(NONE)
-  orden         Int                     @default(0)
-  estado        Boolean                 @default(true)
-
-  deficiencia      Deficiencia       @relation(fields: [deficienciaId], references: [id])
-  opciones         CriterioOpcion[]  @relation("CriterioOpciones")
-  rangos           CriterioRango[]   @relation("CriterioRangos")
-  reglaCondiciones ReglaCondicion[]  @relation("CriterioReglaCondiciones")
-  dictamenEntradas DictamenEntrada[] @relation("CriterioDictamenEntradas")
-
-  @@unique([deficienciaId, codigo])
-  @@index([deficienciaId])
-  @@map("deficiencia_criterios")
-}
-
-model CriterioOpcion {
-  id         Int     @id @default(autoincrement())
-  criterioId Int
-  codigo     String
-  etiqueta   String
-  orden      Int     @default(0)
-  estado     Boolean @default(true)
-
-  criterio         DeficienciaCriterio @relation("CriterioOpciones", fields: [criterioId], references: [id])
-  reglaCondiciones ReglaCondicion[]    @relation("OpcionReglaCondiciones")
-  dictamenEntradas DictamenEntrada[]   @relation("OpcionDictamenEntradas")
-
-  @@unique([criterioId, codigo])
-  @@index([criterioId])
-  @@map("criterio_opciones")
-}
-
-model CriterioRango {
-  id           Int      @id @default(autoincrement())
-  criterioId   Int
-  etiqueta     String
-  valorMinimo  Decimal? @db.Decimal(10, 3)
-  valorMaximo  Decimal? @db.Decimal(10, 3)
-  minInclusivo Boolean  @default(true)
-  maxInclusivo Boolean  @default(true)
-  orden        Int      @default(0)
-  estado       Boolean  @default(true)
-
-  criterio         DeficienciaCriterio @relation("CriterioRangos", fields: [criterioId], references: [id])
-  reglaCondiciones ReglaCondicion[]    @relation("RangoReglaCondiciones")
-  dictamenEntradas DictamenEntrada[]   @relation("RangoDictamenEntradas")
-
-  @@unique([criterioId, etiqueta])
-  @@index([criterioId])
-  @@map("criterio_rangos")
-}
-
-model DeficienciaRegla {
-  id            Int     @id @default(autoincrement())
-  deficienciaId Int
-  etiqueta      String?
-  porcentajeA   Decimal @db.Decimal(6, 2)
-  porcentajeB   Decimal @db.Decimal(6, 2)
-  tablaOrigen   String?
-  notas         String?
-  estado        Boolean @default(true)
-
-  deficiencia      Deficiencia       @relation(fields: [deficienciaId], references: [id])
-  condiciones      ReglaCondicion[]  @relation("ReglaCondiciones")
-  dictamenEntradas DictamenEntrada[] @relation("ReglaDictamenEntradas")
-
-  @@index([deficienciaId])
-  @@map("deficiencia_reglas")
-}
-
-model ReglaCondicion {
+// Tabla de nervios asociada a una deficiencia
+model DeficienciaNervio {
   id            Int      @id @default(autoincrement())
-  reglaId       Int
-  criterioId    Int
-  opcionId      Int?
-  rangoId       Int?
-  valorNumerico Decimal? @db.Decimal(10, 3)
-  valorBooleano Boolean?
+  deficienciaId Int
+  nombre        String   @db.VarChar(255)
 
-  regla    DeficienciaRegla    @relation("ReglaCondiciones", fields: [reglaId], references: [id])
-  criterio DeficienciaCriterio @relation("CriterioReglaCondiciones", fields: [criterioId], references: [id])
-  opcion   CriterioOpcion?     @relation("OpcionReglaCondiciones", fields: [opcionId], references: [id])
-  rango    CriterioRango?      @relation("RangoReglaCondiciones", fields: [rangoId], references: [id])
+  motorA     Decimal? @db.Decimal(6, 2) @map("motor_a")
+  sensitivoA Decimal? @db.Decimal(6, 2) @map("sensitivo_a")
+  mixtoA     Decimal? @db.Decimal(6, 2) @map("mixto_a")
+  motorB     Decimal? @db.Decimal(6, 2) @map("motor_b")
+  sensitivoB Decimal? @db.Decimal(6, 2) @map("sensitivo_b")
+  mixtoB     Decimal? @db.Decimal(6, 2) @map("mixto_b")
+  orden Int     @default(1)
 
-  @@index([reglaId])
-  @@index([criterioId])
-  @@index([opcionId])
-  @@index([rangoId])
-  @@map("regla_condiciones")
+  deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
+
+  @@index([deficienciaId])
+  @@map("nervios")
+}
+
+// Tabla de clases asociada a una deficiencia
+model DeficienciaClase {
+  id            Int      @id @default(autoincrement())
+  deficienciaId Int
+  nombre        String   @db.VarChar(255)
+
+  procedimientoA Decimal? @db.Decimal(6, 2) @map("procedimiento_a")
+  procedimientoB Decimal? @db.Decimal(6, 2) @map("procedimiento_b")
+  orden          Int      @default(1)
+
+  deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
+  dictamenDeficiencias DictamenDeficiencia[]
+
+  @@index([deficienciaId])
+  @@map("clases")
+}
+
+// Tabla de movimientos asociada a una deficiencia
+model DeficienciaMovimiento {
+  id            Int      @id @default(autoincrement())
+  deficienciaId Int
+
+  tipoMovimiento String   @db.VarChar(255) @map("tipo_movimiento")
+  rangoInicial   Decimal? @db.Decimal(6, 2) @map("rango_inicial")
+  rangoFinal     Decimal? @db.Decimal(6, 2) @map("rango_final")
+
+  restriccionA Decimal? @db.Decimal(6, 2) @map("restriccion_a")
+  restriccionB Decimal? @db.Decimal(6, 2) @map("restriccion_b")
+  anquilosisA  Decimal? @db.Decimal(6, 2) @map("anquilosis_a")
+  anquilosisB  Decimal? @db.Decimal(6, 2) @map("anquilosis_b")
+
+  grupo String? @db.VarChar(100)
+  orden Int     @default(1)
+
+  deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
+
+  @@index([deficienciaId])
+  @@map("movimientos")
 }
 
 // =====================================
@@ -774,45 +738,24 @@ model DictamenDiagnostico {
 }
 
 model DictamenDeficiencia {
-  id                  Int              @id @default(autoincrement())
-  dictamenId          Int
-  deficienciaId       Int
-  procedimiento       ProcedimientoPcl
-  porcentajeResultado Decimal?         @db.Decimal(6, 2)
-  creadoEn            DateTime         @default(now())
+  id             Int      @id @default(autoincrement())
+  dictamenId     Int
+  deficienciaId  Int
+  claseId        Int?     @map("id_clase")
 
-  dictamen    Dictamen          @relation(fields: [dictamenId], references: [id])
-  deficiencia Deficiencia       @relation(fields: [deficienciaId], references: [id])
-  entradas    DictamenEntrada[]
+  valorDeficiencia Decimal? @db.Decimal(6, 2)
+  creadoEn         DateTime @default(now())
+
+  dictamen    Dictamen        @relation(fields: [dictamenId], references: [id])
+  deficiencia Deficiencia     @relation(fields: [deficienciaId], references: [id])
+  clase       DeficienciaClase? @relation(fields: [claseId], references: [id])
 
   @@unique([dictamenId, deficienciaId])
   @@index([deficienciaId])
+  @@index([claseId])
   @@map("dictamen_deficiencias")
 }
 
-model DictamenEntrada {
-  id                    Int      @id @default(autoincrement())
-  dictamenDeficienciaId Int
-  criterioId            Int?
-  opcionId              Int?
-  rangoId               Int?
-  valorNumerico         Decimal? @db.Decimal(10, 3)
-  valorBooleano         Boolean?
-  reglaCoincidenteId    Int?
-
-  dictamenDeficiencia DictamenDeficiencia  @relation(fields: [dictamenDeficienciaId], references: [id])
-  criterio            DeficienciaCriterio? @relation("CriterioDictamenEntradas", fields: [criterioId], references: [id])
-  opcion              CriterioOpcion?      @relation("OpcionDictamenEntradas", fields: [opcionId], references: [id])
-  rango               CriterioRango?       @relation("RangoDictamenEntradas", fields: [rangoId], references: [id])
-  reglaCoincidente    DeficienciaRegla?    @relation("ReglaDictamenEntradas", fields: [reglaCoincidenteId], references: [id])
-
-  @@index([dictamenDeficienciaId])
-  @@index([criterioId])
-  @@index([opcionId])
-  @@index([rangoId])
-  @@index([reglaCoincidenteId])
-  @@map("dictamen_entradas")
-}
 
 // TÍTULO II – Cap. 1
 model DictamenLimitacionesAvdAivd {
