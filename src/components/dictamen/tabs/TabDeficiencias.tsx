@@ -1,20 +1,54 @@
-'use client';
+// src/components/dictamen/tabs/TabDeficiencias.tsx
+"use client";
 
-import React from 'react';
+import React, { useState } from "react";
+import { useDictamenDeficienciasPanel } from "@/hooks/useDictamenDeficienciasPanel";
 
-type Props = {
+import { DiagnosticosDeficienciaList } from "../deficiencias/DiagnosticosDeficienciaList";
+import { AsignacionDeficienciaCard } from "../deficiencias/AsignacionDeficienciaCard";
+import { DeficienciasAsignadasList } from "../deficiencias/DeficienciasAsignadasList";
+
+interface Props {
   dictamenId: number;
-  procedimientoPcl: 'A' | 'B';
-};
+}
 
-export default function TabDeficiencias({
-  dictamenId,
-  procedimientoPcl,
-}: Props) {
+export function TabDeficiencias({ dictamenId }: Props) {
+  const { data, isLoading, error } = useDictamenDeficienciasPanel(dictamenId);
+
+  const [diagnosticoSeleccionado, setDiagnosticoSeleccionado] =
+    useState<any>(null);
+
+  if (isLoading) {
+    return <p className="text-sm text-gray-600">Cargando información...</p>;
+  }
+
+  if (error || !data) {
+    return (
+      <p className="text-sm text-red-600">
+        Error cargando el panel de deficiencias.
+      </p>
+    );
+  }
+
   return (
-    <div className="text-xs text-slate-500">
-      Aquí irá el módulo de <strong>Deficiencias / PCL</strong> para el
-      dictamen #{dictamenId} (procedimiento {procedimientoPcl}).
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <DiagnosticosDeficienciaList
+          diagnosticos={data.diagnosticos}
+          onAsignar={(diag) => setDiagnosticoSeleccionado(diag)}
+        />
+
+        <AsignacionDeficienciaCard
+          dictamenId={data.dictamen.id}
+          diagnosticoSeleccionado={diagnosticoSeleccionado}
+          procedimientoPcl={data.dictamen.procedimientoPcl}
+          onCancelar={() => setDiagnosticoSeleccionado(null)}
+        />
+      </div>
+
+      <DeficienciasAsignadasList items={data.deficienciasAsignadas} />
     </div>
   );
 }
+
+export default TabDeficiencias;
