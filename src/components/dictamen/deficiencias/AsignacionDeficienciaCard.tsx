@@ -1,21 +1,22 @@
-// src/components/dictamen/deficiencias/AsignacionDeficienciaCard.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+
 import { useDeficienciasOpciones } from "@/hooks/useDeficienciasOpciones";
-import {
-  DeficienciaClaseSelector,
-  ClaseSeleccion,
-} from "./DeficienciaClaseSelector";
+import { useGuardarDeficienciaClase } from "@/hooks/useGuardarDeficienciaClase";
+
+import { DeficienciaClaseSelector, ClaseSeleccion } from "./DeficienciaClaseSelector";
+import { DeficienciaNervioSelector, NervioSeleccion } from "./DeficienciaNervioSelector";
 
 type DiagnosticoItem = {
   id: number;
   cie10Codigo: string;
   tipo: string;
-  cie10: {
-    codigo: string;
-    nombre: string;
-  };
+  cie10: { codigo: string; nombre: string };
+  hasDeficiencia?: boolean;
 };
 
 type DeficienciaOpcion = {
@@ -33,31 +34,45 @@ interface Props {
   onCancelar: () => void;
 }
 
+function normalizeTipoTabla(tipo: string | null | undefined) {
+  const t = (tipo ?? "").trim().toUpperCase();
+  if (t === "CLASE" || t === "CLASES") return "CLASE";
+  if (t === "NERVIO" || t === "NERVIOS") return "NERVIOS";
+  if (t === "MOVIMIENTO" || t === "MOVIMIENTOS") return "MOVIMIENTO";
+  return t || null;
+}
+
 export function AsignacionDeficienciaCard({
   dictamenId,
   diagnosticoSeleccionado,
   procedimientoPcl,
   onCancelar,
 }: Props) {
-  // Estado: deficiencia seleccionada
+  const qc = useQueryClient();
+  const router = useRouter();
+
   const [deficienciaId, setDeficienciaId] = useState<number | null>(null);
   const [deficienciaSeleccionada, setDeficienciaSeleccionada] =
     useState<DeficienciaOpcion | null>(null);
 
-  // Estado: selección de clase (solo para tipo_tabla = CLASE)
   const [claseSeleccion, setClaseSeleccion] = useState<ClaseSeleccion>({
     claseId: null,
     valorDeficiencia: null,
   });
 
-  // Cuando cambia el diagnóstico, limpiamos la selección de deficiencia y clase
+  const [nervioSeleccion, setNervioSeleccion] = useState<NervioSeleccion>({
+    nervioId: null,
+    tipo: "MIXTO",
+    valorDeficiencia: null,
+  });
+
   useEffect(() => {
     setDeficienciaId(null);
     setDeficienciaSeleccionada(null);
     setClaseSeleccion({ claseId: null, valorDeficiencia: null });
+    setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
   }, [diagnosticoSeleccionado?.id]);
 
-  // Cargamos las opciones de deficiencia según el diagnóstico
   const { data, isLoading, error } = useDeficienciasOpciones(
     dictamenId,
     diagnosticoSeleccionado ? diagnosticoSeleccionado.id : null
@@ -65,13 +80,12 @@ export function AsignacionDeficienciaCard({
 
   const opciones: DeficienciaOpcion[] = data?.opciones ?? [];
 
-  const handleChangeDeficiencia = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
+  const handleChangeDeficiencia = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value ? Number(e.target.value) : null;
 
     setDeficienciaId(id);
     setClaseSeleccion({ claseId: null, valorDeficiencia: null });
+    setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
 
     if (!id) {
       setDeficienciaSeleccionada(null);
@@ -82,16 +96,102 @@ export function AsignacionDeficienciaCard({
     setDeficienciaSeleccionada(found);
   };
 
-  const tipoTabla =
-    deficienciaSeleccionada?.tipoTabla?.toUpperCase() ?? null;
+  const tipoTabla = normalizeTipoTabla(deficienciaSeleccionada?.tipoTabla);
 
-  const puedeGuardar =
+  const guardarClase = useGuardarDeficienciaClase();
+
+  const puedeGuardarClase =
     !!deficienciaId &&
     tipoTabla === "CLASE" &&
     !!claseSeleccion.claseId &&
     claseSeleccion.valorDeficiencia !== null;
 
-  // ================= SIN DIAGNÓSTICO =================
+  const puedeGuardarNervio =
+    !!deficienciaId &&
+    tipoTabla === "NERVIOS" &&
+    !!nervioSeleccion.nervioId &&
+    nervioSeleccion.valorDeficiencia !== null;
+
+  const isSaving = guardarClase.isPending;
+
+  const guardarDisabled =
+    (tipoTabla === "CLASE" && !puedeGuardarClase) ||
+    (tipoTabla === "NERVIOS" && !puedeGuardarNervio) ||
+    !tipoTabla ||
+    isSaving;
+
+  const invalidateAfterSave = async () => {
+    // ✅ refresca panel + diagnósticos + opciones (sin depender de nombres exactos)
+    await qc.invalidateQueries({
+      predicate: (q) => {
+        const key = q.queryKey;
+        if (!Array.isArray(key)) return false;
+
+        const hasDictamen = key.includes(dictamenId);
+        const hasWords = key.some(
+          (k) =>
+            typeof k === "string" &&
+            (k.includes("deficien") || k.includes("diagnost") || k.includes("panel") || k.includes("opcion"))
+        );
+        return hasDictamen && hasWords;
+      },
+      refetchType: "active",
+    });
+  };
+
+  const handleGuardar = async () => {
+    if (!deficienciaSeleccionada) return;
+
+    try {
+      if (tipoTabla === "CLASE") {
+        if (!puedeGuardarClase || !claseSeleccion.claseId) return;
+
+        await guardarClase.mutateAsync({
+          dictamenId,
+          deficienciaId: deficienciaSeleccionada.id,
+          claseId: claseSeleccion.claseId,
+          valorDeficiencia: claseSeleccion.valorDeficiencia,
+        });
+
+        toast.success("Deficiencia guardada");
+        await invalidateAfterSave();
+        router.refresh(); // respaldo
+      } else if (tipoTabla === "NERVIOS") {
+        if (!puedeGuardarNervio || !nervioSeleccion.nervioId) return;
+
+        const res = await fetch(`/api/dictamenes/${dictamenId}/deficiencias`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deficienciaId: deficienciaSeleccionada.id,
+            nervioId: nervioSeleccion.nervioId,
+            valorDeficiencia: nervioSeleccion.valorDeficiencia,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message ?? "Error guardando deficiencia (nervios)");
+
+        toast.success("Deficiencia guardada");
+        await invalidateAfterSave();
+        router.refresh(); // respaldo
+      } else {
+        toast.error(`Tipo ${tipoTabla} aún no implementado.`);
+        return;
+      }
+
+      // limpiar tarjeta
+      setDeficienciaId(null);
+      setDeficienciaSeleccionada(null);
+      setClaseSeleccion({ claseId: null, valorDeficiencia: null });
+      setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
+
+      onCancelar();
+    } catch (e: any) {
+      toast.error(e.message ?? "Error guardando deficiencia");
+    }
+  };
+
   if (!diagnosticoSeleccionado) {
     return (
       <div className="p-4 bg-white border rounded-lg shadow-sm h-fit">
@@ -103,18 +203,14 @@ export function AsignacionDeficienciaCard({
     );
   }
 
-  // ================= UI PRINCIPAL ====================
   return (
     <div className="p-4 bg-white border rounded-lg shadow-sm h-fit">
-      {/* Título */}
       <h2 className="mb-3 text-lg font-semibold">Asignación de Deficiencia</h2>
 
-      {/* Resumen del diagnóstico */}
       <div className="p-3 mb-4 bg-gray-100 rounded-md">
         <p className="font-medium">
           <span className="text-gray-700">Diagnóstico:</span>{" "}
-          {diagnosticoSeleccionado.cie10.codigo} —{" "}
-          {diagnosticoSeleccionado.cie10.nombre}
+          {diagnosticoSeleccionado.cie10.codigo} — {diagnosticoSeleccionado.cie10.nombre}
         </p>
         <p className="mt-1 text-sm text-gray-600">
           Procedimiento asignado al dictamen:{" "}
@@ -122,21 +218,13 @@ export function AsignacionDeficienciaCard({
         </p>
       </div>
 
-      {/* SELECT de deficiencia */}
       <div className="mb-4 space-y-2">
         <label className="block text-sm font-medium text-gray-700">
           Deficiencia (según CIE10 del diagnóstico)
         </label>
 
-        {isLoading && (
-          <p className="text-sm text-gray-600">Cargando deficiencias…</p>
-        )}
-
-        {error && (
-          <p className="text-sm text-red-600">
-            Error cargando las deficiencias disponibles.
-          </p>
-        )}
+        {isLoading && <p className="text-sm text-gray-600">Cargando…</p>}
+        {error && <p className="text-sm text-red-600">Error cargando deficiencias disponibles.</p>}
 
         {!isLoading && !error && (
           <select
@@ -155,16 +243,14 @@ export function AsignacionDeficienciaCard({
         )}
       </div>
 
-      {/* CONTENIDO DINÁMICO SEGÚN TIPO_TABLA */}
       <div className="p-3 space-y-3 border rounded-md bg-gray-50">
         {!deficienciaSeleccionada && (
-          <p className="text-sm text-gray-600">
-            Seleccione una deficiencia para continuar.
-          </p>
+          <p className="text-sm text-gray-600">Seleccione una deficiencia para continuar.</p>
         )}
 
         {deficienciaSeleccionada && tipoTabla === "CLASE" && (
           <DeficienciaClaseSelector
+            key={`${deficienciaSeleccionada.id}-${procedimientoPcl}`}
             deficienciaId={deficienciaSeleccionada.id}
             procedimientoPcl={procedimientoPcl}
             value={claseSeleccion}
@@ -172,40 +258,23 @@ export function AsignacionDeficienciaCard({
           />
         )}
 
-        {deficienciaSeleccionada &&
-          tipoTabla &&
-          tipoTabla !== "CLASE" && (
-            <p className="text-sm text-gray-600">
-              Esta deficiencia es de tipo <strong>{tipoTabla}</strong>. El
-              manejo para este tipo aún no está implementado en esta etapa.
-            </p>
-          )}
+        {deficienciaSeleccionada && tipoTabla === "NERVIOS" && (
+          <DeficienciaNervioSelector
+            key={`${deficienciaSeleccionada.id}-${procedimientoPcl}`}
+            deficienciaId={deficienciaSeleccionada.id}
+            procedimientoPcl={procedimientoPcl}
+            value={nervioSeleccion}
+            onChange={setNervioSeleccion}
+          />
+        )}
+
+        {deficienciaSeleccionada && tipoTabla && !["CLASE", "NERVIOS"].includes(tipoTabla) && (
+          <p className="text-sm text-gray-600">
+            Tipo <strong>{tipoTabla}</strong> aún no implementado en este paso.
+          </p>
+        )}
       </div>
 
-      {/* RESUMEN DE LO SELECCIONADO */}
-      {deficienciaSeleccionada && (
-        <div className="p-3 mt-3 text-sm border border-blue-100 rounded-md bg-blue-50">
-          <p className="mb-1 font-medium text-blue-800">
-            Resumen de la selección
-          </p>
-          <p className="text-blue-800">
-            Deficiencia:{" "}
-            <span className="font-semibold">
-              {deficienciaSeleccionada.nombre}
-            </span>
-          </p>
-          {tipoTabla === "CLASE" && claseSeleccion.claseId && (
-            <p className="text-blue-800">
-              Clase seleccionada:{" "}
-              <span className="font-semibold">
-                {claseSeleccion.valorDeficiencia ?? "—"}%
-              </span>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Botones inferiores */}
       <div className="flex justify-end gap-2 mt-4">
         <button
           onClick={onCancelar}
@@ -215,16 +284,17 @@ export function AsignacionDeficienciaCard({
         </button>
 
         <button
-          disabled={!puedeGuardar}
+          disabled={guardarDisabled}
+          onClick={handleGuardar}
           className={`px-3 py-1 text-sm text-white rounded ${
-            puedeGuardar
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-blue-400 cursor-not-allowed"
+            !guardarDisabled ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-400 cursor-not-allowed"
           }`}
         >
-          Guardar (aún sin persistencia)
+          {isSaving ? "Guardando..." : "Guardar"}
         </button>
       </div>
     </div>
   );
 }
+
+export default AsignacionDeficienciaCard;

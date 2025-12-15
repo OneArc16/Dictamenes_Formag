@@ -40,20 +40,15 @@ export interface DictamenPanelData {
 // ==============================
 // 🔥 HOOK PRINCIPAL
 // ==============================
+
 export function useDictamenDeficienciasPanel(dictamenId: number) {
-  return useQuery<DictamenPanelData>({
+  return useQuery({
     queryKey: ["dictamen-deficiencias-panel", dictamenId],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/dictamenes/${dictamenId}/deficiencias/panel`
-      );
-
-      if (!res.ok) {
-        throw new Error("Error cargando panel de deficiencias");
-      }
-
+      const res = await fetch(`/api/dictamenes/${dictamenId}/deficiencias/panel`);
+      if (!res.ok) throw new Error("Error cargando panel de deficiencias");
       return res.json();
     },
-    staleTime: 1000 * 30, // 30s
+    staleTime: 1000 * 15,
   });
 }

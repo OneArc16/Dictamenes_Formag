@@ -1,7 +1,7 @@
 // src/components/dictamen/deficiencias/DeficienciaClaseSelector.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useDeficienciaClases } from "@/hooks/useDeficienciaClases";
 
 export interface ClaseSeleccion {
@@ -23,8 +23,25 @@ export function DeficienciaClaseSelector({
   onChange,
 }: Props) {
   const { data, isLoading, error } = useDeficienciaClases(deficienciaId);
-
   const clases = data?.clases ?? [];
+
+  // 🔁 RECALCULAR CUANDO CAMBIA EL PROCEDIMIENTO
+  useEffect(() => {
+    if (!value.claseId) return;
+
+    const clase = clases.find((c) => c.id === value.claseId);
+    if (!clase) return;
+
+    const nuevoValor =
+      procedimientoPcl === "A"
+        ? clase.procedimientoA ?? null
+        : clase.procedimientoB ?? null;
+
+    onChange({
+      claseId: clase.id,
+      valorDeficiencia: nuevoValor,
+    });
+  }, [procedimientoPcl, value.claseId, clases, onChange]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value ? Number(e.target.value) : null;
@@ -40,7 +57,6 @@ export function DeficienciaClaseSelector({
       return;
     }
 
-    // Elegimos el valor según el procedimiento del dictamen
     const valor =
       procedimientoPcl === "A"
         ? clase.procedimientoA ?? null
@@ -53,29 +69,17 @@ export function DeficienciaClaseSelector({
   };
 
   if (!deficienciaId) {
-    return (
-      <p className="text-sm text-gray-600">
-        Primero seleccione una deficiencia.
-      </p>
-    );
+    return <p className="text-sm text-gray-600">Seleccione una deficiencia.</p>;
   }
 
   if (isLoading) {
-    return <p className="text-sm text-gray-600">Cargando clases...</p>;
+    return <p className="text-sm text-gray-600">Cargando clases…</p>;
   }
 
   if (error) {
     return (
       <p className="text-sm text-red-600">
         Error cargando las clases de la deficiencia.
-      </p>
-    );
-  }
-
-  if (clases.length === 0) {
-    return (
-      <p className="text-sm text-gray-600">
-        Esta deficiencia no tiene clases configuradas.
       </p>
     );
   }
@@ -98,12 +102,9 @@ export function DeficienciaClaseSelector({
               ? clase.procedimientoA
               : clase.procedimientoB;
 
-          const valorTexto =
-            valor !== null && valor !== undefined ? `${valor}%` : "—";
-
           return (
             <option key={clase.id} value={clase.id}>
-              {clase.nombre} — {valorTexto}
+              {clase.nombre} — {valor ?? "—"}%
             </option>
           );
         })}
@@ -111,8 +112,8 @@ export function DeficienciaClaseSelector({
 
       {value.valorDeficiencia !== null && (
         <p className="text-xs text-gray-600">
-          Valor seleccionado:{" "}
-          <span className="font-semibold">{value.valorDeficiencia}%</span>
+          Valor aplicado ({procedimientoPcl}):{" "}
+          <strong>{value.valorDeficiencia}%</strong>
         </p>
       )}
     </div>

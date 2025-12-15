@@ -7,39 +7,22 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // ← CORRECCIÓN IMPORTANTE
+    const { id } = await context.params;
     const dictamenId = Number(id);
 
     if (isNaN(dictamenId)) {
-      return NextResponse.json(
-        { message: "ID de dictamen inválido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "dictamenId inválido" }, { status: 400 });
     }
 
-    // ============================
-    // 1. Obtener dictamen básico
-    // ============================
     const dictamen = await prisma.dictamen.findUnique({
       where: { id: dictamenId },
-      select: {
-        id: true,
-        numeroDictamen: true,
-        fechaDictamen: true,
-        procedimientoPcl: true,
-      },
+      select: { id: true, procedimientoPcl: true },
     });
 
     if (!dictamen) {
-      return NextResponse.json(
-        { message: "Dictamen no encontrado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Dictamen no encontrado" }, { status: 404 });
     }
 
-    // ===============================================
-    // 2. Diagnósticos del dictamen con info del CIE10
-    // ===============================================
     const diagnosticos = await prisma.dictamenDiagnostico.findMany({
       where: { dictamenId },
       orderBy: { id: "asc" },
@@ -47,52 +30,55 @@ export async function GET(
         id: true,
         cie10Codigo: true,
         tipo: true,
-        cie10: {
-          select: {
-            codigo: true,
-            nombre: true,
-          },
-        },
+        cie10: { select: { codigo: true, nombre: true } },
       },
     });
 
-    // =====================================================
-    // 3. Deficiencias ya asignadas al dictamen con joins
-    // =====================================================
     const deficienciasAsignadas = await prisma.dictamenDeficiencia.findMany({
       where: { dictamenId },
-      orderBy: { id: "asc" },
+      orderBy: { creadoEn: "desc" },
       select: {
         id: true,
-        valorDeficiencia: true,
         creadoEn: true,
-
+        valorDeficiencia: true,
         deficiencia: {
-          select: {
-            id: true,
-            nombre: true,
-            tabla: true,
-            capitulo: true,
-            tipoTabla: true,
-          },
+          select: { id: true, nombre: true, tabla: true, capitulo: true, tipoTabla: true },
         },
-
-        clase: {
-          select: {
-            id: true,
-            nombre: true,
-          },
-        },
+        clase: { select: { id: true, nombre: true } },
+        nervio: { select: { id: true, nombre: true } },
       },
     });
+
+    // Borde verde en diagnósticos (igual que antes)
+    const diagCodigos = diagnosticos.map((d) => d.cie10Codigo);
+    const defIdsAsignadas = Array.from(new Set(deficienciasAsignadas.map((x) => x.deficiencia.id)));
+
+    let codigosConDef: Set<string> = new Set();
+
+    if (diagCodigos.length > 0 && defIdsAsignadas.length > 0) {
+      const links = await prisma.cie10Deficiencia.findMany({
+        where: {
+          cie10Codigo: { in: diagCodigos },
+          deficienciaId: { in: defIdsAsignadas },
+        },
+        select: { cie10Codigo: true },
+      });
+
+      codigosConDef = new Set(links.map((l) => l.cie10Codigo));
+    }
+
+    const diagnosticosConFlag = diagnosticos.map((d) => ({
+      ...d,
+      hasDeficiencia: codigosConDef.has(d.cie10Codigo),
+    }));
 
     return NextResponse.json({
       dictamen,
-      diagnosticos,
+      diagnosticos: diagnosticosConFlag,
       deficienciasAsignadas,
     });
   } catch (error: any) {
-    console.error("❌ Error en PANEL de deficiencias:", error);
+    console.error("❌ Error GET /dictamenes/[id]/deficiencias/panel:", error);
     return NextResponse.json(
       { message: "Error interno", error: error.message },
       { status: 500 }

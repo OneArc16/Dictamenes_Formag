@@ -1,4 +1,3 @@
-// src/components/dictamen/tabs/TabDeficiencias.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -10,24 +9,17 @@ import { DeficienciasAsignadasList } from "../deficiencias/DeficienciasAsignadas
 
 interface Props {
   dictamenId: number;
+  procedimientoPcl: "A" | "B";
 }
 
-export function TabDeficiencias({ dictamenId }: Props) {
+export function TabDeficiencias({ dictamenId, procedimientoPcl }: Props) {
   const { data, isLoading, error } = useDictamenDeficienciasPanel(dictamenId);
+  const [diagnosticoSeleccionado, setDiagnosticoSeleccionado] = useState<any>(null);
 
-  const [diagnosticoSeleccionado, setDiagnosticoSeleccionado] =
-    useState<any>(null);
-
-  if (isLoading) {
-    return <p className="text-sm text-gray-600">Cargando información...</p>;
-  }
+  if (isLoading) return <p className="text-sm text-gray-600">Cargando información...</p>;
 
   if (error || !data) {
-    return (
-      <p className="text-sm text-red-600">
-        Error cargando el panel de deficiencias.
-      </p>
-    );
+    return <p className="text-sm text-red-600">Error cargando el panel de deficiencias.</p>;
   }
 
   return (
@@ -39,14 +31,17 @@ export function TabDeficiencias({ dictamenId }: Props) {
         />
 
         <AsignacionDeficienciaCard
-          dictamenId={data.dictamen.id}
+          dictamenId={dictamenId}
           diagnosticoSeleccionado={diagnosticoSeleccionado}
-          procedimientoPcl={data.dictamen.procedimientoPcl}
+          procedimientoPcl={procedimientoPcl}
           onCancelar={() => setDiagnosticoSeleccionado(null)}
         />
       </div>
 
-      <DeficienciasAsignadasList items={data.deficienciasAsignadas} />
+      <DeficienciasAsignadasList
+        dictamenId={dictamenId}
+        items={data.deficienciasAsignadas}
+      />
     </div>
   );
 }

@@ -104,6 +104,8 @@ export default function DictamenCenterPanel({
             procedimientoPcl={procedimientoPcl}
             cie10Options={cie10Options}
             initialDiagnosticos={dictamen.diagnosticos ?? []}
+
+            onGoNext={() => setTab('DEFICIENCIAS')}
           />
         )}
 

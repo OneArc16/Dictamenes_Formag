@@ -11,6 +11,8 @@ import {
 
 import { Cie10DiagnosticoSelect } from '@/components/forms/Cie10DiagnosticoSelect';
 
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+
 type ProcedimientoPcl = 'A' | 'B';
 
 type InitialDiagnostico = {
@@ -26,6 +28,7 @@ type Props = {
   cie10Options?: never;
   /** Diagnósticos que ya existen en la BD (para precargar) */
   initialDiagnosticos?: InitialDiagnostico[];
+  onGoNext?: () => void;
 };
 
 const TIPO_DIAGNOSTICO_OPTIONS: {
@@ -41,7 +44,12 @@ export default function TabDiagnosticos({
   dictamenId,
   procedimientoPcl,
   initialDiagnosticos,
+  onGoNext,
 }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const {
     diagnosticos,
     setDiagnosticos,
@@ -133,6 +141,14 @@ export default function TabDiagnosticos({
     setDiagnosticos(rows);
   };
 
+  const goToDeficienciasTab = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "deficiencias"); // 👈 pestaña destino
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+    router.refresh();
+  };
+
   const handleSaveRemote = async () => {
     // 🔴 Validación específica del diagnóstico principal (fila 1)
     const first = diagnosticos[0];
@@ -182,6 +198,11 @@ export default function TabDiagnosticos({
       }
 
       toast.success('Diagnósticos guardados correctamente.');
+
+      // ✅ redirigir a la pestaña Deficiencias
+      if (onGoNext){
+        onGoNext();
+      }
     } catch (err) {
       console.error(err);
       toast.error('Error al guardar los diagnósticos.');
