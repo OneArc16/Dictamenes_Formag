@@ -5,12 +5,10 @@ import toast from "react-hot-toast";
 import { useEliminarDeficienciaAsignada } from "@/hooks/useEliminarDeficienciaAsignada";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
-type Detalle = { tipo: "CLASE" | "NERVIO"; nombre: string } | null;
-
 type Item = {
   id: number;
   creadoEn: string;
-  valorDeficiencia: number | string | null;
+  valorDeficiencia: any; // ✅ soporta Decimal/number/string/null
   deficiencia: {
     id: number;
     nombre: string;
@@ -18,20 +16,45 @@ type Item = {
     capitulo: string | null;
     tipoTabla: string | null;
   };
-
-  // 👇 soporte nuevo (si el panel ya lo envía)
-  detalle?: Detalle;
-
-  // 👇 soporte antiguo (si aún estás mandando estas relaciones)
   clase: { id: number; nombre: string } | null;
   nervio: { id: number; nombre: string } | null;
 };
 
-function formatPorcentaje(value: Item["valorDeficiencia"]) {
-  if (value === null || value === undefined) return "—";
-  const n = typeof value === "string" ? Number(value) : value;
-  if (Number.isNaN(n)) return "—";
-  return `${n}%`;
+function toNumberSafe(value: any): number | null {
+  if (value === null || value === undefined) return null;
+
+  // Prisma Decimal suele traer toNumber()/toString()
+  if (typeof value === "object") {
+    if (typeof value.toNumber === "function") {
+      const n = value.toNumber();
+      return Number.isNaN(n) ? null : n;
+    }
+    if (typeof value.toString === "function") {
+      const s = String(value.toString()).trim();
+      if (!s) return null;
+      const n = Number(s.replace(",", "."));
+      return Number.isNaN(n) ? null : n;
+    }
+    return null;
+  }
+
+  if (typeof value === "number") return Number.isNaN(value) ? null : value;
+
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    const n = Number(s.replace(",", "."));
+    return Number.isNaN(n) ? null : n;
+  }
+
+  return null;
+}
+
+function formatPorcentaje(value: any) {
+  const n = toNumberSafe(value);
+  if (n === null) return "—";
+  const show = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+  return `${show}%`;
 }
 
 function formatFecha(iso: string) {
@@ -43,18 +66,6 @@ function formatFecha(iso: string) {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-}
-
-function getDetalleText(it: Item) {
-  // 1) Preferimos el "detalle" nuevo del API
-  if (it.detalle?.tipo === "CLASE") return `Clase: ${it.detalle.nombre}`;
-  if (it.detalle?.tipo === "NERVIO") return `Nervio: ${it.detalle.nombre}`;
-
-  // 2) Fallback a relaciones antiguas si aún existen
-  if (it.clase?.nombre) return `Clase: ${it.clase.nombre}`;
-  if (it.nervio?.nombre) return `Nervio: ${it.nervio.nombre}`;
-
-  return "—";
 }
 
 export function DeficienciasAsignadasList({
@@ -72,19 +83,19 @@ export function DeficienciasAsignadasList({
   const descConfirm = useMemo(() => {
     if (!selected) return null;
 
-    const detalleText = getDetalleText(selected);
+    const detalle = selected.clase?.nombre ?? selected.nervio?.nombre ?? "—";
 
     return (
       <div className="space-y-2">
         <p className="text-gray-700">¿Eliminar esta deficiencia asignada?</p>
 
         <div className="p-3 text-sm border rounded-md bg-gray-50">
-          <p className="font-medium text-gray-900">{selected.deficiencia?.nombre ?? "—"}</p>
-
-          <p className="mt-1 text-gray-700">
-            <span className="font-medium">Detalle:</span> {detalleText}
+          <p className="font-medium text-gray-900">
+            {selected.deficiencia?.nombre ?? "—"}
           </p>
-
+          <p className="mt-1 text-gray-700">
+            <span className="font-medium">Detalle:</span> {detalle}
+          </p>
           <p className="text-gray-700">
             <span className="font-medium">Valor:</span>{" "}
             {formatPorcentaje(selected.valorDeficiencia)}
@@ -150,7 +161,7 @@ export function DeficienciasAsignadasList({
 
             <tbody>
               {items.map((it) => {
-                const detalleText = getDetalleText(it);
+                const detalle = it.clase?.nombre ?? it.nervio?.nombre ?? "—";
 
                 return (
                   <tr key={it.id} className="border-b last:border-b-0">
@@ -171,7 +182,7 @@ export function DeficienciasAsignadasList({
                       {it.deficiencia?.tabla ?? "—"}
                     </td>
 
-                    <td className="py-2 pr-3 whitespace-nowrap">{detalleText}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{detalle}</td>
 
                     <td className="py-2 pr-3 font-semibold whitespace-nowrap">
                       {formatPorcentaje(it.valorDeficiencia)}

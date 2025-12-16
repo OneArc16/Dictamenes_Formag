@@ -13,17 +13,14 @@ function normalizeTipoTabla(tipo: string | null | undefined) {
   if (t === "CLASE" || t === "CLASES") return "CLASE";
   if (t === "NERVIO" || t === "NERVIOS") return "NERVIOS";
   if (t === "MOVIMIENTO" || t === "MOVIMIENTOS") return "MOVIMIENTO";
+  if (t === "FORMULA" || t === "FORMULAS") return "FORMULA";
   return t || null;
 }
 
-export async function POST(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const dictamenId = Number(id);
-
     if (isNaN(dictamenId)) {
       return NextResponse.json({ message: "dictamenId inválido" }, { status: 400 });
     }
@@ -35,79 +32,89 @@ export async function POST(
       return NextResponse.json({ message: "deficienciaId inválido" }, { status: 400 });
     }
 
-    const claseId =
-      body.claseId !== undefined && body.claseId !== null ? Number(body.claseId) : null;
-    const nervioId =
-      body.nervioId !== undefined && body.nervioId !== null ? Number(body.nervioId) : null;
-
     const valorDeficiencia =
       body.valorDeficiencia !== undefined && body.valorDeficiencia !== null
         ? Number(body.valorDeficiencia)
         : null;
 
-    const [dictamen, deficiencia] = await Promise.all([
-      prisma.dictamen.findUnique({ where: { id: dictamenId }, select: { id: true } }),
-      prisma.deficiencia.findUnique({
-        where: { id: deficienciaId },
-        select: { id: true, tipoTabla: true },
-      }),
-    ]);
+    const def = await prisma.deficiencia.findUnique({
+      where: { id: deficienciaId },
+      select: { id: true, tipoTabla: true, tabla: true, nombre: true, capitulo: true },
+    });
 
-    if (!dictamen) return NextResponse.json({ message: "Dictamen no encontrado" }, { status: 404 });
-    if (!deficiencia)
-      return NextResponse.json({ message: "Deficiencia no encontrada" }, { status: 404 });
+    if (!def) return NextResponse.json({ message: "Deficiencia no encontrada" }, { status: 404 });
 
-    const tipoTabla = normalizeTipoTabla(deficiencia.tipoTabla);
+    const tipoTabla = normalizeTipoTabla(def.tipoTabla);
+
+    let claseId: number | null = null;
 
     if (tipoTabla === "CLASE") {
-      if (!claseId || isNaN(claseId)) {
+      const cid = body.claseId !== undefined && body.claseId !== null ? Number(body.claseId) : null;
+      if (!cid || isNaN(cid)) {
         return NextResponse.json({ message: "claseId requerido para tipo CLASE" }, { status: 400 });
       }
-
-      const creado = await prisma.dictamenDeficiencia.create({
-        data: { dictamenId, deficienciaId, claseId, valorDeficiencia },
-        select: {
-          id: true,
-          creadoEn: true,
-          valorDeficiencia: true,
-          deficiencia: { select: { id: true, tabla: true, nombre: true, capitulo: true, tipoTabla: true } },
-          clase: { select: { id: true, nombre: true } },
-          nervio: { select: { id: true, nombre: true } },
-        },
-      });
-
-      return NextResponse.json({ item: creado }, { status: 201 });
-    }
-
-    if (tipoTabla === "NERVIOS") {
-      if (!nervioId || isNaN(nervioId)) {
+      claseId = cid;
+      if (valorDeficiencia === null) {
+        return NextResponse.json({ message: "valorDeficiencia requerido para tipo CLASE" }, { status: 400 });
+      }
+    } else if (tipoTabla === "NERVIOS") {
+      const nid =
+        body.nervioId !== undefined && body.nervioId !== null ? Number(body.nervioId) : null;
+      if (!nid || isNaN(nid)) {
         return NextResponse.json({ message: "nervioId requerido para tipo NERVIOS" }, { status: 400 });
       }
-
-      const creado = await prisma.dictamenDeficiencia.create({
-        data: { dictamenId, deficienciaId, nervioId, valorDeficiencia },
-        select: {
-          id: true,
-          creadoEn: true,
-          valorDeficiencia: true,
-          deficiencia: { select: { id: true, tabla: true, nombre: true, capitulo: true, tipoTabla: true } },
-          clase: { select: { id: true, nombre: true } },
-          nervio: { select: { id: true, nombre: true } },
-        },
-      });
-
-      return NextResponse.json({ item: creado }, { status: 201 });
+      claseId = nid; // 🔥 nervioId se guarda en id_clase
+      if (valorDeficiencia === null) {
+        return NextResponse.json({ message: "valorDeficiencia requerido para tipo NERVIOS" }, { status: 400 });
+      }
+    } else if (tipoTabla === "FORMULA") {
+      // ✅ FORMULA: solo guardamos valorDeficiencia (por ahora)
+      if (valorDeficiencia === null) {
+        return NextResponse.json({ message: "valorDeficiencia requerido para tipo FORMULA" }, { status: 400 });
+      }
+      claseId = null;
+    } else {
+      return NextResponse.json(
+        { message: `Tipo no soportado en este paso: ${tipoTabla}` },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(
-      { message: `Tipo de tabla no soportado en este paso: ${tipoTabla}` },
-      { status: 400 }
-    );
+    const creado = await prisma.dictamenDeficiencia.create({
+      data: { dictamenId, deficienciaId, claseId, valorDeficiencia },
+      select: {
+        id: true,
+        dictamenId: true,
+        deficienciaId: true,
+        claseId: true,
+        valorDeficiencia: true,
+        creadoEn: true,
+        deficiencia: { select: { id: true, tabla: true, nombre: true, capitulo: true, tipoTabla: true } },
+      },
+    });
+
+    // detalle opcional (clase/nervio)
+    let detalle: { tipo: "CLASE" | "NERVIO"; nombre: string } | null = null;
+
+    if (tipoTabla === "CLASE" && creado.claseId) {
+      const c = await prisma.deficienciaClase.findUnique({
+        where: { id: creado.claseId },
+        select: { nombre: true },
+      });
+      if (c) detalle = { tipo: "CLASE", nombre: c.nombre };
+    }
+
+    if (tipoTabla === "NERVIOS" && creado.claseId) {
+      const n = await prisma.deficienciaNervio.findUnique({
+        where: { id: creado.claseId },
+        select: { nombre: true },
+      });
+      if (n) detalle = { tipo: "NERVIO", nombre: n.nombre };
+    }
+
+    return NextResponse.json({ item: { ...creado, detalle } }, { status: 201 });
   } catch (error: any) {
     console.error("❌ Error POST /dictamenes/[id]/deficiencias:", error);
-    return NextResponse.json(
-      { message: "Error interno", error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Error interno", error: error.message }, { status: 500 });
   }
 }

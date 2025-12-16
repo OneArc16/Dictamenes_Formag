@@ -2,8 +2,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function normalizeTipoTabla(tipo: string | null | undefined) {
+  const t = (tipo ?? "").trim().toUpperCase();
+  if (t === "CLASE" || t === "CLASES") return "CLASE";
+  if (t === "NERVIO" || t === "NERVIOS") return "NERVIOS";
+  if (t === "MOVIMIENTO" || t === "MOVIMIENTOS") return "MOVIMIENTO";
+  if (t === "FORMULA" || t === "FORMULAS") return "FORMULA";
+  return t || null;
+}
+
 export async function GET(
-  req: Request,
+  _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -34,19 +43,62 @@ export async function GET(
       },
     });
 
-    const deficienciasAsignadas = await prisma.dictamenDeficiencia.findMany({
+    // Traemos claseId para poder “resolver” nervios con ese mismo campo (id_clase)
+    const deficienciasAsignadasRaw = await prisma.dictamenDeficiencia.findMany({
       where: { dictamenId },
       orderBy: { creadoEn: "desc" },
       select: {
         id: true,
         creadoEn: true,
         valorDeficiencia: true,
+        claseId: true, // 👈 importante
         deficiencia: {
           select: { id: true, nombre: true, tabla: true, capitulo: true, tipoTabla: true },
         },
+        // Para CLASE (relación real)
         clase: { select: { id: true, nombre: true } },
-        nervio: { select: { id: true, nombre: true } },
       },
+    });
+
+    // 🔹 Resolver NERVIOS usando claseId (id_clase) + tabla nervios
+    const nervioIds = deficienciasAsignadasRaw
+      .filter((x) => normalizeTipoTabla(x.deficiencia?.tipoTabla) === "NERVIOS" && x.claseId)
+      .map((x) => x.claseId!) as number[];
+
+    const nervios = nervioIds.length
+      ? await prisma.deficienciaNervio.findMany({
+          where: { id: { in: nervioIds } },
+          select: { id: true, nombre: true },
+        })
+      : [];
+
+    const nervioMap = new Map(nervios.map((n) => [n.id, n]));
+
+    const deficienciasAsignadas = deficienciasAsignadasRaw.map((x) => {
+      const tipo = normalizeTipoTabla(x.deficiencia?.tipoTabla);
+
+      const nervio =
+        tipo === "NERVIOS" && x.claseId && nervioMap.has(x.claseId)
+          ? { id: x.claseId, nombre: nervioMap.get(x.claseId)!.nombre }
+          : null;
+
+      // “detalle” opcional (no rompe nada si tu UI no lo usa)
+      const detalle =
+        x.clase?.nombre
+          ? { tipo: "CLASE" as const, nombre: x.clase.nombre }
+          : nervio?.nombre
+          ? { tipo: "NERVIO" as const, nombre: nervio.nombre }
+          : null;
+
+      return {
+        id: x.id,
+        creadoEn: x.creadoEn,
+        valorDeficiencia: x.valorDeficiencia,
+        deficiencia: x.deficiencia,
+        clase: x.clase ?? null,
+        nervio, // 👈 ahora siempre llega cuando sea NERVIOS
+        detalle,
+      };
     });
 
     // Borde verde en diagnósticos (igual que antes)

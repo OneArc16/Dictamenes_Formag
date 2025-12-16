@@ -10,6 +10,7 @@ import { useGuardarDeficienciaClase } from "@/hooks/useGuardarDeficienciaClase";
 
 import { DeficienciaClaseSelector, ClaseSeleccion } from "./DeficienciaClaseSelector";
 import { DeficienciaNervioSelector, NervioSeleccion } from "./DeficienciaNervioSelector";
+import { DeficienciaFormulaInput } from "./DeficienciaFormulaInput";
 
 type DiagnosticoItem = {
   id: number;
@@ -39,6 +40,7 @@ function normalizeTipoTabla(tipo: string | null | undefined) {
   if (t === "CLASE" || t === "CLASES") return "CLASE";
   if (t === "NERVIO" || t === "NERVIOS") return "NERVIOS";
   if (t === "MOVIMIENTO" || t === "MOVIMIENTOS") return "MOVIMIENTO";
+  if (t === "FORMULA" || t === "FORMULAS") return "FORMULA";
   return t || null;
 }
 
@@ -66,11 +68,14 @@ export function AsignacionDeficienciaCard({
     valorDeficiencia: null,
   });
 
+  const [formulaValor, setFormulaValor] = useState<number | null>(null);
+
   useEffect(() => {
     setDeficienciaId(null);
     setDeficienciaSeleccionada(null);
     setClaseSeleccion({ claseId: null, valorDeficiencia: null });
     setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
+    setFormulaValor(null);
   }, [diagnosticoSeleccionado?.id]);
 
   const { data, isLoading, error } = useDeficienciasOpciones(
@@ -86,6 +91,7 @@ export function AsignacionDeficienciaCard({
     setDeficienciaId(id);
     setClaseSeleccion({ claseId: null, valorDeficiencia: null });
     setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
+    setFormulaValor(null);
 
     if (!id) {
       setDeficienciaSeleccionada(null);
@@ -112,16 +118,21 @@ export function AsignacionDeficienciaCard({
     !!nervioSeleccion.nervioId &&
     nervioSeleccion.valorDeficiencia !== null;
 
+  const puedeGuardarFormula =
+    !!deficienciaId &&
+    tipoTabla === "FORMULA" &&
+    formulaValor !== null;
+
   const isSaving = guardarClase.isPending;
 
   const guardarDisabled =
     (tipoTabla === "CLASE" && !puedeGuardarClase) ||
     (tipoTabla === "NERVIOS" && !puedeGuardarNervio) ||
+    (tipoTabla === "FORMULA" && !puedeGuardarFormula) ||
     !tipoTabla ||
     isSaving;
 
   const invalidateAfterSave = async () => {
-    // ✅ refresca panel + diagnósticos + opciones (sin depender de nombres exactos)
     await qc.invalidateQueries({
       predicate: (q) => {
         const key = q.queryKey;
@@ -155,7 +166,7 @@ export function AsignacionDeficienciaCard({
 
         toast.success("Deficiencia guardada");
         await invalidateAfterSave();
-        router.refresh(); // respaldo
+        router.refresh();
       } else if (tipoTabla === "NERVIOS") {
         if (!puedeGuardarNervio || !nervioSeleccion.nervioId) return;
 
@@ -174,17 +185,35 @@ export function AsignacionDeficienciaCard({
 
         toast.success("Deficiencia guardada");
         await invalidateAfterSave();
-        router.refresh(); // respaldo
+        router.refresh();
+      } else if (tipoTabla === "FORMULA") {
+        if (!puedeGuardarFormula) return;
+
+        const res = await fetch(`/api/dictamenes/${dictamenId}/deficiencias`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deficienciaId: deficienciaSeleccionada.id,
+            valorDeficiencia: formulaValor,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message ?? "Error guardando deficiencia (fórmula)");
+
+        toast.success("Deficiencia guardada");
+        await invalidateAfterSave();
+        router.refresh();
       } else {
         toast.error(`Tipo ${tipoTabla} aún no implementado.`);
         return;
       }
 
-      // limpiar tarjeta
       setDeficienciaId(null);
       setDeficienciaSeleccionada(null);
       setClaseSeleccion({ claseId: null, valorDeficiencia: null });
       setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
+      setFormulaValor(null);
 
       onCancelar();
     } catch (e: any) {
@@ -268,7 +297,15 @@ export function AsignacionDeficienciaCard({
           />
         )}
 
-        {deficienciaSeleccionada && tipoTabla && !["CLASE", "NERVIOS"].includes(tipoTabla) && (
+        {deficienciaSeleccionada && tipoTabla === "FORMULA" && (
+          <DeficienciaFormulaInput
+            value={formulaValor}
+            onChange={setFormulaValor}
+            placeholder="Ej: 12.5"
+          />
+        )}
+
+        {deficienciaSeleccionada && tipoTabla && !["CLASE", "NERVIOS", "FORMULA"].includes(tipoTabla) && (
           <p className="text-sm text-gray-600">
             Tipo <strong>{tipoTabla}</strong> aún no implementado en este paso.
           </p>
