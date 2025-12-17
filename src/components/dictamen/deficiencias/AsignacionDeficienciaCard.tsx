@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { useDeficienciasOpciones } from "@/hooks/useDeficienciasOpciones";
 import { useGuardarDeficienciaClase } from "@/hooks/useGuardarDeficienciaClase";
+import { useDeficienciaMovimientos } from "@/hooks/useDeficienciaMovimientos";
 
 import { DeficienciaClaseSelector, ClaseSeleccion } from "./DeficienciaClaseSelector";
 import { DeficienciaNervioSelector, NervioSeleccion } from "./DeficienciaNervioSelector";
@@ -57,6 +58,9 @@ export function AsignacionDeficienciaCard({
   const [deficienciaSeleccionada, setDeficienciaSeleccionada] =
     useState<DeficienciaOpcion | null>(null);
 
+  const [movModo, setMovModo] = useState<"RESTRICCION" | "ANQUILOSIS">("RESTRICCION");
+  const [movSeleccion, setMovSeleccion] = useState<Record<string, number | null>>({});
+
   const [claseSeleccion, setClaseSeleccion] = useState<ClaseSeleccion>({
     claseId: null,
     valorDeficiencia: null,
@@ -76,6 +80,10 @@ export function AsignacionDeficienciaCard({
     setClaseSeleccion({ claseId: null, valorDeficiencia: null });
     setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
     setFormulaValor(null);
+
+    // ✅ reset MOVIMIENTO también
+    setMovModo("RESTRICCION");
+    setMovSeleccion({});
   }, [diagnosticoSeleccionado?.id]);
 
   const { data, isLoading, error } = useDeficienciasOpciones(
@@ -93,6 +101,10 @@ export function AsignacionDeficienciaCard({
     setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
     setFormulaValor(null);
 
+    // ✅ reset MOVIMIENTO al cambiar deficiencia
+    setMovModo("RESTRICCION");
+    setMovSeleccion({});
+
     if (!id) {
       setDeficienciaSeleccionada(null);
       return;
@@ -103,6 +115,12 @@ export function AsignacionDeficienciaCard({
   };
 
   const tipoTabla = normalizeTipoTabla(deficienciaSeleccionada?.tipoTabla);
+
+  // ✅ Query de movimientos (habilitado solo si es MOVIMIENTO)
+  const movimientosQuery = useDeficienciaMovimientos(
+    deficienciaSeleccionada?.id ?? null,
+    !!deficienciaSeleccionada && tipoTabla === "MOVIMIENTO"
+  );
 
   const guardarClase = useGuardarDeficienciaClase();
 
@@ -123,12 +141,16 @@ export function AsignacionDeficienciaCard({
     tipoTabla === "FORMULA" &&
     formulaValor !== null;
 
+  // ✅ MOVIMIENTO: guardado se habilita en el siguiente subpaso
+  const puedeGuardarMovimiento = false;
+
   const isSaving = guardarClase.isPending;
 
   const guardarDisabled =
     (tipoTabla === "CLASE" && !puedeGuardarClase) ||
     (tipoTabla === "NERVIOS" && !puedeGuardarNervio) ||
     (tipoTabla === "FORMULA" && !puedeGuardarFormula) ||
+    (tipoTabla === "MOVIMIENTO" && !puedeGuardarMovimiento) ||
     !tipoTabla ||
     isSaving;
 
@@ -204,6 +226,9 @@ export function AsignacionDeficienciaCard({
         toast.success("Deficiencia guardada");
         await invalidateAfterSave();
         router.refresh();
+      } else if (tipoTabla === "MOVIMIENTO") {
+        toast("MOVIMIENTO: guardado se habilita en el siguiente subpaso.");
+        return;
       } else {
         toast.error(`Tipo ${tipoTabla} aún no implementado.`);
         return;
@@ -214,6 +239,10 @@ export function AsignacionDeficienciaCard({
       setClaseSeleccion({ claseId: null, valorDeficiencia: null });
       setNervioSeleccion({ nervioId: null, tipo: "MIXTO", valorDeficiencia: null });
       setFormulaValor(null);
+
+      // ✅ reset MOVIMIENTO también
+      setMovModo("RESTRICCION");
+      setMovSeleccion({});
 
       onCancelar();
     } catch (e: any) {
@@ -305,11 +334,137 @@ export function AsignacionDeficienciaCard({
           />
         )}
 
-        {deficienciaSeleccionada && tipoTabla && !["CLASE", "NERVIOS", "FORMULA"].includes(tipoTabla) && (
-          <p className="text-sm text-gray-600">
-            Tipo <strong>{tipoTabla}</strong> aún no implementado en este paso.
-          </p>
+        {/* ✅ MOVIMIENTO (UI base) */}
+        {deficienciaSeleccionada && tipoTabla === "MOVIMIENTO" && (
+          <div className="space-y-4">
+            <div>
+              <label className="block mb-1 text-sm font-medium text-slate-700">
+                Tipo de valoración
+              </label>
+              <select
+                className="w-full px-2 text-sm bg-white border rounded-md h-9 border-slate-300"
+                value={movModo}
+                onChange={(e) => setMovModo(e.target.value as any)}
+              >
+                <option value="RESTRICCION">Restricción</option>
+                <option value="ANQUILOSIS">Anquilosis</option>
+              </select>
+            </div>
+
+            {movimientosQuery.isLoading && (
+              <div className="p-3 text-sm border rounded-md bg-slate-50 text-slate-600">
+                Cargando movimientos…
+              </div>
+            )}
+
+            {movimientosQuery.isError && (
+              <div className="p-3 text-sm text-red-700 border border-red-200 rounded-md bg-red-50">
+                Error cargando movimientos de la deficiencia.
+              </div>
+            )}
+
+            {!movimientosQuery.isLoading && !movimientosQuery.isError && (
+              <>
+                {(() => {
+                  const movimientos = movimientosQuery.data ?? [];
+
+                  const toNum = (v: any) => {
+                    if (v === null || v === undefined) return null;
+                    const s = String(v).trim();
+                    if (!s) return null;
+                    const n = Number(s.replace(",", "."));
+                    return Number.isNaN(n) ? null : n;
+                  };
+
+                  const fmt = (v: any) => {
+                    const n = toNum(v);
+                    if (n === null) return "—";
+                    return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+                  };
+
+                  const getVal = (m: any) => {
+                    if (movModo === "RESTRICCION") {
+                      return procedimientoPcl === "A" ? toNum(m.restriccionA) : toNum(m.restriccionB);
+                    }
+                    return procedimientoPcl === "A" ? toNum(m.anquilosisA) : toNum(m.anquilosisB);
+                  };
+
+                  if (movimientos.length === 0) {
+                    return (
+                      <div className="p-3 text-sm border rounded-md bg-slate-50 text-slate-600">
+                        Esta deficiencia no tiene movimientos configurados.
+                      </div>
+                    );
+                  }
+
+                  // ordenar globalmente por orden y luego agrupar por tipoMovimiento
+                  const sorted = [...movimientos].sort(
+                    (a: any, b: any) => (a.orden ?? 1) - (b.orden ?? 1) || a.id - b.id
+                  );
+
+                  const map = new Map<string, any[]>();
+                  for (const m of sorted) {
+                    const key = (m.tipoMovimiento || "SIN_TIPO").trim() || "SIN_TIPO";
+                    if (!map.has(key)) map.set(key, []);
+                    map.get(key)!.push(m);
+                  }
+
+                  const grupos = Array.from(map.entries()).map(([tipo, rows]) => ({ tipo, rows }));
+
+                  return (
+                    <div className="space-y-3">
+                      {grupos.map((g) => (
+                        <div key={g.tipo}>
+                          <label className="block mb-1 text-sm font-medium text-slate-700">
+                            {g.tipo}
+                          </label>
+
+                          <select
+                            className="w-full px-2 text-sm bg-white border rounded-md h-9 border-slate-300"
+                            value={movSeleccion[g.tipo] ?? ""}
+                            onChange={(e) =>
+                              setMovSeleccion((prev) => ({
+                                ...prev,
+                                [g.tipo]: e.target.value ? Number(e.target.value) : null,
+                              }))
+                            }
+                          >
+                            <option value="">Seleccione un rango…</option>
+
+                            {g.rows.map((m: any) => {
+                              const val = getVal(m);
+                              const label = `${fmt(m.rangoInicial)}°–${fmt(m.rangoFinal)}° — ${
+                                val === null ? "—" : `${fmt(val)}%`
+                              }`;
+
+                              return (
+                                <option key={m.id} value={m.id}>
+                                  {label}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      ))}
+
+                      <p className="text-xs text-slate-500">
+                        Guardado de MOVIMIENTO se habilita en el siguiente subpaso.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
         )}
+
+        {deficienciaSeleccionada &&
+          tipoTabla &&
+          !["CLASE", "NERVIOS", "FORMULA", "MOVIMIENTO"].includes(tipoTabla) && (
+            <p className="text-sm text-gray-600">
+              Tipo <strong>{tipoTabla}</strong> aún no implementado en este paso.
+            </p>
+          )}
       </div>
 
       <div className="flex justify-end gap-2 mt-4">
