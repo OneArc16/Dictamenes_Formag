@@ -1,4 +1,3 @@
-// src/components/AppNav.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,19 +9,23 @@ type AppNavProps = {
   title?: string;
   /** Ocultar o mostrar el botón de módulos */
   showModulesButton?: boolean;
-  /** Solo true para ADMIN: puede cambiar de módulo */
+  /**
+   * Si lo pasas, fuerza el comportamiento.
+   * Si NO lo pasas, AppNav lo decide según el role del /api/auth/me
+   */
   canSwitchModules?: boolean;
 };
 
 export default function AppNav({
   title = 'Módulo',
   showModulesButton = true,
-  canSwitchModules = false,
+  canSwitchModules, // 👈 sin default aquí
 }: AppNavProps) {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('Usuario');
+  const [canSwitch, setCanSwitch] = useState<boolean>(false);
 
-  // Cargar nombre del usuario logueado desde /api/auth/me (decodifica el JWT)
+  // Cargar nombre + role del usuario logueado desde /api/auth/me
   useEffect(() => {
     let active = true;
 
@@ -33,22 +36,21 @@ export default function AppNav({
           credentials: 'include',
         });
 
-        // Si el token no es válido o la ruta redirige, simplemente no hacemos nada
         if (!res.ok) return;
 
         const data = await res.json();
         if (!active) return;
 
-        // Esperamos algo como { ok: true, user: { name: '...' } }
-        if (
-          data?.ok &&
-          data?.user?.name &&
-          typeof data.user.name === 'string'
-        ) {
-          setUserName(data.user.name);
+        if (data?.ok && data?.user) {
+          if (typeof data.user.name === 'string') setUserName(data.user.name);
+
+          // 👇 si NO me pasaron canSwitchModules por props, lo decido por role
+          if (canSwitchModules === undefined) {
+            setCanSwitch(String(data.user.role) === 'ADMIN');
+          }
         }
       } catch {
-        // Si falla, dejamos "Usuario" y ya
+        // no-op
       }
     }
 
@@ -56,7 +58,9 @@ export default function AppNav({
     return () => {
       active = false;
     };
-  }, []);
+  }, [canSwitchModules]);
+
+  const effectiveCanSwitch = canSwitchModules ?? canSwitch;
 
   const handleLogout = async () => {
     try {
@@ -81,9 +85,7 @@ export default function AppNav({
             D
           </span>
           <div className="flex flex-col leading-tight">
-            <span className="text-xs font-semibold text-slate-800">
-              {title}
-            </span>
+            <span className="text-xs font-semibold text-slate-800">{title}</span>
             <span className="text-[10px] text-slate-400">
               Plataforma de dictámenes PCL
             </span>
@@ -93,10 +95,9 @@ export default function AppNav({
         {/* Lado derecho: módulos + usuario + logout */}
         <div className="flex items-center gap-2">
           {showModulesButton && (
-            <ModulesButton canSwitchModules={canSwitchModules} />
+            <ModulesButton canSwitchModules={effectiveCanSwitch} />
           )}
 
-          {/* Nombre del usuario logueado */}
           <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 shadow-sm sm:inline-flex">
             <User2 className="h-3.5 w-3.5 text-slate-500" />
             <span className="max-w-[170px] truncate">{userName}</span>
