@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth/guards';
-import EmpleadoForm from './ui/EmpleadoForm';
+import EmpleadoForm from '@/components/admin/empleados/EmpleadoForm';
 
 export default async function NuevoEmpleadoPage() {
   await requireAdmin();
@@ -17,7 +17,9 @@ export default async function NuevoEmpleadoPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-900">Nuevo empleado</h1>
-          <p className="text-[11px] text-slate-500">Crea usuarios del sistema (médico / admisión / admin)</p>
+          <p className="text-[11px] text-slate-500">
+            Crea usuarios del sistema (médico / admisión / admin)
+          </p>
         </div>
 
         <Link

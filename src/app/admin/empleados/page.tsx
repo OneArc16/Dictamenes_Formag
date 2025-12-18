@@ -1,9 +1,16 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth/guards';
+import EmpleadosFilters from '@/components/admin/empleados/EmpleadosFilters';
+import ToggleEmpleadoButton from '@/components/admin/empleados/ToggleEmpleadoButton';
 
 type Props = {
-  searchParams?: Promise<{ q?: string; activo?: string; perfilId?: string }>;
+  searchParams?: Promise<{
+    q?: string;
+    activo?: string;
+    perfilId?: string;
+    page?: string;
+  }>;
 };
 
 export default async function EmpleadosPage({ searchParams }: Props) {
@@ -13,6 +20,11 @@ export default async function EmpleadosPage({ searchParams }: Props) {
   const q = (sp.q ?? '').trim();
   const activo = sp.activo ?? 'all';
   const perfilId = sp.perfilId ?? 'all';
+
+  // ✅ paginación
+  const pageSize = 20;
+  const page = Math.max(1, Number(sp.page ?? 1) || 1);
+  const skip = (page - 1) * pageSize;
 
   const perfiles = await prisma.perfil.findMany({
     where: { estado: 1 },
@@ -41,19 +53,41 @@ export default async function EmpleadosPage({ searchParams }: Props) {
     if (Number.isFinite(pid)) where.perfilId = pid;
   }
 
-  const empleados = await prisma.empleado.findMany({
-    where,
-    orderBy: { id: 'desc' },
-    take: 50,
-    include: { perfil: true },
-  });
+  const [total, empleados] = await Promise.all([
+    prisma.empleado.count({ where }),
+    prisma.empleado.findMany({
+      where,
+      orderBy: { id: 'desc' },
+      skip,
+      take: pageSize,
+      include: { perfil: true },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const buildHref = (nextPage: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (activo !== 'all') params.set('activo', activo);
+    if (perfilId !== 'all') params.set('perfilId', perfilId);
+    if (nextPage > 1) params.set('page', String(nextPage));
+    const qs = params.toString();
+    return qs ? `/admin/empleados?${qs}` : '/admin/empleados';
+  };
+
+  const from = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const to = Math.min(safePage * pageSize, total);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-900">Empleados</h1>
-          <p className="text-[11px] text-slate-500">Listado (últimos 50)</p>
+          <p className="text-[11px] text-slate-500">
+            Mostrando {from}-{to} de {total}
+          </p>
         </div>
 
         <Link
@@ -64,55 +98,12 @@ export default async function EmpleadosPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <form className="grid grid-cols-12 gap-2 p-3 bg-white border shadow-sm rounded-xl border-slate-200" method="GET">
-        <div className="col-span-12 md:col-span-6">
-          <label className="block text-[11px] font-medium text-slate-600">Buscar</label>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Nombre, apellido, email o documento…"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
-          />
-        </div>
-
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-[11px] font-medium text-slate-600">Activo</label>
-          <select
-            name="activo"
-            defaultValue={activo}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
-          >
-            <option value="all">Todos</option>
-            <option value="1">Activos</option>
-            <option value="0">Inactivos</option>
-          </select>
-        </div>
-
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-[11px] font-medium text-slate-600">Perfil</label>
-          <select
-            name="perfilId"
-            defaultValue={perfilId}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
-          >
-            <option value="all">Todos</option>
-            {perfiles.map((p) => (
-              <option key={p.id} value={String(p.id)}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex justify-end col-span-12">
-          <button
-            type="submit"
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            Filtrar
-          </button>
-        </div>
-      </form>
+      <EmpleadosFilters
+        perfiles={perfiles}
+        initialQ={q}
+        initialActivo={activo}
+        initialPerfilId={perfilId}
+      />
 
       <div className="overflow-hidden bg-white border shadow-sm rounded-xl border-slate-200">
         <table className="w-full text-left text-[11px]">
@@ -123,12 +114,14 @@ export default async function EmpleadosPage({ searchParams }: Props) {
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Perfil</th>
               <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Acciones</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100">
             {empleados.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={5}>
+                <td className="px-3 py-6 text-slate-500" colSpan={6}>
                   No hay resultados.
                 </td>
               </tr>
@@ -136,28 +129,83 @@ export default async function EmpleadosPage({ searchParams }: Props) {
               empleados.map((e) => (
                 <tr key={e.id} className="text-slate-700">
                   <td className="px-3 py-2 font-medium text-slate-900">
-                    {e.primerNombre} {e.segundoNombre ?? ''} {e.primerApellido} {e.segundoApellido ?? ''}
+                    {e.primerNombre} {e.segundoNombre ?? ''} {e.primerApellido}{' '}
+                    {e.segundoApellido ?? ''}
                   </td>
+
                   <td className="px-3 py-2">
                     {(e.tipoDocumento ?? '').toString()} {e.numeroIdentidad ?? ''}
                   </td>
+
                   <td className="px-3 py-2">{e.email ?? '-'}</td>
+
                   <td className="px-3 py-2">{e.perfil?.nombre ?? '-'}</td>
+
                   <td className="px-3 py-2">
                     <span
                       className={[
                         'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                        e.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+                        e.activo
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-rose-50 text-rose-700',
                       ].join(' ')}
                     >
                       {e.activo ? 'ACTIVO' : 'INACTIVO'}
                     </span>
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/empleados/${e.id}/editar`}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                      >
+                        Editar
+                      </Link>
+
+                      <ToggleEmpleadoButton id={e.id} activo={e.activo} />
+                    </div>
                   </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+
+        {/* ✅ Paginación */}
+        <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-slate-200">
+          <span className="text-[11px] text-slate-500">
+            Página {safePage} de {totalPages}
+          </span>
+
+          <div className="flex items-center gap-2">
+            {safePage > 1 ? (
+              <Link
+                href={buildHref(safePage - 1)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                ← Anterior
+              </Link>
+            ) : (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400">
+                ← Anterior
+              </span>
+            )}
+
+            {safePage < totalPages ? (
+              <Link
+                href={buildHref(safePage + 1)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                Siguiente →
+              </Link>
+            ) : (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400">
+                Siguiente →
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

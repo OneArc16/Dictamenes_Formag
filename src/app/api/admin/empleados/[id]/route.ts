@@ -15,7 +15,10 @@ const upperOrNull = (v: any) => {
 };
 const lower = (v: any) => String(v ?? '').trim().toLowerCase();
 
-export async function POST(req: Request) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth')?.value;
@@ -29,11 +32,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
     }
 
+    const { id } = await params;
+    const empleadoId = Number(id);
+    if (!Number.isFinite(empleadoId)) {
+      return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
+    }
+
     const body = await req.json();
 
-    // ✅ Mayúscula (excepto email)
     const tipoDocumento = upper(body?.tipoDocumento);
-    const numeroIdentidad = upper(body?.numeroIdentidad); // si es numérico no cambia, si trae letras sí
+    const numeroIdentidad = upper(body?.numeroIdentidad);
 
     const primerNombre = upper(body?.primerNombre);
     const segundoNombre = upperOrNull(body?.segundoNombre);
@@ -46,13 +54,14 @@ export async function POST(req: Request) {
     const registroMedico = upperOrNull(body?.registroMedico);
     const licencia = upperOrNull(body?.licencia);
 
-    const email = lower(body?.email); // 👈 siempre minúscula
-    const password = String(body?.password ?? '').trim();
+    const email = lower(body?.email);
 
     const perfilIdRaw = body?.perfilId;
     const perfilId = perfilIdRaw === '' || perfilIdRaw == null ? null : Number(perfilIdRaw);
 
     const activo = body?.activo === false ? false : true;
+
+    const password = String(body?.password ?? '').trim(); // opcional
 
     // Validaciones mínimas
     if (!tipoDocumento || !numeroIdentidad) {
@@ -63,33 +72,47 @@ export async function POST(req: Request) {
     }
     if (!primerNombre || !primerApellido) {
       return NextResponse.json(
-        { ok: false, error: 'Nombres y apellidos (mínimo primer nombre y primer apellido) son obligatorios' },
+        { ok: false, error: 'Primer nombre y primer apellido son obligatorios' },
         { status: 400 }
       );
     }
     if (!email) {
       return NextResponse.json({ ok: false, error: 'Email es obligatorio' }, { status: 400 });
     }
-    if (!password || password.length < 6) {
-      return NextResponse.json(
-        { ok: false, error: 'La contraseña es obligatoria y debe tener mínimo 6 caracteres' },
-        { status: 400 }
-      );
-    }
     if (perfilId != null && !Number.isFinite(perfilId)) {
       return NextResponse.json({ ok: false, error: 'Perfil inválido' }, { status: 400 });
     }
+    if (password && password.length < 6) {
+      return NextResponse.json(
+        { ok: false, error: 'La nueva contraseña debe tener mínimo 6 caracteres' },
+        { status: 400 }
+      );
+    }
 
-    // Chequeos explícitos
+    // Existe?
+    const current = await prisma.empleado.findUnique({
+      where: { id: empleadoId },
+      select: { id: true },
+    });
+    if (!current) {
+      return NextResponse.json({ ok: false, error: 'Empleado no encontrado' }, { status: 404 });
+    }
+
+    // Unicidad (excluyendo el mismo empleado)
     const existingByDoc = await prisma.empleado.findFirst({
-      where: { tipoDocumento, numeroIdentidad },
+      where: {
+        tipoDocumento,
+        numeroIdentidad,
+        NOT: { id: empleadoId },
+      },
       select: { id: true, activo: true },
     });
     if (existingByDoc) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Ya existe un empleado con ese documento (ID ${existingByDoc.id})` +
+          error:
+            `Ya existe otro empleado con ese documento (ID ${existingByDoc.id})` +
             (existingByDoc.activo ? '' : ' [INACTIVO]'),
         },
         { status: 409 }
@@ -97,43 +120,51 @@ export async function POST(req: Request) {
     }
 
     const existingByEmail = await prisma.empleado.findFirst({
-      where: { email },
+      where: {
+        email,
+        NOT: { id: empleadoId },
+      },
       select: { id: true, activo: true },
     });
     if (existingByEmail) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Ya existe un empleado con ese email (ID ${existingByEmail.id})` +
+          error:
+            `Ya existe otro empleado con ese email (ID ${existingByEmail.id})` +
             (existingByEmail.activo ? '' : ' [INACTIVO]'),
         },
         { status: 409 }
       );
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const dataToUpdate: any = {
+      tipoDocumento,
+      numeroIdentidad,
+      primerNombre,
+      segundoNombre,
+      primerApellido,
+      segundoApellido,
+      email,
+      activo,
+      perfilId,
+      telefonos,
+      direccion,
+      registroMedico,
+      licencia,
+    };
 
-    const created = await prisma.empleado.create({
-      data: {
-        tipoDocumento,
-        numeroIdentidad,
-        primerNombre,
-        segundoNombre,
-        primerApellido,
-        segundoApellido,
-        email,
-        contrasena: hashed,
-        activo,
-        perfilId,
-        telefonos,
-        direccion,
-        registroMedico,
-        licencia,
-      },
+    if (password) {
+      dataToUpdate.contrasena = await bcrypt.hash(password, 10);
+    }
+
+    const updated = await prisma.empleado.update({
+      where: { id: empleadoId },
+      data: dataToUpdate,
       select: { id: true },
     });
 
-    return NextResponse.json({ ok: true, id: created.id });
+    return NextResponse.json({ ok: true, id: updated.id });
   } catch (err: any) {
     if (err?.code === 'P2002') {
       const target = err?.meta?.target;
@@ -145,7 +176,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error creando empleado' },
+      { ok: false, error: err?.message ?? 'Error actualizando empleado' },
       { status: 500 }
     );
   }

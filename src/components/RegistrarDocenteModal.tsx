@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
+import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
 
 const STORAGE_KEY = 'dictamy_registro_docente';
 
@@ -1399,13 +1400,15 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
 export function RegistrarDocenteButton() {
   const [open, setOpen] = useState(false);
+  const { readOnly } = useMedicoAccess();
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+        disabled={readOnly}
+        className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-60"
       >
         Registrar
       </button>

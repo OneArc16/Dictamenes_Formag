@@ -1,15 +1,15 @@
-// app/admisiones/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+
+import Appnav from '@/components/AppNav';
 
 import {
   DictamenExportButton,
   DictamenExportRow,
 } from '@/components/DictamenExportButton';
-
-import Appnav from '@/components/AppNav';
 
 import {
   DictamenFiltersBar,
@@ -17,189 +17,125 @@ import {
 } from '@/components/dictamen/DictamenFiltersBar';
 
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
-import {
-  DictamenRow,
-  EstadoDictamenFiltro,
-} from '@/components/dictamen/types';
+import { DictamenRow, EstadoDictamenFiltro } from '@/components/dictamen/types';
 
-// Fecha para exportar (simple: YYYY-MM-DD)
+import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
+
 function formatFechaExport(value: any): string {
   if (!value) return '';
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   const str = String(value);
-  if (str.includes('T')) {
-    return str.split('T')[0];
-  }
-  return str;
+  return str.includes('T') ? str.split('T')[0] : str;
+}
+
+function isAbiertoFromEstadoLabel(estado: any) {
+  const s = String(estado ?? '').toUpperCase();
+  return s === 'PENDIENTE' || s === 'REABIERTO';
 }
 
 export default function AdmisionesPage() {
   const router = useRouter();
 
-  // Filtros
+  // Filtros (igual que antes)
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [documento, setDocumento] = useState('');
-
-  // 🔹 En admisiones: por defecto TODOS los estados
   const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['TODOS']);
-
-  // Médicos (para el combo)
-  const [medicos, setMedicos] = useState<MedicoOption[]>([]);
-  // 🔹 En admisiones: por defecto NINGÚN médico seleccionado
-  //     -> No se envía parámetro "medicos" y el backend devuelve TODOS.
   const [medicoIds, setMedicoIds] = useState<number[]>([]);
 
-  // Datos
-  const [rows, setRows] = useState<DictamenRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  // ✅ Médicos (React Query)
+  const medicosQuery = useQuery({
+    queryKey: ['medicos-options'],
+    queryFn: async () => {
+      const res = await fetch('/api/medicos/options', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error ?? 'Error cargando médicos');
+      return (data.options ?? []) as MedicoOption[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // 1) Cargar médicos desde el backend
-  useEffect(() => {
-    async function loadMedicos() {
-      try {
-        const res = await fetch('/api/medicos/options', {
-          method: 'GET',
-          credentials: 'include',
-        });
+  // ✅ Dictámenes (React Query) — clave depende de filtros
+  const dictamenesQuery = useQuery({
+    queryKey: [
+      'dictamenes-admisiones',
+      { medicoIds, estado, fechaDesde, fechaHasta, documento },
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams();
 
-        const data = await res.json();
+      if (medicoIds.length > 0) params.set('medicos', medicoIds.join(','));
+      if (estado.length > 0) params.set('estado', estado.join(','));
+      if (documento) params.set('documento', documento);
+      if (fechaDesde) params.set('fechaDesde', fechaDesde);
+      if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
-        if (!res.ok || !data.ok) {
-          console.error(data.error || 'Error cargando médicos');
-          setMedicos([]);
-          setMedicoIds([]);
-          return;
-        }
+      const res = await fetch(`/api/dictamenes/admisiones?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
-        const options: MedicoOption[] = data.options ?? [];
-        setMedicos(options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error ?? 'Error consultando dictámenes');
 
-        // 🟢 Importante:
-        // En admisiones NO seleccionamos ningún médico por defecto,
-        // así el backend devuelve dictámenes de TODOS los médicos.
-        setMedicoIds([]);
-      } catch (err) {
-        console.error('Error fetching medicos:', err);
-        setMedicos([]);
-        setMedicoIds([]);
-      }
-    }
+      const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
+        id: d.id,
+        fechaDictamen: d.fechaDictamen,
+        docenteDocumento: d.docenteDocumento,
+        docenteNombre: d.docenteNombre,
+        secretaria: d.secretaria,
+        estado: d.estado,
+        medicoNombre: d.medicoNombre,
+      }));
 
-    loadMedicos();
-  }, []);
+      return mapped;
+    },
+    placeholderData: (prev) => prev, // ✅ mantiene tabla mientras refetch
+  });
 
-  // 2) Cargar dictámenes según filtros
-  useEffect(() => {
-    async function loadDictamenes() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
+  const rows = dictamenesQuery.data ?? [];
+  const loading = dictamenesQuery.isFetching;
 
-        // Enviamos los médicos seleccionados solo si hay alguno
-        if (medicoIds.length > 0) {
-          params.set('medicos', medicoIds.join(','));
-        }
-
-        // Enviamos los estados seleccionados solo si hay alguno
-        if (estado.length > 0) {
-          params.set('estado', estado.join(','));
-        }
-
-        if (documento) params.set('documento', documento);
-        if (fechaDesde) params.set('fechaDesde', fechaDesde);
-        if (fechaHasta) params.set('fechaHasta', fechaHasta);
-
-        const res = await fetch(
-          `/api/dictamenes/admisiones?${params.toString()}`,
-          {
-            method: 'GET',
-            credentials: 'include',
-          }
-        );
-
-        const data = await res.json();
-
-        if (!res.ok || !data.ok) {
-          console.error(data.error || 'Error en la consulta');
-          setRows([]);
-          return;
-        }
-
-        const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
-          id: d.id,
-          fechaDictamen: d.fechaDictamen,
-          docenteDocumento: d.docenteDocumento,
-          docenteNombre: d.docenteNombre,
-          secretaria: d.secretaria,
-          estado: d.estado,
-          medicoNombre: d.medicoNombre,
-        }));
-
-        setRows(mapped);
-      } catch (err) {
-        console.error(err);
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadDictamenes();
-  }, [medicoIds, estado, fechaDesde, fechaHasta, documento]);
-
-  // 3) Acción del botón Registrar
   const handleRegistrar = () => {
-    // Si quieres que el admisionista también pueda crear dictámenes:
     router.push('/medico/dictamenes/nuevo');
-    // O puedes cambiarlo luego a una ruta propia de admisiones si lo prefieres.
   };
 
-  // 4) Acción Ver
   const handleOpenDictamen = (id: number) => {
-    router.push(`/medico/dictamenes/${id}`);
+    router.push(`/admisiones/dictamenes/${id}`);
   };
 
-  // 5) Filas para exportar (formato CSV)
-  const exportRows: DictamenExportRow[] = rows.map(
-    (r): DictamenExportRow => ({
-      fecha: formatFechaExport(r.fechaDictamen),
-      secretaria: r.secretaria ?? '',
-      documento: r.docenteDocumento ?? '',
-      docente: r.docenteNombre ?? '',
-      estado: r.estado ?? '',
-      medico: r.medicoNombre ?? '',
-    })
+  const exportRows: DictamenExportRow[] = useMemo(
+    () =>
+      rows.map((r) => ({
+        fecha: formatFechaExport(r.fechaDictamen),
+        secretaria: r.secretaria ?? '',
+        documento: r.docenteDocumento ?? '',
+        docente: r.docenteNombre ?? '',
+        estado: r.estado ?? '',
+        medico: r.medicoNombre ?? '',
+      })),
+    [rows]
   );
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
-      {/* Barra de navegación principal */}
       <Appnav title="Módulo de Admisiones" />
 
       <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
-        {/* Encabezado (calcado del médico, texto adaptado) */}
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-slate-800">
-              Dictámenes de docentes
-            </h1>
+            <h1 className="text-xl font-semibold text-slate-800">Dictámenes de docentes</h1>
             <p className="text-xs text-slate-500">
-              Visualiza y gestiona los dictámenes de cualquier médico y
-              cualquier estado.
+              Visualiza y gestiona los dictámenes de cualquier médico y cualquier estado.
             </p>
           </div>
 
-          {/* Botón de descargar listado */}
-          <DictamenExportButton
-            rows={exportRows}
-            filename="dictamenes_admisiones.csv"
-          />
+          <DictamenExportButton rows={exportRows} filename="dictamenes_admisiones.csv" />
         </div>
 
-        {/* Barra de filtros reutilizable */}
         <DictamenFiltersBar
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
@@ -209,7 +145,7 @@ export default function AdmisionesPage() {
           onDocumentoChange={setDocumento}
           estado={estado}
           onEstadoChange={setEstado}
-          medicos={medicos}
+          medicos={medicosQuery.data ?? []}
           medicoIds={medicoIds}
           onMedicoChange={setMedicoIds}
           showMedicoSelect={true}
@@ -218,11 +154,26 @@ export default function AdmisionesPage() {
           onRegistrar={handleRegistrar}
         />
 
-        {/* Tabla de dictámenes (la misma del módulo médico) */}
         <DictamenTable
           rows={rows}
           loading={loading}
           onOpenDictamen={handleOpenDictamen}
+          renderActions={(r) => (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenDictamen(r.id)}
+                className="inline-flex items-center gap-1 rounded-full border border-blue-500/70 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-600 transition-colors"
+              >
+                Ver
+              </button>
+
+              <ReabrirDictamenButton
+                dictamenId={r.id}
+                estado={isAbiertoFromEstadoLabel((r as any).estado)}
+              />
+            </>
+          )}
         />
       </main>
     </div>

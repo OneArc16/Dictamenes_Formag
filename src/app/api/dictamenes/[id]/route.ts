@@ -15,6 +15,12 @@ type JwtPayload = {
   [key: string]: any;
 };
 
+type AuthCtx = {
+  userId: number;
+  role: 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string;
+  name?: string;
+};
+
 // ======================
 // Helpers
 // ======================
@@ -25,12 +31,7 @@ function getNombreCompletoUsuario(u: {
   primerApellido: string;
   segundoApellido: string | null;
 }) {
-  return [
-    u.primerNombre,
-    u.segundoNombre,
-    u.primerApellido,
-    u.segundoApellido,
-  ]
+  return [u.primerNombre, u.segundoNombre, u.primerApellido, u.segundoApellido]
     .filter(Boolean)
     .join(' ')
     .trim();
@@ -42,18 +43,40 @@ function getNombreCompletoEmpleado(e: {
   primerApellido: string;
   segundoApellido: string | null;
 }) {
-  return [
-    e.primerNombre,
-    e.segundoNombre,
-    e.primerApellido,
-    e.segundoApellido,
-  ]
+  return [e.primerNombre, e.segundoNombre, e.primerApellido, e.segundoApellido]
     .filter(Boolean)
     .join(' ')
     .trim();
 }
 
-async function getMedicoIdFromToken() {
+function normalizeRole(role: unknown): 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string {
+  const r = String(role ?? '').trim().toUpperCase();
+
+  // Ajustes típicos de nombres
+  if (r === 'ADMINISTRADOR') return 'ADMIN';
+  if (r === 'ADMICIONES' || r === 'ADMISIONES') return 'ADMISIONISTA';
+
+  return r;
+}
+
+function canReadDictamen(role: string) {
+  return role === 'MEDICO' || role === 'ADMIN' || role === 'ADMISIONISTA';
+}
+
+function isReadOnly(role: string) {
+  // Admin/Admisiones ven pero NO editan HC (la reapertura va por otra acción)
+  return role === 'ADMIN' || role === 'ADMISIONISTA';
+}
+
+// Formato: ddMMyyyy + id en 9 dígitos
+function buildNumeroDictamen(id: number, fechaYYYYMMDD: string) {
+  const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
+  const datePart = `${dd}${mm}${yyyy}`;
+  const consecutivo = String(id).padStart(9, '0');
+  return `${datePart}${consecutivo}`;
+}
+
+async function getAuthFromToken(): Promise<AuthCtx | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth')?.value;
   if (!token) return null;
@@ -61,10 +84,11 @@ async function getMedicoIdFromToken() {
   const payload = (await verifyJwt(token)) as JwtPayload | null;
   if (!payload?.sub) return null;
 
-  const medicoId = Number(payload.sub);
-  if (!medicoId || Number.isNaN(medicoId)) return null;
+  const userId = Number(payload.sub);
+  if (!userId || Number.isNaN(userId)) return null;
 
-  return medicoId;
+  const role = normalizeRole(payload.role);
+  return { userId, role: role as any, name: payload.name };
 }
 
 // 👇 tipo de contexto con params como Promise (para evitar el error de Next)
@@ -77,30 +101,31 @@ type RouteContext = {
 // ======================
 export async function GET(_req: Request, context: RouteContext) {
   try {
-    const medicoId = await getMedicoIdFromToken();
-    if (!medicoId) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 },
-      );
+    const auth = await getAuthFromToken();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
-    // 👇 desempaquetamos el Promise de params
+    const { userId, role } = auth;
+    if (!canReadDictamen(role)) {
+      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+    }
+
     const { id: idParam } = await context.params;
     const id = Number(idParam);
 
     if (!id || Number.isNaN(id)) {
-      return NextResponse.json(
-        { ok: false, error: 'ID de dictamen inválido.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'ID de dictamen inválido.' }, { status: 400 });
     }
 
+    // ✅ Filtro por rol:
+    // - MEDICO: solo ve los suyos
+    // - ADMIN/ADMISIONISTA: ve cualquiera
+    const where: any = { id };
+    if (role === 'MEDICO') where.empleadoId = userId;
+
     const dictamen = await prisma.dictamen.findFirst({
-      where: {
-        id,
-        empleadoId: medicoId,
-      },
+      where,
       include: {
         usuario: {
           include: {
@@ -109,20 +134,15 @@ export async function GET(_req: Request, context: RouteContext) {
           },
         },
         empleado: true,
-        // ⬇️ NUEVO: traer los diagnósticos con su CIE10
         diagnosticos: {
-          include: {
-            cie10: true,
-          },
+          include: { cie10: true },
           orderBy: { id: 'asc' },
         },
       },
     });
+
     if (!dictamen) {
-      return NextResponse.json(
-        { ok: false, error: 'Dictamen no encontrado.' },
-        { status: 404 },
-      );
+      return NextResponse.json({ ok: false, error: 'Dictamen no encontrado.' }, { status: 404 });
     }
 
     const docente = dictamen.usuario;
@@ -136,6 +156,7 @@ export async function GET(_req: Request, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
+      readOnly: isReadOnly(role),
       dictamen: {
         id: dictamen.id,
         numeroDictamen: dictamen.numeroDictamen ?? null,
@@ -149,20 +170,16 @@ export async function GET(_req: Request, context: RouteContext) {
         condicionSalud: dictamen.condicionSalud ?? '',
         descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
 
-        // ⬇️ NUEVO: diagnósticos del dictamen
         diagnosticos: dictamen.diagnosticos.map((dx) => ({
           cie10Codigo: dx.cie10Codigo,
-          tipo: dx.tipo, // enum de Prisma
-          cie10Label: dx.cie10
-            ? `${dx.cie10Codigo} - ${dx.cie10.nombre}`
-            : dx.cie10Codigo,
+          tipo: dx.tipo,
+          cie10Label: dx.cie10 ? `${dx.cie10Codigo} - ${dx.cie10.nombre}` : dx.cie10Codigo,
         })),
 
         docente: {
           id: docente.id,
           documento: docente.identificacion,
           tipoDocumento: docente.tipoIdentificacion,
-          // 🔹 ahora con nombre COMPLETO
           nombreCompleto: getNombreCompletoUsuario({
             primerNombre: docente.primerNombre,
             segundoNombre: docente.segundoNombre ?? null,
@@ -191,11 +208,8 @@ export async function GET(_req: Request, context: RouteContext) {
   } catch (err: any) {
     console.error('ERROR GET /api/dictamenes/[id]:', err);
     return NextResponse.json(
-      {
-        ok: false,
-        error: err?.message ?? 'Error consultando dictamen',
-      },
-      { status: 500 },
+      { ok: false, error: err?.message ?? 'Error consultando dictamen' },
+      { status: 500 }
     );
   }
 }
@@ -208,19 +222,23 @@ const UpdateAntecedentesSchema = z.object({
   condicionSalud: z.string().optional(),
   descripcionHallazgos: z.string().optional(),
   procedimientoPcl: z.enum(['A', 'B']).optional(),
-  fechaDictamen: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  fechaDictamen: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
-    const medicoId = await getMedicoIdFromToken();
-    if (!medicoId) {
+    const auth = await getAuthFromToken();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    }
+
+    const { userId, role } = auth;
+
+    // ✅ Solo médico puede editar HC
+    if (role !== 'MEDICO') {
       return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 },
+        { ok: false, error: 'No autorizado para editar este dictamen.' },
+        { status: 403 }
       );
     }
 
@@ -228,10 +246,7 @@ export async function PUT(req: Request, context: RouteContext) {
     const id = Number(idParam);
 
     if (!id || Number.isNaN(id)) {
-      return NextResponse.json(
-        { ok: false, error: 'ID de dictamen inválido.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'ID de dictamen inválido.' }, { status: 400 });
     }
 
     const json = await req.json();
@@ -242,89 +257,48 @@ export async function PUT(req: Request, context: RouteContext) {
       where: { id },
       select: {
         empleadoId: true,
-        usuario: {
-          select: { identificacion: true },
-        },
       },
     });
 
-    if (!existing || existing.empleadoId !== medicoId) {
-      return NextResponse.json(
-        { ok: false, error: 'No tiene permiso sobre este dictamen.' },
-        { status: 403 },
-      );
+    if (!existing || existing.empleadoId !== userId) {
+      return NextResponse.json({ ok: false, error: 'No tiene permiso sobre este dictamen.' }, { status: 403 });
     }
 
-    // 👇 SOLO tocamos los campos que vienen en el body
     const updateData: any = {};
 
-    if ('antecedentesClinicos' in data) {
-      updateData.antecedentesClinicos =
-        data.antecedentesClinicos ?? null;
-    }
-
-    if ('condicionSalud' in data) {
-      updateData.condicionSalud = data.condicionSalud ?? null;
-    }
-
-    if ('descripcionHallazgos' in data) {
-      updateData.descripcionHallazgos =
-        data.descripcionHallazgos ?? null;
-    }
+    if ('antecedentesClinicos' in data) updateData.antecedentesClinicos = data.antecedentesClinicos ?? null;
+    if ('condicionSalud' in data) updateData.condicionSalud = data.condicionSalud ?? null;
+    if ('descripcionHallazgos' in data) updateData.descripcionHallazgos = data.descripcionHallazgos ?? null;
 
     if ('procedimientoPcl' in data && data.procedimientoPcl) {
-      updateData.procedimientoPcl =
-        data.procedimientoPcl as ProcedimientoPcl;
+      updateData.procedimientoPcl = data.procedimientoPcl as ProcedimientoPcl;
     }
 
     if ('fechaDictamen' in data && data.fechaDictamen) {
       const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
-
       if (Number.isNaN(fecha.getTime())) {
-        return NextResponse.json(
-          { ok: false, error: 'Fecha de dictamen inválida.' },
-          { status: 400 },
-        );
+        return NextResponse.json({ ok: false, error: 'Fecha de dictamen inválida.' }, { status: 400 });
       }
 
       updateData.fechaDictamen = fecha;
-
-      const doc = existing.usuario?.identificacion;
-      if (doc) {
-        const [year, month, day] = data.fechaDictamen.split('-'); // YYYY-MM-DD
-        const numeroDictamen = `${day}${month}${year}${doc}`; // ddMMyyyy + documento
-        updateData.numeroDictamen = numeroDictamen;
-      }
+      // ✅ coherente con tu front (ddMMyyyy + id 9 dígitos)
+      updateData.numeroDictamen = buildNumeroDictamen(id, data.fechaDictamen);
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { ok: false, error: 'No se enviaron campos para actualizar.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'No se enviaron campos para actualizar.' }, { status: 400 });
     }
 
     const updated = await prisma.dictamen.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        fechaDictamen: true,
-        numeroDictamen: true,
-      },
+      select: { id: true, fechaDictamen: true, numeroDictamen: true },
     });
 
-    return NextResponse.json({
-      ok: true,
-      dictamen: updated,
-    });
+    return NextResponse.json({ ok: true, dictamen: updated });
   } catch (err: any) {
     console.error('ERROR PUT /api/dictamenes/[id]:', err);
-    const msg =
-      err?.issues?.[0]?.message ||
-      err?.message ||
-      'Error actualizando antecedentes';
+    const msg = err?.issues?.[0]?.message || err?.message || 'Error actualizando antecedentes';
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }
-

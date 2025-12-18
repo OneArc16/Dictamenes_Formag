@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
 import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
@@ -69,10 +69,17 @@ function buildNumeroDictamen(id: number, fecha: string | null) {
 
 export default function DictamenDetallePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
 
+  // ✅ ruta de volver según donde estés
+  const backTo = pathname?.startsWith('/admisiones') ? '/admisiones' : '/medico';
+
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
+
+  // ✅ readOnly viene del backend (ADMIN/ADMISIONISTA)
+  const [readOnly, setReadOnly] = useState(false);
 
   // Estado compartido
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
@@ -99,16 +106,15 @@ export default function DictamenDetallePage() {
       console.log('DICTAMEN API:', data.dictamen);
 
       if (!res.ok || !data?.ok) {
-        setError(
-          data?.error ?? 'Error cargando información del dictamen',
-        );
+        setError(data?.error ?? 'Error cargando información del dictamen');
         return;
       }
 
+      // ✅ readOnly desde API
+      setReadOnly(Boolean(data?.readOnly));
+
       const d = data.dictamen as DictamenDetalle;
       setDictamen(d);
-      setProcedimientoPcl(d.procedimientoPcl ?? 'A');
-      setFechaDictamen(d.fechaDictamen ?? '');
 
       // Procedimiento A/B desde backend
       const proc = d.procedimientoPcl ?? 'A';
@@ -121,10 +127,7 @@ export default function DictamenDetallePage() {
       setFechaDictamen(uiFecha);
 
       // Número de dictamen (si no viene, lo calculamos)
-      const num =
-        d.numeroDictamen ??
-        buildNumeroDictamen(d.id, uiFecha || null);
-
+      const num = d.numeroDictamen ?? buildNumeroDictamen(d.id, uiFecha || null);
       setNumeroDictamen(num);
 
       setError(null);
@@ -149,8 +152,9 @@ export default function DictamenDetallePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
 
-  // 🔹 guardar fecha en el backend cada vez que cambia
+  // 🔹 guardar fecha en el backend cada vez que cambia (SOLO MEDICO)
   useEffect(() => {
+    if (readOnly) return; // ✅ no guardar si es solo lectura
     if (!dictamenLoaded) return;
     if (!fechaDictamen) return;
     if (!dictamenId || Number.isNaN(dictamenId)) return;
@@ -174,15 +178,11 @@ export default function DictamenDetallePage() {
           return;
         }
 
-        // ⬅️ si el backend devuelve el dictamen actualizado, usamos su número
         const updated = data.dictamen as DictamenDetalle | undefined;
         if (updated?.numeroDictamen) {
           setNumeroDictamen(updated.numeroDictamen);
         } else {
-          // fallback: lo calculamos nosotros
-          setNumeroDictamen(
-            buildNumeroDictamen(dictamenId, fechaDictamen || null),
-          );
+          setNumeroDictamen(buildNumeroDictamen(dictamenId, fechaDictamen || null));
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
@@ -193,31 +193,24 @@ export default function DictamenDetallePage() {
     saveFecha();
 
     return () => controller.abort();
-  }, [fechaDictamen, dictamenId, dictamenLoaded]);
-
+  }, [fechaDictamen, dictamenId, dictamenLoaded, readOnly]);
 
   // 🔹 handlers que ACTUALIZAN también el número en el front
   const handleChangeFecha = (newFecha: string) => {
-  setFechaDictamen(newFecha);
+    if (readOnly) return; // ✅ bloquear en solo lectura
+    setFechaDictamen(newFecha);
 
-  // UI optimista: calculamos el número inmediatamente
-  if (!dictamenId || Number.isNaN(dictamenId)) return;
-  setNumeroDictamen(
-    buildNumeroDictamen(dictamenId, newFecha || null),
-  );
+    // UI optimista: calculamos el número inmediatamente
+    if (!dictamenId || Number.isNaN(dictamenId)) return;
+    setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
   };
 
-
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
+    if (readOnly) return; // ✅ bloquear en solo lectura
     setProcedimientoPcl(nuevoProc);
 
-    // si en algún momento el procedimiento entra en la lógica del número,
-    // aquí lo puedes usar; por ahora el formato sólo depende de fecha + id
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    const nuevoNumero = buildNumeroDictamen(
-      dictamenId,
-      fechaDictamen || null,
-    );
+    const nuevoNumero = buildNumeroDictamen(dictamenId, fechaDictamen || null);
     setNumeroDictamen(nuevoNumero);
   };
 
@@ -233,7 +226,7 @@ export default function DictamenDetallePage() {
         <main className="px-4 py-4 lg:px-8">
           <button
             type="button"
-            onClick={() => router.push('/medico')}
+            onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
             ← Volver al listado
@@ -254,7 +247,7 @@ export default function DictamenDetallePage() {
         <main className="px-4 py-4 lg:px-8">
           <button
             type="button"
-            onClick={() => router.push('/medico')}
+            onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
             ← Volver al listado
@@ -272,8 +265,8 @@ export default function DictamenDetallePage() {
     <div className="min-h-screen bg-slate-50">
       <AppNav />
 
-      {/* Modal de actualizar docente */}
-      {showEditDocente && (
+      {/* Modal de actualizar docente (solo MEDICO) */}
+      {!readOnly && showEditDocente && (
         <ActualizarDocenteModal
           open={showEditDocente}
           onClose={() => setShowEditDocente(false)}
@@ -286,11 +279,18 @@ export default function DictamenDetallePage() {
         {/* Volver */}
         <button
           type="button"
-          onClick={() => router.push('/medico')}
+          onClick={() => router.push(backTo)}
           className="text-xs text-blue-600 hover:underline"
         >
           ← Volver al listado de dictámenes
         </button>
+
+        {/* ✅ Banner modo solo lectura */}
+        {readOnly && (
+          <div className="px-4 py-2 mt-3 text-xs border rounded-xl border-amber-200 bg-amber-50 text-amber-800">
+            Estás en modo solo lectura. No puedes editar HC.
+          </div>
+        )}
 
         <div className="mt-4">
           <DictamenFormLayout
@@ -305,19 +305,20 @@ export default function DictamenDetallePage() {
                 onChangeFecha={handleChangeFecha}
                 procedimientoPcl={procedimientoPcl}
                 onChangeProcedimiento={handleChangeProcedimiento}
-                onEditDocente={() => setShowEditDocente(true)}
+                onEditDocente={() => {
+                  if (readOnly) return;
+                  setShowEditDocente(true);
+                }}
               />
             }
             center={
               <DictamenCenterPanel
                 dictamen={{
                   id: dictamen.id,
-                  antecedentesClinicos:
-                    dictamen.antecedentesClinicos ?? '',
+                  antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
                   condicionSalud: dictamen.condicionSalud ?? '',
-                  descripcionHallazgos:
-                    dictamen.descripcionHallazgos ?? '',
-                    diagnosticos: dictamen.diagnosticos ?? []
+                  descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                  diagnosticos: dictamen.diagnosticos ?? [],
                 }}
                 procedimientoPcl={procedimientoPcl}
                 fechaDictamen={fechaDictamen}

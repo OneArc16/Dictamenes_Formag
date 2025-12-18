@@ -7,6 +7,7 @@ interface DictamenTableProps {
   rows: DictamenRow[];
   loading: boolean;
   onOpenDictamen: (id: number) => void;
+  renderActions?: (row: DictamenRow) => React.ReactNode;
 }
 
 // Helper para formatear la fecha
@@ -53,6 +54,7 @@ export function DictamenTable({
   rows,
   loading,
   onOpenDictamen,
+  renderActions,
 }: DictamenTableProps) {
   const hasRows = rows && rows.length > 0;
 
@@ -178,14 +180,20 @@ export function DictamenTable({
                       {medicoNombre}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onOpenDictamen(row.id)}
-                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/70 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-600 transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Ver</span>
-                      </button>
+                      {renderActions ? (
+                        <div className="inline-flex items-center justify-end gap-2">
+                          {renderActions(row)}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onOpenDictamen(row.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-blue-500/70 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-600 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Ver</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

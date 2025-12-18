@@ -26,3 +26,17 @@ button:focus-visible, a:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 60%, transparent);
   outline: none;
 }
+
+fieldset:disabled input,
+fieldset:disabled textarea,
+fieldset:disabled select {
+  background: #f1f5f9;
+  color: #475569;
+  cursor: not-allowed;
+}
+
+fieldset:disabled button {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
