@@ -80,6 +80,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Perfil inválido' }, { status: 400 });
     }
 
+    // ✅ NUEVO: si envían perfilId, debe existir y estar ACTIVO
+    if (perfilId != null) {
+      const perfilOk = await prisma.perfil.findFirst({
+        where: { id: perfilId, estado: 1 },
+        select: { id: true },
+      });
+
+      if (!perfilOk) {
+        return NextResponse.json(
+          { ok: false, error: 'Perfil inválido o inactivo' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Chequeos explícitos
     const existingByDoc = await prisma.empleado.findFirst({
       where: { tipoDocumento, numeroIdentidad },

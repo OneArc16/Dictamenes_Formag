@@ -3,6 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { AdminMode } from '@/lib/rbac';
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  IdCard,
+  UserRoundCog,
+  ClipboardList,
+} from 'lucide-react';
 
 type Props = {
   children: React.ReactNode;
@@ -10,7 +18,15 @@ type Props = {
   mode: AdminMode;
 };
 
-function NavItem({ href, label }: { href: string; label: string }) {
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+}) {
   const pathname = usePathname() || '';
   const active = pathname === href;
 
@@ -18,13 +34,19 @@ function NavItem({ href, label }: { href: string; label: string }) {
     <Link
       href={href}
       className={[
-        'block rounded-md px-3 py-2 text-[11px] font-medium transition',
+        'flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-medium transition',
         active
           ? 'bg-blue-50 text-blue-700'
           : 'text-slate-700 hover:bg-slate-50',
       ].join(' ')}
     >
-      {label}
+      <Icon
+        className={[
+          'h-4 w-4',
+          active ? 'text-blue-700' : 'text-slate-500',
+        ].join(' ')}
+      />
+      <span>{label}</span>
     </Link>
   );
 }
@@ -43,18 +65,18 @@ export default function AdminShell({ children, empleado, mode }: Props) {
 
           <div className="text-[11px] font-semibold text-slate-500">Operación</div>
           <div className="mt-2 space-y-1">
-            <NavItem href="/admin" label="Dashboard" />
-            <NavItem href="/admin/dictamenes" label="Dictámenes" />
-            <NavItem href="/admin/pacientes" label="Pacientes" />
+            <NavItem href="/admin" label="Dashboard" icon={LayoutDashboard} />
+            <NavItem href="/admin/dictamenes" label="Dictámenes" icon={FileText} />
+            <NavItem href="/admin/pacientes" label="Pacientes" icon={Users} />
           </div>
 
           {showAdminSection && (
             <>
               <div className="mt-4 text-[11px] font-semibold text-slate-500">Administración</div>
               <div className="mt-2 space-y-1">
-                <NavItem href="/admin/empleados" label="Empleados" />
-                <NavItem href="/admin/perfiles" label="Perfiles" />
-                <NavItem href="/admin/auditoria" label="Auditoría" />
+                <NavItem href="/admin/empleados" label="Empleados" icon={IdCard} />
+                <NavItem href="/admin/perfiles" label="Perfiles" icon={UserRoundCog} />
+                <NavItem href="/admin/auditoria" label="Auditoría" icon={ClipboardList} />
               </div>
             </>
           )}

@@ -43,7 +43,9 @@ type DictamenDetalle = {
   medico: { id: number; nombreCompleto: string } | null;
 };
 
-type ApiResp = { ok: true; dictamen: DictamenDetalle; readOnly?: boolean } | { ok: false; error?: string };
+type ApiResp =
+  | { ok: true; dictamen: DictamenDetalle; readOnly?: boolean }
+  | { ok: false; error?: string };
 
 function buildNumeroDictamen(id: number, fecha: string | null) {
   if (!fecha) return '';
@@ -53,7 +55,9 @@ function buildNumeroDictamen(id: number, fecha: string | null) {
   return `${datePart}${consecutivo}`;
 }
 
-async function fetchDictamen(id: number): Promise<{ dictamen: DictamenDetalle; readOnly: boolean }> {
+async function fetchDictamen(
+  id: number
+): Promise<{ dictamen: DictamenDetalle; readOnly: boolean }> {
   const res = await fetch(`/api/dictamenes/${id}`, { method: 'GET', credentials: 'include' });
   const data = (await res.json()) as ApiResp;
 
@@ -77,13 +81,9 @@ async function patchDictamen(id: number, body: any) {
 }
 
 type Props = {
-  /** título del AppNav */
   title: string;
-  /** a dónde vuelve el botón */
   backHref: string;
-  /** forzar solo lectura (para admisiones) */
   forceReadOnly?: boolean;
-  /** permitir abrir modal de editar docente (solo médico normalmente) */
   allowEditDocente?: boolean;
 };
 
@@ -113,13 +113,11 @@ export default function DictamenDetalleShell({
     return data?.readOnly ?? false;
   }, [forceReadOnly, data?.readOnly]);
 
-  // Estado compartido (UI)
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
-  const [fechaDictamen, setFechaDictamen] = useState<string>(''); // YYYY-MM-DD
+  const [fechaDictamen, setFechaDictamen] = useState<string>('');
   const [numeroDictamen, setNumeroDictamen] = useState<string>('');
   const [showEditDocente, setShowEditDocente] = useState(false);
 
-  // Inicializar UI desde la data
   useEffect(() => {
     if (!dictamen) return;
 
@@ -147,24 +145,19 @@ export default function DictamenDetalleShell({
     setFechaDictamen(newFecha);
     if (!dictamenId || Number.isNaN(dictamenId)) return;
 
-    // UI optimista
     setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
-
-    // Persistir solo si se puede editar
     if (!readOnly) updateMutation.mutate({ fechaDictamen: newFecha });
   };
 
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
     setProcedimientoPcl(nuevoProc);
-
     if (!readOnly) updateMutation.mutate({ procedimientoPcl: nuevoProc });
   };
 
   const handleDocenteUpdated = async () => {
-    await refetch(); // refresh
+    await refetch();
   };
 
-  // Estados de carga / error
   if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -173,9 +166,7 @@ export default function DictamenDetalleShell({
           <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
             ← Volver al listado
           </button>
-          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">
-            ID de dictamen inválido.
-          </div>
+          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">ID de dictamen inválido.</div>
         </main>
       </div>
     );
@@ -189,9 +180,7 @@ export default function DictamenDetalleShell({
           <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
             ← Volver al listado
           </button>
-          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">
-            Cargando dictamen…
-          </div>
+          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">Cargando dictamen…</div>
         </main>
       </div>
     );
@@ -214,6 +203,22 @@ export default function DictamenDetalleShell({
   }
 
   const canEditDocente = allowEditDocente && !readOnly;
+
+ // ... (todo igual arriba)
+
+  const readOnlyScope =
+    readOnly
+      ? [
+          // visual
+          'opacity-70',
+          // bloquear controles
+          '[&_input]:pointer-events-none [&_textarea]:pointer-events-none [&_select]:pointer-events-none',
+          // bloquear botones EN GENERAL...
+          '[&_button]:pointer-events-none',
+          // ...PERO permitir los que marquemos como allow (tabs)
+          '[&_button[data-ro-allow="1"]]:pointer-events-auto',
+        ].join(' ')
+      : '';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -244,8 +249,8 @@ export default function DictamenDetalleShell({
         )}
 
         <div className="mt-4">
-          {/* ✅ Esto vuelve todo “gris” y sin edición */}
-          <fieldset disabled={readOnly}>
+          {/* ✅ Scope SOLO LECTURA (bloquea inputs y botones, pero deja tabs con data-ro-allow) */}
+          <div className={readOnlyScope}>
             <DictamenFormLayout
               left={
                 <DictamenLeftPanel
@@ -263,6 +268,7 @@ export default function DictamenDetalleShell({
               }
               center={
                 <DictamenCenterPanel
+                  readOnly={readOnly}
                   dictamen={{
                     id: dictamen.id,
                     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
@@ -276,7 +282,7 @@ export default function DictamenDetalleShell({
               }
               right={<DictamenRightPanel />}
             />
-          </fieldset>
+          </div>
         </div>
       </main>
     </div>

@@ -158,22 +158,11 @@ export default function AdmisionesPage() {
           rows={rows}
           loading={loading}
           onOpenDictamen={handleOpenDictamen}
-          renderActions={(r) => (
-            <>
-              <button
-                type="button"
-                onClick={() => handleOpenDictamen(r.id)}
-                className="inline-flex items-center gap-1 rounded-full border border-blue-500/70 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-600 transition-colors"
-              >
-                Ver
-              </button>
-
-              <ReabrirDictamenButton
-                dictamenId={r.id}
-                estado={isAbiertoFromEstadoLabel((r as any).estado)}
-              />
-            </>
-          )}
+          renderActions={(row) => {
+            const estado = String((row as any).estado ?? '').toUpperCase();
+            const isCerrado = estado === 'CERRADO';
+            return isCerrado ? <ReabrirDictamenButton dictamenId={row.id} /> : null;
+          }}
         />
       </main>
     </div>

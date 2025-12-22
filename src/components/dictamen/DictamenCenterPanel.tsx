@@ -10,6 +10,7 @@ import { useCie10Options } from '@/hooks/useCie10Options';
 type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
 
 type DictamenCenterPanelProps = {
+  readOnly?: boolean;
   dictamen: {
     id: number;
     antecedentesClinicos: string | null;
@@ -17,34 +18,28 @@ type DictamenCenterPanelProps = {
     descripcionHallazgos: string | null;
     diagnosticos?: {
       cie10Codigo: string;
-      tipo:
-        | 'CONFIRMADO_NUEVO'
-        | 'IMPRESION_DIAGNOSTICA'
-        | 'CONFIRMADO_REPETIDO';
+      tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
       cie10Label?: string | null;
     }[];
   };
   procedimientoPcl: 'A' | 'B';
-  fechaDictamen: string; // la dejamos por compatibilidad si luego la necesitas
+  fechaDictamen: string;
 };
 
 export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
   fechaDictamen,
+  readOnly = false,
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
-  const {
-    data: cie10Options = [],
-    isLoading: cie10Loading,
-    error: cie10Error,
-  } = useCie10Options();
+  const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
   return (
     <div className="bg-white border shadow-sm rounded-xl">
-      {/* Header de pestañas */}
-      <div className="flex px-4 border-b bg-slate-50">
+      {/* Header de pestañas (✅ siempre navegable) */}
+      <div className="relative z-10 flex px-4 border-b bg-slate-50">
         {([
           ['ANTECEDENTES', 'Antecedentes'],
           ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
@@ -56,6 +51,7 @@ export default function DictamenCenterPanel({
             <button
               key={id}
               type="button"
+              data-ro-allow="1"   // 👈 IMPORTANTE: este botón NO se bloquea en readOnly
               onClick={() => setTab(id)}
               className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
                 active
@@ -69,7 +65,7 @@ export default function DictamenCenterPanel({
         })}
       </div>
 
-      {/* Contenido de pestaña */}
+      {/* Contenido */}
       <div className="p-4 text-sm">
         {cie10Error && tab === 'DIAGNOSTICOS' && (
           <div className="mb-3 text-[11px] text-red-600">
@@ -86,16 +82,12 @@ export default function DictamenCenterPanel({
               descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
             }}
             procedimientoPcl={procedimientoPcl}
-            // 👇 cuando guarda bien, saltamos a la pestaña de Diagnóstico
             onGoNext={() => setTab('DIAGNOSTICOS')}
           />
         )}
 
         {tab === 'EXAMEN' && (
-          <TabExamenFisico
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-          />
+          <TabExamenFisico dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
         )}
 
         {tab === 'DIAGNOSTICOS' && (
@@ -104,16 +96,12 @@ export default function DictamenCenterPanel({
             procedimientoPcl={procedimientoPcl}
             cie10Options={cie10Options}
             initialDiagnosticos={dictamen.diagnosticos ?? []}
-
             onGoNext={() => setTab('DEFICIENCIAS')}
           />
         )}
 
         {tab === 'DEFICIENCIAS' && (
-          <TabDeficiencias
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-          />
+          <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
         )}
       </div>
     </div>

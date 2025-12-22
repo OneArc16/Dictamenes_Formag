@@ -1,44 +1,106 @@
+// app/api/dictamenes/[id]/reabrir/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmisionesApi } from '@/lib/auth/api-guards';
+import { cookies } from 'next/headers';
+import { verifyJwt } from '@/lib/auth';
 
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmisionesApi();
-  if (!auth.ok) {
-    return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-  }
+export const runtime = 'nodejs';
 
-  const { id } = await params;
-  const dictamenId = Number(id);
+type JwtPayload = {
+  sub: string;
+  role?: string;
+  name?: string;
+  [key: string]: any;
+};
 
-  if (!Number.isFinite(dictamenId)) {
-    return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
-  }
+type AuthCtx = {
+  userId: number;
+  role: string;
+};
 
-  const d = await prisma.dictamen.findUnique({
-    where: { id: dictamenId },
-    select: { id: true, estado: true, reabierto: true },
-  });
+async function getAuthFromToken(): Promise<AuthCtx | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth')?.value;
+  if (!token) return null;
 
-  if (!d) {
-    return NextResponse.json({ ok: false, error: 'Dictamen no encontrado' }, { status: 404 });
-  }
+  const payload = (await verifyJwt(token)) as JwtPayload | null;
+  if (!payload?.sub) return null;
 
-  // estado=true = pendiente/abierto. Si ya está abierto, no hay nada que reabrir.
-  if (d.estado === true) {
+  const userId = Number(payload.sub);
+  if (!userId || Number.isNaN(userId)) return null;
+
+  const role = String(payload.role ?? '').toUpperCase();
+  return { userId, role };
+}
+
+function canReopen(role: string) {
+  return role === 'ADMIN' || role === 'ADMISIONISTA';
+}
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(_req: Request, context: RouteContext) {
+  try {
+    const auth = await getAuthFromToken();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    }
+
+    if (!canReopen(auth.role)) {
+      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { id: idParam } = await context.params;
+    const id = Number(idParam);
+
+    if (!id || Number.isNaN(id)) {
+      return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
+    }
+
+    const existing = await prisma.dictamen.findUnique({
+      where: { id },
+      select: { id: true, estado: true, reabierto: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ ok: false, error: 'Dictamen no encontrado' }, { status: 404 });
+    }
+
+    // Si ya está reabierto, lo dejamos idempotente
+    if (existing.reabierto) {
+      return NextResponse.json({
+        ok: true,
+        dictamen: { id: existing.id, estado: 'REABIERTO' as const },
+        message: 'El dictamen ya estaba reabierto',
+      });
+    }
+
+    // Solo reabrimos si está cerrado (estado=false)
+    if (existing.estado === true) {
+      return NextResponse.json(
+        { ok: false, error: 'El dictamen no está cerrado, no se puede reabrir.' },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.dictamen.update({
+      where: { id },
+      data: {
+        reabierto: true,
+        estado: true, // vuelve a "pendiente" pero tu UI lo mostrará como REABIERTO por el flag reabierto
+      },
+      select: { id: true, estado: true, reabierto: true },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      dictamen: { id: updated.id, estado: 'REABIERTO' as const },
+    });
+  } catch (err: any) {
+    console.error('ERROR POST /api/dictamenes/[id]/reabrir:', err);
     return NextResponse.json(
-      { ok: false, error: 'El dictamen ya está abierto (pendiente).' },
-      { status: 409 }
+      { ok: false, error: err?.message ?? 'Error reabriendo dictamen' },
+      { status: 500 }
     );
   }
-
-  await prisma.dictamen.update({
-    where: { id: dictamenId },
-    data: {
-      estado: true,
-      reabierto: true,
-    },
-  });
-
-  return NextResponse.json({ ok: true });
 }

@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
+export const runtime = 'nodejs';
+
+
 function isAdmin(role: unknown) {
   return String(role) === 'ADMIN';
 }

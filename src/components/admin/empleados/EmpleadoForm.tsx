@@ -151,9 +151,11 @@ export default function EmpleadoForm({
     onSuccess: () => {
       toast.success(successMessage);
 
-      if (onSuccessRedirectTo) {
+     if (onSuccessRedirectTo) {
         router.replace(onSuccessRedirectTo);
+        return; // ✅ si redirigimos, no hacemos refresh acá
       }
+      
       router.refresh(); // ✅ refresca server components
     },
     onError: (err: any) => {
