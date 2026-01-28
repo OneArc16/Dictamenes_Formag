@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { db } from '@/lib/dexieClient';
 
@@ -12,6 +12,8 @@ type Props = {
     descripcionHallazgos: string;
   };
   procedimientoPcl: 'A' | 'B';
+  /** ✅ (Opcional) versión del servidor para invalidar drafts */
+  serverVersion?: string;
   /** 👇 callback opcional para ir a la siguiente pestaña */
   onGoNext?: () => void;
 };
@@ -26,64 +28,89 @@ export default function TabAntecedentes({
   dictamenId,
   initial,
   procedimientoPcl,
+  serverVersion,
   onGoNext,
 }: Props) {
-  const [antecedentesClinicos, setAntecedentesClinicos] = useState(
-    initial.antecedentesClinicos,
-  );
-  const [condicionSalud, setCondicionSalud] = useState(
-    initial.condicionSalud,
-  );
-  const [descripcionHallazgos, setDescripcionHallazgos] = useState(
-    initial.descripcionHallazgos,
-  );
+  const initialA = initial.antecedentesClinicos ?? '';
+  const initialC = initial.condicionSalud ?? '';
+  const initialH = initial.descripcionHallazgos ?? '';
+
+  const [antecedentesClinicos, setAntecedentesClinicos] = useState(initialA);
+  const [condicionSalud, setCondicionSalud] = useState(initialC);
+  const [descripcionHallazgos, setDescripcionHallazgos] = useState(initialH);
 
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  // 🔹 estado para el borrador local (Dexie)
-  const [draftStatus, setDraftStatus] = useState<
-    'idle' | 'saving' | 'saved'
-  >('idle');
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  /** ✅ evita autosave antes de cargar draft/initial */
+  const [loaded, setLoaded] = useState(false);
 
   // ==========================
-  // 1) Cargar borrador desde Dexie
+  // 1) Cargar borrador desde Dexie (con invalidación por serverVersion)
   // ==========================
   useEffect(() => {
     let mounted = true;
+    setLoaded(false);
 
     (async () => {
       try {
+        // ✅ Si tenemos serverVersion, validamos contra dictamenMeta (si existe)
+        if (serverVersion) {
+          const metaTable = (db as any).dictamenMeta;
+          if (metaTable?.get) {
+            const meta = await metaTable.get(dictamenId);
+            const localServerVersion = String(meta?.serverVersion ?? '');
+
+            if (mounted && localServerVersion && localServerVersion !== String(serverVersion)) {
+              // servidor cambió -> borrar drafts locales
+              await db.dictamenDrafts.delete(dictamenId).catch(() => {});
+            }
+          }
+        }
+
         const draft = await db.dictamenDrafts.get(dictamenId);
-        if (!mounted || !draft?.data) return;
 
-        const d = draft.data as any;
+        if (!mounted) return;
 
-        setAntecedentesClinicos(
-          d.antecedentesClinicos ?? initial.antecedentesClinicos ?? '',
-        );
-        setCondicionSalud(
-          d.condicionSalud ?? initial.condicionSalud ?? '',
-        );
-        setDescripcionHallazgos(
-          d.descripcionHallazgos ??
-            initial.descripcionHallazgos ??
-            '',
-        );
+        if (draft?.data) {
+          const d = draft.data as any;
+
+          // ✅ usa draft si existe, si no usa initial del backend
+          setAntecedentesClinicos(d.antecedentesClinicos ?? initialA);
+          setCondicionSalud(d.condicionSalud ?? initialC);
+          setDescripcionHallazgos(d.descripcionHallazgos ?? initialH);
+        } else {
+          // ✅ sin draft -> valores del backend
+          setAntecedentesClinicos(initialA);
+          setCondicionSalud(initialC);
+          setDescripcionHallazgos(initialH);
+        }
       } catch (err) {
         console.error('Error cargando borrador de antecedentes:', err);
+        if (!mounted) return;
+        // fallback: backend
+        setAntecedentesClinicos(initialA);
+        setCondicionSalud(initialC);
+        setDescripcionHallazgos(initialH);
+      } finally {
+        if (mounted) setLoaded(true);
       }
     })();
 
     return () => {
       mounted = false;
     };
-  }, [dictamenId, initial]);
+    // ⚠️ dependencias primitivas (evita re-run por objeto initial nuevo)
+  }, [dictamenId, initialA, initialC, initialH, serverVersion]);
 
   // ==========================
-  // 2) Guardar borrador en Dexie (auto-save)
+  // 2) Guardar borrador en Dexie (auto-save) — con MERGE
   // ==========================
   useEffect(() => {
+    if (!loaded) return;
+
     let cancelled = false;
 
     const handler = setTimeout(async () => {
@@ -91,9 +118,14 @@ export default function TabAntecedentes({
         if (cancelled) return;
         setDraftStatus('saving');
 
+        // ✅ MERGE con lo que ya exista (no borrar fechaDictamen, procedimientoPcl, etc.)
+        const existing = await db.dictamenDrafts.get(dictamenId);
+        const prevData = (existing?.data ?? {}) as any;
+
         await db.dictamenDrafts.put({
           id: dictamenId,
           data: {
+            ...prevData,
             antecedentesClinicos,
             condicionSalud,
             descripcionHallazgos,
@@ -106,13 +138,13 @@ export default function TabAntecedentes({
         console.error('Error guardando borrador de antecedentes:', err);
         if (!cancelled) setDraftStatus('idle');
       }
-    }, 800); // ⏱ debounce
+    }, 800);
 
     return () => {
       cancelled = true;
       clearTimeout(handler);
     };
-  }, [dictamenId, antecedentesClinicos, condicionSalud, descripcionHallazgos]);
+  }, [loaded, dictamenId, antecedentesClinicos, condicionSalud, descripcionHallazgos]);
 
   // limpiar mensaje de "guardado" después de unos segundos
   useEffect(() => {
@@ -122,36 +154,26 @@ export default function TabAntecedentes({
   }, [draftStatus]);
 
   // ==========================
-  // 3) Validación de campos requeridos
+  // 3) Validación
   // ==========================
   const validate = () => {
     const errors: FieldErrors = {};
 
-    if (!antecedentesClinicos.trim()) {
-      errors.antecedentesClinicos = true;
-    }
-    if (!condicionSalud.trim()) {
-      errors.condicionSalud = true;
-    }
-    if (!descripcionHallazgos.trim()) {
-      errors.descripcionHallazgos = true;
-    }
+    if (!antecedentesClinicos.trim()) errors.antecedentesClinicos = true;
+    if (!condicionSalud.trim()) errors.condicionSalud = true;
+    if (!descripcionHallazgos.trim()) errors.descripcionHallazgos = true;
 
     setFieldErrors(errors);
 
     const faltantes: string[] = [];
     if (errors.antecedentesClinicos) faltantes.push('Antecedentes clínicos');
     if (errors.condicionSalud) faltantes.push('Condición de salud actual');
-    if (errors.descripcionHallazgos)
-      faltantes.push('Descripción de hallazgos relevantes');
+    if (errors.descripcionHallazgos) faltantes.push('Descripción de hallazgos relevantes');
 
     if (faltantes.length > 0) {
-      toast.error(
-        `Faltan campos por llenar: ${faltantes.join(', ')}`,
-      );
+      toast.error(`Faltan campos por llenar: ${faltantes.join(', ')}`);
       return false;
     }
-
     return true;
   };
 
@@ -161,7 +183,6 @@ export default function TabAntecedentes({
   const handleSave = async () => {
     if (saving) return;
 
-    // ✅ Validación previa
     const ok = validate();
     if (!ok) return;
 
@@ -184,20 +205,14 @@ export default function TabAntecedentes({
 
       if (!res.ok || !data?.ok) {
         console.error('Error guardando antecedentes', data);
-        toast.error(
-          data?.error ?? 'Error guardando antecedentes del dictamen',
-        );
+        toast.error(data?.error ?? 'Error guardando antecedentes del dictamen');
         return;
       }
 
-      // limpiar errores de validación
       setFieldErrors({});
       toast.success('Antecedentes guardados correctamente');
 
-      // 👉 pasar a la siguiente pestaña (si el padre mandó el callback)
-      if (onGoNext) {
-        onGoNext();
-      }
+      if (onGoNext) onGoNext();
     } catch (err) {
       console.error('Error guardando antecedentes:', err);
       toast.error('Error guardando antecedentes del dictamen');
@@ -206,7 +221,6 @@ export default function TabAntecedentes({
     }
   };
 
-  // helpers para clases de error
   const baseTextareaClasses =
     'w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none';
   const normalTextareaClasses =
@@ -225,17 +239,12 @@ export default function TabAntecedentes({
           onChange={(e) => {
             setAntecedentesClinicos(e.target.value);
             if (fieldErrors.antecedentesClinicos) {
-              setFieldErrors((prev) => ({
-                ...prev,
-                antecedentesClinicos: false,
-              }));
+              setFieldErrors((prev) => ({ ...prev, antecedentesClinicos: false }));
             }
           }}
           rows={4}
           className={`${baseTextareaClasses} ${
-            fieldErrors.antecedentesClinicos
-              ? errorTextareaClasses
-              : normalTextareaClasses
+            fieldErrors.antecedentesClinicos ? errorTextareaClasses : normalTextareaClasses
           }`}
         />
       </div>
@@ -249,17 +258,12 @@ export default function TabAntecedentes({
           onChange={(e) => {
             setCondicionSalud(e.target.value);
             if (fieldErrors.condicionSalud) {
-              setFieldErrors((prev) => ({
-                ...prev,
-                condicionSalud: false,
-              }));
+              setFieldErrors((prev) => ({ ...prev, condicionSalud: false }));
             }
           }}
           rows={4}
           className={`${baseTextareaClasses} ${
-            fieldErrors.condicionSalud
-              ? errorTextareaClasses
-              : normalTextareaClasses
+            fieldErrors.condicionSalud ? errorTextareaClasses : normalTextareaClasses
           }`}
         />
       </div>
@@ -273,25 +277,21 @@ export default function TabAntecedentes({
           onChange={(e) => {
             setDescripcionHallazgos(e.target.value);
             if (fieldErrors.descripcionHallazgos) {
-              setFieldErrors((prev) => ({
-                ...prev,
-                descripcionHallazgos: false,
-              }));
+              setFieldErrors((prev) => ({ ...prev, descripcionHallazgos: false }));
             }
           }}
           rows={5}
           className={`${baseTextareaClasses} ${
-            fieldErrors.descripcionHallazgos
-              ? errorTextareaClasses
-              : normalTextareaClasses
+            fieldErrors.descripcionHallazgos ? errorTextareaClasses : normalTextareaClasses
           }`}
         />
       </div>
 
       <div className="flex items-center justify-between pt-2">
         <div className="text-[11px] text-slate-400">
-          {draftStatus === 'saving' && 'Guardando borrador local…'}
-          {draftStatus === 'saved' && 'Borrador guardado localmente'}
+          {!loaded && 'Cargando datos…'}
+          {loaded && draftStatus === 'saving' && 'Guardando borrador local…'}
+          {loaded && draftStatus === 'saved' && 'Borrador guardado localmente'}
         </div>
 
         <button

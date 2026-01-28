@@ -689,6 +689,7 @@ model Dictamen {
   numeroDictamen   String?          @db.VarChar(30)
   fechaDictamen    DateTime         @db.Date
   creadoEn         DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   procedimientoPcl ProcedimientoPcl
 
   totalTitulo1           Decimal?                @db.Decimal(6, 2)

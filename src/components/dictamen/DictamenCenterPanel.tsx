@@ -11,6 +11,7 @@ type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
 
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
+  serverVersion?: string; // ✅ NUEVO
   dictamen: {
     id: number;
     antecedentesClinicos: string | null;
@@ -30,6 +31,7 @@ export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
   fechaDictamen,
+  serverVersion = '', // ✅ NUEVO
   readOnly = false,
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
@@ -51,7 +53,7 @@ export default function DictamenCenterPanel({
             <button
               key={id}
               type="button"
-              data-ro-allow="1"   // 👈 IMPORTANTE: este botón NO se bloquea en readOnly
+              data-ro-allow="1"
               onClick={() => setTab(id)}
               className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
                 active
@@ -82,6 +84,7 @@ export default function DictamenCenterPanel({
               descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
             }}
             procedimientoPcl={procedimientoPcl}
+            serverVersion={serverVersion} // ✅ CLAVE: para invalidar Dexie
             onGoNext={() => setTab('DIAGNOSTICOS')}
           />
         )}

@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import { z } from 'zod';
 import { ProcedimientoPcl } from '@prisma/client';
+import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 
@@ -71,9 +72,10 @@ function isReadOnly(role: string) {
 // ✅ Formato definitivo: ddMMyyyy + DOCUMENTO (solo dígitos)
 function buildNumeroDictamen(documento: string, fechaYYYYMMDD: string) {
   const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
-  const datePart = `${String(dd ?? '').padStart(2, '0')}${String(
-    mm ?? '',
-  ).padStart(2, '0')}${String(yyyy ?? '')}`;
+  const datePart = `${String(dd ?? '').padStart(2, '0')}${String(mm ?? '').padStart(
+    2,
+    '0',
+  )}${String(yyyy ?? '')}`;
   const docPart = String(documento ?? '').replace(/\D/g, '');
   return `${datePart}${docPart}`;
 }
@@ -81,6 +83,58 @@ function buildNumeroDictamen(documento: string, fechaYYYYMMDD: string) {
 // ✅ Guardar fecha como "medianoche Colombia" (05:00Z)
 function toColombiaMidnightUTC(fechaYYYYMMDD: string) {
   return new Date(`${fechaYYYYMMDD}T05:00:00.000Z`);
+}
+
+// ✅ ServerVersion definitiva: hash del contenido (detecta cambios directos en BD)
+function computeServerVersion(dictamen: any) {
+  // OJO: esto debe cambiar cuando cambien campos relevantes
+  const payload = {
+    id: dictamen.id,
+    numeroDictamen: dictamen.numeroDictamen ?? null,
+    fechaDictamen: dictamen.fechaDictamen
+      ? dictamen.fechaDictamen.toISOString().slice(0, 10)
+      : null,
+    procedimientoPcl: dictamen.procedimientoPcl ?? null,
+
+    antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+    condicionSalud: dictamen.condicionSalud ?? '',
+    descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+
+    estado: dictamen.estado,
+    reabierto: dictamen.reabierto,
+
+    // docente (cosas que afectan visualización)
+    docente: dictamen.usuario
+      ? {
+          id: dictamen.usuario.id,
+          identificacion: dictamen.usuario.identificacion,
+          tipoIdentificacion: dictamen.usuario.tipoIdentificacion,
+          primerNombre: dictamen.usuario.primerNombre,
+          segundoNombre: dictamen.usuario.segundoNombre ?? null,
+          primerApellido: dictamen.usuario.primerApellido,
+          segundoApellido: dictamen.usuario.segundoApellido ?? null,
+          edad: dictamen.usuario.edad ?? null,
+          sexo: dictamen.usuario.sexo ?? null,
+          secretariaId: dictamen.usuario.secretariaId ?? null,
+          institucionEducativaId: dictamen.usuario.institucionEducativaId ?? null,
+          // nombres referenciados (si los incluyes)
+          secretariaNombre: dictamen.usuario.secretariaRef?.nombre ?? null,
+          institucionNombre: dictamen.usuario.institucionEducativaRef?.nombre ?? null,
+        }
+      : null,
+
+    // diagnosticos (si los cambias en BD también debe invalidar)
+    diagnosticos: Array.isArray(dictamen.diagnosticos)
+      ? dictamen.diagnosticos.map((dx: any) => ({
+          id: dx.id,
+          cie10Codigo: dx.cie10Codigo,
+          tipo: dx.tipo,
+        }))
+      : [],
+  };
+
+  const raw = JSON.stringify(payload);
+  return crypto.createHash('sha1').update(raw).digest('hex');
 }
 
 async function getAuthFromToken(): Promise<AuthCtx | null> {
@@ -109,28 +163,19 @@ export async function GET(_req: Request, context: RouteContext) {
   try {
     const auth = await getAuthFromToken();
     if (!auth) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 },
-      );
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
     const { userId, role } = auth;
     if (!canReadDictamen(role)) {
-      return NextResponse.json(
-        { ok: false, error: 'No autorizado' },
-        { status: 403 },
-      );
+      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
     }
 
     const { id: idParam } = await context.params;
     const id = Number(idParam);
 
     if (!id || Number.isNaN(id)) {
-      return NextResponse.json(
-        { ok: false, error: 'ID de dictamen inválido.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'ID de dictamen inválido.' }, { status: 400 });
     }
 
     const where: any = { id };
@@ -154,10 +199,7 @@ export async function GET(_req: Request, context: RouteContext) {
     });
 
     if (!dictamen) {
-      return NextResponse.json(
-        { ok: false, error: 'Dictamen no encontrado.' },
-        { status: 404 },
-      );
+      return NextResponse.json({ ok: false, error: 'Dictamen no encontrado.' }, { status: 404 });
     }
 
     const docente = dictamen.usuario;
@@ -169,19 +211,21 @@ export async function GET(_req: Request, context: RouteContext) {
       ? 'PENDIENTE'
       : 'CERRADO';
 
+    const serverVersion = computeServerVersion(dictamen);
+
     return NextResponse.json({
       ok: true,
       readOnly: isReadOnly(role),
+      serverVersion, // ✅ ESTE es el que usa el front para invalidar Dexie
       dictamen: {
         id: dictamen.id,
-        // ✅ siempre como string (aunque en BD esté como Int, el front no revienta)
-        numeroDictamen:
-          dictamen.numeroDictamen != null
-            ? String(dictamen.numeroDictamen)
-            : null,
+
+        numeroDictamen: dictamen.numeroDictamen != null ? String(dictamen.numeroDictamen) : null,
+
         fechaDictamen: dictamen.fechaDictamen
           ? dictamen.fechaDictamen.toISOString().slice(0, 10)
           : null,
+
         procedimientoPcl: dictamen.procedimientoPcl as ProcedimientoPcl,
         estado,
 
@@ -192,9 +236,7 @@ export async function GET(_req: Request, context: RouteContext) {
         diagnosticos: dictamen.diagnosticos.map((dx) => ({
           cie10Codigo: dx.cie10Codigo,
           tipo: dx.tipo,
-          cie10Label: dx.cie10
-            ? `${dx.cie10Codigo} - ${dx.cie10.nombre}`
-            : dx.cie10Codigo,
+          cie10Label: dx.cie10 ? `${dx.cie10Codigo} - ${dx.cie10.nombre}` : dx.cie10Codigo,
         })),
 
         docente: {
@@ -250,10 +292,7 @@ export async function PUT(req: Request, context: RouteContext) {
   try {
     const auth = await getAuthFromToken();
     if (!auth) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 },
-      );
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
     const { userId, role } = auth;
@@ -269,16 +308,12 @@ export async function PUT(req: Request, context: RouteContext) {
     const id = Number(idParam);
 
     if (!id || Number.isNaN(id)) {
-      return NextResponse.json(
-        { ok: false, error: 'ID de dictamen inválido.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'ID de dictamen inválido.' }, { status: 400 });
     }
 
     const json = await req.json();
     const data = UpdateAntecedentesSchema.parse(json);
 
-    // ✅ Traemos también el documento del docente (identificacion)
     const existing = await prisma.dictamen.findUnique({
       where: { id },
       select: {
@@ -308,32 +343,22 @@ export async function PUT(req: Request, context: RouteContext) {
 
     const updateData: any = {};
 
-    if ('antecedentesClinicos' in data)
-      updateData.antecedentesClinicos = data.antecedentesClinicos ?? null;
-    if ('condicionSalud' in data)
-      updateData.condicionSalud = data.condicionSalud ?? null;
-    if ('descripcionHallazgos' in data)
-      updateData.descripcionHallazgos = data.descripcionHallazgos ?? null;
+    if ('antecedentesClinicos' in data) updateData.antecedentesClinicos = data.antecedentesClinicos ?? null;
+    if ('condicionSalud' in data) updateData.condicionSalud = data.condicionSalud ?? null;
+    if ('descripcionHallazgos' in data) updateData.descripcionHallazgos = data.descripcionHallazgos ?? null;
 
     if ('procedimientoPcl' in data && data.procedimientoPcl) {
       updateData.procedimientoPcl = data.procedimientoPcl as ProcedimientoPcl;
     }
 
-    // ✅ Si cambia la fecha, cambia SIEMPRE el numeroDictamen = fecha + documento
     if ('fechaDictamen' in data && data.fechaDictamen) {
       const fecha = toColombiaMidnightUTC(data.fechaDictamen);
       if (Number.isNaN(fecha.getTime())) {
-        return NextResponse.json(
-          { ok: false, error: 'Fecha de dictamen inválida.' },
-          { status: 400 },
-        );
+        return NextResponse.json({ ok: false, error: 'Fecha de dictamen inválida.' }, { status: 400 });
       }
 
       updateData.fechaDictamen = fecha;
-      updateData.numeroDictamen = buildNumeroDictamen(
-        documentoDocente,
-        data.fechaDictamen,
-      );
+      updateData.numeroDictamen = buildNumeroDictamen(documentoDocente, data.fechaDictamen);
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -352,10 +377,7 @@ export async function PUT(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: true, dictamen: updated });
   } catch (err: any) {
     console.error('ERROR PUT /api/dictamenes/[id]:', err);
-    const msg =
-      err?.issues?.[0]?.message ||
-      err?.message ||
-      'Error actualizando antecedentes';
+    const msg = err?.issues?.[0]?.message || err?.message || 'Error actualizando antecedentes';
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

@@ -1,40 +1,40 @@
 // src/lib/dexieClient.ts
 import Dexie, { Table } from 'dexie';
 
-/** Borrador genérico (antecedentes, etc.) que ya usas */
 export type DictamenDraft = {
-  id: number;          // dictamenId
-  data: any;           // objeto con campos del draft (antecedentes, etc.)
+  id: number;
+  data: any;
   updatedAt: number;
 };
 
-/** Fila de cada diagnóstico en el borrador local */
 export type DiagnosticoRowDraft = {
-  id: string; // id local de la fila, por ejemplo "row-1-123456"
+  id: string;
   cie10Codigo?: string;
   cie10Label?: string;
-  tipo:
-    | 'CONFIRMADO_NUEVO'
-    | 'IMPRESION_DIAGNOSTICA'
-    | 'CONFIRMADO_REPETIDO';
+  tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
 };
 
-/** Borrador local de diagnósticos por dictamen */
 export type DictamenDiagnosticosDraft = {
-  id: number; // dictamenId
+  id: number;
   diagnosticos: DiagnosticoRowDraft[];
+  updatedAt: number;
+};
+
+// ✅ META para invalidar cache local cuando cambia el servidor
+export type DictamenMeta = {
+  id: number; // dictamenId
+  serverVersion: string;
   updatedAt: number;
 };
 
 export class AppDB extends Dexie {
   dictamenDrafts!: Table<DictamenDraft, number>;
   dictamenDiagnosticosDrafts!: Table<DictamenDiagnosticosDraft, number>;
+  dictamenMeta!: Table<DictamenMeta, number>;
 
   constructor() {
     super('dictamenDb');
 
-    // ⚠️ IMPORTANTE: si antes solo tenías dictamenDrafts en version(1),
-    // debes subir la versión para agregar la nueva tabla.
     this.version(1).stores({
       dictamenDrafts: 'id',
     });
@@ -42,6 +42,13 @@ export class AppDB extends Dexie {
     this.version(2).stores({
       dictamenDrafts: 'id',
       dictamenDiagnosticosDrafts: 'id',
+    });
+
+    // ✅ subimos versión para incluir dictamenMeta
+    this.version(3).stores({
+      dictamenDrafts: 'id',
+      dictamenDiagnosticosDrafts: 'id',
+      dictamenMeta: 'id, serverVersion, updatedAt',
     });
   }
 }

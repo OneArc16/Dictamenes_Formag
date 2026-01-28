@@ -12,6 +12,8 @@ import DictamenLeftPanel from '@/components/dictamen/DictamenLeftPanel';
 import DictamenCenterPanel from '@/components/dictamen/DictamenCenterPanel';
 import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 
+import { db } from '@/lib/dexieClient';
+
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
 type DictamenDiagnosticoDTO = {
@@ -44,28 +46,30 @@ type DictamenDetalle = {
 };
 
 type ApiResp =
-  | { ok: true; dictamen: DictamenDetalle; readOnly?: boolean }
+  | { ok: true; dictamen: DictamenDetalle; readOnly?: boolean; serverVersion?: string }
   | { ok: false; error?: string };
-
-function buildNumeroDictamen(id: number, fecha: string | null) {
-  if (!fecha) return '';
-  const [yyyy, mm, dd] = fecha.split('-');
-  const datePart = `${dd}${mm}${yyyy}`;
-  const consecutivo = String(id).padStart(9, '0');
-  return `${datePart}${consecutivo}`;
-}
 
 async function fetchDictamen(
   id: number
-): Promise<{ dictamen: DictamenDetalle; readOnly: boolean }> {
-  const res = await fetch(`/api/dictamenes/${id}`, { method: 'GET', credentials: 'include' });
+): Promise<{ dictamen: DictamenDetalle; readOnly: boolean; serverVersion: string }> {
+  const res = await fetch(`/api/dictamenes/${id}`, {
+    method: 'GET',
+    credentials: 'include',
+    cache: 'no-store',
+  });
   const data = (await res.json()) as ApiResp;
 
   if (!res.ok || !('ok' in data) || !data.ok) {
     throw new Error((data as any)?.error ?? 'Error cargando dictamen');
   }
 
-  return { dictamen: (data as any).dictamen, readOnly: Boolean((data as any).readOnly) };
+  const serverVersion = String((data as any).serverVersion ?? '');
+
+  return {
+    dictamen: (data as any).dictamen,
+    readOnly: Boolean((data as any).readOnly),
+    serverVersion,
+  };
 }
 
 async function patchDictamen(id: number, body: any) {
@@ -103,7 +107,9 @@ export default function DictamenDetalleShell({
     queryKey: ['dictamen', dictamenId],
     queryFn: () => fetchDictamen(dictamenId),
     enabled: Number.isFinite(dictamenId) && dictamenId > 0,
-    staleTime: 10_000,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const dictamen = data?.dictamen ?? null;
@@ -118,6 +124,54 @@ export default function DictamenDetalleShell({
   const [numeroDictamen, setNumeroDictamen] = useState<string>('');
   const [showEditDocente, setShowEditDocente] = useState(false);
 
+  // ✅ para forzar remount del center panel cuando invalidamos drafts
+  const [draftResetKey, setDraftResetKey] = useState(0);
+
+  // ✅ invalidación Dexie por serverVersion
+  useEffect(() => {
+    if (!dictamen || !data?.serverVersion) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const serverVersion = String(data.serverVersion ?? '');
+        if (!serverVersion) return;
+
+        const meta = await db.dictamenMeta.get(dictamen.id);
+        const localServerVersion = meta?.serverVersion ?? '';
+
+        if (cancelled) return;
+
+        if (localServerVersion !== serverVersion) {
+          await db.dictamenDrafts.delete(dictamen.id).catch(() => {});
+          await db.dictamenDiagnosticosDrafts.delete(dictamen.id).catch(() => {});
+
+          await db.dictamenMeta.put({
+            id: dictamen.id,
+            serverVersion,
+            updatedAt: Date.now(),
+          });
+
+          // ✅ re-montar pestañas para que NO se queden con estado viejo
+          setDraftResetKey((k) => k + 1);
+        } else if (!meta) {
+          await db.dictamenMeta.put({
+            id: dictamen.id,
+            serverVersion,
+            updatedAt: Date.now(),
+          });
+        }
+      } catch (e) {
+        console.error('Error comparando serverVersion / Dexie:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dictamen?.id, data?.serverVersion]);
+
   useEffect(() => {
     if (!dictamen) return;
 
@@ -128,15 +182,18 @@ export default function DictamenDetalleShell({
     setProcedimientoPcl(proc);
     setFechaDictamen(uiFecha);
 
-    const num = dictamen.numeroDictamen ?? buildNumeroDictamen(dictamen.id, uiFecha || null);
-    setNumeroDictamen(num);
-  }, [dictamen]);
+    setNumeroDictamen(dictamen.numeroDictamen ?? '');
+  }, [dictamen?.id]);
 
   const updateMutation = useMutation({
     mutationFn: (body: any) => patchDictamen(dictamenId, body),
     onSuccess: (resp: any) => {
       const updatedNum = resp?.dictamen?.numeroDictamen;
-      if (updatedNum) setNumeroDictamen(updatedNum);
+      const updatedFecha = resp?.dictamen?.fechaDictamen;
+
+      if (updatedNum != null) setNumeroDictamen(String(updatedNum));
+      if (updatedFecha && typeof updatedFecha === 'string') setFechaDictamen(updatedFecha.slice(0, 10));
+
       qc.invalidateQueries({ queryKey: ['dictamen', dictamenId] });
     },
   });
@@ -144,8 +201,6 @@ export default function DictamenDetalleShell({
   const handleChangeFecha = (newFecha: string) => {
     setFechaDictamen(newFecha);
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-
-    setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
     if (!readOnly) updateMutation.mutate({ fechaDictamen: newFecha });
   };
 
@@ -204,18 +259,12 @@ export default function DictamenDetalleShell({
 
   const canEditDocente = allowEditDocente && !readOnly;
 
- // ... (todo igual arriba)
-
   const readOnlyScope =
     readOnly
       ? [
-          // visual
           'opacity-70',
-          // bloquear controles
           '[&_input]:pointer-events-none [&_textarea]:pointer-events-none [&_select]:pointer-events-none',
-          // bloquear botones EN GENERAL...
           '[&_button]:pointer-events-none',
-          // ...PERO permitir los que marquemos como allow (tabs)
           '[&_button[data-ro-allow="1"]]:pointer-events-auto',
         ].join(' ')
       : '';
@@ -234,11 +283,7 @@ export default function DictamenDetalleShell({
       )}
 
       <main className="px-4 py-4 lg:px-8">
-        <button
-          type="button"
-          onClick={() => router.push(backHref)}
-          className="text-xs text-blue-600 hover:underline"
-        >
+        <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
           ← Volver al listado de dictámenes
         </button>
 
@@ -249,7 +294,6 @@ export default function DictamenDetalleShell({
         )}
 
         <div className="mt-4">
-          {/* ✅ Scope SOLO LECTURA (bloquea inputs y botones, pero deja tabs con data-ro-allow) */}
           <div className={readOnlyScope}>
             <DictamenFormLayout
               left={
@@ -268,7 +312,9 @@ export default function DictamenDetalleShell({
               }
               center={
                 <DictamenCenterPanel
+                  key={`center-${dictamen.id}-${data?.serverVersion ?? ''}-${draftResetKey}`}
                   readOnly={readOnly}
+                  serverVersion={data?.serverVersion ?? ''}
                   dictamen={{
                     id: dictamen.id,
                     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
