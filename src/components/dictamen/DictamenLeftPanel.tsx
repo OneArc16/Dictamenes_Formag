@@ -46,22 +46,27 @@ function estadoBadge(estado: DictamenEstado) {
   if (estado === 'REABIERTO') {
     return {
       label: 'Reabierto',
-      classes:
-        'bg-indigo-50 text-indigo-700 border border-indigo-100',
+      classes: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
     };
   }
   if (estado === 'PENDIENTE') {
     return {
       label: 'Pendiente',
-      classes:
-        'bg-amber-50 text-amber-700 border border-amber-100',
+      classes: 'bg-amber-50 text-amber-700 border border-amber-100',
     };
   }
   return {
     label: 'Cerrado',
-    classes:
-      'bg-emerald-50 text-emerald-700 border border-emerald-100',
+    classes: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
   };
+}
+
+// ✅ ddMMyyyy + documento (solo dígitos)
+function buildNumeroDictamenPreview(fechaYYYYMMDD: string, documento: string) {
+  const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
+  const datePart = `${(dd ?? '').padStart(2, '0')}${(mm ?? '').padStart(2, '0')}${yyyy ?? ''}`;
+  const docPart = String(documento ?? '').replace(/\D/g, '');
+  return `${datePart}${docPart}`;
 }
 
 export default function DictamenLeftPanel({
@@ -77,10 +82,6 @@ export default function DictamenLeftPanel({
   onEditDocente,
 }: DictamenLeftPanelProps) {
   const estadoInfo = estadoBadge(estado);
-  const numeroLabel =
-  numeroDictamen && numeroDictamen.trim().length > 0
-  ? numeroDictamen.trim()
-  : '-';
 
   // 🔹 Estado local que se sincroniza con Dexie
   const [localFecha, setLocalFecha] = useState<string>(fechaDictamen || '');
@@ -89,6 +90,14 @@ export default function DictamenLeftPanel({
   );
   const [loaded, setLoaded] = useState(false);
   const [savingLocal, setSavingLocal] = useState(false);
+
+  // ✅ Número que se muestra en UI: si hay fecha, mostramos preview inmediato (sin ceros raros)
+  const numeroLabel =
+    localFecha && docente?.documento
+      ? buildNumeroDictamenPreview(localFecha, docente.documento)
+      : numeroDictamen && numeroDictamen.trim().length > 0
+      ? numeroDictamen.trim()
+      : '-';
 
   // 1️⃣ Al montar, leemos de Dexie si ya existe un borrador
   useEffect(() => {
@@ -103,12 +112,9 @@ export default function DictamenLeftPanel({
         if (draft?.data) {
           const data = draft.data || {};
           const fecha =
-            (data.fechaDictamen as string | undefined) ??
-            fechaDictamen ??
-            '';
+            (data.fechaDictamen as string | undefined) ?? fechaDictamen ?? '';
           const proc =
-            (data.procedimientoPcl as 'A' | 'B' | undefined) ??
-            procedimientoPcl;
+            (data.procedimientoPcl as 'A' | 'B' | undefined) ?? procedimientoPcl;
 
           setLocalFecha(fecha);
           setLocalProcedimiento(proc);
@@ -135,7 +141,8 @@ export default function DictamenLeftPanel({
       cancelled = true;
     };
     // solo cuando cambia el dictamenId
-  }, [dictamenId]); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictamenId]);
 
   // 2️⃣ Cada vez que cambian fecha o procedimiento, guardamos en Dexie (debounced)
   useEffect(() => {
@@ -182,9 +189,8 @@ export default function DictamenLeftPanel({
               {docente.tipoDocumento} {docente.documento}
             </p>
             <p className="mt-1 text-xs text-slate-600">
-              Edad: {docente.edad != null
-                ? `${docente.edad} años`
-                : 'Edad no registrada'}
+              Edad:{' '}
+              {docente.edad != null ? `${docente.edad} años` : 'Edad no registrada'}
             </p>
 
             <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -220,12 +226,10 @@ export default function DictamenLeftPanel({
           Datos del dictamen
         </h2>
 
-        <div className='mt-3 space-y-3 text-sm'>
-          <div className='flex items-center justify-between'>
-            <span className='text-xs text-slate-500'> 
-              N.° de Dictamen
-            </span>
-            <span className='text-xs font-semibold text-slate-900'>
+        <div className="mt-3 space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">N.° de Dictamen</span>
+            <span className="text-xs font-semibold text-slate-900">
               {numeroLabel}
             </span>
           </div>
@@ -275,9 +279,7 @@ export default function DictamenLeftPanel({
               <option value="B">Procedimiento B</option>
             </select>
             <p className="mt-1 text-[11px] text-slate-400">
-              {savingLocal
-                ? 'Guardando borrador local…'
-                : 'Borrador local guardado'}
+              {savingLocal ? 'Guardando borrador local…' : 'Borrador local guardado'}
             </p>
           </div>
         </div>
