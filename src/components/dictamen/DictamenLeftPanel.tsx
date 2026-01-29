@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { db } from '@/lib/dexieClient';
+import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { useActualizarProcedimientoDictamen } from '@/hooks/useActualizarProcedimientoDictamen';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
@@ -82,16 +85,18 @@ export default function DictamenLeftPanel({
   onEditDocente,
 }: DictamenLeftPanelProps) {
   const estadoInfo = estadoBadge(estado);
+  const router = useRouter();
+
+  // ✅ Hook para persistir procedimiento en BD
+  const actualizarProcedimiento = useActualizarProcedimientoDictamen(dictamenId);
 
   // 🔹 Estado local que se sincroniza con Dexie
   const [localFecha, setLocalFecha] = useState<string>(fechaDictamen || '');
-  const [localProcedimiento, setLocalProcedimiento] = useState<'A' | 'B'>(
-    procedimientoPcl,
-  );
+  const [localProcedimiento, setLocalProcedimiento] = useState<'A' | 'B'>(procedimientoPcl);
   const [loaded, setLoaded] = useState(false);
   const [savingLocal, setSavingLocal] = useState(false);
 
-  // ✅ Número que se muestra en UI: si hay fecha, mostramos preview inmediato (sin ceros raros)
+  // ✅ Número que se muestra en UI
   const numeroLabel =
     localFecha && docente?.documento
       ? buildNumeroDictamenPreview(localFecha, docente.documento)
@@ -111,10 +116,8 @@ export default function DictamenLeftPanel({
 
         if (draft?.data) {
           const data = draft.data || {};
-          const fecha =
-            (data.fechaDictamen as string | undefined) ?? fechaDictamen ?? '';
-          const proc =
-            (data.procedimientoPcl as 'A' | 'B' | undefined) ?? procedimientoPcl;
+          const fecha = (data.fechaDictamen as string | undefined) ?? fechaDictamen ?? '';
+          const proc = (data.procedimientoPcl as 'A' | 'B' | undefined) ?? procedimientoPcl;
 
           setLocalFecha(fecha);
           setLocalProcedimiento(proc);
@@ -140,7 +143,6 @@ export default function DictamenLeftPanel({
     return () => {
       cancelled = true;
     };
-    // solo cuando cambia el dictamenId
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
 
@@ -168,10 +170,30 @@ export default function DictamenLeftPanel({
       } finally {
         setSavingLocal(false);
       }
-    }, 700); // ⏱ pequeño debounce
+    }, 700);
 
     return () => clearTimeout(id);
   }, [dictamenId, localFecha, localProcedimiento, loaded]);
+
+  // ✅ Guardar procedimiento en BD apenas cambie (y refrescar UI server)
+  const handleChangeProcedimiento = async (val: 'A' | 'B') => {
+    const prev = localProcedimiento;
+
+    // UI inmediata
+    setLocalProcedimiento(val);
+    onChangeProcedimiento(val);
+
+    try {
+      await actualizarProcedimiento.mutateAsync(val);
+      toast.success('Procedimiento actualizado');
+      router.refresh(); // fuerza a que el panel lea el procedimiento correcto desde servidor
+    } catch (e: any) {
+      // rollback
+      setLocalProcedimiento(prev);
+      onChangeProcedimiento(prev);
+      toast.error(e?.message ?? 'Error actualizando procedimiento');
+    }
+  };
 
   return (
     <>
@@ -193,16 +215,12 @@ export default function DictamenLeftPanel({
               {docente.edad != null ? `${docente.edad} años` : 'Edad no registrada'}
             </p>
 
-            <p className="mt-2 text-xs font-semibold text-slate-500">
-              Secretaría
-            </p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">Secretaría</p>
             <p className="text-xs text-slate-700">
               {docente.secretaria || 'Sin secretaría registrada'}
             </p>
 
-            <p className="mt-2 text-xs font-semibold text-slate-500">
-              Institución
-            </p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">Institución</p>
             <p className="text-xs text-slate-700">
               {docente.institucion || 'Sin institución registrada'}
             </p>
@@ -229,9 +247,7 @@ export default function DictamenLeftPanel({
         <div className="mt-3 space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">N.° de Dictamen</span>
-            <span className="text-xs font-semibold text-slate-900">
-              {numeroLabel}
-            </span>
+            <span className="text-xs font-semibold text-slate-900">{numeroLabel}</span>
           </div>
         </div>
 
@@ -254,7 +270,7 @@ export default function DictamenLeftPanel({
               onChange={(e) => {
                 const val = e.target.value;
                 setLocalFecha(val);
-                onChangeFecha(val); // avisamos al padre
+                onChangeFecha(val);
               }}
               className="w-full px-2 py-1 mt-1 text-xs bg-white border rounded-md border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -263,23 +279,25 @@ export default function DictamenLeftPanel({
             </p>
           </div>
 
-          {/* Procedimiento (persistido en Dexie) */}
+          {/* Procedimiento (Dexie + BD automática) */}
           <div>
             <p className="text-xs text-slate-500">Procedimiento</p>
             <select
               value={localProcedimiento}
-              onChange={(e) => {
-                const val = e.target.value as 'A' | 'B';
-                setLocalProcedimiento(val);
-                onChangeProcedimiento(val);
-              }}
-              className="w-full px-2 py-1 mt-1 text-xs bg-white border rounded-md border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={actualizarProcedimiento.isPending}
+              onChange={(e) => handleChangeProcedimiento(e.target.value as 'A' | 'B')}
+              className="w-full px-2 py-1 mt-1 text-xs bg-white border rounded-md border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
             >
               <option value="A">Procedimiento A</option>
               <option value="B">Procedimiento B</option>
             </select>
+
             <p className="mt-1 text-[11px] text-slate-400">
-              {savingLocal ? 'Guardando borrador local…' : 'Borrador local guardado'}
+              {actualizarProcedimiento.isPending
+                ? 'Guardando en servidor…'
+                : savingLocal
+                ? 'Guardando borrador local…'
+                : 'Borrador local guardado'}
             </p>
           </div>
         </div>
