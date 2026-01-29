@@ -29,6 +29,12 @@ enum ProcedimientoPcl {
   B
 }
 
+// Modo de valoración para MOVIMIENTO
+enum MovimientoModo {
+  RESTRICCION
+  ANQUILOSIS
+}
+
 enum TipoDiagnostico {
   CONFIRMADO_NUEVO
   IMPRESION_DIAGNOSTICA
@@ -650,6 +656,8 @@ model DeficienciaMovimiento {
 
   deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
 
+  dictamenMovimientos DictamenDeficienciaMovimiento[]
+
   @@index([deficienciaId])
   @@map("movimientos")
 }
@@ -754,12 +762,38 @@ model DictamenDeficiencia {
   deficiencia Deficiencia     @relation(fields: [deficienciaId], references: [id])
   clase       DeficienciaClase? @relation(fields: [claseId], references: [id])
   nervio      DeficienciaNervio?  @relation(fields: [nervioId], references: [id])
+    
+  movimientos DictamenDeficienciaMovimiento[]
+
 
   @@index([dictamenId])
   @@index([deficienciaId])
   @@index([claseId])
   @@index([nervioId])
   @@map("dictamen_deficiencias")
+}
+
+model DictamenDeficienciaMovimiento {
+  id Int @id @default(autoincrement())
+
+  dictamenDeficienciaId Int @map("dictamen_deficiencia_id")
+  movimientoId          Int @map("movimiento_id")
+
+  // Snapshot para restringir 1 selección por tipoMovimiento
+  tipoMovimiento String @db.VarChar(255) @map("tipo_movimiento")
+
+  modo  MovimientoModo
+  valor Decimal? @db.Decimal(6, 2)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  dictamenDeficiencia DictamenDeficiencia @relation(fields: [dictamenDeficienciaId], references: [id], onDelete: Cascade)
+  movimiento          DeficienciaMovimiento @relation(fields: [movimientoId], references: [id])
+
+  @@unique([dictamenDeficienciaId, tipoMovimiento])
+  @@index([dictamenDeficienciaId])
+  @@index([movimientoId])
+  @@map("dictamen_deficiencia_movimientos")
 }
 
 
