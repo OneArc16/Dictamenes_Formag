@@ -1,72 +1,74 @@
+// src/app/api/dictamenes/[id]/diagnosticos/[idDiag]/deficiencias/vincular/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
   req: Request,
-  context: { params: Promise<{ id: string; diagnosticoId: string }> }
+  context: { params: Promise<{ id: string; idDiag: string }> }
 ) {
   try {
-    const { id, diagnosticoId } = await context.params;
+    const { id, idDiag } = await context.params;
 
     const dictamenId = Number(id);
-    const dxId = Number(diagnosticoId);
+    const dictamenDiagnosticoId = Number(idDiag);
 
-    if (Number.isNaN(dictamenId) || Number.isNaN(dxId)) {
-      return NextResponse.json({ message: "Parámetros inválidos" }, { status: 400 });
+    if (!Number.isFinite(dictamenId) || !Number.isFinite(dictamenDiagnosticoId)) {
+      return NextResponse.json(
+        { message: "Parámetros inválidos (id / idDiag)." },
+        { status: 400 }
+      );
     }
 
     const body = await req.json().catch(() => null);
-    const deficienciaId = Number(body?.deficienciaId);
 
-    if (!deficienciaId || Number.isNaN(deficienciaId)) {
-      return NextResponse.json({ message: "deficienciaId es requerido" }, { status: 400 });
+    // Acepta varios nombres por si el front cambia
+    const rawDefId =
+      body?.deficienciaId ?? body?.deficiencia_id ?? body?.id ?? body?.defId;
+
+    const deficienciaId = Number(rawDefId);
+
+    if (!Number.isFinite(deficienciaId) || deficienciaId <= 0) {
+      return NextResponse.json(
+        { message: "Parámetros inválidos (deficienciaId).", received: body },
+        { status: 400 }
+      );
     }
 
-    // 1) Validar que el diagnóstico exista y pertenezca al dictamen
+    // Verifica que el diagnóstico pertenezca a ese dictamen y toma el CIE10
     const dx = await prisma.dictamenDiagnostico.findFirst({
-      where: { id: dxId, dictamenId },
-      select: { id: true, cie10Codigo: true },
+      where: { id: dictamenDiagnosticoId, dictamenId },
+      select: { cie10Codigo: true },
     });
 
-    if (!dx) {
-      return NextResponse.json({ message: "Diagnóstico no encontrado en este dictamen" }, { status: 404 });
+    if (!dx?.cie10Codigo) {
+      return NextResponse.json(
+        { message: "Diagnóstico no encontrado para este dictamen." },
+        { status: 404 }
+      );
     }
 
-    // 2) Validar que la deficiencia exista
-    const def = await prisma.deficiencia.findUnique({
-      where: { id: deficienciaId },
-      select: { id: true },
-    });
-
-    if (!def) {
-      return NextResponse.json({ message: "Deficiencia no encontrada" }, { status: 404 });
-    }
-
-    // 3) Crear vínculo CIE10 ↔ Deficiencia (id compuesto)
-    // Si ya existe, no falla (upsert)
-    await prisma.cie10Deficiencia.upsert({
-      where: {
-        cie10Codigo_deficienciaId: {
+    // Crea vínculo en tabla puente (cie10_deficiencias)
+    try {
+      await prisma.cie10Deficiencia.create({
+        data: {
           cie10Codigo: dx.cie10Codigo,
           deficienciaId,
         },
-      },
-      create: {
-        cie10Codigo: dx.cie10Codigo,
-        deficienciaId,
-      },
-      update: {},
-    });
+      });
+    } catch (e: any) {
+      // Si ya existe (unique), lo dejamos pasar
+      if (e?.code !== "P2002") throw e;
+    }
 
     return NextResponse.json({
-      message: "Vínculo creado",
+      ok: true,
       cie10Codigo: dx.cie10Codigo,
       deficienciaId,
     });
   } catch (error: any) {
-    console.error("❌ POST /dictamenes/[id]/diagnosticos/[diagnosticoId]/deficiencias/vincular:", error);
+    console.error("❌ POST vincular deficiencia:", error);
     return NextResponse.json(
-      { message: "Error interno", error: error?.message },
+      { message: "Error interno", error: error?.message ?? String(error) },
       { status: 500 }
     );
   }
