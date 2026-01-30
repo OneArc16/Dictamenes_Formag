@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 type ProcedimientoPcl = "A" | "B";
@@ -17,18 +17,12 @@ const ACTIVIDADES = [
   { key: "PENSAR", label: "Pensar" },
   { key: "LEER", label: "Leer" },
   { key: "ESCRIBIR", label: "Escribir" },
-  {
-    key: "COMUNICARSE_CON_MENSAJES_ESCRITOS",
-    label: "Comunicarse con recepción de mensajes escritos",
-  },
+  { key: "COMUNICARSE_CON_MENSAJES_ESCRITOS", label: "Comunicarse con recepción de mensajes escritos" },
   { key: "HABLA", label: "Habla" },
   { key: "PRODUCCION_MENSAJES_NO_VERBALES", label: "Producción de mensajes no verbales" },
   { key: "MENSAJES_ESCRITOS", label: "Mensajes escritos" },
   { key: "CONVERSACION", label: "Conversación" },
-  {
-    key: "MANTENER_CAMBIAR_POSICION_CUERPO",
-    label: "Mantener y cambiar la posición del cuerpo y posturas corporales",
-  },
+  { key: "MANTENER_CAMBIAR_POSICION_CUERPO", label: "Mantener y cambiar la posición del cuerpo y posturas corporales" },
   { key: "USO_MANO_BRAZO", label: "Uso de la mano y brazo" },
   { key: "DESPLAZARSE_ENTORNO", label: "Desplazarse en el entorno" },
   { key: "USO_TRANSPORTE_PASAJERO", label: "Utilización de transporte como pasajero" },
@@ -62,14 +56,23 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
+type SaveUiState = "idle" | "saving" | "saved";
+
 export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
   const blocked = procedimientoPcl === "A";
 
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [savingKey, setSavingKey] = useState<ActividadKey | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [calcBusy, setCalcBusy] = useState(false);
 
   const [values, setValues] = useState<Partial<Record<ActividadKey, Valor>>>({});
+  const [totalCap1, setTotalCap1] = useState<string | null>(null);
+
+  // Indicador discreto "Guardando / Guardado"
+  const [saveUi, setSaveUi] = useState<SaveUiState>("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -78,6 +81,23 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
   }, [q]);
 
   const doneCount = useMemo(() => Object.values(values).filter(Boolean).length, [values]);
+
+  function setSavingUi() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveUi("saving");
+  }
+
+  function setSavedUi() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveUi("saved");
+    saveTimerRef.current = setTimeout(() => setSaveUi("idle"), 1200);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -119,7 +139,9 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
   async function saveOne(actividad: ActividadKey, valor: Valor) {
     if (blocked) return;
 
+    setSavingUi();
     setSavingKey(actividad);
+
     try {
       const res = await fetch(`/api/dictamenes/${dictamenId}/avd-aivd`, {
         method: "PUT",
@@ -128,7 +150,10 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "No se pudo guardar");
+
+      setSavedUi();
     } catch (e: any) {
+      setSaveUi("idle");
       toast.error(e?.message ?? "Error guardando");
     } finally {
       setSavingKey(null);
@@ -138,12 +163,16 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
   async function setAll(valor: Valor) {
     if (blocked) return;
 
+    const prev = values; // para revertir si falla
     const items = ACTIVIDADES.map((a) => ({ actividad: a.key, valor }));
 
     // optimista
     const next: Partial<Record<ActividadKey, Valor>> = {};
     for (const a of ACTIVIDADES) next[a.key] = valor;
     setValues(next);
+
+    setSavingUi();
+    setBulkBusy(true);
 
     try {
       const res = await fetch(`/api/dictamenes/${dictamenId}/avd-aivd`, {
@@ -153,25 +182,77 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "No se pudo aplicar");
-      toast.success("Aplicado a todas las actividades");
+
+      setSavedUi();
     } catch (e: any) {
+      setSaveUi("idle");
+      setValues(prev);
       toast.error(e?.message ?? "Error aplicando a todas");
+    } finally {
+      setBulkBusy(false);
     }
   }
 
   async function clearAll() {
     if (blocked) return;
 
+    const prev = values;
+
+    // optimista
     setValues({});
+    setSavingUi();
+    setBulkBusy(true);
+
     try {
       const res = await fetch(`/api/dictamenes/${dictamenId}/avd-aivd`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "No se pudo limpiar");
-      toast.success("Se limpió AVD-AIVD");
+
+      setSavedUi();
     } catch (e: any) {
+      setSaveUi("idle");
+      setValues(prev);
       toast.error(e?.message ?? "Error limpiando");
+    } finally {
+      setBulkBusy(false);
     }
   }
+
+  // ✅ NUEVO: calcular y guardar totalCap1 en dictamenes
+  async function calcularTotalCap1() {
+    if (blocked) return;
+
+    // ✅ Autocompletar en UI lo que falte con 0.0 (sin esperar al backend)
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const a of ACTIVIDADES) {
+        if (!next[a.key]) next[a.key] = "0.0";
+      }
+      return next;
+    });
+
+    setSavingUi();
+    setCalcBusy(true);
+
+    try {
+      const res = await fetch(`/api/dictamenes/${dictamenId}/avd-aivd/calcular`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "No se pudo calcular");
+
+      setTotalCap1(data.totalCap1 ?? null);
+      setSavedUi();
+    } catch (e: any) {
+      setSaveUi("idle");
+      toast.error(e?.message ?? "Error calculando total");
+    } finally {
+      setCalcBusy(false);
+    }
+  }
+
+
+  const busy = Boolean(savingKey) || bulkBusy || calcBusy;
 
   return (
     <div className="space-y-4">
@@ -182,15 +263,33 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
             <h3 className="text-lg font-semibold">AVD–AIVD</h3>
             <Chip>Título II · Cap. 1</Chip>
             <Chip>Procedimiento {procedimientoPcl}</Chip>
+
+            {totalCap1 !== null ? (
+              <Chip>
+                Total Cap. 1: <span className="ml-1 font-semibold text-slate-800">{totalCap1}</span>
+              </Chip>
+            ) : null}
           </div>
+
           <p className="text-sm text-muted-foreground">
             Seleccione el nivel de limitación por actividad (solo un valor).
           </p>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          Diligenciadas:{" "}
-          <span className="font-medium text-foreground">{doneCount}</span> / {ACTIVIDADES.length}
+        {/* contador + guardado discreto */}
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div>
+            Diligenciadas:{" "}
+            <span className="font-medium text-foreground">{doneCount}</span> / {ACTIVIDADES.length}
+          </div>
+
+          <div className="text-xs">
+            {saveUi === "saving" ? (
+              <span className="animate-pulse text-slate-500">Guardando…</span>
+            ) : saveUi === "saved" ? (
+              <span className="text-emerald-700">Guardado ✓</span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -215,8 +314,18 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={calcularTotalCap1}
+            disabled={blocked || busy}
+            className="px-3 text-sm text-white bg-blue-600 border rounded-md h-9 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Suma las limitaciones y guarda el total en el dictamen"
+          >
+            {calcBusy ? "Calculando…" : "Calcular"}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setAll("0.0")}
-            disabled={blocked}
+            disabled={blocked || busy}
             className="px-3 text-sm border rounded-md h-9 bg-muted hover:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Marcar todas 0.0
@@ -225,7 +334,7 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
           <button
             type="button"
             onClick={clearAll}
-            disabled={blocked}
+            disabled={blocked || busy}
             className="px-3 text-sm border rounded-md h-9 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Limpiar todo
@@ -253,37 +362,24 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
                   key={a.key}
                   className={[
                     "grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-12 transition-colors",
-                    rowDone
-                      ? "bg-emerald-50/60 border-l-4 border-emerald-400"
-                      : "hover:bg-slate-50",
+                    rowDone ? "bg-emerald-50/60 border-l-4 border-emerald-400" : "hover:bg-slate-50",
                   ].join(" ")}
                 >
                   <div className="sm:col-span-8">
                     <div className="flex items-center gap-2">
                       {rowDone ? (
-                        <span
-                          className="inline-flex w-2 h-2 rounded-full bg-emerald-500"
-                          aria-label="Diligenciado"
-                          title="Diligenciado"
-                        />
+                        <span className="inline-flex w-2 h-2 rounded-full bg-emerald-500" title="Diligenciado" />
                       ) : (
                         <span className="inline-flex w-2 h-2 rounded-full bg-slate-200" aria-hidden="true" />
                       )}
-
                       <div className="text-sm font-semibold text-slate-800">{a.label}</div>
                     </div>
-
-                    {rowDone ? (
-                      <div className="mt-1 text-xs text-emerald-700">
-                        Seleccionado: <span className="font-medium">{v}</span>
-                      </div>
-                    ) : null}
                   </div>
 
                   <div className="flex sm:col-span-4 sm:justify-end">
                     <select
                       value={v ?? ""}
-                      disabled={blocked || savingKey === a.key}
+                      disabled={blocked || busy || savingKey === a.key}
                       onChange={(e) => {
                         const valor = e.target.value as Valor;
                         setValues((prev) => ({ ...prev, [a.key]: valor }));
