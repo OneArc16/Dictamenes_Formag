@@ -326,7 +326,13 @@ export default function DictamenDetalleShell({
                   fechaDictamen={fechaDictamen}
                 />
               }
-              right={<DictamenRightPanel />}
+              right={
+                <DictamenRightPanel
+                  key={`right-${dictamen.id}-${procedimientoPcl}`}
+                  dictamenId={dictamen.id}
+                  procedimientoPcl={procedimientoPcl}
+                />
+              }
             />
           </div>
         </div>

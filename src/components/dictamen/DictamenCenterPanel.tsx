@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
 import TabExamenFisico from '@/components/dictamen/tabs/TabExamenFisico';
 import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
 import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
+import TabAvdAivd from '@/components/dictamen/tabs/TabAvdAivd';
 import { useCie10Options } from '@/hooks/useCie10Options';
 
-type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS';
+type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS' | 'AVD_AIVD';
 
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
@@ -31,37 +32,60 @@ export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
   fechaDictamen,
-  serverVersion = '', // ✅ NUEVO
+  serverVersion = '',
   readOnly = false,
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
+  const isAvdDisabled = procedimientoPcl === 'A';
+
+  // ✅ Si el usuario estaba en AVD-AIVD y el dictamen pasa a Procedimiento A, lo sacamos de ahí
+  useEffect(() => {
+    if (isAvdDisabled && tab === 'AVD_AIVD') {
+      setTab('DEFICIENCIAS');
+    }
+  }, [isAvdDisabled, tab]);
+
   return (
     <div className="bg-white border shadow-sm rounded-xl">
-      {/* Header de pestañas (✅ siempre navegable) */}
+      {/* Header de pestañas */}
       <div className="relative z-10 flex px-4 border-b bg-slate-50">
-        {([
-          ['ANTECEDENTES', 'Antecedentes'],
-          ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
-          ['EXAMEN', 'Examen físico'],
-          ['DEFICIENCIAS', 'Deficiencias / PCL'],
-        ] as [TabId, string][]).map(([id, label]) => {
+        {(
+          [
+            ['ANTECEDENTES', 'Antecedentes'],
+            ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
+            ['EXAMEN', 'Examen físico'],
+            ['DEFICIENCIAS', 'Deficiencias / PCL'],
+            ['AVD_AIVD', 'AVD-AIVD'],
+          ] as [TabId, string][]
+        ).map(([id, label]) => {
           const active = tab === id;
+          const disabled = id === 'AVD_AIVD' && isAvdDisabled;
+
           return (
             <button
               key={id}
               type="button"
               data-ro-allow="1"
-              onClick={() => setTab(id)}
+              onClick={() => {
+                if (!disabled) setTab(id);
+              }}
+              disabled={disabled}
+              title={disabled ? 'No aplica para Procedimiento A' : undefined}
               className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
                 active
                   ? 'border-blue-600 text-blue-700'
                   : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
+              } ${
+                disabled
+                  ? 'cursor-not-allowed opacity-50 hover:border-transparent hover:text-slate-500'
+                  : ''
               }`}
             >
               {label}
+              {disabled ? <span className="ml-2 text-[10px] text-slate-400">(No aplica)</span> : null}
             </button>
           );
         })}
@@ -84,7 +108,7 @@ export default function DictamenCenterPanel({
               descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
             }}
             procedimientoPcl={procedimientoPcl}
-            serverVersion={serverVersion} // ✅ CLAVE: para invalidar Dexie
+            serverVersion={serverVersion}
             onGoNext={() => setTab('DIAGNOSTICOS')}
           />
         )}
@@ -105,6 +129,10 @@ export default function DictamenCenterPanel({
 
         {tab === 'DEFICIENCIAS' && (
           <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+        )}
+
+        {tab === 'AVD_AIVD' && (
+          <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
         )}
       </div>
     </div>

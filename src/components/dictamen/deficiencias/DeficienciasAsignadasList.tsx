@@ -157,7 +157,7 @@ export function DeficienciasAsignadasList({
         {/* ✅ Botón calcular + resultado */}
         <div className="flex items-center gap-3">
           <div className="text-sm text-slate-700">
-            <span className="font-medium">Total título 1:</span>{" "}
+            <span className="font-medium">Total Título I:</span>{" "}
             <span className="font-semibold">
               {totalTitulo1 === null ? "—" : `${totalTitulo1}%`}
             </span>

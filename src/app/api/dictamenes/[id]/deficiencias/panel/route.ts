@@ -19,17 +19,31 @@ export async function GET(
     const { id } = await context.params;
     const dictamenId = Number(id);
 
-    if (isNaN(dictamenId)) {
-      return NextResponse.json({ message: "dictamenId inválido" }, { status: 400 });
+    if (!Number.isFinite(dictamenId)) {
+      return NextResponse.json(
+        { message: "dictamenId inválido" },
+        { status: 400 }
+      );
     }
 
     const dictamen = await prisma.dictamen.findUnique({
       where: { id: dictamenId },
-      select: { id: true, procedimientoPcl: true },
+      select: {
+        id: true,
+        procedimientoPcl: true,
+
+        // ✅ NUEVOS (para RightPanel y UI)
+        numeroDictamen: true,
+        fechaDictamen: true,
+        totalTitulo1: true,
+      },
     });
 
     if (!dictamen) {
-      return NextResponse.json({ message: "Dictamen no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Dictamen no encontrado" },
+        { status: 404 }
+      );
     }
 
     const diagnosticos = await prisma.dictamenDiagnostico.findMany({
@@ -53,7 +67,13 @@ export async function GET(
         valorDeficiencia: true,
         claseId: true, // 👈 importante
         deficiencia: {
-          select: { id: true, nombre: true, tabla: true, capitulo: true, tipoTabla: true },
+          select: {
+            id: true,
+            nombre: true,
+            tabla: true,
+            capitulo: true,
+            tipoTabla: true,
+          },
         },
         // Para CLASE (relación real)
         clase: { select: { id: true, nombre: true } },
@@ -62,7 +82,10 @@ export async function GET(
 
     // 🔹 Resolver NERVIOS usando claseId (id_clase) + tabla nervios
     const nervioIds = deficienciasAsignadasRaw
-      .filter((x) => normalizeTipoTabla(x.deficiencia?.tipoTabla) === "NERVIOS" && x.claseId)
+      .filter(
+        (x) =>
+          normalizeTipoTabla(x.deficiencia?.tipoTabla) === "NERVIOS" && x.claseId
+      )
       .map((x) => x.claseId!) as number[];
 
     const nervios = nervioIds.length
@@ -93,7 +116,10 @@ export async function GET(
       return {
         id: x.id,
         creadoEn: x.creadoEn,
-        valorDeficiencia: x.valorDeficiencia,
+        valorDeficiencia:
+          x.valorDeficiencia === null || x.valorDeficiencia === undefined
+            ? null
+            : Number(x.valorDeficiencia), // ✅ normaliza Decimal -> number
         deficiencia: x.deficiencia,
         clase: x.clase ?? null,
         nervio, // 👈 ahora siempre llega cuando sea NERVIOS
@@ -103,7 +129,9 @@ export async function GET(
 
     // Borde verde en diagnósticos (igual que antes)
     const diagCodigos = diagnosticos.map((d) => d.cie10Codigo);
-    const defIdsAsignadas = Array.from(new Set(deficienciasAsignadas.map((x) => x.deficiencia.id)));
+    const defIdsAsignadas = Array.from(
+      new Set(deficienciasAsignadas.map((x) => x.deficiencia.id))
+    );
 
     let codigosConDef: Set<string> = new Set();
 
@@ -124,15 +152,24 @@ export async function GET(
       hasDeficiencia: codigosConDef.has(d.cie10Codigo),
     }));
 
+    // ✅ Normaliza totalTitulo1 Decimal -> number
+    const dictamenPayload = {
+      ...dictamen,
+      totalTitulo1:
+        dictamen.totalTitulo1 === null || dictamen.totalTitulo1 === undefined
+          ? null
+          : Number(dictamen.totalTitulo1),
+    };
+
     return NextResponse.json({
-      dictamen,
+      dictamen: dictamenPayload,
       diagnosticos: diagnosticosConFlag,
       deficienciasAsignadas,
     });
   } catch (error: any) {
     console.error("❌ Error GET /dictamenes/[id]/deficiencias/panel:", error);
     return NextResponse.json(
-      { message: "Error interno", error: error.message },
+      { message: "Error interno", error: error?.message ?? String(error) },
       { status: 500 }
     );
   }
