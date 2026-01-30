@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
@@ -20,7 +20,7 @@ type DocenteForm = {
   direccion: string;
   barrio: string;
   departamento: string;
-  municipio: string;
+  municipio: string; // (guardas NOMBRE en el form)
   zona: string;
   telefono: string;
   pais: string;
@@ -64,7 +64,6 @@ const emptyForm: DocenteForm = {
 type ModalProps = {
   open: boolean;
   onClose: () => void;
-  /** Se dispara cuando se crea el dictamen correctamente */
   onDictamenCreated?: () => void;
 };
 
@@ -115,14 +114,14 @@ function Toast({ open, type, message, onClose }: ToastProps) {
 type PaisOption = { codigo: string; nombre: string };
 type DepartamentoOption = { codigo: string; nombre: string };
 type MunicipioOption = {
-  codigo: string;
+  codigo: string; // DANE
   nombre: string;
   codigoDepartamento: string;
 };
 type BarrioOption = {
   id: number;
   nombre: string;
-  codigoMunicipio: string;
+  codigoMunicipio: string; // DANE
 };
 type EpsOption = { codigo: string; nombre: string };
 
@@ -139,32 +138,24 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   const [form, setForm] = useState<DocenteForm>(emptyForm);
 
   const [paises, setPaises] = useState<PaisOption[]>([]);
-  const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>(
-    [],
-  );
+  const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioOption[]>([]);
   const [barrios, setBarrios] = useState<BarrioOption[]>([]);
   const [epsList, setEpsList] = useState<EpsOption[]>([]);
 
   const [selectedPaisCodigo, setSelectedPaisCodigo] = useState('');
   const [selectedDepartamento, setSelectedDepartamento] = useState('');
-  const [selectedMunicipio, setSelectedMunicipio] = useState('');
+  const [selectedMunicipio, setSelectedMunicipio] = useState(''); // <- CÓDIGO DANE (siempre)
 
   const [ubicacionLoaded, setUbicacionLoaded] = useState(false);
 
   const [secretarias, setSecretarias] = useState<SecretariaOption[]>([]);
-  const [instituciones, setInstituciones] = useState<InstitucionOption[]>(
-    [],
-  );
-  const [selectedSecretariaId, setSelectedSecretariaId] =
-    useState<string>('');
+  const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
+  const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
   const [loadingInstituciones, setLoadingInstituciones] = useState(false);
 
   // 🔔 Toast
-  const [toast, setToast] = useState<{
-    type: ToastType;
-    message: string;
-  } | null>(null);
+  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -172,114 +163,223 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     setToast({ type, message });
   };
 
-  // 🔎 Búsqueda async de instituciones (autocomplete)
+  // =========================
+  // Helpers: municipio (código/nombre)
+  // =========================
+  function normTxt(s: string) {
+    return (s ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // quita tildes
+      .toLowerCase()
+      .trim();
+  }
+
+  function resolveMunicipioCodigoFromList(list: MunicipioOption[], nombreOrCodigo?: string) {
+    if (!nombreOrCodigo) return undefined;
+
+    // Si ya es código 5 dígitos
+    if (/^\d{5}$/.test(nombreOrCodigo)) return nombreOrCodigo;
+
+    const n = normTxt(nombreOrCodigo);
+    const found = list.find((m) => normTxt(m.nombre) === n);
+    return found?.codigo;
+  }
+
+  function resolveMunicipioNombreFromList(list: MunicipioOption[], nombreOrCodigo?: string) {
+    if (!nombreOrCodigo) return undefined;
+
+    // Si viene código, buscamos el nombre
+    if (/^\d{5}$/.test(nombreOrCodigo)) {
+      const found = list.find((m) => m.codigo === nombreOrCodigo);
+      return found?.nombre;
+    }
+
+    // Si ya viene nombre, lo devolvemos tal cual (pero preferimos el de la lista)
+    const n = normTxt(nombreOrCodigo);
+    const found = list.find((m) => normTxt(m.nombre) === n);
+    return found?.nombre ?? nombreOrCodigo;
+  }
+
+  function currentMunicipioCodigo() {
+    return (
+      resolveMunicipioCodigoFromList(municipios, selectedMunicipio) ??
+      resolveMunicipioCodigoFromList(municipios, form.municipio)
+    );
+  }
+
+  function currentMunicipioNombre() {
+    return (
+      resolveMunicipioNombreFromList(municipios, selectedMunicipio) ??
+      resolveMunicipioNombreFromList(municipios, form.municipio)
+    );
+  }
+
+  // =========================
+  // Abort controllers (evita race conditions)
+  // =========================
+  const instAbortRef = useRef<AbortController | null>(null);
+  const instFetchAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      instAbortRef.current?.abort();
+      instFetchAbortRef.current?.abort();
+    };
+  }, []);
+
+  // Limpia instituciones si cambian filtros
+  useEffect(() => {
+    setInstituciones([]);
+  }, [selectedSecretariaId, selectedMunicipio]);
+
+  // 🔎 Búsqueda async de instituciones (autocomplete) con fallback (código -> nombre -> sin municipio)
   const handleSearchInstitucion = async (term: string) => {
     if (!selectedSecretariaId) {
       setInstituciones([]);
       return;
     }
 
-    if (!term || term.length < 3) {
+    const q = term?.trim() ?? '';
+    if (q.length < 3) {
       setInstituciones([]);
       return;
     }
 
+    // Cancela la búsqueda anterior
+    instAbortRef.current?.abort();
+    const controller = new AbortController();
+    instAbortRef.current = controller;
+
+    const run = async (municipioValue?: string) => {
+      const params = new URLSearchParams();
+      params.set('q', q);
+      params.set('secretariaId', selectedSecretariaId);
+      if (municipioValue) params.set('municipio', municipioValue);
+
+      const res = await fetch(`/api/instituciones/search?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        return { ok: false as const, instituciones: [] as any[] };
+      }
+      return { ok: true as const, instituciones: (data.instituciones ?? []) as any[] };
+    };
+
     try {
       setLoadingInstituciones(true);
 
-      const params = new URLSearchParams();
-      params.set('q', term);
-      params.set('secretariaId', selectedSecretariaId);
-      if (selectedMunicipio) {
-        params.set('municipio', selectedMunicipio);
+      const muniCodigo = currentMunicipioCodigo();
+      const muniNombre = currentMunicipioNombre();
+
+      // 1) con código
+      let out = await run(muniCodigo);
+      if (controller.signal.aborted) return;
+
+      // 2) si vacío, con nombre
+      if (muniCodigo && out.instituciones.length === 0 && muniNombre) {
+        out = await run(muniNombre);
+        if (controller.signal.aborted) return;
       }
 
-      const res = await fetch(
-        `/api/instituciones/search?${params.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        },
-      );
-
-      const data = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        console.error(data?.error || 'Error buscando instituciones');
-        setInstituciones([]);
-        return;
+      // 3) si vacío, sin municipio
+      if (out.instituciones.length === 0) {
+        out = await run(undefined);
+        if (controller.signal.aborted) return;
       }
 
-      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
-        (i: any) => ({
-          id: i.id,
-          nombre: i.nombre,
-          idDepartamento: i.idDepartamento ?? null,
-          idMunicipio: i.idMunicipio ?? null,
-          idSecretaria: i.idSecretaria ?? null,
-        }),
-      );
+      const mapped: InstitucionOption[] = out.instituciones.map((i: any) => ({
+        id: i.id,
+        nombre: i.nombre,
+        idDepartamento: i.idDepartamento ?? null,
+        idMunicipio: i.idMunicipio ?? null,
+        idSecretaria: i.idSecretaria ?? null,
+      }));
 
       setInstituciones(mapped);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error buscando instituciones:', err);
       setInstituciones([]);
     } finally {
-      setLoadingInstituciones(false);
+      if (!controller.signal.aborted) setLoadingInstituciones(false);
     }
   };
 
-  // ⭐ Cargar instituciones (por secretaría y opcional municipio)
-  const fetchInstituciones = async (
-    secretariaId?: string,
-    municipioCodigo?: string,
-  ) => {
+  // ⭐ Cargar instituciones (por secretaría y opcional municipio) con fallback (código -> nombre -> sin municipio)
+  const fetchInstituciones = async (secretariaId?: string, municipioMaybe?: string) => {
     if (!secretariaId) {
       setInstituciones([]);
       return;
     }
 
-    try {
-      setLoadingInstituciones(true);
+    instFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    instFetchAbortRef.current = controller;
 
+    const run = async (municipioValue?: string) => {
       const params = new URLSearchParams();
-      if (secretariaId) params.set('secretariaId', secretariaId);
-      if (municipioCodigo) params.set('municipio', municipioCodigo);
+      params.set('secretariaId', secretariaId);
+      if (municipioValue) params.set('municipio', municipioValue);
 
-      const qs = params.toString();
-      const url = qs
-        ? `/api/instituciones/by-secretaria?${qs}`
-        : '/api/instituciones/by-secretaria';
-
+      const url = `/api/instituciones/by-secretaria?${params.toString()}`;
       const res = await fetch(url, {
         method: 'GET',
         credentials: 'include',
+        signal: controller.signal,
       });
 
       const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        return { ok: false as const, instituciones: [] as any[] };
+      }
+      return { ok: true as const, instituciones: (data.instituciones ?? []) as any[] };
+    };
 
-      if (!res.ok || !data.ok) {
-        console.error(data.error || 'Error cargando instituciones');
-        setInstituciones([]);
-        return;
+    try {
+      setLoadingInstituciones(true);
+
+      const muniCodigo =
+        resolveMunicipioCodigoFromList(municipios, municipioMaybe) ??
+        currentMunicipioCodigo();
+      const muniNombre =
+        resolveMunicipioNombreFromList(municipios, municipioMaybe) ??
+        currentMunicipioNombre();
+
+      // 1) con código
+      let out = await run(muniCodigo);
+      if (controller.signal.aborted) return;
+
+      // 2) si vacío, con nombre
+      if (muniCodigo && out.instituciones.length === 0 && muniNombre) {
+        out = await run(muniNombre);
+        if (controller.signal.aborted) return;
       }
 
-      const mapped: InstitucionOption[] = (data.instituciones ?? []).map(
-        (i: any) => ({
-          id: i.id,
-          nombre: i.nombre,
-          idDepartamento: i.idDepartamento ?? null,
-          idMunicipio: i.idMunicipio ?? null,
-          idSecretaria: i.idSecretaria ?? null,
-        }),
-      );
+      // 3) si vacío, sin municipio
+      if (out.instituciones.length === 0) {
+        out = await run(undefined);
+        if (controller.signal.aborted) return;
+      }
+
+      const mapped: InstitucionOption[] = out.instituciones.map((i: any) => ({
+        id: i.id,
+        nombre: i.nombre,
+        idDepartamento: i.idDepartamento ?? null,
+        idMunicipio: i.idMunicipio ?? null,
+        idSecretaria: i.idSecretaria ?? null,
+      }));
 
       setInstituciones(mapped);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error cargando instituciones', err);
       setInstituciones([]);
     } finally {
-      setLoadingInstituciones(false);
+      if (!controller.signal.aborted) setLoadingInstituciones(false);
     }
   };
 
@@ -306,40 +406,27 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   // ⭐ Calcular edad automáticamente cuando cambia la fecha de nacimiento
   useEffect(() => {
     if (!form.fechaNacimiento) {
-      setForm((prev) =>
-        prev.edad !== '' ? { ...prev, edad: '' } : prev,
-      );
+      setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
       return;
     }
 
     const birth = new Date(form.fechaNacimiento);
     if (Number.isNaN(birth.getTime())) {
-      setForm((prev) =>
-        prev.edad !== '' ? { ...prev, edad: '' } : prev,
-      );
+      setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
       return;
     }
 
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
 
     const ageStr = age >= 0 ? String(age) : '';
-
-    setForm((prev) =>
-      prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev,
-    );
+    setForm((prev) => (prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev));
   }, [form.fechaNacimiento]);
 
-  // 🔹 React Query: traer opciones de ubicación (paises, deptos, municipios, barrios, secretarias, eps)
-  const {
-    data: ubicacionData,
-    isLoading: ubicacionLoading,
-    error: ubicacionError,
-  } = useQuery({
+  // 🔹 React Query: traer opciones de ubicación
+  const { data: ubicacionData, isLoading: ubicacionLoading } = useQuery({
     queryKey: ['ubicacion-opciones'],
     queryFn: async () => {
       const res = await fetch('/api/ubicacion/opciones', {
@@ -348,13 +435,9 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       });
 
       const data = await res.json();
-
       if (!res.ok || !data.ok) {
-        throw new Error(
-          data?.error ?? 'Error cargando opciones de ubicación',
-        );
+        throw new Error(data?.error ?? 'Error cargando opciones de ubicación');
       }
-
       return data;
     },
     enabled: open && !ubicacionLoaded,
@@ -370,33 +453,26 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     try {
       const data = ubicacionData;
 
-      const paisesMapped: PaisOption[] = (data.paises ?? []).map(
-        (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
-      );
-      const departamentosMapped: DepartamentoOption[] = (
-        data.departamentos ?? []
-      ).map((d: any) => ({
+      const paisesMapped: PaisOption[] = (data.paises ?? []).map((p: any) => ({
+        codigo: p.codigo,
+        nombre: p.nombre,
+      }));
+      const departamentosMapped: DepartamentoOption[] = (data.departamentos ?? []).map((d: any) => ({
         codigo: d.codigo,
         nombre: d.nombre,
       }));
-      const municipiosMapped: MunicipioOption[] = (
-        data.municipios ?? []
-      ).map((m: any) => ({
+      const municipiosMapped: MunicipioOption[] = (data.municipios ?? []).map((m: any) => ({
         codigo: m.codigo,
         nombre: m.nombre,
         codigoDepartamento: m.codigoDepartamento,
       }));
-      const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
-        (b: any) => ({
-          id: b.id,
-          nombre: b.nombre,
-          codigoMunicipio: b.codigoMunicipio,
-        }),
-      );
+      const barriosMapped: BarrioOption[] = (data.barrios ?? []).map((b: any) => ({
+        id: b.id,
+        nombre: b.nombre,
+        codigoMunicipio: b.codigoMunicipio,
+      }));
 
-      const secretariasMapped: SecretariaOption[] = (
-        data.secretarias ?? []
-      ).map((s: any) => ({
+      const secretariasMapped: SecretariaOption[] = (data.secretarias ?? []).map((s: any) => ({
         id: s.id,
         nombre: s.nombre,
       }));
@@ -419,43 +495,34 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         const p = paisesMapped.find((x) => x.nombre === form.pais);
         if (p) setSelectedPaisCodigo(p.codigo);
       } else if (paisesMapped.length > 0) {
-        const defaultPais =
-          paisesMapped.find((x) => x.codigo === 'COL') ??
-          paisesMapped[0];
+        const defaultPais = paisesMapped.find((x) => x.codigo === 'COL') ?? paisesMapped[0];
         if (defaultPais) {
           setSelectedPaisCodigo(defaultPais.codigo);
-          setForm((prev) => ({
-            ...prev,
-            pais: defaultPais.nombre,
-          }));
+          setForm((prev) => ({ ...prev, pais: defaultPais.nombre }));
         }
       }
 
       // Departamento
       if (form.departamento) {
-        const dep = departamentosMapped.find(
-          (x) => x.nombre === form.departamento,
-        );
+        const dep = departamentosMapped.find((x) => x.nombre === form.departamento);
         if (dep) setSelectedDepartamento(dep.codigo);
       }
 
-      // Municipio
+      // Municipio: si viene guardado como NOMBRE, conviértelo a CÓDIGO
       if (form.municipio) {
-        const muni = municipiosMapped.find(
-          (x) => x.nombre === form.municipio,
-        );
-        if (muni) setSelectedMunicipio(muni.codigo);
+        const muniCodigo = resolveMunicipioCodigoFromList(municipiosMapped, form.municipio);
+        if (muniCodigo) setSelectedMunicipio(muniCodigo);
       }
 
       // Secretaría ya guardada
       if (form.secretariaLabora) {
-        const sec = secretariasMapped.find(
-          (s) => s.nombre === form.secretariaLabora,
-        );
+        const sec = secretariasMapped.find((s) => s.nombre === form.secretariaLabora);
         if (sec) {
           const secId = String(sec.id);
           setSelectedSecretariaId(secId);
-          fetchInstituciones(secId, form.municipio || undefined);
+
+          const muniCodigo = resolveMunicipioCodigoFromList(municipiosMapped, form.municipio);
+          fetchInstituciones(secId, muniCodigo);
         }
       }
     } catch (err) {
@@ -473,9 +540,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     }
   }, [form]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -502,15 +567,10 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
     setSearching(true);
     try {
-      const res = await fetch(
-        `/api/docentes/search?q=${encodeURIComponent(
-          form.numeroDocumento,
-        )}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        },
-      );
+      const res = await fetch(`/api/docentes/search?q=${encodeURIComponent(form.numeroDocumento)}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
       const contentType = res.headers.get('content-type') || '';
       let data: any;
@@ -519,10 +579,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         data = await res.json();
       } else {
         const text = await res.text();
-        console.error(
-          'Respuesta no JSON de /api/docentes/search:',
-          text,
-        );
+        console.error('Respuesta no JSON de /api/docentes/search:', text);
         showToast('error', 'Error buscando docente');
         return;
       }
@@ -549,16 +606,9 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
       const updated: DocenteForm = {
         ...form,
-        tipoDocumento:
-          d.tipoIdentificacion ??
-          d.tipoDocumento ??
-          form.tipoDocumento,
-        numeroDocumento:
-          d.identificacion ?? d.numeroDocumento ?? form.numeroDocumento,
-        fechaNacimiento:
-          (d.fechaNacimiento &&
-            String(d.fechaNacimiento).slice(0, 10)) ??
-          form.fechaNacimiento,
+        tipoDocumento: d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
+        numeroDocumento: d.identificacion ?? d.numeroDocumento ?? form.numeroDocumento,
+        fechaNacimiento: (d.fechaNacimiento && String(d.fechaNacimiento).slice(0, 10)) ?? form.fechaNacimiento,
         edad: d.edad != null ? String(d.edad) : form.edad,
         primerNombre: d.primerNombre ?? form.primerNombre,
         segundoNombre: d.segundoNombre ?? form.segundoNombre,
@@ -568,7 +618,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         direccion: d.direccion ?? form.direccion,
         barrio: d.barrio ?? form.barrio,
         departamento: d.departamento ?? form.departamento,
-        municipio: d.municipio ?? form.municipio,
+        municipio: d.municipio ?? form.municipio, // puede venir como NOMBRE
         zona: d.zonaResidencia ?? d.zona ?? form.zona,
         telefono: d.telefono ?? form.telefono,
         pais: form.pais,
@@ -579,42 +629,39 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         estadoCivil: d.estadoCivil ?? form.estadoCivil,
         gradoEscalafon: d.gradoEscalafon ?? form.gradoEscalafon,
         nivelEscalafon: d.nivelEscalafon ?? form.nivelEscalafon,
-        institucionLabora:
-          d.institucionEducativa ?? form.institucionLabora,
+        institucionLabora: d.institucionEducativa ?? form.institucionLabora,
       };
 
       setForm(updated);
 
-      // Sincronizar combos con los datos cargados
+      // Sincronizar combos
       if (paises.length && updated.pais) {
         const p = paises.find((x) => x.nombre === updated.pais);
-        if (p) {
-          setSelectedPaisCodigo(p.codigo);
-        }
+        if (p) setSelectedPaisCodigo(p.codigo);
       }
 
       if (departamentos.length && updated.departamento) {
-        const dep = departamentos.find(
-          (x) => x.nombre === updated.departamento,
-        );
+        const dep = departamentos.find((x) => x.nombre === updated.departamento);
         if (dep) setSelectedDepartamento(dep.codigo);
       }
 
+      // Municipio: convertir nombre -> código
       if (municipios.length && updated.municipio) {
-        const muni = municipios.find(
-          (x) => x.nombre === updated.municipio,
-        );
-        if (muni) setSelectedMunicipio(muni.codigo);
+        const muniCodigo = resolveMunicipioCodigoFromList(municipios, updated.municipio);
+        if (muniCodigo) setSelectedMunicipio(muniCodigo);
       }
 
       if (secretarias.length && updated.secretariaLabora) {
-        const sec = secretarias.find(
-          (s) => s.nombre === updated.secretariaLabora,
-        );
+        const sec = secretarias.find((s) => s.nombre === updated.secretariaLabora);
         if (sec) {
           const secId = String(sec.id);
           setSelectedSecretariaId(secId);
-          fetchInstituciones(secId, updated.municipio || undefined);
+
+          const muniCodigo =
+            resolveMunicipioCodigoFromList(municipios, selectedMunicipio) ??
+            resolveMunicipioCodigoFromList(municipios, updated.municipio);
+
+          fetchInstituciones(secId, muniCodigo);
         }
       }
 
@@ -631,10 +678,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     e.preventDefault();
     if (saving) return;
 
-    const camposObligatorios: {
-      key: keyof DocenteForm;
-      label: string;
-    }[] = [
+    const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
       { key: 'tipoDocumento', label: 'Tipo de documento' },
       { key: 'numeroDocumento', label: 'Número de documento' },
       { key: 'primerNombre', label: 'Primer nombre' },
@@ -649,9 +693,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
     if (faltantes.length > 0) {
       const nombres = faltantes.map((f) => f.label).join(', ');
-      console.warn('Campos obligatorios faltantes:', nombres, {
-        formActual: form,
-      });
       showToast('error', `Faltan datos del formulario: ${nombres}`);
       return;
     }
@@ -659,7 +700,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     setSaving(true);
 
     try {
-      // 1️⃣ Guardar / actualizar DOCENTE
       const resDocente = await fetch('/api/docentes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -670,25 +710,16 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const dataDocente = await resDocente.json();
 
       if (!resDocente.ok || !dataDocente?.ok) {
-        console.error('Error guardando docente', dataDocente);
-        showToast(
-          'error',
-          dataDocente?.error ?? 'Error guardando docente',
-        );
+        showToast('error', dataDocente?.error ?? 'Error guardando docente');
         return;
       }
 
       const usuarioId: number | undefined = dataDocente.usuario?.id;
       if (!usuarioId) {
-        console.error(
-          'No llegó usuario.id en la respuesta de /api/docentes',
-          dataDocente,
-        );
         showToast('error', 'No se pudo obtener el ID del docente');
         return;
       }
 
-      // 2️⃣ Crear DICTAMEN para ese docente
       const now = new Date();
       const yyyy = now.getFullYear();
       const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -709,29 +740,15 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const dataDictamen = await resDictamen.json();
 
       if (!resDictamen.ok || !dataDictamen?.ok) {
-        console.error('Error creando dictamen', dataDictamen);
-        showToast(
-          'error',
-          dataDictamen?.error ?? 'Error creando dictamen',
-        );
+        showToast('error', dataDictamen?.error ?? 'Error creando dictamen');
         return;
       }
 
-      // 3️⃣ Todo OK
-      showToast(
-        'success',
-        'Docente y dictamen registrados correctamente',
-      );
-
-      // 🔥 Avisar a la página que hay un dictamen nuevo
+      showToast('success', 'Docente y dictamen registrados correctamente');
       onDictamenCreated?.();
-
-      // Limpiar formulario
       handleLimpiar();
 
-      setTimeout(() => {
-        onClose();
-      }, 1200);
+      setTimeout(() => onClose(), 1200);
     } catch (err) {
       console.error('Error guardando docente / dictamen:', err);
       showToast('error', 'Error guardando docente / dictamen');
@@ -743,10 +760,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   const handleActualizarDatos = async () => {
     if (saving) return;
 
-    const camposObligatorios: {
-      key: keyof DocenteForm;
-      label: string;
-    }[] = [
+    const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
       { key: 'tipoDocumento', label: 'Tipo de documento' },
       { key: 'numeroDocumento', label: 'Número de documento' },
       { key: 'primerNombre', label: 'Primer nombre' },
@@ -761,11 +775,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
     if (faltantes.length > 0) {
       const nombres = faltantes.map((f) => f.label).join(', ');
-      console.warn(
-        'Campos obligatorios faltantes (actualizar):',
-        nombres,
-        { formActual: form },
-      );
       showToast('error', `Faltan datos del formulario: ${nombres}`);
       return;
     }
@@ -783,18 +792,11 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const dataDocente = await resDocente.json();
 
       if (!resDocente.ok || !dataDocente?.ok) {
-        console.error('Error actualizando docente', dataDocente);
-        showToast(
-          'error',
-          dataDocente?.error ?? 'Error actualizando docente',
-        );
+        showToast('error', dataDocente?.error ?? 'Error actualizando docente');
         return;
       }
 
-      showToast(
-        'success',
-        'Datos del docente actualizados correctamente',
-      );
+      showToast('success', 'Datos del docente actualizados correctamente');
     } catch (err) {
       console.error('Error actualizando datos del docente:', err);
       showToast('error', 'Error actualizando datos del docente');
@@ -806,9 +808,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   if (!open) return null;
 
   const municipiosFiltrados = selectedDepartamento
-    ? municipios.filter(
-        (m) => m.codigoDepartamento === selectedDepartamento,
-      )
+    ? municipios.filter((m) => m.codigoDepartamento === selectedDepartamento)
     : municipios;
 
   const barriosFiltrados = selectedMunicipio
@@ -834,12 +834,8 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           {/* Card de datos de identificación y ubicación */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white border rounded">
-                🧾
-              </span>
-              <h3 className="text-sm font-semibold">
-                Datos de identificación y ubicación
-              </h3>
+              <span className="px-2 py-1 text-xs bg-white border rounded">🧾</span>
+              <h3 className="text-sm font-semibold">Datos de identificación y ubicación</h3>
             </header>
 
             <div className="p-4 space-y-4">
@@ -856,15 +852,9 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione…</option>
-                    <option value="CC">
-                      Cédula de ciudadanía (CC)
-                    </option>
-                    <option value="TI">
-                      Tarjeta de identidad (TI)
-                    </option>
-                    <option value="CE">
-                      Cédula de extranjería (CE)
-                    </option>
+                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="TI">Tarjeta de identidad (TI)</option>
+                    <option value="CE">Cédula de extranjería (CE)</option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
@@ -878,9 +868,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                       name="numeroDocumento"
                       value={form.numeroDocumento}
                       onChange={handleChange}
-                      onKeyDown={(
-                        e: React.KeyboardEvent<HTMLInputElement>,
-                      ) => {
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           handleBuscarDocente();
@@ -1013,22 +1001,13 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   </label>
                   <SearchableSelect
                     value={selectedDepartamento}
-                    options={departamentos.map((d) => ({
-                      value: d.codigo,
-                      label: d.nombre,
-                    }))}
-                    placeholder={
-                      ubicacionLoading
-                        ? 'Cargando departamentos…'
-                        : 'Seleccione departamento…'
-                    }
+                    options={departamentos.map((d) => ({ value: d.codigo, label: d.nombre }))}
+                    placeholder={ubicacionLoading ? 'Cargando departamentos…' : 'Seleccione departamento…'}
                     onChange={(newCodigo) => {
                       setSelectedDepartamento(newCodigo);
                       setSelectedMunicipio('');
 
-                      const dep = departamentos.find(
-                        (d) => d.codigo === newCodigo,
-                      );
+                      const dep = departamentos.find((d) => d.codigo === newCodigo);
 
                       setForm((prev) => ({
                         ...prev,
@@ -1037,29 +1016,23 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                         barrio: '',
                       }));
 
-                      if (selectedSecretariaId) {
-                        fetchInstituciones(selectedSecretariaId);
-                      }
+                      if (selectedSecretariaId) fetchInstituciones(selectedSecretariaId, undefined);
                     }}
                   />
                 </div>
+
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Ciudad / Municipio
                   </label>
                   <SearchableSelect
                     value={selectedMunicipio}
-                    options={municipiosFiltrados.map((m) => ({
-                      value: m.codigo,
-                      label: m.nombre,
-                    }))}
+                    options={municipiosFiltrados.map((m) => ({ value: m.codigo, label: m.nombre }))}
                     placeholder="Seleccione municipio…"
                     onChange={(newCodigo) => {
                       setSelectedMunicipio(newCodigo);
 
-                      const muni = municipiosFiltrados.find(
-                        (m) => m.codigo === newCodigo,
-                      );
+                      const muni = municipiosFiltrados.find((m) => m.codigo === newCodigo);
 
                       setForm((prev) => ({
                         ...prev,
@@ -1067,32 +1040,20 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                         barrio: '',
                       }));
 
-                      if (selectedSecretariaId) {
-                        fetchInstituciones(
-                          selectedSecretariaId,
-                          newCodigo || undefined,
-                        );
-                      }
+                      if (selectedSecretariaId) fetchInstituciones(selectedSecretariaId, newCodigo || undefined);
                     }}
                   />
                 </div>
+
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Barrio / Vereda
                   </label>
                   <SearchableSelect
                     value={form.barrio}
-                    options={barriosFiltrados.map((b) => ({
-                      value: b.nombre,
-                      label: b.nombre,
-                    }))}
+                    options={barriosFiltrados.map((b) => ({ value: b.nombre, label: b.nombre }))}
                     placeholder="Seleccione barrio…"
-                    onChange={(newBarrio) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        barrio: newBarrio,
-                      }))
-                    }
+                    onChange={(newBarrio) => setForm((prev) => ({ ...prev, barrio: newBarrio }))}
                   />
                 </div>
               </div>
@@ -1114,6 +1075,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                     <option value="RURAL">Rural</option>
                   </select>
                 </div>
+
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Teléfono de contacto
@@ -1125,28 +1087,19 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     País
                   </label>
                   <SearchableSelect
                     value={selectedPaisCodigo}
-                    options={paises.map((p) => ({
-                      value: p.codigo,
-                      label: p.nombre,
-                    }))}
+                    options={paises.map((p) => ({ value: p.codigo, label: p.nombre }))}
                     placeholder="Seleccione país…"
                     onChange={(newCodigo) => {
                       setSelectedPaisCodigo(newCodigo);
-
-                      const pais = paises.find(
-                        (p) => p.codigo === newCodigo,
-                      );
-
-                      setForm((prev) => ({
-                        ...prev,
-                        pais: pais?.nombre ?? '',
-                      }));
+                      const pais = paises.find((p) => p.codigo === newCodigo);
+                      setForm((prev) => ({ ...prev, pais: pais?.nombre ?? '' }));
                     }}
                   />
                 </div>
@@ -1160,16 +1113,8 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   </label>
                   <SearchableSelect
                     value={form.codigoEps}
-                    options={epsList.map((eps) => ({
-                      value: eps.codigo,
-                      label: eps.nombre,
-                    }))}
-                    onChange={(value) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        codigoEps: value,
-                      }))
-                    }
+                    options={epsList.map((eps) => ({ value: eps.codigo, label: eps.nombre }))}
+                    onChange={(value) => setForm((prev) => ({ ...prev, codigoEps: value }))}
                     placeholder="Seleccione EPS…"
                   />
                 </div>
@@ -1195,12 +1140,8 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           {/* Card de datos laborales */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white border rounded">
-                🧑‍🏫
-              </span>
-              <h3 className="text-sm font-semibold">
-                Datos laborales del docente
-              </h3>
+              <span className="px-2 py-1 text-xs bg-white border rounded">🧑‍🏫</span>
+              <h3 className="text-sm font-semibold">Datos laborales del docente</h3>
             </header>
 
             <div className="p-4 space-y-4">
@@ -1212,17 +1153,12 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   </label>
                   <SearchableSelect
                     value={selectedSecretariaId}
-                    options={secretarias.map((s) => ({
-                      value: String(s.id),
-                      label: s.nombre,
-                    }))}
+                    options={secretarias.map((s) => ({ value: String(s.id), label: s.nombre }))}
                     placeholder="Seleccione secretaría…"
                     onChange={(newId) => {
                       setSelectedSecretariaId(newId);
 
-                      const secretaria = secretarias.find(
-                        (s) => String(s.id) === newId,
-                      );
+                      const secretaria = secretarias.find((s) => String(s.id) === newId);
 
                       setForm((prev) => ({
                         ...prev,
@@ -1231,26 +1167,22 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                       }));
 
                       if (newId) {
-                        fetchInstituciones(
-                          newId,
-                          selectedMunicipio || undefined,
-                        );
+                        const muniCodigo = currentMunicipioCodigo();
+                        fetchInstituciones(newId, muniCodigo);
                       } else {
                         setInstituciones([]);
                       }
                     }}
                   />
                 </div>
+
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Institución donde labora
                   </label>
                   <SearchableSelect
                     value={form.institucionLabora}
-                    options={instituciones.map((i) => ({
-                      value: i.nombre,
-                      label: i.nombre,
-                    }))}
+                    options={instituciones.map((i) => ({ value: i.nombre, label: i.nombre }))}
                     placeholder={
                       !selectedSecretariaId
                         ? 'Seleccione primero una secretaría'
@@ -1263,9 +1195,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                     isLoading={loadingInstituciones}
                     minSearchLength={3}
                     onChange={(newValue) => {
-                      const inst = instituciones.find(
-                        (i) => i.nombre === newValue,
-                      );
+                      const inst = instituciones.find((i) => i.nombre === newValue);
                       setForm((prev) => ({
                         ...prev,
                         institucionLabora: inst?.nombre ?? newValue,
@@ -1289,9 +1219,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   >
                     <option value="">Seleccione…</option>
                     <option value="PROPIEDAD">Propiedad</option>
-                    <option value="PROVISIONALIDAD">
-                      Provisionalidad
-                    </option>
+                    <option value="PROVISIONALIDAD">Provisionalidad</option>
                   </select>
                 </div>
                 <div>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ProcedimientoPcl = "A" | "B";
 
@@ -60,6 +61,7 @@ type SaveUiState = "idle" | "saving" | "saved";
 
 export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
   const blocked = procedimientoPcl === "A";
+  const queryClient = useQueryClient(); // ✅ NUEVO
 
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -218,7 +220,7 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
     }
   }
 
-  // ✅ NUEVO: calcular y guardar totalCap1 en dictamenes
+  // ✅ Calcular y guardar totalCap1 en dictamenes + refrescar panel derecho
   async function calcularTotalCap1() {
     if (blocked) return;
 
@@ -243,6 +245,11 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
 
       setTotalCap1(data.totalCap1 ?? null);
       setSavedUi();
+
+      // ✅ Refresca automáticamente el RightPanel
+      await queryClient.invalidateQueries({
+        queryKey: ["dictamen-deficiencias-panel", dictamenId],
+      });
     } catch (e: any) {
       setSaveUi("idle");
       toast.error(e?.message ?? "Error calculando total");
@@ -250,7 +257,6 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
       setCalcBusy(false);
     }
   }
-
 
   const busy = Boolean(savingKey) || bulkBusy || calcBusy;
 
@@ -266,7 +272,8 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
 
             {totalCap1 !== null ? (
               <Chip>
-                Total Cap. 1: <span className="ml-1 font-semibold text-slate-800">{totalCap1}</span>
+                Total Cap. 1:{" "}
+                <span className="ml-1 font-semibold text-slate-800">{totalCap1}</span>
               </Chip>
             ) : null}
           </div>
@@ -280,7 +287,8 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <div>
             Diligenciadas:{" "}
-            <span className="font-medium text-foreground">{doneCount}</span> / {ACTIVIDADES.length}
+            <span className="font-medium text-foreground">{doneCount}</span> /{" "}
+            {ACTIVIDADES.length}
           </div>
 
           <div className="text-xs">
@@ -297,7 +305,9 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
       {blocked ? (
         <div className="p-4 text-sm border rounded-lg">
           <p className="font-medium">Esta sección no aplica para Procedimiento A.</p>
-          <p className="text-muted-foreground">La pestaña se habilita solo en Procedimiento B.</p>
+          <p className="text-muted-foreground">
+            La pestaña se habilita solo en Procedimiento B.
+          </p>
         </div>
       ) : null}
 
@@ -362,15 +372,23 @@ export default function TabAvdAivd({ dictamenId, procedimientoPcl }: Props) {
                   key={a.key}
                   className={[
                     "grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-12 transition-colors",
-                    rowDone ? "bg-emerald-50/60 border-l-4 border-emerald-400" : "hover:bg-slate-50",
+                    rowDone
+                      ? "bg-emerald-50/60 border-l-4 border-emerald-400"
+                      : "hover:bg-slate-50",
                   ].join(" ")}
                 >
                   <div className="sm:col-span-8">
                     <div className="flex items-center gap-2">
                       {rowDone ? (
-                        <span className="inline-flex w-2 h-2 rounded-full bg-emerald-500" title="Diligenciado" />
+                        <span
+                          className="inline-flex w-2 h-2 rounded-full bg-emerald-500"
+                          title="Diligenciado"
+                        />
                       ) : (
-                        <span className="inline-flex w-2 h-2 rounded-full bg-slate-200" aria-hidden="true" />
+                        <span
+                          className="inline-flex w-2 h-2 rounded-full bg-slate-200"
+                          aria-hidden="true"
+                        />
                       )}
                       <div className="text-sm font-semibold text-slate-800">{a.label}</div>
                     </div>

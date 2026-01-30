@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 function normalizeTipoTabla(tipo: string | null | undefined) {
   const t = (tipo ?? "").trim().toUpperCase();
   if (t === "CLASE" || t === "CLASES") return "CLASE";
@@ -11,17 +13,23 @@ function normalizeTipoTabla(tipo: string | null | undefined) {
   return t || null;
 }
 
+function toNumberOrNull(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace("%", "").trim());
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(
   _req: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> } // ✅ params es Promise en tu Next
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await context.params; // ✅ FIX DEL ERROR
     const dictamenId = Number(id);
 
-    if (!Number.isFinite(dictamenId)) {
+    if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json(
-        { message: "dictamenId inválido" },
+        { ok: false, error: "dictamenId inválido" },
         { status: 400 }
       );
     }
@@ -31,17 +39,22 @@ export async function GET(
       select: {
         id: true,
         procedimientoPcl: true,
-
-        // ✅ NUEVOS (para RightPanel y UI)
         numeroDictamen: true,
         fechaDictamen: true,
+
+        // ✅ Totales
         totalTitulo1: true,
+        totalCap1: true,
+
+        // ✅ Capítulo 2
+        totalCap2: true,
+        claseLimitacionLaboral: true,
       },
     });
 
     if (!dictamen) {
       return NextResponse.json(
-        { message: "Dictamen no encontrado" },
+        { ok: false, error: "Dictamen no encontrado" },
         { status: 404 }
       );
     }
@@ -57,7 +70,6 @@ export async function GET(
       },
     });
 
-    // Traemos claseId para poder “resolver” nervios con ese mismo campo (id_clase)
     const deficienciasAsignadasRaw = await prisma.dictamenDeficiencia.findMany({
       where: { dictamenId },
       orderBy: { creadoEn: "desc" },
@@ -65,7 +77,7 @@ export async function GET(
         id: true,
         creadoEn: true,
         valorDeficiencia: true,
-        claseId: true, // 👈 importante
+        claseId: true,
         deficiencia: {
           select: {
             id: true,
@@ -75,7 +87,6 @@ export async function GET(
             tipoTabla: true,
           },
         },
-        // Para CLASE (relación real)
         clase: { select: { id: true, nombre: true } },
       },
     });
@@ -105,7 +116,6 @@ export async function GET(
           ? { id: x.claseId, nombre: nervioMap.get(x.claseId)!.nombre }
           : null;
 
-      // “detalle” opcional (no rompe nada si tu UI no lo usa)
       const detalle =
         x.clase?.nombre
           ? { tipo: "CLASE" as const, nombre: x.clase.nombre }
@@ -119,15 +129,15 @@ export async function GET(
         valorDeficiencia:
           x.valorDeficiencia === null || x.valorDeficiencia === undefined
             ? null
-            : Number(x.valorDeficiencia), // ✅ normaliza Decimal -> number
+            : Number(x.valorDeficiencia),
         deficiencia: x.deficiencia,
         clase: x.clase ?? null,
-        nervio, // 👈 ahora siempre llega cuando sea NERVIOS
+        nervio,
         detalle,
       };
     });
 
-    // Borde verde en diagnósticos (igual que antes)
+    // Flags diagnóstico -> tiene deficiencia relacionada
     const diagCodigos = diagnosticos.map((d) => d.cie10Codigo);
     const defIdsAsignadas = Array.from(
       new Set(deficienciasAsignadas.map((x) => x.deficiencia.id))
@@ -152,16 +162,16 @@ export async function GET(
       hasDeficiencia: codigosConDef.has(d.cie10Codigo),
     }));
 
-    // ✅ Normaliza totalTitulo1 Decimal -> number
     const dictamenPayload = {
       ...dictamen,
-      totalTitulo1:
-        dictamen.totalTitulo1 === null || dictamen.totalTitulo1 === undefined
-          ? null
-          : Number(dictamen.totalTitulo1),
+      totalTitulo1: toNumberOrNull((dictamen as any).totalTitulo1),
+      totalCap1: toNumberOrNull((dictamen as any).totalCap1),
+      totalCap2: toNumberOrNull((dictamen as any).totalCap2),
+      claseLimitacionLaboral: (dictamen as any).claseLimitacionLaboral ?? null,
     };
 
     return NextResponse.json({
+      ok: true,
       dictamen: dictamenPayload,
       diagnosticos: diagnosticosConFlag,
       deficienciasAsignadas,
@@ -169,7 +179,7 @@ export async function GET(
   } catch (error: any) {
     console.error("❌ Error GET /dictamenes/[id]/deficiencias/panel:", error);
     return NextResponse.json(
-      { message: "Error interno", error: error?.message ?? String(error) },
+      { ok: false, error: error?.message ?? String(error) },
       { status: 500 }
     );
   }

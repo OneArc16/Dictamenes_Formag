@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export type SearchableOption = {
   value: string;
@@ -19,6 +19,14 @@ export type SearchableSelectProps = {
   isLoading?: boolean;
 };
 
+function norm(s: string) {
+  return (s ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
 export function SearchableSelect({
   value,
   options = [],
@@ -32,8 +40,10 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  const selectedOption =
-    options.find((o) => o.value === value) ?? null;
+  const selectedOption = useMemo(
+    () => options.find((o) => o.value === value) ?? null,
+    [options, value],
+  );
 
   // Sincronizar input con el value externo
   useEffect(() => {
@@ -45,23 +55,25 @@ export function SearchableSelect({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, selectedOption?.label, selectedOption?.value]);
 
-  // Filtro en cliente si NO hay búsqueda async
-  const clientFilteredOptions =
-    onSearch
-      ? options
-      : query
-      ? options.filter((o) =>
-          o.label.toLowerCase().includes(query.toLowerCase()),
-        )
-      : options;
+  // Filtro en cliente si NO hay búsqueda async (con normalización sin tildes)
+  const clientFilteredOptions = useMemo(() => {
+    if (onSearch) return options;
+
+    const q = norm(query);
+    if (!q) return options;
+
+    return options.filter((o) => norm(o.label).includes(q));
+  }, [options, onSearch, query]);
 
   // Disparar onSearch con debounce
   useEffect(() => {
     if (!onSearch) return;
-    if (query.length < minSearchLength) return;
+
+    const q = query.trim();
+    if (q.length < minSearchLength) return;
 
     const id = setTimeout(() => {
-      onSearch(query);
+      onSearch(q);
     }, 300);
 
     return () => clearTimeout(id);
@@ -75,9 +87,7 @@ export function SearchableSelect({
   };
 
   const handleBlur = () => {
-    setTimeout(() => {
-      setOpen(false);
-    }, 150);
+    setTimeout(() => setOpen(false), 150);
   };
 
   return (
@@ -89,9 +99,7 @@ export function SearchableSelect({
           setQuery(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => {
-          setOpen(true);
-        }}
+        onFocus={() => setOpen(true)}
         onBlur={handleBlur}
         disabled={disabled}
         placeholder={placeholder}
@@ -101,22 +109,17 @@ export function SearchableSelect({
       {open && !disabled && (
         <div className="absolute left-0 right-0 z-20 mt-1 overflow-auto bg-white border rounded-md shadow-lg max-h-56">
           {onSearch ? (
-            // 🔹 MODO ASYNC
-            query.length < minSearchLength ? (
+            query.trim().length < minSearchLength ? (
               <div className="px-3 py-2 text-xs text-slate-500">
                 Escriba al menos {minSearchLength} caracteres para buscar…
               </div>
             ) : isLoading ? (
-              <div className="px-3 py-2 text-xs text-slate-500">
-                Buscando…
-              </div>
-            ) : clientFilteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-500">
-                Sin resultados
-              </div>
+              <div className="px-3 py-2 text-xs text-slate-500">Buscando…</div>
+            ) : options.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">Sin resultados</div>
             ) : (
               <ul className="py-1 text-sm">
-                {clientFilteredOptions.map((opt, idx) => (
+                {options.map((opt, idx) => (
                   <li key={`${opt.value}-${idx}`}>
                     <button
                       type="button"
@@ -132,30 +135,25 @@ export function SearchableSelect({
                 ))}
               </ul>
             )
+          ) : clientFilteredOptions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">Sin opciones</div>
           ) : (
-            // 🔹 MODO NORMAL
-            clientFilteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-500">
-                Sin opciones
-              </div>
-            ) : (
-              <ul className="py-1 text-sm">
-                {clientFilteredOptions.map((opt, idx) => (
-                  <li key={`${opt.value}-${idx}`}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleSelect(opt);
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )
+            <ul className="py-1 text-sm">
+              {clientFilteredOptions.map((opt, idx) => (
+                <li key={`${opt.value}-${idx}`}>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(opt);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

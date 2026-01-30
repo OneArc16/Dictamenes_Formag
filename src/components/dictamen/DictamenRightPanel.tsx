@@ -1,7 +1,7 @@
 // src/components/dictamen/DictamenRightPanel.tsx
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useDictamenDeficienciasPanel } from '@/hooks/useDictamenDeficienciasPanel';
 
@@ -9,6 +9,12 @@ type Props = {
   dictamenId?: number;
   procedimientoPcl?: 'A' | 'B';
 };
+
+function formatPercent(value: number | null) {
+  if (value == null || Number.isNaN(value)) return '—';
+  // si viene 35 -> 35% / si viene 35.5 -> 35.5%
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
+}
 
 export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Props) {
   const params = useParams<{ id: string }>();
@@ -47,11 +53,50 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
   const max = proc === 'A' ? 75 : 50;
 
+  // ✅ Total Título I
   const totalTitulo1 =
     panel.data?.dictamen?.totalTitulo1 == null ? null : Number(panel.data.dictamen.totalTitulo1);
 
-  const totalLabel =
-    totalTitulo1 == null || Number.isNaN(totalTitulo1) ? '—' : `${Math.round(totalTitulo1)}%`;
+  const totalTitulo1Label = formatPercent(
+    totalTitulo1 == null ? null : Math.round(totalTitulo1),
+  );
+
+  // ✅ Capítulo 1 (AVD-AIVD) - solo Proc B
+  const totalCap1Raw =
+    panel.data?.dictamen?.totalCap1 == null ? null : Number(panel.data.dictamen.totalCap1);
+
+  const totalCap1Label =
+    proc !== 'B'
+      ? 'No aplica'
+      : totalCap1Raw == null || Number.isNaN(totalCap1Raw)
+      ? '—'
+      : totalCap1Raw.toFixed(1);
+
+  // ✅ NUEVO: Capítulo 2 (Limitación laboral) - aplica A y B
+  const totalCap2Raw =
+    panel.data?.dictamen?.totalCap2 == null ? null : Number(panel.data.dictamen.totalCap2);
+
+  const totalCap2Label = formatPercent(totalCap2Raw);
+
+  const claseCap2 =
+    (panel.data?.dictamen as any)?.claseLimitacionLaboral == null
+      ? null
+      : String((panel.data?.dictamen as any).claseLimitacionLaboral);
+
+  // ✅ Refresco automático (igual que antes)
+  useEffect(() => {
+    function onTotalesUpdated(ev: Event) {
+      const e = ev as CustomEvent<{ dictamenId?: number }>;
+      if (e?.detail?.dictamenId === effectiveDictamenId) {
+        panel.refetch();
+      }
+    }
+
+    window.addEventListener('dictamen:totales_updated', onTotalesUpdated as any);
+    return () => {
+      window.removeEventListener('dictamen:totales_updated', onTotalesUpdated as any);
+    };
+  }, [effectiveDictamenId, panel]);
 
   return (
     <div className="p-4 bg-white border shadow-sm rounded-xl h-fit">
@@ -88,12 +133,35 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
       {!panel.isLoading && !panel.isError && (
         <div className="mt-3 space-y-2">
+          {/* ✅ ORDEN CORRECTO: 1) Título I */}
           <div className="px-3 py-3 bg-white border rounded-md border-slate-200">
             <p className="text-[11px] text-slate-500">Total Título I</p>
             <div className="flex items-baseline justify-between">
-              <p className="text-lg font-semibold text-slate-900">{totalLabel}</p>
+              <p className="text-lg font-semibold text-slate-900">{totalTitulo1Label}</p>
               <p className="text-[11px] text-slate-500">
                 (Proc. {proc} · máx {max}%)
+              </p>
+            </div>
+          </div>
+
+          {/* ✅ 2) Capítulo 1 */}
+          <div className="px-3 py-3 bg-white border rounded-md border-slate-200">
+            <p className="text-[11px] text-slate-500">Total Cap. 1 (AVD–AIVD)</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-lg font-semibold text-slate-900">{totalCap1Label}</p>
+              <p className="text-[11px] text-slate-500">
+                {proc === 'B' ? 'Suma de actividades' : '(Solo Proc. B)'}
+              </p>
+            </div>
+          </div>
+
+          {/* ✅ 3) Capítulo 2 */}
+          <div className="px-3 py-3 bg-white border rounded-md border-slate-200">
+            <p className="text-[11px] text-slate-500">Total Cap. 2 (Limitación laboral)</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-lg font-semibold text-slate-900">{totalCap2Label}</p>
+              <p className="text-[11px] text-slate-500">
+                Clase: <span className="font-semibold text-slate-700">{claseCap2 ?? '—'}</span>
               </p>
             </div>
           </div>

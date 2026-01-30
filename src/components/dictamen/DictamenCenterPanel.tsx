@@ -6,21 +6,36 @@ import TabExamenFisico from '@/components/dictamen/tabs/TabExamenFisico';
 import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
 import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
 import TabAvdAivd from '@/components/dictamen/tabs/TabAvdAivd';
+import { TituloIICapitulo2Tab } from '@/components/dictamen/tabs/TituloIICapitulo2Tab';
 import { useCie10Options } from '@/hooks/useCie10Options';
 
-type TabId = 'ANTECEDENTES' | 'EXAMEN' | 'DIAGNOSTICOS' | 'DEFICIENCIAS' | 'AVD_AIVD';
+type TabId =
+  | 'ANTECEDENTES'
+  | 'EXAMEN'
+  | 'DIAGNOSTICOS'
+  | 'DEFICIENCIAS'
+  | 'AVD_AIVD'
+  | 'CAPITULO_2';
 
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
-  serverVersion?: string; // ✅ NUEVO
+  serverVersion?: string;
   dictamen: {
     id: number;
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
+
+    // ✅ NUEVOS (Cap 2)
+    claseLimitacionLaboral?: 'I' | 'II' | 'III' | 'IV' | null;
+    totalCap2?: number | null;
+
     diagnosticos?: {
       cie10Codigo: string;
-      tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+      tipo:
+        | 'CONFIRMADO_NUEVO'
+        | 'IMPRESION_DIAGNOSTICA'
+        | 'CONFIRMADO_REPETIDO';
       cie10Label?: string | null;
     }[];
   };
@@ -59,6 +74,7 @@ export default function DictamenCenterPanel({
             ['EXAMEN', 'Examen físico'],
             ['DEFICIENCIAS', 'Deficiencias / PCL'],
             ['AVD_AIVD', 'AVD-AIVD'],
+            ['CAPITULO_2', 'Título II - Capítulo 2'], // ✅ DESPUÉS DE AVD
           ] as [TabId, string][]
         ).map(([id, label]) => {
           const active = tab === id;
@@ -85,7 +101,11 @@ export default function DictamenCenterPanel({
               }`}
             >
               {label}
-              {disabled ? <span className="ml-2 text-[10px] text-slate-400">(No aplica)</span> : null}
+              {disabled ? (
+                <span className="ml-2 text-[10px] text-slate-400">
+                  (No aplica)
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -114,7 +134,10 @@ export default function DictamenCenterPanel({
         )}
 
         {tab === 'EXAMEN' && (
-          <TabExamenFisico dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          <TabExamenFisico
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
         )}
 
         {tab === 'DIAGNOSTICOS' && (
@@ -128,11 +151,26 @@ export default function DictamenCenterPanel({
         )}
 
         {tab === 'DEFICIENCIAS' && (
-          <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          <TabDeficiencias
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
         )}
 
         {tab === 'AVD_AIVD' && (
-          <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          <TabAvdAivd
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
+
+        {tab === 'CAPITULO_2' && (
+          <TituloIICapitulo2Tab
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+            initialClase={dictamen.claseLimitacionLaboral ?? null}
+            initialTotal={dictamen.totalCap2 ?? null}
+          />
         )}
       </div>
     </div>
