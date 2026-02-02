@@ -17,7 +17,7 @@ export default function TabSustentacion({
   dictamenId: number;
   readOnly?: boolean;
 }) {
-  // 1) Traemos el texto del servidor (solo lectura / carga inicial)
+  // 1) Carga desde servidor (solo para “semilla” / comparar)
   const server = useDictamenSustentacion(dictamenId);
 
   const serverText = useMemo(
@@ -26,9 +26,9 @@ export default function TabSustentacion({
   );
 
   /**
-   * 2) Borrador local (Dexie)
-   * - OJO: para “sembrar” el initialData con lo del servidor,
-   *   pasamos dictamenId = null mientras server está cargando.
+   * 2) Borrador local (Dexie) con autosave local
+   * Truco: mientras server está cargando, no activamos el dictamenId para evitar que el hook “siembre”
+   * con string vacío y luego lo cambie.
    */
   const draft = useDictamenDraft<{ sustentacionObservaciones: string }>({
     dictamenId: server.isLoading ? null : dictamenId,
@@ -52,14 +52,14 @@ export default function TabSustentacion({
     try {
       await server.saveAsync(text);
 
-      // ✅ toast único (no se apila)
-      toast.success('Sustentación guardada', { id: 'sustentacion_manual_ok' });
+      // ✅ toast único
+      toast.success('Sustentación guardada', { id: 'sustentacion_saved' });
 
-      // opcional: refrescar lo del servidor
-      server.refetch?.();
+      // ✅ refresca el query de servidor (por updatedAt, etc.)
+      server.refetch();
     } catch (e: any) {
       toast.error(e?.message ?? 'Error guardando sustentación', {
-        id: 'sustentacion_manual_error',
+        id: 'sustentacion_error',
       });
     }
   }
@@ -96,7 +96,7 @@ export default function TabSustentacion({
 
           <button
             type="button"
-            onClick={() => server.refetch?.()}
+            onClick={() => server.refetch()}
             className="mt-3 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
           >
             Reintentar
