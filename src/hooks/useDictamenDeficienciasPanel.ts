@@ -16,6 +16,9 @@ export interface DictamenPanelData {
     // ✅ Cap 2 (Limitación laboral)
     totalCap2?: number | null;
     claseLimitacionLaboral?: string | null;
+
+    // ✅ NUEVO: Título III (Análisis ocupacional)
+    totalTitulo3?: number | null;
   };
 
   diagnosticos: Array<{
@@ -95,6 +98,9 @@ export function useDictamenDeficienciasPanel(
         data.dictamen.totalTitulo1 = toNumber(data.dictamen.totalTitulo1);
         data.dictamen.totalCap1 = toNumber(data.dictamen.totalCap1);
         data.dictamen.totalCap2 = toNumber(data.dictamen.totalCap2);
+
+        // ✅ NUEVO
+        data.dictamen.totalTitulo3 = toNumber((data.dictamen as any).totalTitulo3);
       }
 
       return data;

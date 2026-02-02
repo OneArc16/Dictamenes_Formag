@@ -7,6 +7,7 @@ import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
 import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
 import TabAvdAivd from '@/components/dictamen/tabs/TabAvdAivd';
 import { TituloIICapitulo2Tab } from '@/components/dictamen/tabs/TituloIICapitulo2Tab';
+import TabTituloIII from '@/components/dictamen/tabs/tabTituloIII';
 import { useCie10Options } from '@/hooks/useCie10Options';
 
 type TabId =
@@ -15,7 +16,8 @@ type TabId =
   | 'DIAGNOSTICOS'
   | 'DEFICIENCIAS'
   | 'AVD_AIVD'
-  | 'CAPITULO_2';
+  | 'CAPITULO_2'
+  | 'TITULO_III';
 
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
@@ -55,6 +57,7 @@ export default function DictamenCenterPanel({
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
   const isAvdDisabled = procedimientoPcl === 'A';
+  const isTituloIIIDisabled = procedimientoPcl === 'B';
 
   // ✅ Si el usuario estaba en AVD-AIVD y el dictamen pasa a Procedimiento A, lo sacamos de ahí
   useEffect(() => {
@@ -62,6 +65,13 @@ export default function DictamenCenterPanel({
       setTab('DEFICIENCIAS');
     }
   }, [isAvdDisabled, tab]);
+
+  // ✅ Si el usuario estaba en Título III y el dictamen pasa a Procedimiento B, lo sacamos de ahí
+  useEffect(() => {
+    if (isTituloIIIDisabled && tab === 'TITULO_III') {
+      setTab('CAPITULO_2');
+    }
+  }, [isTituloIIIDisabled, tab]);
 
   return (
     <div className="bg-white border shadow-sm rounded-xl">
@@ -75,10 +85,21 @@ export default function DictamenCenterPanel({
             ['DEFICIENCIAS', 'Deficiencias / PCL'],
             ['AVD_AIVD', 'AVD-AIVD'],
             ['CAPITULO_2', 'Título II - Capítulo 2'], // ✅ DESPUÉS DE AVD
+            ['TITULO_III', 'Título III'], // ✅ NUEVO TAB
           ] as [TabId, string][]
         ).map(([id, label]) => {
           const active = tab === id;
-          const disabled = id === 'AVD_AIVD' && isAvdDisabled;
+
+          const disabled =
+            (id === 'AVD_AIVD' && isAvdDisabled) ||
+            (id === 'TITULO_III' && isTituloIIIDisabled);
+
+          const disabledTitle =
+            id === 'AVD_AIVD'
+              ? 'No aplica para Procedimiento A'
+              : id === 'TITULO_III'
+              ? 'Aplica únicamente para Procedimiento A'
+              : undefined;
 
           return (
             <button
@@ -89,7 +110,7 @@ export default function DictamenCenterPanel({
                 if (!disabled) setTab(id);
               }}
               disabled={disabled}
-              title={disabled ? 'No aplica para Procedimiento A' : undefined}
+              title={disabled ? disabledTitle : undefined}
               className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
                 active
                   ? 'border-blue-600 text-blue-700'
@@ -171,6 +192,10 @@ export default function DictamenCenterPanel({
             initialClase={dictamen.claseLimitacionLaboral ?? null}
             initialTotal={dictamen.totalCap2 ?? null}
           />
+        )}
+
+        {tab === 'TITULO_III' && (
+          <TabTituloIII dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
         )}
       </div>
     </div>

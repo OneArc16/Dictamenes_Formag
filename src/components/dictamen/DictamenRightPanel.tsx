@@ -1,7 +1,7 @@
 // src/components/dictamen/DictamenRightPanel.tsx
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useDictamenDeficienciasPanel } from '@/hooks/useDictamenDeficienciasPanel';
 
@@ -12,7 +12,6 @@ type Props = {
 
 function formatPercent(value: number | null) {
   if (value == null || Number.isNaN(value)) return '—';
-  // si viene 35 -> 35% / si viene 35.5 -> 35.5%
   return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
 }
 
@@ -45,7 +44,10 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
     );
   }
 
-  const panel = useDictamenDeficienciasPanel(effectiveDictamenId, procedimientoPcl ?? null);
+  const panel = useDictamenDeficienciasPanel(
+    effectiveDictamenId,
+    procedimientoPcl ?? null
+  );
 
   const proc = (procedimientoPcl ??
     panel.data?.dictamen?.procedimientoPcl ??
@@ -54,27 +56,33 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
   const max = proc === 'A' ? 75 : 50;
 
   // ✅ Total Título I
-  const totalTitulo1 =
-    panel.data?.dictamen?.totalTitulo1 == null ? null : Number(panel.data.dictamen.totalTitulo1);
+  const totalTitulo1Raw =
+    panel.data?.dictamen?.totalTitulo1 == null
+      ? null
+      : Number(panel.data.dictamen.totalTitulo1);
 
   const totalTitulo1Label = formatPercent(
-    totalTitulo1 == null ? null : Math.round(totalTitulo1),
+    totalTitulo1Raw == null ? null : Math.round(totalTitulo1Raw)
   );
 
   // ✅ Capítulo 1 (AVD-AIVD) - solo Proc B
   const totalCap1Raw =
-    panel.data?.dictamen?.totalCap1 == null ? null : Number(panel.data.dictamen.totalCap1);
+    panel.data?.dictamen?.totalCap1 == null
+      ? null
+      : Number(panel.data.dictamen.totalCap1);
 
   const totalCap1Label =
     proc !== 'B'
       ? 'No aplica'
       : totalCap1Raw == null || Number.isNaN(totalCap1Raw)
       ? '—'
-      : totalCap1Raw.toFixed(1);
+      : `${totalCap1Raw.toFixed(1)}%`;
 
-  // ✅ NUEVO: Capítulo 2 (Limitación laboral) - aplica A y B
+  // ✅ Capítulo 2 (Limitación laboral) - aplica A y B
   const totalCap2Raw =
-    panel.data?.dictamen?.totalCap2 == null ? null : Number(panel.data.dictamen.totalCap2);
+    panel.data?.dictamen?.totalCap2 == null
+      ? null
+      : Number(panel.data.dictamen.totalCap2);
 
   const totalCap2Label = formatPercent(totalCap2Raw);
 
@@ -83,20 +91,25 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
       ? null
       : String((panel.data?.dictamen as any).claseLimitacionLaboral);
 
-  // ✅ Refresco automático (igual que antes)
-  useEffect(() => {
-    function onTotalesUpdated(ev: Event) {
-      const e = ev as CustomEvent<{ dictamenId?: number }>;
-      if (e?.detail?.dictamenId === effectiveDictamenId) {
-        panel.refetch();
-      }
-    }
+  // ✅ Total Título III (incremento por análisis ocupacional) - solo Proc A
+  const totalTitulo3Raw =
+    (panel.data?.dictamen as any)?.totalTitulo3 == null
+      ? null
+      : Number((panel.data?.dictamen as any).totalTitulo3);
 
-    window.addEventListener('dictamen:totales_updated', onTotalesUpdated as any);
-    return () => {
-      window.removeEventListener('dictamen:totales_updated', onTotalesUpdated as any);
-    };
-  }, [effectiveDictamenId, panel]);
+  const totalTitulo3Label = proc !== 'A' ? 'No aplica' : formatPercent(totalTitulo3Raw);
+
+  // ✅ Base PCL = Título I + Cap1 + Cap2 (según proc)
+  const basePcl =
+    (totalTitulo1Raw ?? 0) +
+    (proc === 'B' ? (totalCap1Raw ?? 0) : 0) +
+    (totalCap2Raw ?? 0);
+
+  // ✅ PCL final = Base + Título III (solo Proc A)
+  const pclFinal = proc === 'A' ? basePcl + (totalTitulo3Raw ?? 0) : basePcl;
+
+  const basePclLabel = formatPercent(basePcl);
+  const pclFinalLabel = formatPercent(pclFinal);
 
   return (
     <div className="p-4 bg-white border shadow-sm rounded-xl h-fit">
@@ -106,7 +119,8 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
             Totales
           </h2>
           <p className="mt-1 text-[11px] text-slate-500">
-            Procedimiento actual: <span className="font-semibold text-slate-700">{proc}</span>
+            Procedimiento actual:{' '}
+            <span className="font-semibold text-slate-700">{proc}</span>
           </p>
         </div>
 
@@ -133,7 +147,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
       {!panel.isLoading && !panel.isError && (
         <div className="mt-3 space-y-2">
-          {/* ✅ ORDEN CORRECTO: 1) Título I */}
+          {/* ✅ 1) Título I */}
           <div className="px-3 py-3 bg-white border rounded-md border-slate-200">
             <p className="text-[11px] text-slate-500">Total Título I</p>
             <div className="flex items-baseline justify-between">
@@ -161,8 +175,43 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
             <div className="flex items-baseline justify-between">
               <p className="text-lg font-semibold text-slate-900">{totalCap2Label}</p>
               <p className="text-[11px] text-slate-500">
-                Clase: <span className="font-semibold text-slate-700">{claseCap2 ?? '—'}</span>
+                Clase:{' '}
+                <span className="font-semibold text-slate-700">{claseCap2 ?? '—'}</span>
               </p>
+            </div>
+          </div>
+
+          {/* ✅ 4) Título III */}
+          <div className="px-3 py-3 bg-white border rounded-md border-slate-200">
+            <p className="text-[11px] text-slate-500">
+              Total Título III (Análisis ocupacional)
+            </p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-lg font-semibold text-slate-900">{totalTitulo3Label}</p>
+              <p className="text-[11px] text-slate-500">
+                {proc === 'A' ? 'Incremento sobre Base PCL' : '(Solo Proc. A)'}
+              </p>
+            </div>
+          </div>
+
+          {/* ✅ 5) Base y PCL Final */}
+          <div className="px-3 py-3 border rounded-md bg-slate-50 border-slate-200">
+            <p className="text-[11px] text-slate-500">Total Base PCL (T1 + T2)</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-lg font-semibold text-slate-900">{basePclLabel}</p>
+              <p className="text-[11px] text-slate-500">
+                {proc === 'A' ? 'Sin Título III' : 'Total acumulado'}
+              </p>
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-slate-200">
+              <p className="text-[11px] text-slate-500">PCL Final</p>
+              <div className="flex items-baseline justify-between">
+                <p className="text-lg font-semibold text-slate-900">{pclFinalLabel}</p>
+                <p className="text-[11px] text-slate-500">
+                  {proc === 'A' ? 'Base + Título III' : 'No aplica Título III'}
+                </p>
+              </div>
             </div>
           </div>
         </div>

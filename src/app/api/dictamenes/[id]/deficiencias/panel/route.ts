@@ -49,6 +49,9 @@ export async function GET(
         // ✅ Capítulo 2
         totalCap2: true,
         claseLimitacionLaboral: true,
+
+        // ✅ NUEVO: Título III
+        totalTitulo3: true,
       },
     });
 
@@ -167,6 +170,10 @@ export async function GET(
       totalTitulo1: toNumberOrNull((dictamen as any).totalTitulo1),
       totalCap1: toNumberOrNull((dictamen as any).totalCap1),
       totalCap2: toNumberOrNull((dictamen as any).totalCap2),
+
+      // ✅ NUEVO
+      totalTitulo3: toNumberOrNull((dictamen as any).totalTitulo3),
+
       claseLimitacionLaboral: (dictamen as any).claseLimitacionLaboral ?? null,
     };
 
