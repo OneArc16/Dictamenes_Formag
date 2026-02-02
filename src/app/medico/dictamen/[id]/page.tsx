@@ -28,6 +28,10 @@ type DictamenDetalle = {
   fechaDictamen: string | null;
   procedimientoPcl: 'A' | 'B';
   estado: DictamenEstado;
+
+  // ✅ opcional: si el backend lo envía (en tu último backend lo agregamos)
+  locked?: boolean;
+
   antecedentesClinicos: string | null;
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
@@ -78,8 +82,9 @@ export default function DictamenDetallePage() {
 
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
 
-  // ✅ readOnly viene del backend (ADMIN/ADMISIONISTA)
+  // ✅ readOnly viene del backend (ADMIN/ADMISIONISTA) o si está CERRADO
   const [readOnly, setReadOnly] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   // Estado compartido
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
@@ -103,18 +108,22 @@ export default function DictamenDetallePage() {
       });
 
       const data = await res.json();
-      console.log('DICTAMEN API:', data.dictamen);
+      // console.log('DICTAMEN API:', data.dictamen);
 
       if (!res.ok || !data?.ok) {
         setError(data?.error ?? 'Error cargando información del dictamen');
         return;
       }
 
-      // ✅ readOnly desde API
-      setReadOnly(Boolean(data?.readOnly));
-
       const d = data.dictamen as DictamenDetalle;
       setDictamen(d);
+
+      // ✅ locked real (por estado o flag del backend)
+      const lockedNow = d.estado === 'CERRADO' || Boolean((d as any)?.locked);
+      setLocked(lockedNow);
+
+      // ✅ readOnly real: por rol O por cierre
+      setReadOnly(Boolean(data?.readOnly) || lockedNow);
 
       // Procedimiento A/B desde backend
       const proc = d.procedimientoPcl ?? 'A';
@@ -122,8 +131,7 @@ export default function DictamenDetallePage() {
 
       // Normalizamos la fecha a formato YYYY-MM-DD para el input
       const rawFecha = d.fechaDictamen;
-      const uiFecha =
-        rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
+      const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
       // Número de dictamen (si no viene, lo calculamos)
@@ -154,7 +162,7 @@ export default function DictamenDetallePage() {
 
   // 🔹 guardar fecha en el backend cada vez que cambia (SOLO MEDICO)
   useEffect(() => {
-    if (readOnly) return; // ✅ no guardar si es solo lectura
+    if (readOnly) return; // ✅ no guardar si es solo lectura (incluye cerrado)
     if (!dictamenLoaded) return;
     if (!fechaDictamen) return;
     if (!dictamenId || Number.isNaN(dictamenId)) return;
@@ -191,7 +199,6 @@ export default function DictamenDetallePage() {
     };
 
     saveFecha();
-
     return () => controller.abort();
   }, [fechaDictamen, dictamenId, dictamenLoaded, readOnly]);
 
@@ -265,7 +272,7 @@ export default function DictamenDetallePage() {
     <div className="min-h-screen bg-slate-50">
       <AppNav />
 
-      {/* Modal de actualizar docente (solo MEDICO) */}
+      {/* Modal de actualizar docente (solo MEDICO y no cerrado) */}
       {!readOnly && showEditDocente && (
         <ActualizarDocenteModal
           open={showEditDocente}
@@ -288,13 +295,15 @@ export default function DictamenDetallePage() {
         {/* ✅ Banner modo solo lectura */}
         {readOnly && (
           <div className="px-4 py-2 mt-3 text-xs border rounded-xl border-amber-200 bg-amber-50 text-amber-800">
-            Estás en modo solo lectura. No puedes editar HC.
+            {locked
+              ? 'Dictamen CERRADO. No se permite editar.'
+              : 'Estás en modo solo lectura. No puedes editar.'}
           </div>
         )}
 
         <div className="mt-4">
           <DictamenFormLayout
-           stickyTopClassName="top-20"
+            stickyTopClassName="top-20"
             left={
               <DictamenLeftPanel
                 dictamenId={dictamen.id}
@@ -323,9 +332,15 @@ export default function DictamenDetallePage() {
                 }}
                 procedimientoPcl={procedimientoPcl}
                 fechaDictamen={fechaDictamen}
+                readOnly={readOnly} // ✅ FIX CLAVE
               />
             }
-            right={<DictamenRightPanel />}
+            right={
+              <DictamenRightPanel
+                dictamenId={dictamen.id}
+                procedimientoPcl={procedimientoPcl}
+              />
+            }
           />
         </div>
       </main>

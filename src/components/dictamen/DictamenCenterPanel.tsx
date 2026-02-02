@@ -26,6 +26,11 @@ type DictamenCenterPanelProps = {
   serverVersion?: string;
   dictamen: {
     id: number;
+
+    // ✅ IMPORTANTE: esto debe venir del server
+    // true = pendiente/abierto, false = CERRADO
+    estado?: boolean | null;
+
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
@@ -36,10 +41,7 @@ type DictamenCenterPanelProps = {
 
     diagnosticos?: {
       cie10Codigo: string;
-      tipo:
-        | 'CONFIRMADO_NUEVO'
-        | 'IMPRESION_DIAGNOSTICA'
-        | 'CONFIRMADO_REPETIDO';
+      tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
       cie10Label?: string | null;
     }[];
   };
@@ -50,7 +52,7 @@ type DictamenCenterPanelProps = {
 export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
-  fechaDictamen,
+  fechaDictamen: _fechaDictamen,
   serverVersion = '',
   readOnly = false,
 }: DictamenCenterPanelProps) {
@@ -58,8 +60,11 @@ export default function DictamenCenterPanel({
 
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
-  const isAvdDisabled = procedimientoPcl === 'A';      // AVD-AIVD solo Proc B
+  const isAvdDisabled = procedimientoPcl === 'A'; // AVD-AIVD solo Proc B
   const isTituloIIIDisabled = procedimientoPcl === 'B'; // Título III solo Proc A
+
+  const isClosed = dictamen.estado === false;
+  const effectiveReadOnly = readOnly || isClosed;
 
   // ✅ Si estaba en AVD y cambia a Proc A, lo sacamos
   useEffect(() => {
@@ -87,7 +92,7 @@ export default function DictamenCenterPanel({
             ['AVD_AIVD', 'AVD-AIVD'],
             ['CAPITULO_2', 'Título II - Capítulo 2'],
             ['TITULO_III', 'Título III'],
-            ['SUSTENTACION', 'Sustentación y observaciones'], // ✅ ÚLTIMO TAB
+            ['SUSTENTACION', 'Sustentación y observaciones'],
           ] as [TabId, string][]
         ).map(([id, label]) => {
           const active = tab === id;
@@ -134,69 +139,70 @@ export default function DictamenCenterPanel({
 
       {/* Contenido */}
       <div className="p-4 text-sm">
+        {/* ✅ Aviso de dictamen cerrado */}
+        {isClosed && (
+          <div className="px-3 py-2 mb-3 text-xs border rounded-lg border-amber-200 bg-amber-50 text-amber-900">
+            <b>Dictamen cerrado:</b> este dictamen está en <b>solo lectura</b>. No se permite editar.
+          </div>
+        )}
+
         {cie10Error && tab === 'DIAGNOSTICOS' && (
           <div className="mb-3 text-[11px] text-red-600">
             Error cargando el catálogo CIE10. Intenta recargar la página.
           </div>
         )}
 
-        {tab === 'ANTECEDENTES' && (
-          <TabAntecedentes
-            dictamenId={dictamen.id}
-            initial={{
-              antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
-              condicionSalud: dictamen.condicionSalud ?? '',
-              descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
-            }}
-            procedimientoPcl={procedimientoPcl}
-            serverVersion={serverVersion}
-            onGoNext={() => setTab('DIAGNOSTICOS')}
-          />
-        )}
+        {/* ✅ Candado global de edición */}
+        <fieldset disabled={effectiveReadOnly} className={effectiveReadOnly ? 'opacity-95' : ''}>
+          {tab === 'ANTECEDENTES' && (
+            <TabAntecedentes
+              dictamenId={dictamen.id}
+              initial={{
+                antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+                condicionSalud: dictamen.condicionSalud ?? '',
+                descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+              }}
+              procedimientoPcl={procedimientoPcl}
+              serverVersion={serverVersion}
+              onGoNext={() => setTab('DIAGNOSTICOS')}
+            />
+          )}
 
-        {tab === 'DIAGNOSTICOS' && (
-          <TabDiagnosticos
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-            cie10Options={cie10Options}
-            initialDiagnosticos={dictamen.diagnosticos ?? []}
-            onGoNext={() => setTab('DEFICIENCIAS')}
-          />
-        )}
+          {tab === 'DIAGNOSTICOS' && (
+            <TabDiagnosticos
+              dictamenId={dictamen.id}
+              procedimientoPcl={procedimientoPcl}
+              cie10Options={cie10Options}
+              initialDiagnosticos={dictamen.diagnosticos ?? []}
+              onGoNext={() => setTab('DEFICIENCIAS')}
+            />
+          )}
 
-        {tab === 'DEFICIENCIAS' && (
-          <TabDeficiencias
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-          />
-        )}
+          {tab === 'DEFICIENCIAS' && (
+            <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          )}
 
-        {tab === 'AVD_AIVD' && (
-          <TabAvdAivd
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-          />
-        )}
+          {tab === 'AVD_AIVD' && (
+            <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          )}
 
-        {tab === 'CAPITULO_2' && (
-          <TituloIICapitulo2Tab
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-            initialClase={dictamen.claseLimitacionLaboral ?? null}
-            initialTotal={dictamen.totalCap2 ?? null}
-          />
-        )}
+          {tab === 'CAPITULO_2' && (
+            <TituloIICapitulo2Tab
+              dictamenId={dictamen.id}
+              procedimientoPcl={procedimientoPcl}
+              initialClase={dictamen.claseLimitacionLaboral ?? null}
+              initialTotal={dictamen.totalCap2 ?? null}
+            />
+          )}
 
-        {tab === 'TITULO_III' && (
-          <TabTituloIII
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
-          />
-        )}
+          {tab === 'TITULO_III' && (
+            <TabTituloIII dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          )}
 
-        {tab === 'SUSTENTACION' && (
-          <TabSustentacion dictamenId={dictamen.id} readOnly={readOnly} />
-        )}
+          {tab === 'SUSTENTACION' && (
+            <TabSustentacion dictamenId={dictamen.id} readOnly={effectiveReadOnly} />
+          )}
+        </fieldset>
       </div>
     </div>
   );

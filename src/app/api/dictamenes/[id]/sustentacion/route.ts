@@ -5,29 +5,18 @@ import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function cleanText(v: unknown): string {
-  if (v == null) return '';
-  return String(v);
-}
-
-// =======================
-// GET /api/dictamenes/:id/sustentacion
-// =======================
-export async function GET(
-  _req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id: idParam } = await context.params;
-    const id = Number(idParam);
+    const { id } = await context.params;
+    const dictamenId = Number(id);
 
-    if (!Number.isFinite(id) || id <= 0) {
+    if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, message: 'id inválido' }, { status: 400 });
     }
 
     const dictamen = await prisma.dictamen.findUnique({
-      where: { id },
-      select: { id: true, sustentacionObservaciones: true, updatedAt: true },
+      where: { id: dictamenId },
+      select: { id: true, sustentacionObservaciones: true, updatedAt: true, estado: true },
     });
 
     if (!dictamen) {
@@ -36,60 +25,63 @@ export async function GET(
 
     return NextResponse.json({
       ok: true,
-      dictamenId: dictamen.id,
+      dictamenId,
       sustentacionObservaciones: dictamen.sustentacionObservaciones ?? '',
-      updatedAt: dictamen.updatedAt,
+      updatedAt: dictamen.updatedAt?.toISOString?.() ?? undefined,
     });
-  } catch (error: any) {
-    console.error('❌ GET /dictamenes/[id]/sustentacion:', error);
-    return NextResponse.json(
-      { ok: false, message: error?.message ?? String(error) },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error('❌ Error GET sustentacion:', err);
+    return NextResponse.json({ ok: false, message: err?.message ?? 'Error' }, { status: 500 });
   }
 }
 
-// =======================
-// PUT /api/dictamenes/:id/sustentacion
-// body: { sustentacionObservaciones: string }
-// =======================
-export async function PUT(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id: idParam } = await context.params;
-    const id = Number(idParam);
+    const { id } = await context.params;
+    const dictamenId = Number(id);
 
-    if (!Number.isFinite(id) || id <= 0) {
+    if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, message: 'id inválido' }, { status: 400 });
     }
 
-    const body = await req.json().catch(() => null);
-    const sustentacionObservaciones = cleanText(body?.sustentacionObservaciones);
+    const body = (await req.json().catch(() => null)) as null | {
+      sustentacionObservaciones?: string;
+    };
 
-    // (Opcional) validación mínima
-    // if (sustentacionObservaciones.length > 20000) {
-    //   return NextResponse.json({ ok: false, message: 'Texto demasiado largo' }, { status: 400 });
-    // }
+    const text = String(body?.sustentacionObservaciones ?? '');
+
+    const current = await prisma.dictamen.findUnique({
+      where: { id: dictamenId },
+      select: { id: true, estado: true },
+    });
+
+    if (!current) {
+      return NextResponse.json({ ok: false, message: 'Dictamen no encontrado' }, { status: 404 });
+    }
+
+    // ✅ CANDADO
+    if (current.estado === false) {
+      return NextResponse.json(
+        { ok: false, message: 'El dictamen está CERRADO y no se puede editar.' },
+        { status: 409 }
+      );
+    }
 
     const updated = await prisma.dictamen.update({
-      where: { id },
-      data: { sustentacionObservaciones },
+      where: { id: dictamenId },
+      data: { sustentacionObservaciones: text },
       select: { id: true, sustentacionObservaciones: true, updatedAt: true },
     });
 
     return NextResponse.json({
       ok: true,
-      dictamenId: updated.id,
+      dictamenId,
       sustentacionObservaciones: updated.sustentacionObservaciones ?? '',
-      updatedAt: updated.updatedAt,
+      updatedAt: updated.updatedAt?.toISOString?.() ?? undefined,
+      message: 'Sustentación guardada',
     });
-  } catch (error: any) {
-    console.error('❌ PUT /dictamenes/[id]/sustentacion:', error);
-    return NextResponse.json(
-      { ok: false, message: error?.message ?? String(error) },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error('❌ Error PUT sustentacion:', err);
+    return NextResponse.json({ ok: false, message: err?.message ?? 'Error' }, { status: 500 });
   }
 }

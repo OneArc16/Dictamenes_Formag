@@ -50,14 +50,10 @@ function getNombreCompletoEmpleado(e: {
     .trim();
 }
 
-function normalizeRole(
-  role: unknown,
-): 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string {
+function normalizeRole(role: unknown): 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string {
   const r = String(role ?? '').trim().toUpperCase();
-
   if (r === 'ADMINISTRADOR') return 'ADMIN';
   if (r === 'ADMICIONES' || r === 'ADMISIONES') return 'ADMISIONISTA';
-
   return r;
 }
 
@@ -65,17 +61,16 @@ function canReadDictamen(role: string) {
   return role === 'MEDICO' || role === 'ADMIN' || role === 'ADMISIONISTA';
 }
 
-function isReadOnly(role: string) {
+function isReadOnlyByRole(role: string) {
   return role === 'ADMIN' || role === 'ADMISIONISTA';
 }
 
 // ✅ Formato definitivo: ddMMyyyy + DOCUMENTO (solo dígitos)
 function buildNumeroDictamen(documento: string, fechaYYYYMMDD: string) {
   const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
-  const datePart = `${String(dd ?? '').padStart(2, '0')}${String(mm ?? '').padStart(
-    2,
-    '0',
-  )}${String(yyyy ?? '')}`;
+  const datePart = `${String(dd ?? '').padStart(2, '0')}${String(mm ?? '').padStart(2, '0')}${String(
+    yyyy ?? '',
+  )}`;
   const docPart = String(documento ?? '').replace(/\D/g, '');
   return `${datePart}${docPart}`;
 }
@@ -87,23 +82,20 @@ function toColombiaMidnightUTC(fechaYYYYMMDD: string) {
 
 // ✅ ServerVersion definitiva: hash del contenido (detecta cambios directos en BD)
 function computeServerVersion(dictamen: any) {
-  // OJO: esto debe cambiar cuando cambien campos relevantes
   const payload = {
     id: dictamen.id,
     numeroDictamen: dictamen.numeroDictamen ?? null,
-    fechaDictamen: dictamen.fechaDictamen
-      ? dictamen.fechaDictamen.toISOString().slice(0, 10)
-      : null,
+    fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString().slice(0, 10) : null,
     procedimientoPcl: dictamen.procedimientoPcl ?? null,
 
     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
     condicionSalud: dictamen.condicionSalud ?? '',
     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
 
-    estado: dictamen.estado,
+    // ✅ IMPORTANTE: para invalidar Dexie al cerrar/reabrir
+    estado: dictamen.estado,      // boolean en BD
     reabierto: dictamen.reabierto,
 
-    // docente (cosas que afectan visualización)
     docente: dictamen.usuario
       ? {
           id: dictamen.usuario.id,
@@ -117,13 +109,11 @@ function computeServerVersion(dictamen: any) {
           sexo: dictamen.usuario.sexo ?? null,
           secretariaId: dictamen.usuario.secretariaId ?? null,
           institucionEducativaId: dictamen.usuario.institucionEducativaId ?? null,
-          // nombres referenciados (si los incluyes)
           secretariaNombre: dictamen.usuario.secretariaRef?.nombre ?? null,
           institucionNombre: dictamen.usuario.institucionEducativaRef?.nombre ?? null,
         }
       : null,
 
-    // diagnosticos (si los cambias en BD también debe invalidar)
     diagnosticos: Array.isArray(dictamen.diagnosticos)
       ? dictamen.diagnosticos.map((dx: any) => ({
           id: dx.id,
@@ -205,29 +195,41 @@ export async function GET(_req: Request, context: RouteContext) {
     const docente = dictamen.usuario;
     const medico = dictamen.empleado;
 
-    const estado: 'PENDIENTE' | 'REABIERTO' | 'CERRADO' = dictamen.reabierto
+    // ✅ estadoLabel (para UI)
+    const estadoLabel: 'PENDIENTE' | 'REABIERTO' | 'CERRADO' = dictamen.reabierto
       ? 'REABIERTO'
       : dictamen.estado
       ? 'PENDIENTE'
       : 'CERRADO';
 
+    // ✅ CERRADO REAL (no editable) = estado false y no reabierto
+    const locked = dictamen.estado === false && dictamen.reabierto !== true;
+
     const serverVersion = computeServerVersion(dictamen);
 
     return NextResponse.json({
       ok: true,
-      readOnly: isReadOnly(role),
-      serverVersion, // ✅ ESTE es el que usa el front para invalidar Dexie
+
+      // ✅ readOnly real: por rol O por cierre
+      readOnly: isReadOnlyByRole(role) || locked,
+
+      serverVersion,
       dictamen: {
         id: dictamen.id,
 
         numeroDictamen: dictamen.numeroDictamen != null ? String(dictamen.numeroDictamen) : null,
 
-        fechaDictamen: dictamen.fechaDictamen
-          ? dictamen.fechaDictamen.toISOString().slice(0, 10)
-          : null,
+        fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString().slice(0, 10) : null,
 
         procedimientoPcl: dictamen.procedimientoPcl as ProcedimientoPcl,
-        estado,
+
+        // ✅ dejamos el string como estabas usándolo
+        estado: estadoLabel,
+
+        // ✅ NUEVO: flags útiles para el front
+        locked,
+        estadoDb: dictamen.estado,      // boolean BD
+        reabierto: dictamen.reabierto,  // boolean BD
 
         antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
         condicionSalud: dictamen.condicionSalud ?? '',
@@ -318,14 +320,21 @@ export async function PUT(req: Request, context: RouteContext) {
       where: { id },
       select: {
         empleadoId: true,
+        estado: true,     // ✅ boolean BD
+        reabierto: true,  // ✅ boolean BD
         usuario: { select: { identificacion: true } },
       },
     });
 
     if (!existing || existing.empleadoId !== userId) {
+      return NextResponse.json({ ok: false, error: 'No tiene permiso sobre este dictamen.' }, { status: 403 });
+    }
+
+    // ✅ BLOQUEO REAL: si está cerrado y no reabierto, no se edita
+    if (existing.estado === false && existing.reabierto !== true) {
       return NextResponse.json(
-        { ok: false, error: 'No tiene permiso sobre este dictamen.' },
-        { status: 403 },
+        { ok: false, error: 'El dictamen está CERRADO. No se permite editar.' },
+        { status: 409 },
       );
     }
 
@@ -334,8 +343,7 @@ export async function PUT(req: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            'El docente no tiene identificación registrada. No se puede generar el número de dictamen.',
+          error: 'El docente no tiene identificación registrada. No se puede generar el número de dictamen.',
         },
         { status: 400 },
       );
@@ -362,10 +370,7 @@ export async function PUT(req: Request, context: RouteContext) {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { ok: false, error: 'No se enviaron campos para actualizar.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: 'No se enviaron campos para actualizar.' }, { status: 400 });
     }
 
     const updated = await prisma.dictamen.update({

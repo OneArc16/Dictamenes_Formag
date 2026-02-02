@@ -63,6 +63,7 @@ export async function GET(
     where: { id },
     select: {
       id: true,
+      estado: true,
       procedimientoPcl: true,
       totalTitulo1: true,
       totalCap1: true,
