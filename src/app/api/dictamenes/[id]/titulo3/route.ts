@@ -16,11 +16,21 @@ export const runtime = 'nodejs';
 
 function toNumberDecimal(value: unknown): number {
   if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return Number(value);
-  // Prisma.Decimal
-  // @ts-expect-error
-  if (typeof value?.toString === 'function') return Number(value.toString());
+
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // Prisma.Decimal y otros objetos serializables
+  if (typeof value === 'object' && value !== null && 'toString' in value) {
+    const s = String((value as { toString: () => string }).toString());
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   return 0;
 }
 
@@ -109,9 +119,25 @@ export async function GET(
 type PutBody = {
   factor: FactorKey;
   gravedad?: GravedadAnalisisKey; // cuando no es NA/remove
-  na?: boolean;                   // marcar N/A
-  remove?: boolean;               // dejar en blanco (borra)
+  na?: boolean; // marcar N/A
+  remove?: boolean; // dejar en blanco (borra)
 };
+
+// ✅ Discriminated union (narrowing perfecto)
+type PutOk = {
+  ok: true;
+  basePcl: number;
+  items: Titulo3Item[];
+  naFactors: FactorKey[];
+  summary: ReturnType<typeof computeTitulo3Summary>;
+};
+
+type PutErr = {
+  ok: false;
+  error: { status: number; message: string };
+};
+
+type PutResult = PutOk | PutErr;
 
 export async function PUT(
   req: NextRequest,
@@ -130,7 +156,7 @@ export async function PUT(
     return NextResponse.json({ message: 'factor es requerido' }, { status: 400 });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result: PutResult = await prisma.$transaction(async (tx) => {
     const dictamen = await tx.dictamen.findUnique({
       where: { id },
       select: {
@@ -143,12 +169,13 @@ export async function PUT(
     });
 
     if (!dictamen) {
-      return { error: { status: 404, message: 'Dictamen no encontrado' } as const };
+      return { ok: false, error: { status: 404, message: 'Dictamen no encontrado' } };
     }
 
     if (dictamen.procedimientoPcl !== 'A') {
       return {
-        error: { status: 400, message: 'Título III aplica solo para Procedimiento A' } as const,
+        ok: false,
+        error: { status: 400, message: 'Título III aplica solo para Procedimiento A' },
       };
     }
 
@@ -179,7 +206,8 @@ export async function PUT(
     } else {
       if (!body.gravedad) {
         return {
-          error: { status: 400, message: 'gravedad es requerida si no es NA/remove' } as const,
+          ok: false,
+          error: { status: 400, message: 'gravedad es requerida si no es NA/remove' },
         };
       }
 
@@ -235,12 +263,19 @@ export async function PUT(
       },
     });
 
-    return { basePcl: summary.basePcl, items, naFactors, summary };
+    return { ok: true, basePcl: summary.basePcl, items, naFactors, summary };
   });
 
-  if ('error' in result) {
-    return NextResponse.json({ message: result.error.message }, { status: result.error.status });
+  // ✅ Narrowing perfecto: aquí TS sabe que result.error existe
+  if (!result.ok) {
+    return NextResponse.json(
+      { message: result.error.message },
+      { status: result.error.status }
+    );
   }
+
+  // ✅ (Opcional) si no quieres devolver ok:true al frontend, puedes devolver sin ok:
+  // return NextResponse.json({ basePcl: result.basePcl, items: result.items, naFactors: result.naFactors, summary: result.summary });
 
   return NextResponse.json(result);
 }

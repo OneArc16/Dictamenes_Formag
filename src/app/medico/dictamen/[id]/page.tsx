@@ -294,6 +294,7 @@ export default function DictamenDetallePage() {
 
         <div className="mt-4">
           <DictamenFormLayout
+           stickyTopClassName="top-20"
             left={
               <DictamenLeftPanel
                 dictamenId={dictamen.id}
