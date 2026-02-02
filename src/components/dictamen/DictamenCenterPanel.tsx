@@ -1,23 +1,25 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+
 import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
-import TabExamenFisico from '@/components/dictamen/tabs/TabExamenFisico';
+import TabSustentacion from '@/components/dictamen/tabs/TabSustentacion';
 import TabDiagnosticos from '@/components/dictamen/tabs/TabDiagnosticos';
 import TabDeficiencias from '@/components/dictamen/tabs/TabDeficiencias';
 import TabAvdAivd from '@/components/dictamen/tabs/TabAvdAivd';
 import { TituloIICapitulo2Tab } from '@/components/dictamen/tabs/TituloIICapitulo2Tab';
 import TabTituloIII from '@/components/dictamen/tabs/tabTituloIII';
+
 import { useCie10Options } from '@/hooks/useCie10Options';
 
 type TabId =
   | 'ANTECEDENTES'
-  | 'EXAMEN'
   | 'DIAGNOSTICOS'
   | 'DEFICIENCIAS'
   | 'AVD_AIVD'
   | 'CAPITULO_2'
-  | 'TITULO_III';
+  | 'TITULO_III'
+  | 'SUSTENTACION';
 
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
@@ -28,7 +30,7 @@ type DictamenCenterPanelProps = {
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
 
-    // ✅ NUEVOS (Cap 2)
+    // ✅ Cap 2
     claseLimitacionLaboral?: 'I' | 'II' | 'III' | 'IV' | null;
     totalCap2?: number | null;
 
@@ -56,17 +58,17 @@ export default function DictamenCenterPanel({
 
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
-  const isAvdDisabled = procedimientoPcl === 'A';
-  const isTituloIIIDisabled = procedimientoPcl === 'B';
+  const isAvdDisabled = procedimientoPcl === 'A';      // AVD-AIVD solo Proc B
+  const isTituloIIIDisabled = procedimientoPcl === 'B'; // Título III solo Proc A
 
-  // ✅ Si el usuario estaba en AVD-AIVD y el dictamen pasa a Procedimiento A, lo sacamos de ahí
+  // ✅ Si estaba en AVD y cambia a Proc A, lo sacamos
   useEffect(() => {
     if (isAvdDisabled && tab === 'AVD_AIVD') {
       setTab('DEFICIENCIAS');
     }
   }, [isAvdDisabled, tab]);
 
-  // ✅ Si el usuario estaba en Título III y el dictamen pasa a Procedimiento B, lo sacamos de ahí
+  // ✅ Si estaba en Título III y cambia a Proc B, lo sacamos
   useEffect(() => {
     if (isTituloIIIDisabled && tab === 'TITULO_III') {
       setTab('CAPITULO_2');
@@ -81,11 +83,11 @@ export default function DictamenCenterPanel({
           [
             ['ANTECEDENTES', 'Antecedentes'],
             ['DIAGNOSTICOS', 'Diagnóstico y tratamiento'],
-            ['EXAMEN', 'Examen físico'],
             ['DEFICIENCIAS', 'Deficiencias / PCL'],
             ['AVD_AIVD', 'AVD-AIVD'],
-            ['CAPITULO_2', 'Título II - Capítulo 2'], // ✅ DESPUÉS DE AVD
-            ['TITULO_III', 'Título III'], // ✅ NUEVO TAB
+            ['CAPITULO_2', 'Título II - Capítulo 2'],
+            ['TITULO_III', 'Título III'],
+            ['SUSTENTACION', 'Sustentación y observaciones'], // ✅ ÚLTIMO TAB
           ] as [TabId, string][]
         ).map(([id, label]) => {
           const active = tab === id;
@@ -123,9 +125,7 @@ export default function DictamenCenterPanel({
             >
               {label}
               {disabled ? (
-                <span className="ml-2 text-[10px] text-slate-400">
-                  (No aplica)
-                </span>
+                <span className="ml-2 text-[10px] text-slate-400">(No aplica)</span>
               ) : null}
             </button>
           );
@@ -151,13 +151,6 @@ export default function DictamenCenterPanel({
             procedimientoPcl={procedimientoPcl}
             serverVersion={serverVersion}
             onGoNext={() => setTab('DIAGNOSTICOS')}
-          />
-        )}
-
-        {tab === 'EXAMEN' && (
-          <TabExamenFisico
-            dictamenId={dictamen.id}
-            procedimientoPcl={procedimientoPcl}
           />
         )}
 
@@ -195,7 +188,14 @@ export default function DictamenCenterPanel({
         )}
 
         {tab === 'TITULO_III' && (
-          <TabTituloIII dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          <TabTituloIII
+            dictamenId={dictamen.id}
+            procedimientoPcl={procedimientoPcl}
+          />
+        )}
+
+        {tab === 'SUSTENTACION' && (
+          <TabSustentacion dictamenId={dictamen.id} readOnly={readOnly} />
         )}
       </div>
     </div>

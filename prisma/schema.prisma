@@ -710,6 +710,8 @@ model Dictamen {
   condicionSalud       String?
   descripcionHallazgos String?
 
+  sustentacionObservaciones String? @db.Text
+
   /// true = Pendiente, false = Cerrado
   aplicaAnalisisOcupacional Boolean @default(false)
   estado                    Boolean @default(true)
