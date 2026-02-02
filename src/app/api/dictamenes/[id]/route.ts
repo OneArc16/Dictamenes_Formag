@@ -61,6 +61,7 @@ function canReadDictamen(role: string) {
   return role === 'MEDICO' || role === 'ADMIN' || role === 'ADMISIONISTA';
 }
 
+// Solo lectura por rol (ADMIN/ADMISIONISTA)
 function isReadOnlyByRole(role: string) {
   return role === 'ADMIN' || role === 'ADMISIONISTA';
 }
@@ -92,8 +93,14 @@ function computeServerVersion(dictamen: any) {
     condicionSalud: dictamen.condicionSalud ?? '',
     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
 
-    // ✅ IMPORTANTE: para invalidar Dexie al cerrar/reabrir
-    estado: dictamen.estado,      // boolean en BD
+    // ✅ NUEVOS: estructuración/origen
+    fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez
+      ? dictamen.fechaEstructuracionInvalidez.toISOString().slice(0, 10)
+      : null,
+    tipoEvento: dictamen.tipoEvento ?? null,
+    origenEvento: dictamen.origenEvento ?? null,
+
+    estado: dictamen.estado,
     reabierto: dictamen.reabierto,
 
     docente: dictamen.usuario
@@ -142,9 +149,7 @@ async function getAuthFromToken(): Promise<AuthCtx | null> {
   return { userId, role: role as any, name: payload.name };
 }
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
+type RouteContext = { params: Promise<{ id: string }> };
 
 // ======================
 // GET: detalle dictamen
@@ -195,24 +200,20 @@ export async function GET(_req: Request, context: RouteContext) {
     const docente = dictamen.usuario;
     const medico = dictamen.empleado;
 
-    // ✅ estadoLabel (para UI)
-    const estadoLabel: 'PENDIENTE' | 'REABIERTO' | 'CERRADO' = dictamen.reabierto
+    const estado: 'PENDIENTE' | 'REABIERTO' | 'CERRADO' = dictamen.reabierto
       ? 'REABIERTO'
       : dictamen.estado
       ? 'PENDIENTE'
       : 'CERRADO';
 
-    // ✅ CERRADO REAL (no editable) = estado false y no reabierto
-    const locked = dictamen.estado === false && dictamen.reabierto !== true;
-
     const serverVersion = computeServerVersion(dictamen);
+
+    // ✅ readOnly FINAL: por rol (ADMIN/ADMISIONISTA) o por estado (CERRADO y no reabierto)
+    const readOnly = isReadOnlyByRole(role) || estado === 'CERRADO';
 
     return NextResponse.json({
       ok: true,
-
-      // ✅ readOnly real: por rol O por cierre
-      readOnly: isReadOnlyByRole(role) || locked,
-
+      readOnly,
       serverVersion,
       dictamen: {
         id: dictamen.id,
@@ -222,18 +223,18 @@ export async function GET(_req: Request, context: RouteContext) {
         fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString().slice(0, 10) : null,
 
         procedimientoPcl: dictamen.procedimientoPcl as ProcedimientoPcl,
-
-        // ✅ dejamos el string como estabas usándolo
-        estado: estadoLabel,
-
-        // ✅ NUEVO: flags útiles para el front
-        locked,
-        estadoDb: dictamen.estado,      // boolean BD
-        reabierto: dictamen.reabierto,  // boolean BD
+        estado,
 
         antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
         condicionSalud: dictamen.condicionSalud ?? '',
         descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+
+        // ✅ NUEVOS (se devuelven al front)
+        fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez
+          ? dictamen.fechaEstructuracionInvalidez.toISOString().slice(0, 10)
+          : null,
+        tipoEvento: (dictamen as any).tipoEvento ?? null,
+        origenEvento: (dictamen as any).origenEvento ?? null,
 
         diagnosticos: dictamen.diagnosticos.map((dx) => ({
           cie10Codigo: dx.cie10Codigo,
@@ -272,38 +273,36 @@ export async function GET(_req: Request, context: RouteContext) {
     });
   } catch (err: any) {
     console.error('ERROR GET /api/dictamenes/[id]:', err);
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error consultando dictamen' },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: err?.message ?? 'Error consultando dictamen' }, { status: 500 });
   }
 }
 
 // ============================
-// PUT: actualizar antecedentes
+// PUT: actualizar dictamen (solo médico)
 // ============================
-const UpdateAntecedentesSchema = z.object({
+const UpdateDictamenSchema = z.object({
   antecedentesClinicos: z.string().optional(),
   condicionSalud: z.string().optional(),
   descripcionHallazgos: z.string().optional(),
+
   procedimientoPcl: z.enum(['A', 'B']).optional(),
   fechaDictamen: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+
+  // ✅ NUEVOS: estructuración/origen
+  fechaEstructuracionInvalidez: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  tipoEvento: z.enum(['ENFERMEDAD', 'ACCIDENTE']).optional(),
+  origenEvento: z.enum(['LABORAL', 'COMUN']).optional(),
 });
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
     const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
+    if (!auth) return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
 
     const { userId, role } = auth;
 
     if (role !== 'MEDICO') {
-      return NextResponse.json(
-        { ok: false, error: 'No autorizado para editar este dictamen.' },
-        { status: 403 },
-      );
+      return NextResponse.json({ ok: false, error: 'No autorizado para editar este dictamen.' }, { status: 403 });
     }
 
     const { id: idParam } = await context.params;
@@ -314,14 +313,14 @@ export async function PUT(req: Request, context: RouteContext) {
     }
 
     const json = await req.json();
-    const data = UpdateAntecedentesSchema.parse(json);
+    const data = UpdateDictamenSchema.parse(json);
 
     const existing = await prisma.dictamen.findUnique({
       where: { id },
       select: {
         empleadoId: true,
-        estado: true,     // ✅ boolean BD
-        reabierto: true,  // ✅ boolean BD
+        estado: true,
+        reabierto: true,
         usuario: { select: { identificacion: true } },
       },
     });
@@ -330,12 +329,10 @@ export async function PUT(req: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: 'No tiene permiso sobre este dictamen.' }, { status: 403 });
     }
 
-    // ✅ BLOQUEO REAL: si está cerrado y no reabierto, no se edita
-    if (existing.estado === false && existing.reabierto !== true) {
-      return NextResponse.json(
-        { ok: false, error: 'El dictamen está CERRADO. No se permite editar.' },
-        { status: 409 },
-      );
+    // ✅ BLOQUEO: si está cerrado y no reabierto => no editar
+    const isClosed = existing.estado === false && existing.reabierto === false;
+    if (isClosed) {
+      return NextResponse.json({ ok: false, error: 'Dictamen CERRADO. No se permite editar.' }, { status: 409 });
     }
 
     const documentoDocente = existing.usuario?.identificacion;
@@ -364,9 +361,23 @@ export async function PUT(req: Request, context: RouteContext) {
       if (Number.isNaN(fecha.getTime())) {
         return NextResponse.json({ ok: false, error: 'Fecha de dictamen inválida.' }, { status: 400 });
       }
-
       updateData.fechaDictamen = fecha;
       updateData.numeroDictamen = buildNumeroDictamen(documentoDocente, data.fechaDictamen);
+    }
+
+    // ✅ NUEVOS
+    if ('fechaEstructuracionInvalidez' in data && data.fechaEstructuracionInvalidez) {
+      const fechaE = toColombiaMidnightUTC(data.fechaEstructuracionInvalidez);
+      if (Number.isNaN(fechaE.getTime())) {
+        return NextResponse.json({ ok: false, error: 'Fecha de estructuración inválida.' }, { status: 400 });
+      }
+      updateData.fechaEstructuracionInvalidez = fechaE;
+    }
+    if ('tipoEvento' in data) {
+      updateData.tipoEvento = data.tipoEvento ?? null; // ENFERMEDAD | ACCIDENTE
+    }
+    if ('origenEvento' in data) {
+      updateData.origenEvento = data.origenEvento ?? null; // LABORAL | COMUN
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -376,13 +387,20 @@ export async function PUT(req: Request, context: RouteContext) {
     const updated = await prisma.dictamen.update({
       where: { id },
       data: updateData,
-      select: { id: true, fechaDictamen: true, numeroDictamen: true },
+      select: {
+        id: true,
+        fechaDictamen: true,
+        numeroDictamen: true,
+        fechaEstructuracionInvalidez: true,
+        tipoEvento: true,
+        origenEvento: true,
+      },
     });
 
     return NextResponse.json({ ok: true, dictamen: updated });
   } catch (err: any) {
     console.error('ERROR PUT /api/dictamenes/[id]:', err);
-    const msg = err?.issues?.[0]?.message || err?.message || 'Error actualizando antecedentes';
+    const msg = err?.issues?.[0]?.message || err?.message || 'Error actualizando dictamen';
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

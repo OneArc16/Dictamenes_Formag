@@ -21,6 +21,9 @@ type TabId =
   | 'TITULO_III'
   | 'SUSTENTACION';
 
+export type TipoEvento = 'ENFERMEDAD' | 'ACCIDENTE';
+export type OrigenEvento = 'LABORAL' | 'COMUN';
+
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
   serverVersion?: string;
@@ -44,9 +47,14 @@ type DictamenCenterPanelProps = {
       tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
       cie10Label?: string | null;
     }[];
+
+    // ✅ Nuevos (Estructuración / Origen)
+    fechaEstructuracionInvalidez?: string | null; // YYYY-MM-DD
+    tipoEvento?: TipoEvento | null;
+    origenEvento?: OrigenEvento | null;
   };
   procedimientoPcl: 'A' | 'B';
-  fechaDictamen: string;
+  fechaDictamen: string; // (si no lo usas aquí, lo puedes quitar del props)
 };
 
 export default function DictamenCenterPanel({
@@ -68,16 +76,12 @@ export default function DictamenCenterPanel({
 
   // ✅ Si estaba en AVD y cambia a Proc A, lo sacamos
   useEffect(() => {
-    if (isAvdDisabled && tab === 'AVD_AIVD') {
-      setTab('DEFICIENCIAS');
-    }
+    if (isAvdDisabled && tab === 'AVD_AIVD') setTab('DEFICIENCIAS');
   }, [isAvdDisabled, tab]);
 
   // ✅ Si estaba en Título III y cambia a Proc B, lo sacamos
   useEffect(() => {
-    if (isTituloIIIDisabled && tab === 'TITULO_III') {
-      setTab('CAPITULO_2');
-    }
+    if (isTituloIIIDisabled && tab === 'TITULO_III') setTab('CAPITULO_2');
   }, [isTituloIIIDisabled, tab]);
 
   return (
@@ -200,7 +204,15 @@ export default function DictamenCenterPanel({
           )}
 
           {tab === 'SUSTENTACION' && (
-            <TabSustentacion dictamenId={dictamen.id} readOnly={effectiveReadOnly} />
+            <TabSustentacion
+              dictamenId={dictamen.id}
+              readOnly={effectiveReadOnly} // ✅ IMPORTANTE
+              initialMeta={{
+                fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
+                tipoEvento: dictamen.tipoEvento ?? null,
+                origenEvento: dictamen.origenEvento ?? null,
+              }}
+            />
           )}
         </fieldset>
       </div>

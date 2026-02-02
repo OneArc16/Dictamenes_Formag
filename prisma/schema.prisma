@@ -186,6 +186,16 @@ enum FactorAnalisisOcupacional {
   ARMONIA
 }
 
+enum DictamenTipoEvento {
+  ENFERMEDAD
+  ACCIDENTE
+}
+
+enum DictamenOrigenEvento {
+  LABORAL
+  COMUN
+}
+
 // =====================================
 // PAISES
 // =====================================
@@ -711,6 +721,10 @@ model Dictamen {
   descripcionHallazgos String?
 
   sustentacionObservaciones String? @db.Text
+
+  fechaEstructuracionInvalidez DateTime?
+  tipoEvento                   DictamenTipoEvento?
+  origenEvento                 DictamenOrigenEvento?
 
   /// true = Pendiente, false = Cerrado
   aplicaAnalisisOcupacional Boolean @default(false)

@@ -16,6 +16,9 @@ import { db } from '@/lib/dexieClient';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
 
+type TipoEvento = 'ENFERMEDAD' | 'ACCIDENTE';
+type OrigenEvento = 'LABORAL' | 'COMUN';
+
 type DictamenDiagnosticoDTO = {
   cie10Codigo: string;
   tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
@@ -28,9 +31,16 @@ type DictamenDetalle = {
   fechaDictamen: string | null;
   procedimientoPcl: 'A' | 'B';
   estado: DictamenEstado;
+
   antecedentesClinicos: string | null;
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
+
+  // ✅ NUEVOS (Estructuración / Origen)
+  fechaEstructuracionInvalidez?: string | null; // YYYY-MM-DD
+  tipoEvento?: TipoEvento | null;
+  origenEvento?: OrigenEvento | null;
+
   diagnosticos: DictamenDiagnosticoDTO[];
   docente: {
     id: number;
@@ -114,10 +124,15 @@ export default function DictamenDetalleShell({
 
   const dictamen = data?.dictamen ?? null;
 
+  // ✅ IMPORTANTE: cerrado => solo lectura (aunque el rol sea MEDICO)
   const readOnly = useMemo(() => {
     if (forceReadOnly != null) return forceReadOnly;
-    return data?.readOnly ?? false;
-  }, [forceReadOnly, data?.readOnly]);
+
+    const apiReadOnly = data?.readOnly ?? false;
+    const cerrado = dictamen?.estado === 'CERRADO';
+
+    return apiReadOnly || cerrado;
+  }, [forceReadOnly, data?.readOnly, dictamen?.estado]);
 
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
   const [fechaDictamen, setFechaDictamen] = useState<string>('');
@@ -153,7 +168,6 @@ export default function DictamenDetalleShell({
             updatedAt: Date.now(),
           });
 
-          // ✅ re-montar pestañas para que NO se queden con estado viejo
           setDraftResetKey((k) => k + 1);
         } else if (!meta) {
           await db.dictamenMeta.put({
@@ -181,7 +195,6 @@ export default function DictamenDetalleShell({
 
     setProcedimientoPcl(proc);
     setFechaDictamen(uiFecha);
-
     setNumeroDictamen(dictamen.numeroDictamen ?? '');
   }, [dictamen?.id]);
 
@@ -199,14 +212,16 @@ export default function DictamenDetalleShell({
   });
 
   const handleChangeFecha = (newFecha: string) => {
+    if (readOnly) return;
     setFechaDictamen(newFecha);
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    if (!readOnly) updateMutation.mutate({ fechaDictamen: newFecha });
+    updateMutation.mutate({ fechaDictamen: newFecha });
   };
 
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
+    if (readOnly) return;
     setProcedimientoPcl(nuevoProc);
-    if (!readOnly) updateMutation.mutate({ procedimientoPcl: nuevoProc });
+    updateMutation.mutate({ procedimientoPcl: nuevoProc });
   };
 
   const handleDocenteUpdated = async () => {
@@ -321,6 +336,11 @@ export default function DictamenDetalleShell({
                     condicionSalud: dictamen.condicionSalud ?? '',
                     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
                     diagnosticos: dictamen.diagnosticos ?? [],
+
+                    // ✅ NUEVOS (para tab sustentación)
+                    fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
+                    tipoEvento: dictamen.tipoEvento ?? null,
+                    origenEvento: dictamen.origenEvento ?? null,
                   }}
                   procedimientoPcl={procedimientoPcl}
                   fechaDictamen={fechaDictamen}
