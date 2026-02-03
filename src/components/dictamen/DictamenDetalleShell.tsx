@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
@@ -36,8 +36,7 @@ type DictamenDetalle = {
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
 
-  // ✅ NUEVOS (Estructuración / Origen)
-  fechaEstructuracionInvalidez?: string | null; // YYYY-MM-DD
+  fechaEstructuracionInvalidez?: string | null;
   tipoEvento?: TipoEvento | null;
   origenEvento?: OrigenEvento | null;
 
@@ -73,12 +72,10 @@ async function fetchDictamen(
     throw new Error((data as any)?.error ?? 'Error cargando dictamen');
   }
 
-  const serverVersion = String((data as any).serverVersion ?? '');
-
   return {
     dictamen: (data as any).dictamen,
     readOnly: Boolean((data as any).readOnly),
-    serverVersion,
+    serverVersion: String((data as any).serverVersion ?? ''),
   };
 }
 
@@ -100,6 +97,22 @@ type Props = {
   forceReadOnly?: boolean;
   allowEditDocente?: boolean;
 };
+
+function isEditableTarget(t: EventTarget | null) {
+  const el = t as HTMLElement | null;
+  if (!el) return false;
+
+  const tag = el.tagName?.toLowerCase?.() ?? '';
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+
+  // contenteditable (por si hay componentes rich)
+  if ((el as any).isContentEditable) return true;
+
+  // si el target está dentro de un input/textarea
+  if (el.closest?.('input,textarea,select,[contenteditable="true"]')) return true;
+
+  return false;
+}
 
 export default function DictamenDetalleShell({
   title,
@@ -124,25 +137,88 @@ export default function DictamenDetalleShell({
 
   const dictamen = data?.dictamen ?? null;
 
-  // ✅ IMPORTANTE: cerrado => solo lectura (aunque el rol sea MEDICO)
-  const readOnly = useMemo(() => {
-    if (forceReadOnly != null) return forceReadOnly;
+  // ✅ bloqueo inmediato (sin esperar GET)
+  const [closedNow, setClosedNow] = useState(false);
 
-    const apiReadOnly = data?.readOnly ?? false;
-    const cerrado = dictamen?.estado === 'CERRADO';
+  // ✅ remount duro al cerrar para matar focos / estados internos
+  const [closeEpoch, setCloseEpoch] = useState(0);
 
-    return apiReadOnly || cerrado;
-  }, [forceReadOnly, data?.readOnly, dictamen?.estado]);
-
-  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
-  const [fechaDictamen, setFechaDictamen] = useState<string>('');
-  const [numeroDictamen, setNumeroDictamen] = useState<string>('');
-  const [showEditDocente, setShowEditDocente] = useState(false);
-
-  // ✅ para forzar remount del center panel cuando invalidamos drafts
+  // ✅ para remount cuando invalidamos drafts
   const [draftResetKey, setDraftResetKey] = useState(0);
 
-  // ✅ invalidación Dexie por serverVersion
+  // ✅ ReadOnly final (rol + cerrado server + cerrado instantáneo)
+  const readOnly = useMemo(() => {
+    if (forceReadOnly != null) return forceReadOnly;
+    const apiReadOnly = data?.readOnly ?? false;
+    const cerradoServer = dictamen?.estado === 'CERRADO';
+    return apiReadOnly || cerradoServer || closedNow;
+  }, [forceReadOnly, data?.readOnly, dictamen?.estado, closedNow]);
+
+  // ✅ BLOQUEO EXTRA por captura (evita escribir incluso si algo queda enfocado)
+  const blockTypingCapture = useCallback(
+    (ev: any) => {
+      if (!readOnly) return;
+
+      // deja pasar clicks/teclas de navegación si NO es un campo editable
+      if (!isEditableTarget(ev.target)) return;
+
+      // Evita escritura, pegado, beforeinput, etc.
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+    },
+    [readOnly]
+  );
+
+  // ✅ Escucha cierre desde RightPanel
+  useEffect(() => {
+    function onClosed(ev: Event) {
+      const e = ev as CustomEvent<{ dictamenId?: number; serverVersion?: string }>;
+      if (e?.detail?.dictamenId !== dictamenId) return;
+
+      // 1) bloquear YA
+      setClosedNow(true);
+
+      // 2) blur inmediato (mata teclado en textarea enfocado)
+      try {
+        const a = document.activeElement as any;
+        a?.blur?.();
+      } catch {}
+
+      // 3) remount duro del layout para matar estados internos
+      setCloseEpoch((x) => x + 1);
+      setDraftResetKey((x) => x + 1);
+
+      // 4) limpia drafts locales (para evitar que queden “inputs vivos” por Dexie)
+      (async () => {
+        await db.dictamenDrafts.delete(dictamenId).catch(() => {});
+        await db.dictamenDiagnosticosDrafts.delete(dictamenId).catch(() => {});
+        await db.dictamenMeta.put({
+          id: dictamenId,
+          serverVersion: String(e?.detail?.serverVersion ?? data?.serverVersion ?? ''),
+          updatedAt: Date.now(),
+        }).catch(() => {});
+      })();
+
+      // 5) cache optimista
+      qc.setQueryData(['dictamen', dictamenId], (prev: any) => {
+        if (!prev?.dictamen) return prev;
+        return {
+          ...prev,
+          serverVersion: String(e?.detail?.serverVersion ?? prev.serverVersion ?? ''),
+          dictamen: { ...prev.dictamen, estado: 'CERRADO' },
+        };
+      });
+
+      // 6) traer verdad del servidor
+      qc.invalidateQueries({ queryKey: ['dictamen', dictamenId] });
+      qc.refetchQueries({ queryKey: ['dictamen', dictamenId] });
+    }
+
+    window.addEventListener('dictamen:closed', onClosed as any);
+    return () => window.removeEventListener('dictamen:closed', onClosed as any);
+  }, [dictamenId, qc, data?.serverVersion]);
+
+  // ✅ invalidación Dexie por serverVersion (normal)
   useEffect(() => {
     if (!dictamen || !data?.serverVersion) return;
 
@@ -186,13 +262,16 @@ export default function DictamenDetalleShell({
     };
   }, [dictamen?.id, data?.serverVersion]);
 
+  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
+  const [fechaDictamen, setFechaDictamen] = useState<string>('');
+  const [numeroDictamen, setNumeroDictamen] = useState<string>('');
+  const [showEditDocente, setShowEditDocente] = useState(false);
+
   useEffect(() => {
     if (!dictamen) return;
-
     const proc = dictamen.procedimientoPcl ?? 'A';
     const rawFecha = dictamen.fechaDictamen;
     const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
-
     setProcedimientoPcl(proc);
     setFechaDictamen(uiFecha);
     setNumeroDictamen(dictamen.numeroDictamen ?? '');
@@ -214,7 +293,6 @@ export default function DictamenDetalleShell({
   const handleChangeFecha = (newFecha: string) => {
     if (readOnly) return;
     setFechaDictamen(newFecha);
-    if (!dictamenId || Number.isNaN(dictamenId)) return;
     updateMutation.mutate({ fechaDictamen: newFecha });
   };
 
@@ -309,51 +387,72 @@ export default function DictamenDetalleShell({
         )}
 
         <div className="mt-4">
-          <div className={readOnlyScope}>
-            <DictamenFormLayout
-              left={
-                <DictamenLeftPanel
-                  dictamenId={dictamen.id}
-                  estado={dictamen.estado}
-                  docente={dictamen.docente}
-                  medico={dictamen.medico}
-                  numeroDictamen={numeroDictamen}
-                  fechaDictamen={fechaDictamen}
-                  onChangeFecha={handleChangeFecha}
-                  procedimientoPcl={procedimientoPcl}
-                  onChangeProcedimiento={handleChangeProcedimiento}
-                  onEditDocente={canEditDocente ? () => setShowEditDocente(true) : undefined}
-                />
-              }
-              center={
-                <DictamenCenterPanel
-                  key={`center-${dictamen.id}-${data?.serverVersion ?? ''}-${draftResetKey}`}
-                  readOnly={readOnly}
-                  serverVersion={data?.serverVersion ?? ''}
-                  dictamen={{
-                    id: dictamen.id,
-                    antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
-                    condicionSalud: dictamen.condicionSalud ?? '',
-                    descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
-                    diagnosticos: dictamen.diagnosticos ?? [],
+          {/* ✅ Captura y bloquea escritura si readOnly (además de blur/remount) */}
+          <div
+            className={readOnlyScope}
+            onBeforeInputCapture={blockTypingCapture as any}
+            onPasteCapture={blockTypingCapture as any}
+            onDropCapture={blockTypingCapture as any}
+            onKeyDownCapture={(ev: any) => {
+              if (!readOnly) return;
+              if (!isEditableTarget(ev.target)) return;
 
-                    // ✅ NUEVOS (para tab sustentación)
-                    fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
-                    tipoEvento: dictamen.tipoEvento ?? null,
-                    origenEvento: dictamen.origenEvento ?? null,
-                  }}
-                  procedimientoPcl={procedimientoPcl}
-                  fechaDictamen={fechaDictamen}
-                />
+              // deja Ctrl/Cmd + C (copiar) y navegación
+              if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'c' || ev.key === 'a' || ev.key === 'f')) return;
+              if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape', 'Tab'].includes(ev.key)) return;
+
+              // bloquea teclas que modifican
+              if (ev.key === 'Backspace' || ev.key === 'Delete' || ev.key === 'Enter' || (ev.key?.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey)) {
+                ev.preventDefault();
+                ev.stopPropagation();
               }
-              right={
-                <DictamenRightPanel
-                  key={`right-${dictamen.id}-${procedimientoPcl}`}
-                  dictamenId={dictamen.id}
-                  procedimientoPcl={procedimientoPcl}
-                />
-              }
-            />
+            }}
+          >
+            {/* ✅ Remount duro con closeEpoch */}
+            <div key={`layout-${dictamen.id}-${closeEpoch}`}>
+              <DictamenFormLayout
+                left={
+                  <DictamenLeftPanel
+                    dictamenId={dictamen.id}
+                    estado={dictamen.estado}
+                    docente={dictamen.docente}
+                    medico={dictamen.medico}
+                    numeroDictamen={numeroDictamen}
+                    fechaDictamen={fechaDictamen}
+                    onChangeFecha={handleChangeFecha}
+                    procedimientoPcl={procedimientoPcl}
+                    onChangeProcedimiento={handleChangeProcedimiento}
+                    onEditDocente={canEditDocente ? () => setShowEditDocente(true) : undefined}
+                  />
+                }
+                center={
+                  <DictamenCenterPanel
+                    key={`center-${dictamen.id}-${data?.serverVersion ?? ''}-${draftResetKey}-${readOnly ? 'ro' : 'rw'}-${closeEpoch}`}
+                    readOnly={readOnly}
+                    serverVersion={data?.serverVersion ?? ''}
+                    dictamen={{
+                      id: dictamen.id,
+                      antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+                      condicionSalud: dictamen.condicionSalud ?? '',
+                      descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                      diagnosticos: dictamen.diagnosticos ?? [],
+                      fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
+                      tipoEvento: dictamen.tipoEvento ?? null,
+                      origenEvento: dictamen.origenEvento ?? null,
+                    }}
+                    procedimientoPcl={procedimientoPcl}
+                    fechaDictamen={fechaDictamen}
+                  />
+                }
+                right={
+                  <DictamenRightPanel
+                    key={`right-${dictamen.id}-${procedimientoPcl}-${closeEpoch}`}
+                    dictamenId={dictamen.id}
+                    procedimientoPcl={procedimientoPcl}
+                  />
+                }
+              />
+            </div>
           </div>
         </div>
       </main>

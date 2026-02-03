@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useDictamenDeficienciasPanel } from '@/hooks/useDictamenDeficienciasPanel';
 import { useCerrarDictamen } from '@/hooks/useCerrarDictamen';
@@ -21,6 +22,7 @@ function formatPercent(value: number | null) {
 export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Props) {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const qc = useQueryClient();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [localClosed, setLocalClosed] = useState(false);
@@ -39,10 +41,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
   if (!effectiveDictamenId) {
     return (
       <div className="p-4 bg-white border shadow-sm rounded-xl h-fit">
-        <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
-          Totales
-        </h2>
-
+        <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">Totales</h2>
         <div className="px-3 py-3 mt-3 text-xs border rounded-md border-slate-200 bg-slate-50 text-slate-600">
           Selecciona/abre un dictamen para ver los totales.
         </div>
@@ -58,9 +57,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
   const totalTitulo1Raw =
     panel.data?.dictamen?.totalTitulo1 == null ? null : Number(panel.data.dictamen.totalTitulo1);
-  const totalTitulo1Label = formatPercent(
-    totalTitulo1Raw == null ? null : Math.round(totalTitulo1Raw)
-  );
+  const totalTitulo1Label = formatPercent(totalTitulo1Raw == null ? null : Math.round(totalTitulo1Raw));
 
   const totalCap1Raw =
     panel.data?.dictamen?.totalCap1 == null ? null : Number(panel.data.dictamen.totalCap1);
@@ -82,15 +79,11 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
       : String((panel.data?.dictamen as any).claseLimitacionLaboral);
 
   const totalTitulo3Raw =
-    (panel.data?.dictamen as any)?.totalTitulo3 == null
-      ? null
-      : Number((panel.data?.dictamen as any).totalTitulo3);
+    (panel.data?.dictamen as any)?.totalTitulo3 == null ? null : Number((panel.data?.dictamen as any).totalTitulo3);
 
   const totalTitulo3Label = proc !== 'A' ? 'No aplica' : formatPercent(totalTitulo3Raw);
 
-  const basePcl =
-    (totalTitulo1Raw ?? 0) + (proc === 'B' ? (totalCap1Raw ?? 0) : 0) + (totalCap2Raw ?? 0);
-
+  const basePcl = (totalTitulo1Raw ?? 0) + (proc === 'B' ? (totalCap1Raw ?? 0) : 0) + (totalCap2Raw ?? 0);
   const pclFinal = proc === 'A' ? basePcl + (totalTitulo3Raw ?? 0) : basePcl;
 
   const basePclLabel = formatPercent(basePcl);
@@ -103,29 +96,59 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
         panel.refetch();
       }
     }
-
     window.addEventListener('dictamen:totales_updated', onTotalesUpdated as any);
-    return () => {
-      window.removeEventListener('dictamen:totales_updated', onTotalesUpdated as any);
-    };
+    return () => window.removeEventListener('dictamen:totales_updated', onTotalesUpdated as any);
   }, [effectiveDictamenId, panel]);
 
   const closingDisabled = localClosed || cerrar.isPending;
 
   async function confirmClose() {
     try {
-      await cerrar.mutateAsync();
+      const resp = await cerrar.mutateAsync();
+      const maybeSv = (resp as any)?.serverVersion ? String((resp as any).serverVersion) : undefined;
+
       setLocalClosed(true);
       setConfirmOpen(false);
 
+      // ✅ BLUR INMEDIATO: mata edición si el textarea estaba enfocado
+      try {
+        (document.activeElement as any)?.blur?.();
+      } catch {}
+
+      // ✅ 1) Actualiza cache del dictamen (por si lo lees en otros lugares)
+      qc.setQueryData(['dictamen', effectiveDictamenId], (prev: any) => {
+        if (!prev?.dictamen) return prev;
+        const next = {
+          ...prev,
+          dictamen: { ...prev.dictamen, estado: 'CERRADO' },
+        };
+        if (maybeSv) next.serverVersion = maybeSv;
+        return next;
+      });
+
+      // ✅ 2) DISPARA evento para que el Shell BLOQUEE YA (sin esperar refetch)
+      window.dispatchEvent(
+        new CustomEvent('dictamen:closed', {
+          detail: { dictamenId: effectiveDictamenId, serverVersion: maybeSv },
+        })
+      );
+
       toast.success('Dictamen cerrado', { id: 'dictamen_cerrado_ok' });
 
+      // ✅ 3) Refetch de totales
       panel.refetch();
+
+      // ✅ 4) Refetch del dictamen (serverVersion/estado real)
+      qc.invalidateQueries({ queryKey: ['dictamen', effectiveDictamenId] });
+      qc.refetchQueries({ queryKey: ['dictamen', effectiveDictamenId] });
+
+      // ✅ 5) Refresh “sutil” (como F5) para bloquear edición inmediatamente
       router.refresh();
+      setTimeout(() => {
+        window.location.reload();
+      }, 600);
     } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo cerrar el dictamen', {
-        id: 'dictamen_cerrado_error',
-      });
+      toast.error(e?.message ?? 'No se pudo cerrar el dictamen', { id: 'dictamen_cerrado_error' });
     }
   }
 
@@ -134,12 +157,9 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
       <div className="p-4 bg-white border shadow-sm rounded-xl h-fit">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
-              Totales
-            </h2>
+            <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">Totales</h2>
             <p className="mt-1 text-[11px] text-slate-500">
-              Procedimiento actual:{' '}
-              <span className="font-semibold text-slate-700">{proc}</span>
+              Procedimiento actual: <span className="font-semibold text-slate-700">{proc}</span>
             </p>
 
             {localClosed && (
@@ -176,9 +196,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
               <p className="text-[11px] text-slate-500">Total Título I</p>
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-semibold text-slate-900">{totalTitulo1Label}</p>
-                <p className="text-[11px] text-slate-500">
-                  (Proc. {proc} · máx {max}%)
-                </p>
+                <p className="text-[11px] text-slate-500">(Proc. {proc} · máx {max}%)</p>
               </div>
             </div>
 
@@ -186,9 +204,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
               <p className="text-[11px] text-slate-500">Total Cap. 1 (AVD–AIVD)</p>
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-semibold text-slate-900">{totalCap1Label}</p>
-                <p className="text-[11px] text-slate-500">
-                  {proc === 'B' ? 'Suma de actividades' : '(Solo Proc. B)'}
-                </p>
+                <p className="text-[11px] text-slate-500">{proc === 'B' ? 'Suma de actividades' : '(Solo Proc. B)'}</p>
               </div>
             </div>
 
@@ -206,9 +222,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
               <p className="text-[11px] text-slate-500">Total Título III (Análisis ocupacional)</p>
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-semibold text-slate-900">{totalTitulo3Label}</p>
-                <p className="text-[11px] text-slate-500">
-                  {proc === 'A' ? 'Incremento sobre Base PCL' : '(Solo Proc. A)'}
-                </p>
+                <p className="text-[11px] text-slate-500">{proc === 'A' ? 'Incremento sobre Base PCL' : '(Solo Proc. A)'}</p>
               </div>
             </div>
 
@@ -216,23 +230,18 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
               <p className="text-[11px] text-slate-500">Total Base PCL (T1 + T2)</p>
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-semibold text-slate-900">{basePclLabel}</p>
-                <p className="text-[11px] text-slate-500">
-                  {proc === 'A' ? 'Sin Título III' : 'Total acumulado'}
-                </p>
+                <p className="text-[11px] text-slate-500">{proc === 'A' ? 'Sin Título III' : 'Total acumulado'}</p>
               </div>
 
               <div className="pt-3 mt-3 border-t border-slate-200">
                 <p className="text-[11px] text-slate-500">PCL Final</p>
                 <div className="flex items-baseline justify-between">
                   <p className="text-lg font-semibold text-slate-900">{pclFinalLabel}</p>
-                  <p className="text-[11px] text-slate-500">
-                    {proc === 'A' ? 'Base + Título III' : 'No aplica Título III'}
-                  </p>
+                  <p className="text-[11px] text-slate-500">{proc === 'A' ? 'Base + Título III' : 'No aplica Título III'}</p>
                 </div>
               </div>
             </div>
 
-            {/* ✅ Zona de peligro - abajo */}
             <div className="px-3 py-3 mt-4 border border-red-200 rounded-md bg-red-50">
               <p className="text-[11px] font-semibold text-red-800">Acciones</p>
               <p className="mt-1 text-[11px] text-red-700">
@@ -249,7 +258,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
                     : 'border-red-300 bg-white text-red-700 hover:bg-red-100'
                 }`}
               >
-                {cerrar.isPending ? 'Cerrando…' : 'Cerrar dictamen'}
+                {cerrar.isPending ? 'Cerrando…' : localClosed ? 'Dictamen cerrado' : 'Cerrar dictamen'}
               </button>
             </div>
           </div>
@@ -267,9 +276,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
           <>
             ¿Seguro que deseas <b>CERRAR</b> este dictamen?
             <br />
-            <span className="font-semibold text-red-700">
-              Una vez cerrado no se podrá editar.
-            </span>
+            <span className="font-semibold text-red-700">Una vez cerrado no se podrá editar.</span>
           </>
         }
         cancelText="Cancelar"
