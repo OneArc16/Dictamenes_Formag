@@ -19,8 +19,69 @@ function formatPercent(value: number | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
 }
 
+// ✅ lee estado/readOnly sin asumir shape del cache
+function getClosedFromCacheShape(cached: any): boolean {
+  if (!cached) return false;
+
+  const readOnly =
+    cached?.readOnly === true ||
+    cached?.data?.readOnly === true ||
+    cached?.dictamen?.readOnly === true ||
+    cached?.data?.dictamen?.readOnly === true;
+
+  const estado =
+    cached?.dictamen?.estado ??
+    cached?.estado ??
+    cached?.data?.dictamen?.estado ??
+    cached?.data?.estado ??
+    cached?.dictamenEstado ??
+    cached?.data?.dictamenEstado ??
+    null;
+
+  return readOnly || estado === 'CERRADO';
+}
+
+// ✅ setQueryData sin romper la estructura existente
+function setCacheCerrado(prev: any, maybeSv?: string) {
+  if (!prev) return prev;
+
+  // caso típico: { dictamen: {...}, readOnly }
+  if (prev?.dictamen) {
+    const next = {
+      ...prev,
+      dictamen: { ...prev.dictamen, estado: 'CERRADO' },
+      readOnly: true,
+    };
+    if (maybeSv) next.serverVersion = maybeSv;
+    return next;
+  }
+
+  // caso: { data: { dictamen: {...}, readOnly } }
+  if (prev?.data?.dictamen) {
+    const next = {
+      ...prev,
+      data: {
+        ...prev.data,
+        dictamen: { ...prev.data.dictamen, estado: 'CERRADO' },
+        readOnly: true,
+      },
+    };
+    if (maybeSv) next.serverVersion = maybeSv;
+    return next;
+  }
+
+  // caso: dictamen plano { estado: ... }
+  if (typeof prev === 'object' && prev?.estado) {
+    const next = { ...prev, estado: 'CERRADO', readOnly: true };
+    if (maybeSv) (next as any).serverVersion = maybeSv;
+    return next;
+  }
+
+  return prev;
+}
+
 export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Props) {
-  const params = useParams<{ id: string }>();
+  const params = useParams();
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -28,7 +89,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
   const [localClosed, setLocalClosed] = useState(false);
 
   const idFromParams = useMemo(() => {
-    const raw = (params as any)?.id;
+    const raw = (params as any)?.Id ?? (params as any)?.id; // soporta [Id] y [id]
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   }, [params]);
@@ -52,15 +113,63 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
   const panel = useDictamenDeficienciasPanel(effectiveDictamenId, procedimientoPcl ?? null);
   const cerrar = useCerrarDictamen(effectiveDictamenId);
 
-  const proc = (procedimientoPcl ?? panel.data?.dictamen?.procedimientoPcl ?? 'A') as 'A' | 'B';
+  const proc = (procedimientoPcl ?? (panel.data?.dictamen as any)?.procedimientoPcl ?? 'A') as 'A' | 'B';
   const max = proc === 'A' ? 75 : 50;
 
+  // ============================================================
+  // ✅ CERRADO REAL: viene del cache ['dictamen', id] (NO del panel)
+  // ============================================================
+  const [closedFromCache, setClosedFromCache] = useState<boolean>(() => {
+    const cached = qc.getQueryData(['dictamen', effectiveDictamenId]) as any;
+    return getClosedFromCacheShape(cached);
+  });
+
+  useEffect(() => {
+    const compute = () => {
+      const cached = qc.getQueryData(['dictamen', effectiveDictamenId]) as any;
+      const next = getClosedFromCacheShape(cached);
+      setClosedFromCache((prev) => (prev === next ? prev : next));
+    };
+
+    compute();
+
+    const unsub = qc.getQueryCache().subscribe((event: any) => {
+      const qk = event?.query?.queryKey;
+      if (Array.isArray(qk) && qk[0] === 'dictamen' && Number(qk[1]) === Number(effectiveDictamenId)) {
+        compute();
+      }
+    });
+
+    // ✅ escucha ambos eventos (tu hook dispara estado_updated)
+    const onEstado = (ev: Event) => {
+      const e = ev as CustomEvent<{ dictamenId?: number }>;
+      if (e?.detail?.dictamenId === effectiveDictamenId) {
+        setClosedFromCache(true);
+      }
+    };
+
+    window.addEventListener('dictamen:closed', onEstado as any);
+    window.addEventListener('dictamen:estado_updated', onEstado as any);
+
+    return () => {
+      unsub?.();
+      window.removeEventListener('dictamen:closed', onEstado as any);
+      window.removeEventListener('dictamen:estado_updated', onEstado as any);
+    };
+  }, [effectiveDictamenId, qc]);
+
+  // ✅ dictamen cerrado (local o cache o (si existiera) panel)
+  const isCerrado =
+    localClosed || closedFromCache || (panel.data?.dictamen as any)?.estado === 'CERRADO';
+
+  // ============================================================
+
   const totalTitulo1Raw =
-    panel.data?.dictamen?.totalTitulo1 == null ? null : Number(panel.data.dictamen.totalTitulo1);
+    (panel.data?.dictamen as any)?.totalTitulo1 == null ? null : Number((panel.data?.dictamen as any).totalTitulo1);
   const totalTitulo1Label = formatPercent(totalTitulo1Raw == null ? null : Math.round(totalTitulo1Raw));
 
   const totalCap1Raw =
-    panel.data?.dictamen?.totalCap1 == null ? null : Number(panel.data.dictamen.totalCap1);
+    (panel.data?.dictamen as any)?.totalCap1 == null ? null : Number((panel.data?.dictamen as any).totalCap1);
 
   const totalCap1Label =
     proc !== 'B'
@@ -70,7 +179,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
       : `${totalCap1Raw.toFixed(1)}%`;
 
   const totalCap2Raw =
-    panel.data?.dictamen?.totalCap2 == null ? null : Number(panel.data.dictamen.totalCap2);
+    (panel.data?.dictamen as any)?.totalCap2 == null ? null : Number((panel.data?.dictamen as any).totalCap2);
   const totalCap2Label = formatPercent(totalCap2Raw);
 
   const claseCap2 =
@@ -92,15 +201,13 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
   useEffect(() => {
     function onTotalesUpdated(ev: Event) {
       const e = ev as CustomEvent<{ dictamenId?: number }>;
-      if (e?.detail?.dictamenId === effectiveDictamenId) {
-        panel.refetch();
-      }
+      if (e?.detail?.dictamenId === effectiveDictamenId) panel.refetch();
     }
     window.addEventListener('dictamen:totales_updated', onTotalesUpdated as any);
     return () => window.removeEventListener('dictamen:totales_updated', onTotalesUpdated as any);
   }, [effectiveDictamenId, panel]);
 
-  const closingDisabled = localClosed || cerrar.isPending;
+  const closingDisabled = isCerrado || cerrar.isPending;
 
   async function confirmClose() {
     try {
@@ -110,23 +217,21 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
       setLocalClosed(true);
       setConfirmOpen(false);
 
-      // ✅ BLUR INMEDIATO: mata edición si el textarea estaba enfocado
       try {
         (document.activeElement as any)?.blur?.();
       } catch {}
 
-      // ✅ 1) Actualiza cache del dictamen (por si lo lees en otros lugares)
       qc.setQueryData(['dictamen', effectiveDictamenId], (prev: any) => {
         if (!prev?.dictamen) return prev;
         const next = {
           ...prev,
           dictamen: { ...prev.dictamen, estado: 'CERRADO' },
+          readOnly: true,
         };
         if (maybeSv) next.serverVersion = maybeSv;
         return next;
       });
 
-      // ✅ 2) DISPARA evento para que el Shell BLOQUEE YA (sin esperar refetch)
       window.dispatchEvent(
         new CustomEvent('dictamen:closed', {
           detail: { dictamenId: effectiveDictamenId, serverVersion: maybeSv },
@@ -135,18 +240,14 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
       toast.success('Dictamen cerrado', { id: 'dictamen_cerrado_ok' });
 
-      // ✅ 3) Refetch de totales
       panel.refetch();
-
-      // ✅ 4) Refetch del dictamen (serverVersion/estado real)
       qc.invalidateQueries({ queryKey: ['dictamen', effectiveDictamenId] });
-      qc.refetchQueries({ queryKey: ['dictamen', effectiveDictamenId] });
 
-      // ✅ 5) Refresh “sutil” (como F5) para bloquear edición inmediatamente
+      // ✅ REFRESCO TEMPORAL
       router.refresh();
       setTimeout(() => {
         window.location.reload();
-      }, 600);
+      }, 300);
     } catch (e: any) {
       toast.error(e?.message ?? 'No se pudo cerrar el dictamen', { id: 'dictamen_cerrado_error' });
     }
@@ -162,7 +263,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
               Procedimiento actual: <span className="font-semibold text-slate-700">{proc}</span>
             </p>
 
-            {localClosed && (
+            {isCerrado && (
               <div className="mt-2 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
                 Dictamen CERRADO
               </div>
@@ -171,6 +272,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
           <button
             type="button"
+            data-ro-allow="1"
             onClick={() => panel.refetch()}
             className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
@@ -244,9 +346,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
 
             <div className="px-3 py-3 mt-4 border border-red-200 rounded-md bg-red-50">
               <p className="text-[11px] font-semibold text-red-800">Acciones</p>
-              <p className="mt-1 text-[11px] text-red-700">
-                Al cerrar el dictamen, quedará bloqueado para edición.
-              </p>
+              <p className="mt-1 text-[11px] text-red-700">Al cerrar el dictamen, quedará bloqueado para edición.</p>
 
               <button
                 type="button"
@@ -258,7 +358,23 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
                     : 'border-red-300 bg-white text-red-700 hover:bg-red-100'
                 }`}
               >
-                {cerrar.isPending ? 'Cerrando…' : localClosed ? 'Dictamen cerrado' : 'Cerrar dictamen'}
+                {cerrar.isPending ? 'Cerrando…' : isCerrado ? 'Dictamen cerrado' : 'Cerrar dictamen'}
+              </button>
+              
+              <button
+                type="button"
+                data-ro-allow="1"
+                title="Abrir vista de impresión"
+                onClick={() => {
+                  const url = `/medico/dictamen/${effectiveDictamenId}/imprimir`;
+                  const win = window.open(url, '_blank', 'noopener,noreferrer');
+                  if (!win) {
+                    toast.error('El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.');
+                  }
+                }}
+                className="w-full px-3 py-2 mt-2 text-sm font-semibold bg-white border rounded-lg border-slate-300 text-slate-800 hover:bg-slate-100"
+              >
+                Imprimir
               </button>
             </div>
           </div>

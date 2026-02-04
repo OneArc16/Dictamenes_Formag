@@ -12,6 +12,10 @@ import TabTituloIII from '@/components/dictamen/tabs/tabTituloIII';
 
 import { useCie10Options } from '@/hooks/useCie10Options';
 
+type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
+type TipoEvento = 'ENFERMEDAD' | 'ACCIDENTE';
+type OrigenEvento = 'LABORAL' | 'COMUN';
+
 type TabId =
   | 'ANTECEDENTES'
   | 'DIAGNOSTICOS'
@@ -21,24 +25,17 @@ type TabId =
   | 'TITULO_III'
   | 'SUSTENTACION';
 
-export type TipoEvento = 'ENFERMEDAD' | 'ACCIDENTE';
-export type OrigenEvento = 'LABORAL' | 'COMUN';
-
 type DictamenCenterPanelProps = {
   readOnly?: boolean;
   serverVersion?: string;
   dictamen: {
     id: number;
-
-    // ✅ IMPORTANTE: esto debe venir del server
-    // true = pendiente/abierto, false = CERRADO
-    estado?: boolean | null;
+    estado?: DictamenEstado | null;
 
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
 
-    // ✅ Cap 2
     claseLimitacionLaboral?: 'I' | 'II' | 'III' | 'IV' | null;
     totalCap2?: number | null;
 
@@ -48,13 +45,12 @@ type DictamenCenterPanelProps = {
       cie10Label?: string | null;
     }[];
 
-    // ✅ Nuevos (Estructuración / Origen)
-    fechaEstructuracionInvalidez?: string | null; // YYYY-MM-DD
+    fechaEstructuracionInvalidez?: string | null;
     tipoEvento?: TipoEvento | null;
     origenEvento?: OrigenEvento | null;
   };
   procedimientoPcl: 'A' | 'B';
-  fechaDictamen: string; // (si no lo usas aquí, lo puedes quitar del props)
+  fechaDictamen: string;
 };
 
 export default function DictamenCenterPanel({
@@ -68,25 +64,22 @@ export default function DictamenCenterPanel({
 
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
-  const isAvdDisabled = procedimientoPcl === 'A'; // AVD-AIVD solo Proc B
-  const isTituloIIIDisabled = procedimientoPcl === 'B'; // Título III solo Proc A
+  const isAvdDisabled = procedimientoPcl === 'A';
+  const isTituloIIIDisabled = procedimientoPcl === 'B';
 
-  const isClosed = dictamen.estado === false;
+  const isClosed = dictamen.estado === 'CERRADO';
   const effectiveReadOnly = readOnly || isClosed;
 
-  // ✅ Si estaba en AVD y cambia a Proc A, lo sacamos
   useEffect(() => {
     if (isAvdDisabled && tab === 'AVD_AIVD') setTab('DEFICIENCIAS');
   }, [isAvdDisabled, tab]);
 
-  // ✅ Si estaba en Título III y cambia a Proc B, lo sacamos
   useEffect(() => {
     if (isTituloIIIDisabled && tab === 'TITULO_III') setTab('CAPITULO_2');
   }, [isTituloIIIDisabled, tab]);
 
   return (
     <div className="bg-white border shadow-sm rounded-xl">
-      {/* Header de pestañas */}
       <div className="relative z-10 flex px-4 border-b bg-slate-50">
         {(
           [
@@ -127,23 +120,17 @@ export default function DictamenCenterPanel({
                   ? 'border-blue-600 text-blue-700'
                   : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
               } ${
-                disabled
-                  ? 'cursor-not-allowed opacity-50 hover:border-transparent hover:text-slate-500'
-                  : ''
+                disabled ? 'cursor-not-allowed opacity-50 hover:border-transparent hover:text-slate-500' : ''
               }`}
             >
               {label}
-              {disabled ? (
-                <span className="ml-2 text-[10px] text-slate-400">(No aplica)</span>
-              ) : null}
+              {disabled ? <span className="ml-2 text-[10px] text-slate-400">(No aplica)</span> : null}
             </button>
           );
         })}
       </div>
 
-      {/* Contenido */}
       <div className="p-4 text-sm">
-        {/* ✅ Aviso de dictamen cerrado */}
         {isClosed && (
           <div className="px-3 py-2 mb-3 text-xs border rounded-lg border-amber-200 bg-amber-50 text-amber-900">
             <b>Dictamen cerrado:</b> este dictamen está en <b>solo lectura</b>. No se permite editar.
@@ -151,12 +138,9 @@ export default function DictamenCenterPanel({
         )}
 
         {cie10Error && tab === 'DIAGNOSTICOS' && (
-          <div className="mb-3 text-[11px] text-red-600">
-            Error cargando el catálogo CIE10. Intenta recargar la página.
-          </div>
+          <div className="mb-3 text-[11px] text-red-600">Error cargando el catálogo CIE10. Intenta recargar la página.</div>
         )}
 
-        {/* ✅ Candado global de edición */}
         <fieldset disabled={effectiveReadOnly} className={effectiveReadOnly ? 'opacity-95' : ''}>
           {tab === 'ANTECEDENTES' && (
             <TabAntecedentes
@@ -182,13 +166,9 @@ export default function DictamenCenterPanel({
             />
           )}
 
-          {tab === 'DEFICIENCIAS' && (
-            <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
-          )}
+          {tab === 'DEFICIENCIAS' && <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
 
-          {tab === 'AVD_AIVD' && (
-            <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
-          )}
+          {tab === 'AVD_AIVD' && <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
 
           {tab === 'CAPITULO_2' && (
             <TituloIICapitulo2Tab
@@ -199,14 +179,12 @@ export default function DictamenCenterPanel({
             />
           )}
 
-          {tab === 'TITULO_III' && (
-            <TabTituloIII dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
-          )}
+          {tab === 'TITULO_III' && <TabTituloIII dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
 
           {tab === 'SUSTENTACION' && (
             <TabSustentacion
               dictamenId={dictamen.id}
-              readOnly={effectiveReadOnly} // ✅ IMPORTANTE
+              readOnly={effectiveReadOnly}
               initialMeta={{
                 fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
                 tipoEvento: dictamen.tipoEvento ?? null,
