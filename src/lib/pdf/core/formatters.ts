@@ -20,11 +20,24 @@ export function joinName(...parts: Array<string | null | undefined>) {
   return parts.map((x) => (x ?? '').trim()).filter(Boolean).join(' ');
 }
 
-export function sexoToGenero(sexo?: string | null, genero?: string | null) {
-  if (genero && genero.trim()) return genero;
-  const s = (sexo ?? '').toUpperCase();
-  if (s === 'M') return 'MASCULINO';
+export function sexoToGenero(sexo?: string | null, generoLibre?: string | null) {
+  const s = (sexo ?? '').toString().trim().toUpperCase();
+
+  // ✅ Regla de tu BD:
+  // M = MUJER (FEMENINO)
+  // H = HOMBRE (MASCULINO)
+  if (s === 'M') return 'FEMENINO';
+  if (s === 'H') return 'MASCULINO';
+
+  // Compatibilidad por si llega en otros formatos
   if (s === 'F') return 'FEMENINO';
+  if (s === 'MASCULINO' || s === 'HOMBRE') return 'MASCULINO';
+  if (s === 'FEMENINO' || s === 'MUJER') return 'FEMENINO';
+
+  // Si no viene sexo o viene raro, intenta usar genero libre
+  const g = (generoLibre ?? '').toString().trim().toUpperCase();
+  if (g) return g;
+
   return '';
 }
 

@@ -14,6 +14,14 @@ type Props = {
   procedimientoPcl?: 'A' | 'B';
 };
 
+function onPrintReactPdf(dictamenId?: number) {
+  if (!dictamenId) {
+    toast.error('No se encontró el ID del dictamen');
+    return;
+  }
+  window.open(`/api/dictamenes/${dictamenId}/pdf-react`, '_blank', 'noopener,noreferrer');
+}
+
 function formatPercent(value: number | null) {
   if (value == null || Number.isNaN(value)) return '—';
   return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
@@ -375,6 +383,14 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
                 className="w-full px-3 py-2 mt-2 text-sm font-semibold bg-white border rounded-lg border-slate-300 text-slate-800 hover:bg-slate-100"
               >
                 Imprimir
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onPrintReactPdf(dictamenId)}
+                className="px-3 py-2 text-sm border rounded-md"
+              >
+                Imprimir (React PDF)
               </button>
             </div>
           </div>

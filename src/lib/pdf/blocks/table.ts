@@ -5,6 +5,8 @@ import { drawRect, drawTextBaseline, drawTextInCell } from '@/lib/pdf/core/pdfCo
 export type CellAlign = 'left' | 'center';
 export type CellValign = 'top' | 'middle';
 
+export type LabelLayout = 'inline' | 'stack';
+
 export type TableCell = {
   w: number;
   h?: number;
@@ -12,35 +14,34 @@ export type TableCell = {
   fill?: Color;
   border?: Color;
 
-  // Texto simple
   text?: string;
 
-  // Texto compuesto: label (bold) + value (normal)
   label?: string;
   value?: string;
 
-  // fuentes (opcionales por celda)
-  font?: PDFFont; // normal
-  bold?: PDFFont; // bold (para label)
+  font?: PDFFont;
+  bold?: PDFFont;
 
-  // tamaños
-  size?: number; // para text simple
+  size?: number;
   minSize?: number;
 
-  // label/value sizes (si no vienen, usamos defaults)
-  labelSize?: number; // ✅ default 12
-  valueSize?: number; // ✅ default 10
-  minValueSize?: number; // ✅ default 7
+  labelSize?: number;
+  valueSize?: number;
+  minLabelSize?: number;
+  minValueSize?: number;
 
-  // layout texto
+  layout?: LabelLayout;
+
   padding?: number;
   lineHeight?: number;
   align?: CellAlign;
   valign?: CellValign;
-  gap?: number; // separación label/value
+
+  gap?: number;
 };
 
-function fitValue(font: PDFFont, value: string, size: number, maxW: number) {
+function fitText(font: PDFFont, value: string, size: number, maxW: number) {
+  if (!value) return '';
   if (font.widthOfTextAtSize(value, size) <= maxW) return value;
 
   let txt = value;
@@ -50,12 +51,6 @@ function fitValue(font: PDFFont, value: string, size: number, maxW: number) {
   return txt + '…';
 }
 
-/**
- * Dibuja label (bold) + value (normal) en una sola línea,
- * centrado verticalmente en la celda, con shrink + ellipsis del value.
- *
- * ✅ NO usa drawTextBaseline para evitar líneas guía/artefactos.
- */
 function drawInlineLabelValue(params: {
   page: PDFPage;
   x: number;
@@ -66,11 +61,12 @@ function drawInlineLabelValue(params: {
   label: string;
   value: string;
 
-  labelFont: PDFFont;
-  valueFont: PDFFont;
+  bold: PDFFont;
+  font: PDFFont;
 
   labelSize: number;
   valueSize: number;
+  minLabelSize: number;
   minValueSize: number;
 
   padding: number;
@@ -84,50 +80,162 @@ function drawInlineLabelValue(params: {
     h,
     label,
     value,
-    labelFont,
-    valueFont,
+    bold,
+    font,
     labelSize,
     valueSize,
+    minLabelSize,
     minValueSize,
     padding,
     gap,
   } = params;
 
-  const { height } = page.getSize();
-
-  const labelText = (label ?? '').trim();
+  const labelRaw = (label ?? '').trim();
   const valueRaw = (value ?? '').trim();
 
-  // baseline top (coords "desde arriba")
-  const baseSize = Math.max(labelSize, valueSize);
-  const baselineTop = topY + (h - baseSize) / 2 + baseSize - 1;
-  const yPdf = height - baselineTop;
+  const innerW = Math.max(0, w - padding * 2);
 
-  // label
-  page.drawText(labelText, {
-    x: x + padding,
-    y: yPdf,
-    size: labelSize,
-    font: labelFont,
-  });
+  // Ajusta label si es demasiado largo
+  let ls = labelSize;
+  while (ls > minLabelSize && bold.widthOfTextAtSize(labelRaw, ls) > innerW) {
+    ls -= 0.25;
+  }
 
-  const labelW = labelFont.widthOfTextAtSize(labelText, labelSize);
+  const labelW = bold.widthOfTextAtSize(labelRaw, ls);
+
   const valueX = x + padding + labelW + gap;
   const maxValueW = Math.max(0, x + w - padding - valueX);
 
-  // shrink value
+  // Ajusta value si es demasiado largo
   let vs = valueSize;
-  while (vs >= minValueSize && valueFont.widthOfTextAtSize(valueRaw, vs) > maxValueW) {
+  while (vs > minValueSize && font.widthOfTextAtSize(valueRaw, vs) > maxValueW) {
     vs -= 0.25;
   }
 
-  const valueText = fitValue(valueFont, valueRaw, vs, maxValueW);
+  const valueTxt = fitText(font, valueRaw, vs, maxValueW);
 
-  page.drawText(valueText, {
-    x: valueX,
-    y: yPdf,
-    size: vs,
-    font: valueFont,
+  const baseline = topY + (h - Math.max(ls, vs)) / 2 + Math.max(ls, vs) - 1;
+
+  drawTextBaseline(page, bold, labelRaw, x + padding, baseline, ls);
+  if (valueTxt) drawTextBaseline(page, font, valueTxt, valueX, baseline, vs);
+}
+
+/**
+ * ✅ STACK BIEN HECHO:
+ * - Reserva una banda superior real para el label (1 línea)
+ * - Reserva una banda inferior real para el value (1 línea)
+ * - Ambos con valign middle para que se vean “bonitos” como plantilla
+ */
+function drawStackLabelValue(params: {
+  page: PDFPage;
+  x: number;
+  topY: number;
+  w: number;
+  h: number;
+
+  label: string;
+  value: string;
+
+  bold: PDFFont;
+  font: PDFFont;
+
+  labelSize: number;
+  valueSize: number;
+  minLabelSize: number;
+  minValueSize: number;
+
+  padding: number;
+  lineHeight: number;
+  align: CellAlign;
+}) {
+  const {
+    page,
+    x,
+    topY,
+    w,
+    h,
+    label,
+    value,
+    bold,
+    font,
+    labelSize,
+    valueSize,
+    minLabelSize,
+    minValueSize,
+    padding,
+    lineHeight,
+    align,
+  } = params;
+
+  // Banda mínima necesaria para que el texto exista
+  const minLabelH = Math.max(lineHeight, labelSize + 2);
+  const minValueH = Math.max(lineHeight, valueSize + 2);
+
+  // Si la celda es muy bajita, cae a inline (evita cosas raras)
+  if (h < minLabelH + minValueH) {
+    drawInlineLabelValue({
+      page,
+      x,
+      topY,
+      w,
+      h,
+      label,
+      value,
+      bold,
+      font,
+      labelSize,
+      valueSize,
+      minLabelSize,
+      minValueSize,
+      padding,
+      gap: 3,
+    });
+    return;
+  }
+
+  // ✅ Split “bonito”: ~45% label, ~55% value, pero respetando mínimos
+  let labelH = Math.max(minLabelH, Math.floor(h * 0.45));
+  let valueH = h - labelH;
+
+  // Asegurar mínimos
+  if (valueH < minValueH) {
+    const need = minValueH - valueH;
+    labelH = Math.max(minLabelH, labelH - need);
+    valueH = h - labelH;
+  }
+
+  // LABEL (arriba)
+  drawTextInCell({
+    page,
+    font: bold,
+    text: (label ?? '').trim(),
+    x,
+    topY,
+    w,
+    h: labelH,
+    size: labelSize,
+    minSize: minLabelSize,
+    padding,
+    lineHeight,
+    align: 'left',
+    valign: 'middle',
+  });
+
+  // VALUE (abajo)
+  drawTextInCell({
+    page,
+    font,
+    text: (value ?? '').trim(),
+    x,
+    topY: topY + labelH,
+    w,
+    h: valueH,
+    size: valueSize,
+    minSize: minValueSize,
+    padding,
+    lineHeight,
+    align,
+    valign: 'middle',
   });
 }
 
@@ -137,14 +245,11 @@ export function drawTableRow(params: {
   topY: number;
   h: number;
   theme: PdfTheme;
-
-  // ✅ defaults de fila (para no tener que pasar font/bold en cada celda)
+  cells: TableCell[];
   font?: PDFFont;
   bold?: PDFFont;
-
-  cells: TableCell[];
 }) {
-  const { page, x, topY, h, theme, cells, font: rowFont, bold: rowBold } = params;
+  const { page, x, topY, h, theme, cells } = params;
 
   let cursorX = x;
 
@@ -155,46 +260,74 @@ export function drawTableRow(params: {
     drawRect(page, cursorX, topY, w, cellH, cell.fill, cell.border ?? theme.border);
 
     const padding = cell.padding ?? 4;
+    const lineHeight = cell.lineHeight ?? 11;
 
-    // ✅ Caso label + value (inline)
+    // label/value
     if (cell.label != null) {
-      const labelFont = cell.bold ?? rowBold;
-      const valueFont = cell.font ?? rowFont;
+      const useBold = cell.bold ?? params.bold;
+      const useFont = cell.font ?? params.font;
+      if (!useBold || !useFont) throw new Error('TableCell label/value requiere font y bold.');
 
-      if (!labelFont || !valueFont) {
-        throw new Error('TableCell con label/value requiere font/bold (en celda o en drawTableRow)');
+      const base = cell.size ?? 9;
+      const labelSize = cell.labelSize ?? base;
+      const valueSize = cell.valueSize ?? base;
+
+      const minLabelSize = cell.minLabelSize ?? Math.min(10, labelSize);
+      const minValueSize = cell.minValueSize ?? 7;
+
+      const layout: LabelLayout = cell.layout ?? 'inline';
+
+      if (layout === 'stack') {
+        drawStackLabelValue({
+          page,
+          x: cursorX,
+          topY,
+          w,
+          h: cellH,
+          label: cell.label ?? '',
+          value: cell.value ?? '',
+          bold: useBold,
+          font: useFont,
+          labelSize,
+          valueSize,
+          minLabelSize,
+          minValueSize,
+          padding,
+          lineHeight,
+          align: cell.align ?? 'left',
+        });
+      } else {
+        drawInlineLabelValue({
+          page,
+          x: cursorX,
+          topY,
+          w,
+          h: cellH,
+          label: cell.label ?? '',
+          value: cell.value ?? '',
+          bold: useBold,
+          font: useFont,
+          labelSize,
+          valueSize,
+          minLabelSize,
+          minValueSize,
+          padding,
+          gap: cell.gap ?? 3,
+        });
       }
-
-      drawInlineLabelValue({
-        page,
-        x: cursorX,
-        topY,
-        w,
-        h: cellH,
-        label: cell.label ?? '',
-        value: cell.value ?? '',
-        labelFont,
-        valueFont,
-        labelSize: cell.labelSize ?? 12, // ✅ lo que pediste
-        valueSize: cell.valueSize ?? 10,
-        minValueSize: cell.minValueSize ?? 7,
-        padding,
-        gap: cell.gap ?? 4,
-      });
 
       cursorX += w;
       continue;
     }
 
-    // Texto simple
+    // text simple
     const text = (cell.text ?? '').trim();
     if (text) {
-      const useFont = cell.font ?? rowFont;
-      if (!useFont) {
-        throw new Error('TableCell con text requiere font (en celda o en drawTableRow)');
-      }
+      const useFont = cell.font ?? params.font;
+      if (!useFont) throw new Error('TableCell text requiere font.');
 
       const size = cell.size ?? 9;
+
       const useWrap = text.includes('\n') || text.length > 18;
 
       if (useWrap) {
@@ -209,14 +342,12 @@ export function drawTableRow(params: {
           size,
           minSize: cell.minSize ?? 7,
           padding,
-          lineHeight: cell.lineHeight ?? 11,
+          lineHeight,
           align: cell.align ?? 'left',
           valign: cell.valign ?? 'middle',
         });
       } else {
-        // aquí sí mantenemos drawTextBaseline (tu texto simple corto)
         const baseline = topY + (cellH - size) / 2 + size - 1;
-
         if ((cell.align ?? 'left') === 'center') {
           const tw = useFont.widthOfTextAtSize(text, size);
           drawTextBaseline(page, useFont, text, cursorX + (w - tw) / 2, baseline, size);
