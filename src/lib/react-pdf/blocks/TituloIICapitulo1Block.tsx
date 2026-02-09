@@ -80,11 +80,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 16,
-
-    // ✅ antes: borderWidth: pdfTheme.sizes.borderWidth (0.7)
-    // ✅ ahora: mismo grosor que el grid para que "encaje" la línea
-    borderWidth: GRID.w,
-    borderColor: GRID.color,
+    borderWidth: pdfTheme.sizes.borderWidth,
+    borderColor: pdfTheme.colors.border,
   },
   barText: {
     fontSize: 8.0,
@@ -111,8 +108,8 @@ const styles = StyleSheet.create({
   cell: {
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRightWidth: GRID.w,
-    borderRightColor: GRID.color,
+    borderRightWidth: GRID.w,          // ✅ más visible
+    borderRightColor: GRID.color,      // ✅
     justifyContent: 'center',
   },
   cellLast: {
@@ -264,7 +261,7 @@ export function TituloIICapitulo1Block({ dictamen }: Props) {
         <View
           style={[
             styles.gridRow,
-            { borderBottomWidth: GRID.w, borderBottomColor: GRID.color },
+            { borderBottomWidth: GRID.w, borderBottomColor: GRID.color }, // ✅ más visible
           ]}
           wrap={false}
         >
