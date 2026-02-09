@@ -174,6 +174,9 @@ const styles = StyleSheet.create({
 });
 
 export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props) {
+  // ✅ Fuente real desde tu schema:
+  // Dictamen.deficiencias -> DictamenDeficiencia[]
+  // y la info viene de .deficiencia y .clase
   const fromDb = Array.isArray(dictamen?.deficiencias) ? dictamen.deficiencias : [];
 
   const itemsRaw = fromDb.map((d: any) => ({
@@ -183,11 +186,15 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
     valorDeficiencia: d?.valorDeficiencia,
   }));
 
-  // ✅ YA NO recorta a 5: muestra la cantidad real
-  // Si no hay nada, deja 1 fila placeholder para que no quede vacío
+  // ✅ YA NO limitamos a 5: mostramos la cantidad real (si no hay nada, 1 placeholder)
   const rows = itemsRaw.length ? itemsRaw : [null];
 
-  const ponderacionMax = 75;
+  // ✅ A=75%, B=50%
+  const proc = String(dictamen?.procedimientoPcl ?? '').toUpperCase();
+  const ponderacionMax = proc === 'B' ? 50 : 75;
+
+  // ✅ Total Título I (viene del modelo Dictamen.totalTitulo1)
+  const totalTituloI = dictamen?.totalTitulo1;
 
   return (
     <View>
@@ -258,17 +265,17 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
           );
         })}
 
-        {/* Suma */}
+        {/* Suma (a la derecha va Total Título I) */}
         <View style={styles.sumRow} wrap={false}>
           <View style={styles.sumLeft}>
             <Text style={styles.sumText}>Suma con fórmula de valores combinados (75% ó 50%):</Text>
           </View>
           <View style={styles.sumRight}>
-            <Text style={styles.sumText}>{' '}</Text>
+            <Text style={styles.sumText}>{formatPercent(totalTituloI)}</Text>
           </View>
         </View>
 
-        {/* Pie */}
+        {/* Pie (ponderación máxima depende del procedimiento) */}
         <View style={styles.footerRow} wrap={false}>
           <View style={styles.footerLeft}>
             <Text style={styles.footerLeftText}>Deficiencia</Text>

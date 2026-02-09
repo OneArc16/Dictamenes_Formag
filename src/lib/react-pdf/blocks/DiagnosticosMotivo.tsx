@@ -15,20 +15,25 @@ const COLOR = {
 const NUM_W = 18;
 const CODE_W = 64;
 
+// ✅ Líneas internas más notorias + línea superior visible
+const LINE_W = 1.2;
+
 const styles = StyleSheet.create({
   // Header
   headRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     backgroundColor: COLOR.head,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
+    borderTopWidth: LINE_W, // ✅ línea superior más notoria
+    borderTopColor: pdfTheme.colors.border,
+    borderBottomWidth: LINE_W,
     borderBottomColor: pdfTheme.colors.border,
   },
   headLeft: {
     flex: 1,
     paddingHorizontal: 6,
     paddingVertical: 4,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
+    borderRightWidth: LINE_W,
     borderRightColor: pdfTheme.colors.border,
     justifyContent: 'center',
   },
@@ -49,7 +54,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     backgroundColor: COLOR.body,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
+    borderBottomWidth: LINE_W, // ✅ líneas internas más notorias
     borderBottomColor: pdfTheme.colors.border,
     minHeight: 16,
   },
@@ -58,7 +63,7 @@ const styles = StyleSheet.create({
   },
   cNum: {
     width: NUM_W,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
+    borderRightWidth: LINE_W,
     borderRightColor: pdfTheme.colors.border,
     paddingHorizontal: 4,
     paddingVertical: 3,
@@ -66,7 +71,7 @@ const styles = StyleSheet.create({
   },
   cDiag: {
     flex: 1,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
+    borderRightWidth: LINE_W,
     borderRightColor: pdfTheme.colors.border,
     paddingHorizontal: 6,
     paddingVertical: 3,

@@ -11,6 +11,9 @@ import { IdentificacionEducadorBlock } from './blocks/IdentificacionEducador';
 import { AntecedentesClinicosBlock } from './blocks/AntecedentesClinicos';
 import { DiagnosticosMotivoBlock } from './blocks/DiagnosticosMotivo';
 import { VariablesPerdidaCapacidadLaboralTituloIBlock } from './blocks/VariablesPerdidaCapacidadLaboralTituloI';
+import { TituloIICapitulo1Block } from './blocks/TituloIICapitulo1Block';
+import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
+
 
 type Props = {
   dictamen: any;
@@ -72,6 +75,14 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
 
         <SectionBox style={{ marginTop: 0 }}>
           <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
+        </SectionBox>
+
+        <SectionBox style={{ marginTop: 0 }}>
+          <TituloIICapitulo1Block dictamen={dictamen} />
+        </SectionBox>
+
+        <SectionBox style={{ marginTop: 0 }}>
+          <TituloIICapitulo2Block dictamen={dictamen} />
         </SectionBox>
 
       </PageFrame>

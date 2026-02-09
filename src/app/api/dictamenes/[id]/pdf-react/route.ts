@@ -86,8 +86,12 @@ export async function GET(req: Request, ctx: RouteCtx) {
       numeroDictamen: true,
       fechaDictamen: true,
       procedimientoPcl: true,
+      totalTitulo1: true,
       tipoEvento: true,
       origenEvento: true,
+      totalCap1: true,
+      claseLimitacionLaboral: true,
+      totalCap2: true,
 
       antecedentesClinicos: true,
       condicionSalud: true,
@@ -123,6 +127,11 @@ export async function GET(req: Request, ctx: RouteCtx) {
             },
           },
         },
+      },
+
+      limitacionesAvdAivd: {
+        orderBy: [{ actividad: 'asc' }],
+        select: { actividad: true, valor: true },
       },
 
       usuario: {
@@ -184,9 +193,26 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const u = dictamen.usuario as any;
   const generoFix = u ? normalizeGenero(u.sexo, u.genero) : null;
 
+  const cap2Clase =
+  (dictamen as any).tituloIICapitulo2Clase ??
+  (dictamen as any).limitacionPerfilLaboralClase ??
+  null;
+
+const cap2Total =
+  (dictamen as any).valorTotalTituloIICap2 ??
+  (dictamen as any).totalTituloIICap2 ??
+  (dictamen as any).totalTitulo2Cap2 ??
+  null;
+
   // ✅ PASA logoSrc como PROP (tu DictamenReactPdf lo espera así)
   const dictamenPdf: any = {
     ...dictamen,
+        tituloII: {
+      capitulo2: {
+        clase: cap2Clase,
+        valorTotal: cap2Total,
+      },
+    },
     usuario: u
       ? {
           ...u,
