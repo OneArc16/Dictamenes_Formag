@@ -13,6 +13,8 @@ import { DiagnosticosMotivoBlock } from './blocks/DiagnosticosMotivo';
 import { VariablesPerdidaCapacidadLaboralTituloIBlock } from './blocks/VariablesPerdidaCapacidadLaboralTituloI';
 import { TituloIICapitulo1Block } from './blocks/TituloIICapitulo1Block';
 import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
+import { TituloIIIPage1Block } from './blocks/TituloIIIPage1Block';
+import PorcentajePclBlock from '@/lib/react-pdf/blocks/PorcentajePclBlock';
 
 
 type Props = {
@@ -83,6 +85,14 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
 
         <SectionBox style={{ marginTop: 0 }}>
           <TituloIICapitulo2Block dictamen={dictamen} />
+        </SectionBox>
+
+        <SectionBox style={{ marginTop: 0}}>
+          <TituloIIIPage1Block dictamen={dictamen} />
+        </SectionBox>
+
+        <SectionBox style={{ marginTop: 0}}>
+          <PorcentajePclBlock dictamen={dictamen} />
         </SectionBox>
 
       </PageFrame>

@@ -7,9 +7,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic'; // evita cache
+export const dynamic = 'force-dynamic';
 
-type RouteCtx = { params: { id: string } | Promise<{ id: string }> };
+type RouteCtx = { params: Promise<{ id: string }> };
 
 async function streamToBuffer(stream: any) {
   const chunks: any[] = [];
@@ -28,7 +28,6 @@ function mimeFromExt(p: string) {
 }
 
 async function getLogoDataUrl(req: Request) {
-  // ✅ tu ruta real
   const candidates = [
     path.join(process.cwd(), 'public', 'assets', 'logo-sism.png'),
     path.join(process.cwd(), 'public', 'assets', 'logo-sism.PNG'),
@@ -44,7 +43,6 @@ async function getLogoDataUrl(req: Request) {
     }
   }
 
-  // ✅ fallback: lo trae desde el mismo host (sirviendo /public)
   const url = new URL('/assets/logo-sism.png', req.url);
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return null;
@@ -71,9 +69,107 @@ function normalizeGenero(sexo: any, generoRaw: any) {
   return map(s1) ?? map(s2) ?? (s2 ? s2 : null) ?? (s1 ? s1 : null);
 }
 
+function toText(v: any): string | null {
+  if (v == null) return null;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const pick =
+      v.nombre ?? v.name ?? v.label ?? v.descripcion ?? v.descripcionFactor ?? v.descripcionCriterio ?? v.titulo ?? v.valor ?? null;
+    return pick != null ? String(pick) : String(v);
+  }
+  return String(v);
+}
+
+function normalizeGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
+  const raw = toText(v);
+  if (!raw) return null;
+
+  const s0 = raw
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // números 0..4
+  if (s0 === '0') return '0';
+  if (s0 === '1') return 'I';
+  if (s0 === '2') return 'II';
+  if (s0 === '3') return 'III';
+  if (s0 === '4') return 'IV';
+
+  // formas comunes: CLASE_I, CLASE II, CLASE-III, etc.
+  const s = s0.replace(/[_\-]+/g, ' ');
+  if (s.includes('CLASE')) {
+    const t = s.replace(/\bCLASE\b/g, '').trim();
+    if (t === '0' || t === 'CERO') return '0';
+    if (t === 'I') return 'I';
+    if (t === 'II') return 'II';
+    if (t === 'III') return 'III';
+    if (t === 'IV') return 'IV';
+  }
+
+  // romanos directos
+  if (s === 'I') return 'I';
+  if (s === 'II') return 'II';
+  if (s === 'III') return 'III';
+  if (s === 'IV') return 'IV';
+  if (s === 'CERO') return '0';
+
+  // descriptores (por si guardaste texto)
+  if (s.includes('INEXISTENTE') || s.includes('NINGUNA')) return '0';
+  if (s.includes('LEVE') || s.includes('LIGERA') || s.includes('NO HAY DIFICULTAD')) return 'I';
+  if (s.includes('MODERADA')) return 'II';
+  if (s.includes('SEVERA')) return 'III';
+  if (s.includes('COMPLETA') || s.includes('TOTAL')) return 'IV';
+
+  return null;
+}
+
+/**
+ * ✅ Truco clave para que NO queden X incompletas:
+ * - Por cada fila del análisis, creamos variantes:
+ *   1) factor
+ *   2) "criterio factor"
+ *   3) "factor criterio"
+ * Así coincide con tus keys del PDF aunque en BD venga separado.
+ */
+function expandAnalisisOcupacional(arr: any[]) {
+  const out: any[] = [];
+
+  for (const it of arr) {
+    const criterio =
+      toText(it?.criterio ?? it?.criterioNombre ?? it?.grupo ?? it?.categoria ?? it?.seccion ?? it?.valorCriterio ?? it?.valor ?? null) ?? null;
+
+    const factor =
+      toText(it?.factor ?? it?.factorNombre ?? it?.nombreFactor ?? it?.descripcionFactor ?? it?.name ?? it?.label ?? null) ?? null;
+
+    const g =
+      normalizeGravedad(it?.gravedad ?? it?.grado ?? it?.clase ?? it?.nivel ?? it?.valorGravedad ?? it?.valor ?? null);
+
+    if (!g || (!factor && !criterio)) continue;
+
+    // base (lo mínimo que tu bloque entiende)
+    const base: any = {};
+    if (factor) base.factor = factor;
+    if (criterio) base.criterio = criterio;
+    base.gravedad = g;
+
+    out.push(base);
+
+    // variantes (para matchear todas tus combinaciones de keys)
+    if (factor && criterio) {
+      out.push({ factor: `${criterio} ${factor}`, gravedad: g });
+      out.push({ factor: `${factor} ${criterio}`, gravedad: g });
+    }
+  }
+
+  return out;
+}
+
 export async function GET(req: Request, ctx: RouteCtx) {
-  const params = await Promise.resolve(ctx.params);
-  const id = Number(params.id);
+  const { id: idStr } = await ctx.params;
+  const id = Number(idStr);
 
   if (!Number.isFinite(id)) {
     return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400 });
@@ -92,6 +188,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
       totalCap1: true,
       claseLimitacionLaboral: true,
       totalCap2: true,
+      totalTitulo3: true,
 
       antecedentesClinicos: true,
       condicionSalud: true,
@@ -112,20 +209,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
         select: {
           id: true,
           valorDeficiencia: true,
-
-          clase: {
-            select: {
-              nombre: true,
-            },
-          },
-
-          deficiencia: {
-            select: {
-              nombre: true,
-              capitulo: true,
-              tabla: true,
-            },
-          },
+          clase: { select: { nombre: true } },
+          deficiencia: { select: { nombre: true, capitulo: true, tabla: true } },
         },
       },
 
@@ -133,6 +218,9 @@ export async function GET(req: Request, ctx: RouteCtx) {
         orderBy: [{ actividad: 'asc' }],
         select: { actividad: true, valor: true },
       },
+
+      // ✅ IMPORTANTE: traer TODO (para no perder campos como criterio, etc.)
+      analisisOcupacional: true,
 
       usuario: {
         select: {
@@ -194,25 +282,32 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const generoFix = u ? normalizeGenero(u.sexo, u.genero) : null;
 
   const cap2Clase =
-  (dictamen as any).tituloIICapitulo2Clase ??
-  (dictamen as any).limitacionPerfilLaboralClase ??
-  null;
+    (dictamen as any).tituloIICapitulo2Clase ??
+    (dictamen as any).limitacionPerfilLaboralClase ??
+    null;
 
-const cap2Total =
-  (dictamen as any).valorTotalTituloIICap2 ??
-  (dictamen as any).totalTituloIICap2 ??
-  (dictamen as any).totalTitulo2Cap2 ??
-  null;
+  const cap2Total =
+    (dictamen as any).valorTotalTituloIICap2 ??
+    (dictamen as any).totalTituloIICap2 ??
+    (dictamen as any).totalTitulo2Cap2 ??
+    null;
 
-  // ✅ PASA logoSrc como PROP (tu DictamenReactPdf lo espera así)
+  const analisisRaw = Array.isArray((dictamen as any).analisisOcupacional) ? (dictamen as any).analisisOcupacional : [];
+  const analisisFix = expandAnalisisOcupacional(analisisRaw);
+
   const dictamenPdf: any = {
     ...dictamen,
-        tituloII: {
+
+    // ✅ aquí es donde “se arreglan” las X
+    analisisOcupacional: analisisFix,
+
+    tituloII: {
       capitulo2: {
         clase: cap2Clase,
         valorTotal: cap2Total,
       },
     },
+
     usuario: u
       ? {
           ...u,
@@ -234,7 +329,6 @@ const cap2Total =
       : null,
   };
 
-  // ✅ aquí está la corrección clave: pasar logoSrc al componente
   const element = React.createElement(DictamenReactPdf, { dictamen: dictamenPdf, logoSrc });
   const stream = await renderToStream(element);
   const buffer = await streamToBuffer(stream);
