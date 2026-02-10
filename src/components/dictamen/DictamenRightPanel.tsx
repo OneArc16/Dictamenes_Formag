@@ -369,7 +369,7 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
                 {cerrar.isPending ? 'Cerrando…' : isCerrado ? 'Dictamen cerrado' : 'Cerrar dictamen'}
               </button>
               
-              <button
+              {/* <button
                 type="button"
                 data-ro-allow="1"
                 title="Abrir vista de impresión"
@@ -383,14 +383,14 @@ export default function DictamenRightPanel({ dictamenId, procedimientoPcl }: Pro
                 className="w-full px-3 py-2 mt-2 text-sm font-semibold bg-white border rounded-lg border-slate-300 text-slate-800 hover:bg-slate-100"
               >
                 Imprimir
-              </button>
+              </button> */}
 
               <button
                 type="button"
                 onClick={() => onPrintReactPdf(dictamenId)}
-                className="px-3 py-2 text-sm border rounded-md"
+                className="w-full px-3 py-2 mt-2 text-sm font-semibold bg-white border rounded-lg border-slate-300 text-slate-800 hover:bg-slate-100"
               >
-                Imprimir (React PDF)
+                Imprimir
               </button>
             </div>
           </div>

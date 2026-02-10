@@ -15,6 +15,7 @@ import { TituloIICapitulo1Block } from './blocks/TituloIICapitulo1Block';
 import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
 import { TituloIIIPage1Block } from './blocks/TituloIIIPage1Block';
 import PorcentajePclBlock from '@/lib/react-pdf/blocks/PorcentajePclBlock';
+import ProcedimientoBlock from './blocks/ProcedimientoBlock';
 
 
 type Props = {
@@ -67,7 +68,7 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         </SectionBox>
 
         {/* ✅ NUEVA SECCIÓN (Diagnósticos) */}
-        <SectionBox style={{ marginTop: 0 }}>
+        <SectionBox style={{ marginTop: -2 }}>
           <DiagnosticosMotivoBlock dictamen={dictamen} />
         </SectionBox>
 
@@ -79,20 +80,24 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
           <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0 }}>
+        <SectionBox style={{ marginTop: -2 }}>
           <TituloIICapitulo1Block dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0 }}>
+        <SectionBox style={{ marginTop: -2 }}>
           <TituloIICapitulo2Block dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0}}>
+        <SectionBox style={{ marginTop: -2}}>
           <TituloIIIPage1Block dictamen={dictamen} />
         </SectionBox>
 
         <SectionBox style={{ marginTop: 0}}>
           <PorcentajePclBlock dictamen={dictamen} />
+        </SectionBox>
+
+        <SectionBox style={{ marginTop: -2}}>
+          <ProcedimientoBlock dictamen={dictamen} />
         </SectionBox>
 
       </PageFrame>
