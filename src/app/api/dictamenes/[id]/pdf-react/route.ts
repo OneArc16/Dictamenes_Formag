@@ -75,7 +75,15 @@ function toText(v: any): string | null {
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {
     const pick =
-      v.nombre ?? v.name ?? v.label ?? v.descripcion ?? v.descripcionFactor ?? v.descripcionCriterio ?? v.titulo ?? v.valor ?? null;
+      v.nombre ??
+      v.name ??
+      v.label ??
+      v.descripcion ??
+      v.descripcionFactor ??
+      v.descripcionCriterio ??
+      v.titulo ??
+      v.valor ??
+      null;
     return pick != null ? String(pick) : String(v);
   }
   return String(v);
@@ -139,17 +147,32 @@ function expandAnalisisOcupacional(arr: any[]) {
 
   for (const it of arr) {
     const criterio =
-      toText(it?.criterio ?? it?.criterioNombre ?? it?.grupo ?? it?.categoria ?? it?.seccion ?? it?.valorCriterio ?? it?.valor ?? null) ?? null;
+      toText(
+        it?.criterio ??
+          it?.criterioNombre ??
+          it?.grupo ??
+          it?.categoria ??
+          it?.seccion ??
+          it?.valorCriterio ??
+          it?.valor ??
+          null,
+      ) ?? null;
 
     const factor =
-      toText(it?.factor ?? it?.factorNombre ?? it?.nombreFactor ?? it?.descripcionFactor ?? it?.name ?? it?.label ?? null) ?? null;
+      toText(
+        it?.factor ??
+          it?.factorNombre ??
+          it?.nombreFactor ??
+          it?.descripcionFactor ??
+          it?.name ??
+          it?.label ??
+          null,
+      ) ?? null;
 
-    const g =
-      normalizeGravedad(it?.gravedad ?? it?.grado ?? it?.clase ?? it?.nivel ?? it?.valorGravedad ?? it?.valor ?? null);
+    const g = normalizeGravedad(it?.gravedad ?? it?.grado ?? it?.clase ?? it?.nivel ?? it?.valorGravedad ?? it?.valor ?? null);
 
     if (!g || (!factor && !criterio)) continue;
 
-    // base (lo mínimo que tu bloque entiende)
     const base: any = {};
     if (factor) base.factor = factor;
     if (criterio) base.criterio = criterio;
@@ -157,7 +180,6 @@ function expandAnalisisOcupacional(arr: any[]) {
 
     out.push(base);
 
-    // variantes (para matchear todas tus combinaciones de keys)
     if (factor && criterio) {
       out.push({ factor: `${criterio} ${factor}`, gravedad: g });
       out.push({ factor: `${factor} ${criterio}`, gravedad: g });
@@ -189,6 +211,10 @@ export async function GET(req: Request, ctx: RouteCtx) {
       claseLimitacionLaboral: true,
       totalCap2: true,
       totalTitulo3: true,
+
+      // ✅ FALTABAN PARA LA SECCIÓN NUEVA
+      sustentacionObservaciones: true,
+      fechaEstructuracionInvalidez: true,
 
       antecedentesClinicos: true,
       condicionSalud: true,

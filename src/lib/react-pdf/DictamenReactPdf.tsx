@@ -16,6 +16,7 @@ import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
 import { TituloIIIPage1Block } from './blocks/TituloIIIPage1Block';
 import PorcentajePclBlock from '@/lib/react-pdf/blocks/PorcentajePclBlock';
 import ProcedimientoBlock from './blocks/ProcedimientoBlock';
+import SustentacionOrigenBlock from './blocks/SustentacionOrigenBlock';
 
 
 type Props = {
@@ -99,6 +100,11 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         <SectionBox style={{ marginTop: -2}}>
           <ProcedimientoBlock dictamen={dictamen} />
         </SectionBox>
+
+        <SectionBox style={{ marginTop: -2}}>
+          <SustentacionOrigenBlock dictamen={dictamen} />
+        </SectionBox>
+
 
       </PageFrame>
     </Document>

@@ -20,10 +20,17 @@ function toNum(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function fmtPct(v: number | null | undefined): string {
-  if (v == null) return '______'; // en el ejemplo va en blanco/guiones
-  const s = Number.isInteger(v) ? `${v}` : `${v.toFixed(1)}`;
-  return s;
+// ✅ devuelve SOLO el número (sin %), porque el % ya lo pintamos afuera
+function fmtNum(v: number): string {
+  return Number.isInteger(v) ? `${v}` : `${v.toFixed(1)}`;
+}
+
+// ✅ para este formato: si es null o 0 → en blanco (______)
+// (así evitamos que aparezca "0%")
+function fmtBlankIfNullOrZero(v: number | null | undefined): string {
+  if (v == null) return '______';
+  if (v === 0) return '______';
+  return fmtNum(v);
 }
 
 export default function ProcedimientoBlock({ dictamen }: Props) {
@@ -33,6 +40,8 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
   const t1 = toNum(dictamen?.totalTitulo1 ?? dictamen?.tituloI?.valorTotal);
   const c1 = toNum(dictamen?.totalCap1 ?? dictamen?.tituloII?.capitulo1?.valorTotal);
   const c2 = toNum(dictamen?.totalCap2 ?? dictamen?.tituloII?.capitulo2?.valorTotal);
+
+  // ✅ totalTitulo3 (este es el campo que estás usando)
   const t3 = toNum(dictamen?.totalTitulo3 ?? dictamen?.tituloIII?.valorTotal);
 
   // Base = Título I + (cap1+cap2) del Título II
@@ -42,18 +51,17 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
     return (t1 ?? 0) + (c1 ?? 0) + (c2 ?? 0);
   })();
 
-  // “Valor para adicionar por Título III”:
-  // Se aplica el % del Título III al valor base (p.ej. 32% de base => base * 0.32)
-  const addT3 = base != null && t3 != null ? (base * t3) / 100 : null;
+  // (se mantiene por si lo usas como fallback del total final)
+  const baseMasT3 = base != null && t3 != null ? base + t3 : null;
 
-  // Final ajustado = base + adicional
-  const finalAjustado = base != null && addT3 != null ? base + addT3 : null;
+  // ✅ Si ya tienes el total final en dictamen, lo respetamos; si no, usamos base + t3
+  const totalFinal = toNum(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasT3);
 
-  // Para PROCEDIMIENTO B (según el formato): solo muestra base (T1 + T2)
+  // Para PROCEDIMIENTO B: solo base (T1 + T2)
   const baseB = base;
 
   return (
-    // ✅ wrap={false} + minPresenceAhead evita que se “parta” feo al cambiar de página
+    // ✅ evita que se “parta” feo al cambiar de página
     <View style={styles.box} wrap={false} minPresenceAhead={140}>
       {/* Header */}
       <View style={styles.header} wrap={false}>
@@ -65,19 +73,20 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
         {/* Líneas Procedimiento A */}
         <Text style={styles.line}>
           Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
-          <Text style={styles.bold}>{proc === 'A' ? fmtPct(base) : '______'}</Text>%{' '}
+          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(base) : '______'}</Text>%{' '}
           <Text style={styles.italic}>(Valor Pérdida de Capacidad Laboral)</Text>
         </Text>
 
         <Text style={styles.line}>
           Valor Pérdida de Capacidad Laboral X Valor Título III ={' '}
-          <Text style={styles.bold}>{proc === 'A' ? fmtPct(addT3) : '______'}</Text>%{' '}
+          {/* ✅ AQUÍ VA totalTitulo3 */}
+          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(t3) : '______'}</Text>%{' '}
           <Text style={styles.italic}>(Valor Para para adicionar por Título III)</Text>
         </Text>
 
         <Text style={styles.line}>
           Valor Para para adicionar por Título III + Valor Pérdida de Capacidad Laboral ={' '}
-          <Text style={styles.bold}>{proc === 'A' ? fmtPct(finalAjustado) : '______'}</Text>%{' '}
+          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(totalFinal) : '______'}</Text>%{' '}
           <Text style={styles.italic}>(Valor final ajustado de PCL)</Text>
         </Text>
 
@@ -86,7 +95,7 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
 
         <Text style={styles.line}>
           Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
-          <Text style={styles.bold}>{proc === 'B' ? fmtPct(baseB) : '______'}</Text>%
+          <Text style={styles.bold}>{proc === 'B' ? fmtBlankIfNullOrZero(baseB) : '______'}</Text>%
         </Text>
       </View>
     </View>
