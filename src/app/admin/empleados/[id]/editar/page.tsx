@@ -5,12 +5,7 @@ import EmpleadoForm from '@/components/admin/empleados/EmpleadoForm';
 import ResetPasswordButton from '@/components/admin/empleados/ResetPasswordButton';
 import DeleteEmpleadoButton from '@/components/admin/empleados/DeleteEmpleadoButton';
 
-
-export default async function EditarEmpleadoPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function EditarEmpleadoPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
 
   const { id } = await params;
@@ -25,15 +20,23 @@ export default async function EditarEmpleadoPage({
     );
   }
 
-  const [perfiles, empleado] = await Promise.all([
+  const [perfiles, especialidades, empleado] = await Promise.all([
     prisma.perfil.findMany({
       where: { estado: 1 },
       orderBy: { nombre: 'asc' },
       select: { id: true, nombre: true },
     }),
+    prisma.especialidadMedica.findMany({
+      where: { estado: true },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true },
+    }),
     prisma.empleado.findUnique({
       where: { id: empleadoId },
-      include: { perfil: true },
+      include: {
+        perfil: true,
+        especialidades: { select: { especialidadId: true } }, // ✅ trae ids del join
+      },
     }),
   ]);
 
@@ -57,9 +60,7 @@ export default async function EditarEmpleadoPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-900">Editar empleado</h1>
-          <p className="text-[11px] text-slate-500">
-            ID {empleado.id} — actualiza datos y/o cambia contraseña
-          </p>
+          <p className="text-[11px] text-slate-500">ID {empleado.id} — actualiza datos y/o cambia contraseña</p>
         </div>
 
         <Link
@@ -93,10 +94,10 @@ export default async function EditarEmpleadoPage({
         </div>
       </div>
 
-
       <div className="p-4 bg-white border shadow-sm rounded-xl border-slate-200">
         <EmpleadoForm
           perfiles={perfiles}
+          especialidades={especialidades} // ✅ lista completa para el multiselect
           method="PATCH"
           apiUrl={`/api/admin/empleados/${empleado.id}`}
           submitLabel="Guardar cambios"
@@ -119,6 +120,10 @@ export default async function EditarEmpleadoPage({
             direccion: empleado.direccion ?? '',
             registroMedico: empleado.registroMedico ?? '',
             licencia: empleado.licencia ?? '',
+
+            // ✅ junta + especialidades seleccionadas
+            esMiembroJunta: empleado.esMiembroJunta ?? false,
+            especialidadIds: (empleado.especialidades ?? []).map((x) => x.especialidadId),
           }}
         />
       </div>

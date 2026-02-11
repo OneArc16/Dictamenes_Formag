@@ -29,6 +29,11 @@ enum ProcedimientoPcl {
   B
 }
 
+enum TratamientoProfesional {
+  DR
+  DRA
+}
+
 // Modo de valoración para MOVIMIENTO
 enum MovimientoModo {
   RESTRICCION
@@ -607,6 +612,8 @@ model Empleado {
 
   registroMedico String? @db.VarChar(25)
   licencia       String? @db.VarChar(30)
+
+  tratamiento TratamientoProfesional @default(DR) @map("tratamiento")
 
   perfilId Int?
   perfil   Perfil? @relation(fields: [perfilId], references: [id])

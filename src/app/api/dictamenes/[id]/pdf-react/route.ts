@@ -27,6 +27,19 @@ function mimeFromExt(p: string) {
   return 'application/octet-stream';
 }
 
+function guessMimeFromBytes(bytes: Buffer): string | null {
+  if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg';
+  return null;
+}
+
+function bytesToDataUrl(bytes: any, mime?: string | null): string | null {
+  if (!bytes) return null;
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const m = mime || guessMimeFromBytes(buf) || 'image/png';
+  return `data:${m};base64,${buf.toString('base64')}`;
+}
+
 async function getLogoDataUrl(req: Request) {
   const candidates = [
     path.join(process.cwd(), 'public', 'assets', 'logo-sism.png'),
@@ -124,7 +137,7 @@ function normalizeGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
   if (s === 'IV') return 'IV';
   if (s === 'CERO') return '0';
 
-  // descriptores (por si guardaste texto)
+  // descriptores
   if (s.includes('INEXISTENTE') || s.includes('NINGUNA')) return '0';
   if (s.includes('LEVE') || s.includes('LIGERA') || s.includes('NO HAY DIFICULTAD')) return 'I';
   if (s.includes('MODERADA')) return 'II';
@@ -140,7 +153,6 @@ function normalizeGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
  *   1) factor
  *   2) "criterio factor"
  *   3) "factor criterio"
- * Así coincide con tus keys del PDF aunque en BD venga separado.
  */
 function expandAnalisisOcupacional(arr: any[]) {
   const out: any[] = [];
@@ -189,6 +201,11 @@ function expandAnalisisOcupacional(arr: any[]) {
   return out;
 }
 
+function fullName(e: any): string {
+  const parts = [e?.primerNombre, e?.segundoNombre, e?.primerApellido, e?.segundoApellido].filter(Boolean);
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 export async function GET(req: Request, ctx: RouteCtx) {
   const { id: idStr } = await ctx.params;
   const id = Number(idStr);
@@ -204,17 +221,18 @@ export async function GET(req: Request, ctx: RouteCtx) {
       numeroDictamen: true,
       fechaDictamen: true,
       procedimientoPcl: true,
+
       totalTitulo1: true,
-      tipoEvento: true,
-      origenEvento: true,
       totalCap1: true,
       claseLimitacionLaboral: true,
       totalCap2: true,
       totalTitulo3: true,
 
-      // ✅ FALTABAN PARA LA SECCIÓN NUEVA
+      // Sustentación / origen
       sustentacionObservaciones: true,
       fechaEstructuracionInvalidez: true,
+      tipoEvento: true,
+      origenEvento: true,
 
       antecedentesClinicos: true,
       condicionSalud: true,
@@ -245,8 +263,21 @@ export async function GET(req: Request, ctx: RouteCtx) {
         select: { actividad: true, valor: true },
       },
 
-      // ✅ IMPORTANTE: traer TODO (para no perder campos como criterio, etc.)
       analisisOcupacional: true,
+
+      // ✅ NUEVO: firmas “congeladas” del cierre (dictamen_junta)
+      junta: {
+        orderBy: { orden: 'asc' },
+        select: {
+          orden: true,
+          nombreCompleto: true,
+          registroMedico: true,
+          licencia: true,
+          firma: true,
+          firmaMime: true,
+          empleadoId: true,
+        },
+      },
 
       usuario: {
         select: {
@@ -274,9 +305,11 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
           codigoOcupacion: true,
 
+          // ✅ NUEVO (si lo usarás en el PDF)
+          cargoDocente: { select: { id: true, codigo: true, nombre: true } },
+
           gradoEscalafon: true,
           formaVinculacion: true,
-
           sector: true,
 
           municipio: { select: { nombre: true } },
@@ -321,10 +354,47 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const analisisRaw = Array.isArray((dictamen as any).analisisOcupacional) ? (dictamen as any).analisisOcupacional : [];
   const analisisFix = expandAnalisisOcupacional(analisisRaw);
 
+  // ✅ 1) Si ya existe snapshot en dictamen_junta -> eso manda (PDF “congelado”)
+  // ✅ 2) Si NO existe -> fallback a médicos activos de junta (para dictamen en edición)
+  let juntaPdf: any[] = (dictamen as any).junta?.map((j: any) => ({
+    orden: j.orden,
+    empleadoId: j.empleadoId ?? null,
+    nombreCompleto: j.nombreCompleto,
+    registroMedico: j.registroMedico ?? null,
+    licencia: j.licencia ?? null,
+    firmaSrc: bytesToDataUrl(j.firma, j.firmaMime),
+  })) ?? [];
+
+  if (juntaPdf.length === 0) {
+    // OJO: este where asume que ya agregaste el campo booleano en Empleado (ej: esMiembroJunta)
+    const activosJunta = await prisma.empleado.findMany({
+      where: { activo: true, esMiembroJunta: true },
+      orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
+      select: {
+        id: true,
+        primerNombre: true,
+        segundoNombre: true,
+        primerApellido: true,
+        segundoApellido: true,
+        registroMedico: true,
+        licencia: true,
+        firma: true,
+      },
+    });
+
+    juntaPdf = activosJunta.map((e: any, idx: number) => ({
+      orden: idx + 1,
+      empleadoId: e.id,
+      nombreCompleto: fullName(e),
+      registroMedico: e.registroMedico ?? null,
+      licencia: e.licencia ?? null,
+      firmaSrc: bytesToDataUrl(e.firma, null),
+    }));
+  }
+
   const dictamenPdf: any = {
     ...dictamen,
 
-    // ✅ aquí es donde “se arreglan” las X
     analisisOcupacional: analisisFix,
 
     tituloII: {
@@ -334,6 +404,10 @@ export async function GET(req: Request, ctx: RouteCtx) {
       },
     },
 
+    // ✅ lo pasamos con 2 nombres por si en el bloque lo llamas distinto
+    junta: juntaPdf,
+    juntaMedica: juntaPdf,
+
     usuario: u
       ? {
           ...u,
@@ -342,9 +416,10 @@ export async function GET(req: Request, ctx: RouteCtx) {
           // aliases que tus bloques esperan
           numeroDocumento: u.identificacion,
           documento: u.identificacion,
-          cargo: u.codigoOcupacion ?? null,
 
-          // alias legacy: institucionEducativaRef.secretariaRef
+          // si ya migras a cargoDocente en UI, igual dejo fallback al código viejo
+          cargo: u?.cargoDocente?.nombre ?? u.codigoOcupacion ?? null,
+
           institucionEducativaRef: u.institucionEducativaRef
             ? {
                 ...u.institucionEducativaRef,

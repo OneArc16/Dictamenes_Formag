@@ -5,7 +5,7 @@ import { verifyJwt } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
-
+export const dynamic = 'force-dynamic';
 
 function isAdmin(role: unknown) {
   return String(role) === 'ADMIN';
@@ -18,17 +18,23 @@ const upperOrNull = (v: any) => {
 };
 const lower = (v: any) => String(v ?? '').trim().toLowerCase();
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+function toBool(v: any) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'si' || s === 'sí';
+}
+
+function isFirmaOk(file: File) {
+  const okType = file.type === 'image/png' || file.type === 'image/jpeg';
+  const okSize = file.size <= 2 * 1024 * 1024; // 2MB
+  return okType && okSize;
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth')?.value;
 
-    if (!token) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
+    if (!token) return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
 
     const payload = await verifyJwt(token);
     if (!payload || !isAdmin((payload as any).role)) {
@@ -37,12 +43,52 @@ export async function PATCH(
 
     const { id } = await params;
     const empleadoId = Number(id);
-    if (!Number.isFinite(empleadoId)) {
+    if (!Number.isFinite(empleadoId) || empleadoId <= 0) {
       return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
     }
 
-    const body = await req.json();
+    const ct = req.headers.get('content-type') || '';
+    let body: any = {};
+    let firmaFile: File | null = null;
+    let especialidadIds: number[] = [];
 
+    if (ct.includes('multipart/form-data')) {
+      const form = await req.formData();
+
+      body.tipoDocumento = form.get('tipoDocumento');
+      body.numeroIdentidad = form.get('numeroIdentidad');
+      body.primerNombre = form.get('primerNombre');
+      body.segundoNombre = form.get('segundoNombre');
+      body.primerApellido = form.get('primerApellido');
+      body.segundoApellido = form.get('segundoApellido');
+      body.email = form.get('email');
+      body.password = form.get('password');
+
+      body.perfilId = form.get('perfilId');
+      body.activo = form.get('activo');
+
+      body.telefonos = form.get('telefonos');
+      body.direccion = form.get('direccion');
+      body.registroMedico = form.get('registroMedico');
+      body.licencia = form.get('licencia');
+
+      body.esMiembroJunta = form.get('esMiembroJunta');
+
+      especialidadIds = form
+        .getAll('especialidadIds')
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+      const f = form.get('firma');
+      firmaFile = f instanceof File ? f : null;
+    } else {
+      body = await req.json();
+      especialidadIds = Array.isArray(body?.especialidadIds)
+        ? body.especialidadIds.map(Number).filter((n: any) => Number.isFinite(n) && n > 0)
+        : [];
+    }
+
+    // Normalización
     const tipoDocumento = upper(body?.tipoDocumento);
     const numeroIdentidad = upper(body?.numeroIdentidad);
 
@@ -62,81 +108,76 @@ export async function PATCH(
     const perfilIdRaw = body?.perfilId;
     const perfilId = perfilIdRaw === '' || perfilIdRaw == null ? null : Number(perfilIdRaw);
 
-    const activo = body?.activo === false ? false : true;
+    const activo =
+      body?.activo == null
+        ? true
+        : typeof body.activo === 'boolean'
+          ? body.activo
+          : toBool(body.activo);
 
-    const password = String(body?.password ?? '').trim(); // opcional
+    const password = String(body?.password ?? '').trim();
+    const esMiembroJunta = toBool(body?.esMiembroJunta);
 
-    // Validaciones mínimas
+    // Validaciones
     if (!tipoDocumento || !numeroIdentidad) {
-      return NextResponse.json(
-        { ok: false, error: 'Tipo y número de documento son obligatorios' },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: 'Tipo y número de documento son obligatorios' }, { status: 400 });
     }
     if (!primerNombre || !primerApellido) {
-      return NextResponse.json(
-        { ok: false, error: 'Primer nombre y primer apellido son obligatorios' },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: 'Primer nombre y primer apellido son obligatorios' }, { status: 400 });
     }
-    if (!email) {
-      return NextResponse.json({ ok: false, error: 'Email es obligatorio' }, { status: 400 });
-    }
+    if (!email) return NextResponse.json({ ok: false, error: 'Email es obligatorio' }, { status: 400 });
     if (perfilId != null && !Number.isFinite(perfilId)) {
       return NextResponse.json({ ok: false, error: 'Perfil inválido' }, { status: 400 });
     }
     if (password && password.length < 6) {
-      return NextResponse.json(
-        { ok: false, error: 'La nueva contraseña debe tener mínimo 6 caracteres' },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: 'La nueva contraseña debe tener mínimo 6 caracteres' }, { status: 400 });
     }
 
-    // Existe?
+    // Existe? (traemos firma actual para validar junta)
     const current = await prisma.empleado.findUnique({
       where: { id: empleadoId },
-      select: { id: true },
+      select: { id: true, firma: true },
     });
-    if (!current) {
-      return NextResponse.json({ ok: false, error: 'Empleado no encontrado' }, { status: 404 });
+    if (!current) return NextResponse.json({ ok: false, error: 'Empleado no encontrado' }, { status: 404 });
+
+    // Firma nueva (si viene)
+    if (firmaFile && !isFirmaOk(firmaFile)) {
+      return NextResponse.json({ ok: false, error: 'Firma inválida. Solo PNG/JPG y máximo 2MB.' }, { status: 400 });
     }
 
-    // Unicidad (excluyendo el mismo empleado)
+    // Si lo activan como junta, debe tener firma (o ya tenía o viene nueva)
+    if (esMiembroJunta && !firmaFile && !current.firma) {
+      return NextResponse.json({ ok: false, error: 'Si es miembro de junta, debe tener firma (PNG/JPG).' }, { status: 400 });
+    }
+
+    // Perfil activo
+    if (perfilId != null) {
+      const perfilOk = await prisma.perfil.findFirst({
+        where: { id: perfilId, estado: 1 },
+        select: { id: true },
+      });
+      if (!perfilOk) return NextResponse.json({ ok: false, error: 'Perfil inválido o inactivo' }, { status: 400 });
+    }
+
+    // Unicidad excluyendo el mismo
     const existingByDoc = await prisma.empleado.findFirst({
-      where: {
-        tipoDocumento,
-        numeroIdentidad,
-        NOT: { id: empleadoId },
-      },
+      where: { tipoDocumento, numeroIdentidad, NOT: { id: empleadoId } },
       select: { id: true, activo: true },
     });
     if (existingByDoc) {
       return NextResponse.json(
-        {
-          ok: false,
-          error:
-            `Ya existe otro empleado con ese documento (ID ${existingByDoc.id})` +
-            (existingByDoc.activo ? '' : ' [INACTIVO]'),
-        },
+        { ok: false, error: `Ya existe otro empleado con ese documento (ID ${existingByDoc.id})${existingByDoc.activo ? '' : ' [INACTIVO]'}` },
         { status: 409 }
       );
     }
 
     const existingByEmail = await prisma.empleado.findFirst({
-      where: {
-        email,
-        NOT: { id: empleadoId },
-      },
+      where: { email, NOT: { id: empleadoId } },
       select: { id: true, activo: true },
     });
     if (existingByEmail) {
       return NextResponse.json(
-        {
-          ok: false,
-          error:
-            `Ya existe otro empleado con ese email (ID ${existingByEmail.id})` +
-            (existingByEmail.activo ? '' : ' [INACTIVO]'),
-        },
+        { ok: false, error: `Ya existe otro empleado con ese email (ID ${existingByEmail.id})${existingByEmail.activo ? '' : ' [INACTIVO]'}` },
         { status: 409 }
       );
     }
@@ -155,17 +196,43 @@ export async function PATCH(
       direccion,
       registroMedico,
       licencia,
+      esMiembroJunta,
     };
 
-    if (password) {
-      dataToUpdate.contrasena = await bcrypt.hash(password, 10);
+    if (password) dataToUpdate.contrasena = await bcrypt.hash(password, 10);
+
+    if (firmaFile) {
+      dataToUpdate.firma = Buffer.from(await firmaFile.arrayBuffer());
+      dataToUpdate.firmaMime = firmaFile.type || null;
     }
 
-    const updated = await prisma.empleado.update({
-      where: { id: empleadoId },
-      data: dataToUpdate,
-      select: { id: true },
-    });
+    const tx: any[] = [];
+
+    // Reemplazar especialidades solo si mandan alguna
+    if (especialidadIds.length) {
+      const uniqueIds = Array.from(new Set(especialidadIds));
+      tx.push(prisma.empleadoEspecialidad.deleteMany({ where: { empleadoId } }));
+      tx.push(
+        prisma.empleadoEspecialidad.createMany({
+          data: uniqueIds.map((especialidadId) => ({
+            empleadoId,
+            especialidadId,
+            principal: false,
+          })),
+        })
+      );
+    }
+
+    tx.push(
+      prisma.empleado.update({
+        where: { id: empleadoId },
+        data: dataToUpdate,
+        select: { id: true },
+      })
+    );
+
+    const result = await prisma.$transaction(tx);
+    const updated = result[result.length - 1];
 
     return NextResponse.json({ ok: true, id: updated.id });
   } catch (err: any) {
@@ -178,9 +245,7 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error actualizando empleado' },
-      { status: 500 }
-    );
+    console.error(err);
+    return NextResponse.json({ ok: false, error: err?.message ?? 'Error actualizando empleado' }, { status: 500 });
   }
 }

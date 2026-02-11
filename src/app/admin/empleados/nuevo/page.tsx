@@ -12,6 +12,12 @@ export default async function NuevoEmpleadoPage() {
     select: { id: true, nombre: true },
   });
 
+  const especialidades = await prisma.especialidadMedica.findMany({
+    where: { estado: true },
+    orderBy: { nombre: 'asc' },
+    select: { id: true, nombre: true },
+  });
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -31,7 +37,16 @@ export default async function NuevoEmpleadoPage() {
       </div>
 
       <div className="p-4 bg-white border shadow-sm rounded-xl border-slate-200">
-        <EmpleadoForm perfiles={perfiles} />
+        <EmpleadoForm
+          perfiles={perfiles}
+          especialidades={especialidades}
+          method="POST"
+          apiUrl="/api/admin/empleados"
+          showPassword
+          passwordRequired
+          submitLabel="Guardar"
+          onSuccessRedirectTo="/admin/empleados"
+        />
       </div>
     </div>
   );
