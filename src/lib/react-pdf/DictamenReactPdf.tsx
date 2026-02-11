@@ -68,7 +68,6 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
           <AntecedentesClinicosBlock dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ NUEVA SECCIÓN (Diagnósticos) */}
         <SectionBox style={{ marginTop: -2 }}>
           <DiagnosticosMotivoBlock dictamen={dictamen} />
         </SectionBox>
@@ -104,7 +103,6 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         <SectionBox style={{ marginTop: -2}}>
           <SustentacionOrigenBlock dictamen={dictamen} />
         </SectionBox>
-
 
       </PageFrame>
     </Document>

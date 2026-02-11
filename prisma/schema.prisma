@@ -41,7 +41,6 @@ enum TipoDiagnostico {
   CONFIRMADO_REPETIDO
 }
 
-
 // Clase de limitación laboral como educador
 enum ClaseLimitacionLaboral {
   I
@@ -197,6 +196,54 @@ enum DictamenOrigenEvento {
 }
 
 // =====================================
+// NUEVO: CARGOS DOCENTES (Usuario)
+// =====================================
+model CargoDocente {
+  id     Int     @id @default(autoincrement())
+  codigo String? @db.VarChar(20)
+  nombre String  @db.VarChar(150)
+  estado Boolean @default(true)
+
+  usuarios Usuario[]
+
+  @@unique([nombre])
+  @@index([codigo])
+  @@map("cargos_docentes")
+}
+
+// =====================================
+// NUEVO: ESPECIALIDADES MÉDICAS (Empleado)
+// =====================================
+model EspecialidadMedica {
+  id     Int     @id @default(autoincrement())
+  codigo String? @db.VarChar(20)
+  nombre String  @db.VarChar(150)
+  estado Boolean @default(true)
+
+  empleados EmpleadoEspecialidad[]
+
+  @@unique([nombre])
+  @@index([codigo])
+  @@map("especialidades_medicas")
+}
+
+model EmpleadoEspecialidad {
+  id             Int @id @default(autoincrement())
+  empleadoId     Int
+  especialidadId Int
+
+  principal Boolean @default(false)
+
+  empleado     Empleado           @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  especialidad EspecialidadMedica @relation(fields: [especialidadId], references: [id], onDelete: Restrict)
+
+  @@unique([empleadoId, especialidadId])
+  @@index([empleadoId])
+  @@index([especialidadId])
+  @@map("empleado_especialidades")
+}
+
+// =====================================
 // PAISES
 // =====================================
 model Pais {
@@ -216,11 +263,11 @@ model Departamento {
   codigo String @id @db.Char(2)
   nombre String @db.VarChar(50)
 
-  municipios     Municipio[]    @relation("DepartamentoMunicipios")
-  usuarios       Usuario[]      @relation("DepartamentoUsuarios")
-  eps            Eps[]          @relation("DepartamentoEps")
-  centrosMedicos CentroMedico[] @relation("DepartamentoCentroMedico")
-  sedes          Sede[]         @relation("DepartamentoSedes")
+  municipios     Municipio[]          @relation("DepartamentoMunicipios")
+  usuarios       Usuario[]            @relation("DepartamentoUsuarios")
+  eps            Eps[]                @relation("DepartamentoEps")
+  centrosMedicos CentroMedico[]       @relation("DepartamentoCentroMedico")
+  sedes          Sede[]               @relation("DepartamentoSedes")
   instituciones  InstitucionEducativa[] @relation("DepartamentoInstituciones")
 
   @@map("departamentos")
@@ -236,11 +283,11 @@ model Municipio {
 
   departamento Departamento @relation("DepartamentoMunicipios", fields: [codigoDepartamento], references: [codigo])
 
-  usuarios       Usuario[]      @relation("MunicipioUsuarios")
-  eps            Eps[]          @relation("MunicipioEps")
-  barrios        Barrio[]       @relation("MunicipioBarrios")
-  centrosMedicos CentroMedico[] @relation("MunicipioCentroMedico")
-  sedes          Sede[]         @relation("MunicipioSedes")
+  usuarios       Usuario[]            @relation("MunicipioUsuarios")
+  eps            Eps[]                @relation("MunicipioEps")
+  barrios        Barrio[]             @relation("MunicipioBarrios")
+  centrosMedicos CentroMedico[]       @relation("MunicipioCentroMedico")
+  sedes          Sede[]               @relation("MunicipioSedes")
   instituciones  InstitucionEducativa[] @relation("MunicipioInstituciones")
 
   @@index([codigoDepartamento])
@@ -267,7 +314,6 @@ model Barrio {
   @@index([codigoMunicipio])
   @@map("barrios")
 }
-
 
 // =====================================
 // EPS
@@ -362,34 +408,27 @@ model Secretaria {
   id     Int    @id @default(autoincrement())
   nombre String @db.VarChar(150)
 
-  // relaciones
-  usuarios      Usuario[]             @relation("SecretariaUsuarios")
+  usuarios      Usuario[]              @relation("SecretariaUsuarios")
   instituciones InstitucionEducativa[] @relation("SecretariaInstituciones")
 
   @@map("secretarias")
 }
 
-
 // =====================================
 // INSTITUCIONES EDUCATIVAS
 // =====================================
 model InstitucionEducativa {
-  id      Int    @id @default(autoincrement())
-  nombre  String @db.VarChar(150)
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(150)
 
-  // FK al departamento (departamentos.codigo)
   idDepartamento String? @db.Char(2) @map("id_departamento")
-  // FK al municipio (municipios.codigo)
   idMunicipio    String? @db.Char(5) @map("id_municipio")
-  // FK a la secretaria (secretarias.id)
   idSecretaria   Int?    @map("id_secretaria")
 
-  // código IED
   codigoIed String? @db.VarChar(20) @map("codigo_ied")
 
   direccion String? @db.VarChar(255)
 
-  // relaciones
   departamento Departamento? @relation("DepartamentoInstituciones", fields: [idDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioInstituciones", fields: [idMunicipio], references: [codigo])
   secretaria   Secretaria?   @relation("SecretariaInstituciones", fields: [idSecretaria], references: [id])
@@ -401,8 +440,6 @@ model InstitucionEducativa {
   @@index([idSecretaria])
   @@map("instituciones_educativas")
 }
-
-
 
 // =====================================
 // PERFILES
@@ -442,6 +479,10 @@ model Usuario {
   tipoUsuario String  @db.Char(2)
 
   codigoOcupacion String? @db.Char(4)
+
+  // ✅ NUEVO: Cargo docente
+  cargoDocenteId Int?          @map("cargo_docente_id")
+  cargoDocente   CargoDocente? @relation(fields: [cargoDocenteId], references: [id])
 
   unidadEdad String @db.Char(1)
   edad       Int?   @db.SmallInt
@@ -519,16 +560,15 @@ model Usuario {
 
   idSede Int?
 
-  gradoEscalafon       String @db.VarChar(2)
-  nivelEscalafon       String @db.VarChar(1)
-  formaVinculacion     String @db.VarChar(45)
+  gradoEscalafon   String @db.VarChar(2)
+  nivelEscalafon   String @db.VarChar(1)
+  formaVinculacion String @db.VarChar(45)
 
-  secretariaId   Int?
-  secretariaRef  Secretaria?          @relation("SecretariaUsuarios", fields: [secretariaId], references: [id])
+  secretariaId  Int?
+  secretariaRef Secretaria? @relation("SecretariaUsuarios", fields: [secretariaId], references: [id])
 
   institucionEducativaId  Int?
   institucionEducativaRef InstitucionEducativa? @relation("InstitucionUsuarios", fields: [institucionEducativaId], references: [id])
-
 
   departamento Departamento? @relation("DepartamentoUsuarios", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
@@ -540,6 +580,7 @@ model Usuario {
   @@index([codigoDepartamento])
   @@index([codigoMunicipio])
   @@index([email])
+  @@index([cargoDocenteId])
   @@map("usuarios")
 }
 
@@ -570,17 +611,28 @@ model Empleado {
   perfilId Int?
   perfil   Perfil? @relation(fields: [perfilId], references: [id])
 
-  firma Bytes?
+  // Firma del empleado (para usar como fuente)
+  firma     Bytes?
+  firmaMime String? @db.VarChar(50) @map("firma_mime")
+
+  // ✅ NUEVO: marcar si hace parte de la junta médica
+  esMiembroJunta Boolean @default(false) @map("es_miembro_junta")
 
   email  String? @db.VarChar(50)
   idSede Int?
 
+  // ✅ NUEVO: especialidades (1..n)
+  especialidades EmpleadoEspecialidad[]
+
   // Relación con dictámenes (médico responsable)
   dictamenes Dictamen[]
 
-  // Únicos recomendados para login/búsqueda
+  // ✅ NUEVO: relación a snapshots por dictamen
+  dictamenJunta DictamenJunta[]
+
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([email])
+  @@index([esMiembroJunta])
 
   @@map("empleados")
 }
@@ -589,19 +641,17 @@ model Empleado {
 // CATÁLOGO DE DEFICIENCIAS
 // =====================================
 model Deficiencia {
-  id        Int     @id @default(autoincrement())
-  tabla String @db.VarChar(10)
-  nombre    String  @db.VarChar(255)
+  id        Int    @id @default(autoincrement())
+  tabla     String @db.VarChar(10)
+  nombre    String @db.VarChar(255)
   capitulo  String? @db.VarChar(20)
   decreto   String? @db.VarChar(50)
   tipoTabla String? @db.VarChar(50) @map("tipo_tabla")
 
-  // Relaciones nuevas
   nervios     DeficienciaNervio[]
   clases      DeficienciaClase[]
   movimientos DeficienciaMovimiento[]
 
-  // Relaciones existentes
   cie10Deficiencias    Cie10Deficiencia[]
   dictamenDeficiencias DictamenDeficiencia[]
 
@@ -610,9 +660,9 @@ model Deficiencia {
 
 // Tabla de nervios asociada a una deficiencia
 model DeficienciaNervio {
-  id            Int      @id @default(autoincrement())
+  id            Int    @id @default(autoincrement())
   deficienciaId Int
-  nombre        String   @db.VarChar(255)
+  nombre        String @db.VarChar(255)
 
   motorA     Decimal? @db.Decimal(6, 2) @map("motor_a")
   sensitivoA Decimal? @db.Decimal(6, 2) @map("sensitivo_a")
@@ -620,7 +670,7 @@ model DeficienciaNervio {
   motorB     Decimal? @db.Decimal(6, 2) @map("motor_b")
   sensitivoB Decimal? @db.Decimal(6, 2) @map("sensitivo_b")
   mixtoB     Decimal? @db.Decimal(6, 2) @map("mixto_b")
-  orden Int     @default(1)
+  orden      Int      @default(1)
 
   deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
 
@@ -632,15 +682,15 @@ model DeficienciaNervio {
 
 // Tabla de clases asociada a una deficiencia
 model DeficienciaClase {
-  id            Int      @id @default(autoincrement())
+  id            Int    @id @default(autoincrement())
   deficienciaId Int
-  nombre        String   @db.VarChar(255)
+  nombre        String @db.VarChar(255)
 
   procedimientoA Decimal? @db.Decimal(6, 2) @map("procedimiento_a")
   procedimientoB Decimal? @db.Decimal(6, 2) @map("procedimiento_b")
   orden          Int      @default(1)
 
-  deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
+  deficiencia          Deficiencia          @relation(fields: [deficienciaId], references: [id])
   dictamenDeficiencias DictamenDeficiencia[]
 
   @@index([deficienciaId])
@@ -649,7 +699,7 @@ model DeficienciaClase {
 
 // Tabla de movimientos asociada a una deficiencia
 model DeficienciaMovimiento {
-  id            Int      @id @default(autoincrement())
+  id            Int @id @default(autoincrement())
   deficienciaId Int
 
   tipoMovimiento String   @db.VarChar(255) @map("tipo_movimiento")
@@ -726,14 +776,11 @@ model Dictamen {
   tipoEvento                   DictamenTipoEvento?
   origenEvento                 DictamenOrigenEvento?
 
-  /// true = Pendiente, false = Cerrado
   aplicaAnalisisOcupacional Boolean @default(false)
   estado                    Boolean @default(true)
 
-  /// Marca si el dictamen fue reabierto (sigue siendo pendiente)
   reabierto Boolean @default(false)
 
-  /// Médico responsable del dictamen
   empleadoId Int?
   empleado   Empleado? @relation(fields: [empleadoId], references: [id])
 
@@ -744,10 +791,37 @@ model Dictamen {
   limitacionesAvdAivd DictamenLimitacionesAvdAivd[]
   analisisOcupacional DictamenAnalisisOcupacional[]
 
+  // ✅ NUEVO: snapshots de junta por dictamen (con firmas congeladas)
+  junta DictamenJunta[]
+
   @@index([usuarioId])
   @@index([empleadoId])
   @@index([estado, reabierto, fechaDictamen])
   @@map("dictamenes")
+}
+
+// ✅ NUEVO: tabla para “congelar” las firmas y datos de la junta por dictamen
+model DictamenJunta {
+  id         Int  @id @default(autoincrement())
+  dictamenId Int  @map("dictamen_id")
+  empleadoId Int? @map("empleado_id")
+
+  nombreCompleto String  @db.VarChar(150) @map("nombre_completo")
+  registroMedico String? @db.VarChar(25)  @map("registro_medico")
+  licencia       String? @db.VarChar(30)  @map("licencia")
+  firma          Bytes?  @map("firma")
+  firmaMime      String? @db.VarChar(50)  @map("firma_mime")
+
+  orden     Int      @default(1)
+  cerradoEn DateTime @default(now()) @map("cerrado_en")
+
+  dictamen Dictamen  @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
+  empleado Empleado? @relation(fields: [empleadoId], references: [id], onDelete: SetNull)
+
+  @@unique([dictamenId, orden])
+  @@index([dictamenId])
+  @@index([empleadoId])
+  @@map("dictamen_junta")
 }
 
 model DictamenDiagnostico {
@@ -765,22 +839,21 @@ model DictamenDiagnostico {
 }
 
 model DictamenDeficiencia {
-  id             Int      @id @default(autoincrement())
-  dictamenId     Int
-  deficienciaId  Int
-  claseId        Int?     @map("id_clase")
-  nervioId       Int?     @map("id_nervio")
+  id            Int  @id @default(autoincrement())
+  dictamenId    Int
+  deficienciaId Int
+  claseId       Int? @map("id_clase")
+  nervioId      Int? @map("id_nervio")
 
   valorDeficiencia Decimal? @db.Decimal(6, 2)
   creadoEn         DateTime @default(now())
 
-  dictamen    Dictamen        @relation(fields: [dictamenId], references: [id])
-  deficiencia Deficiencia     @relation(fields: [deficienciaId], references: [id])
-  clase       DeficienciaClase? @relation(fields: [claseId], references: [id])
-  nervio      DeficienciaNervio?  @relation(fields: [nervioId], references: [id])
-    
-  movimientos DictamenDeficienciaMovimiento[]
+  dictamen    Dictamen           @relation(fields: [dictamenId], references: [id])
+  deficiencia Deficiencia        @relation(fields: [deficienciaId], references: [id])
+  clase       DeficienciaClase?  @relation(fields: [claseId], references: [id])
+  nervio      DeficienciaNervio? @relation(fields: [nervioId], references: [id])
 
+  movimientos DictamenDeficienciaMovimiento[]
 
   @@index([dictamenId])
   @@index([deficienciaId])
@@ -795,7 +868,6 @@ model DictamenDeficienciaMovimiento {
   dictamenDeficienciaId Int @map("dictamen_deficiencia_id")
   movimientoId          Int @map("movimiento_id")
 
-  // Snapshot para restringir 1 selección por tipoMovimiento
   tipoMovimiento String @db.VarChar(255) @map("tipo_movimiento")
 
   modo  MovimientoModo
@@ -803,7 +875,7 @@ model DictamenDeficienciaMovimiento {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  dictamenDeficiencia DictamenDeficiencia @relation(fields: [dictamenDeficienciaId], references: [id], onDelete: Cascade)
+  dictamenDeficiencia DictamenDeficiencia   @relation(fields: [dictamenDeficienciaId], references: [id], onDelete: Cascade)
   movimiento          DeficienciaMovimiento @relation(fields: [movimientoId], references: [id])
 
   @@unique([dictamenDeficienciaId, tipoMovimiento])
@@ -812,13 +884,12 @@ model DictamenDeficienciaMovimiento {
   @@map("dictamen_deficiencia_movimientos")
 }
 
-
 // TÍTULO II – Cap. 1
 model DictamenLimitacionesAvdAivd {
-  id         Int              @id @default(autoincrement())
+  id         Int           @id @default(autoincrement())
   dictamenId Int
   actividad  ActividadAvdAivd
-  valor      Decimal          @db.Decimal(3, 1)
+  valor      Decimal       @db.Decimal(3, 1)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
 
@@ -829,7 +900,7 @@ model DictamenLimitacionesAvdAivd {
 
 // TÍTULO III – Análisis ocupacional
 model DictamenAnalisisOcupacional {
-  id         Int                       @id @default(autoincrement())
+  id         Int @id @default(autoincrement())
   dictamenId Int
   factor     FactorAnalisisOcupacional
   gravedad   GravedadAnalisis
