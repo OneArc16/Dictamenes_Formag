@@ -186,6 +186,9 @@ export async function POST(req: Request) {
 
     const uniqueEspecialidadIds = Array.from(new Set(especialidadIds));
 
+    const tratamientoRaw = String(body?.tratamiento ?? '').trim().toUpperCase();
+    const tratamiento = tratamientoRaw === 'DRA' ? 'DRA' : 'DR'; // default DR
+
     const created = await prisma.empleado.create({
       data: {
         tipoDocumento,
@@ -221,6 +224,7 @@ export async function POST(req: Request) {
               },
             }
           : {}),
+          tratamiento,
       } as any,
       select: { id: true },
     });

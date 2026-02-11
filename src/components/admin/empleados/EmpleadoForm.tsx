@@ -8,6 +8,8 @@ import { useMutation } from '@tanstack/react-query';
 type PerfilOption = { id: number; nombre: string };
 type EspecialidadOption = { id: number; nombre: string };
 
+type Tratamiento = 'DR' | 'DRA';
+
 type InitialValues = {
   tipoDocumento?: string;
   numeroIdentidad?: string;
@@ -28,6 +30,8 @@ type InitialValues = {
   // ✅ NUEVO
   esMiembroJunta?: boolean;
   especialidadIds?: number[];
+
+  tratamiento?: Tratamiento;
 };
 
 type Props = {
@@ -111,6 +115,8 @@ export default function EmpleadoForm({
 
       esMiembroJunta: initialValues?.esMiembroJunta ?? false,
       especialidadIds: initialValues?.especialidadIds ?? [],
+
+      tratamiento: (initialValues?.tratamiento as Tratamiento) ?? 'DR',
     }),
     [initialValues]
   );
@@ -138,6 +144,8 @@ export default function EmpleadoForm({
   const [especialidadIds, setEspecialidadIds] = useState<number[]>(initial.especialidadIds);
   const [firmaFile, setFirmaFile] = useState<File | null>(null);
 
+  const [tratamiento, setTratamiento] = useState<Tratamiento>(initial.tratamiento);
+
   useEffect(() => {
     setTipoDocumento(initial.tipoDocumento);
     setNumeroIdentidad(initial.numeroIdentidad);
@@ -157,6 +165,8 @@ export default function EmpleadoForm({
     setEsMiembroJunta(initial.esMiembroJunta);
     setEspecialidadIds(initial.especialidadIds);
     setFirmaFile(null);
+
+    setTratamiento(initial.tratamiento)
   }, [initial]);
 
   const mutation = useMutation({
@@ -217,6 +227,8 @@ export default function EmpleadoForm({
 
       esMiembroJunta: Boolean(esMiembroJunta),
       especialidadIds,
+
+      tratamiento,
     };
 
     if (!base.tipoDocumento || !base.numeroIdentidad) {
@@ -289,6 +301,8 @@ export default function EmpleadoForm({
         fd.append('especialidadIds', String(id));
       }
 
+      fd.append('tratamiento', base.tratamiento);
+
       if (firmaFile) {
         fd.append('firma', firmaFile);
       }
@@ -303,6 +317,18 @@ export default function EmpleadoForm({
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <div className="grid grid-cols-12 gap-2">
+        <div className="col-span-12 md:col-span-3">
+          <label className="block text-[11px] font-medium text-slate-600">Tratamiento</label>
+          <select
+            value={tratamiento}
+            onChange={(e) => setTratamiento(e.target.value as Tratamiento)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:ring-2 focus:ring-blue-500/40"
+          >
+            <option value="DR">Dr.</option>
+            <option value="DRA">Dra.</option>
+          </select>
+        </div>
+        
         <div className="col-span-12 md:col-span-3">
           <label className="block text-[11px] font-medium text-slate-600">Tipo documento *</label>
           <select

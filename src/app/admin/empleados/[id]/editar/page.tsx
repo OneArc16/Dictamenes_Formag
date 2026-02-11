@@ -124,6 +124,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
             // ✅ junta + especialidades seleccionadas
             esMiembroJunta: empleado.esMiembroJunta ?? false,
             especialidadIds: (empleado.especialidades ?? []).map((x) => x.especialidadId),
+            tratamiento: empleado.tratamiento ?? '',
           }}
         />
       </div>

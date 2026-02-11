@@ -19,6 +19,20 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+/** Devuelve "Dr. NOMBRE" o "Dra. NOMBRE" usando it.tratamiento (DR/DRA) */
+function formatNombreConTratamiento(it: any) {
+  const nombre = String(it?.nombreCompleto ?? '').trim();
+  if (!nombre) return '';
+
+  // Si ya viene prefijado, no duplicar
+  if (/^(dr\.?|dra\.?)\s/i.test(nombre)) return nombre;
+
+  const t = String(it?.tratamiento ?? '').trim().toUpperCase();
+  const pref = t === 'DRA' ? 'Dra.' : t === 'DR' ? 'Dr.' : '';
+
+  return pref ? `${pref} ${nombre}` : nombre;
+}
+
 export default function FirmasJuntaBlock({ dictamen }: Props) {
   const junta = Array.isArray(dictamen?.junta) ? dictamen.junta : [];
 
@@ -54,14 +68,13 @@ export default function FirmasJuntaBlock({ dictamen }: Props) {
                 return (
                   <View key={j} style={styles.card}>
                     <View style={styles.signArea}>
-                      {it?.firmaSrc ? (
-                        <Image src={it.firmaSrc} style={styles.signImg} />
-                      ) : null}
+                      {it?.firmaSrc ? <Image src={it.firmaSrc} style={styles.signImg} /> : null}
                     </View>
 
                     <View style={styles.line} />
 
-                    <Text style={styles.name}>{it?.nombreCompleto ?? ''}</Text>
+                    {/* ✅ aquí se agrega Dr / Dra */}
+                    <Text style={styles.name}>{formatNombreConTratamiento(it)}</Text>
 
                     <Text style={styles.meta}>
                       {(it?.registroMedico ? `RM: ${it.registroMedico}` : '')}

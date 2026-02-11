@@ -276,6 +276,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
           firma: true,
           firmaMime: true,
           empleadoId: true,
+
+          empleado: { select: { tratamiento: true } },
         },
       },
 
@@ -363,6 +365,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
     registroMedico: j.registroMedico ?? null,
     licencia: j.licencia ?? null,
     firmaSrc: bytesToDataUrl(j.firma, j.firmaMime),
+
+    tratamiento: j?.empleado?.tratamiento ?? 'DR',
   })) ?? [];
 
   if (juntaPdf.length === 0) {
@@ -379,6 +383,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
         registroMedico: true,
         licencia: true,
         firma: true,
+        tratamiento: true
       },
     });
 
@@ -389,6 +394,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
       registroMedico: e.registroMedico ?? null,
       licencia: e.licencia ?? null,
       firmaSrc: bytesToDataUrl(e.firma, null),
+
+      tratamiento: e.tratamiento ?? 'DR',
     }));
   }
 

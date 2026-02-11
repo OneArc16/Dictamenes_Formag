@@ -181,6 +181,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         { status: 409 }
       );
     }
+    const tratamientoRaw = String(body?.tratamiento ?? '').trim().toUpperCase();
+    const tratamiento = tratamientoRaw === 'DRA' ? 'DRA' : 'DR';
 
     const dataToUpdate: any = {
       tipoDocumento,
@@ -197,6 +199,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       registroMedico,
       licencia,
       esMiembroJunta,
+      tratamiento,
     };
 
     if (password) dataToUpdate.contrasena = await bcrypt.hash(password, 10);
