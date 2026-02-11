@@ -1,6 +1,5 @@
 import React from 'react';
-import { Document, View, StyleSheet } from '@react-pdf/renderer';
-import { pdfTheme } from './theme';
+import { Document } from '@react-pdf/renderer';
 
 import { PageFrame } from './components/PageFrame';
 import { SectionBox } from './components/SectionBox';
@@ -24,87 +23,75 @@ type Props = {
   logoSrc?: string | null;
 };
 
-const PAGE_PAD_X = (pdfTheme as any)?.sizes?.pagePaddingX ?? 18;
-const PAGE_PAD_Y = (pdfTheme as any)?.sizes?.pagePaddingY ?? 18;
-const PAGE_END_GAP = 12;
-
-const styles = StyleSheet.create({
-  pageEndLine: {
-    position: 'absolute',
-    left: PAGE_PAD_X,
-    right: PAGE_PAD_X,
-    bottom: Math.max(6, PAGE_PAD_Y - PAGE_END_GAP),
-    borderTopWidth: pdfTheme.sizes.borderWidth,
-    borderTopColor: pdfTheme.colors.border,
-  },
-});
-
 export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
   const condicion = String(dictamen?.condicionSalud ?? '').trim();
   const hallazgos = String(dictamen?.descripcionHallazgos ?? '').trim();
-
   const finalLogoSrc = (logoSrc ?? dictamen?.logoSrc ?? null) as string | null;
 
   return (
     <Document>
       <PageFrame>
-        <View fixed style={styles.pageEndLine} />
-
         <HeaderBlock
           logoSrc={finalLogoSrc}
           numeroDictamen={dictamen?.numeroDictamen ?? String(dictamen?.id ?? '')}
           fechaDictamen={dictamen?.fechaDictamen ?? null}
         />
 
-        <SectionBox joinTop>
+        <SectionBox joinTop wrap={false} minPresenceAhead={80}>
           <AspectosGeneralesBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox joinTop>
+        <SectionBox joinTop wrap={false} minPresenceAhead={110}>
           <IdentificacionEducadorBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox>
+        {/* ✅ Largo: permitir partir */}
+        <SectionBox minPresenceAhead={40}>
           <AntecedentesClinicosBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2 }}>
+        <SectionBox minPresenceAhead={40}>
           <DiagnosticosMotivoBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0 }}>
+        {/* ✅ Largo: permitir partir */}
+        <SectionBox minPresenceAhead={40}>
           <CondicionHallazgosBlock condicion={condicion} hallazgos={hallazgos} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0 }}>
+        <SectionBox minPresenceAhead={60}>
           <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2 }}>
+        <SectionBox minPresenceAhead={60}>
           <TituloIICapitulo1Block dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2 }}>
+        <SectionBox minPresenceAhead={60}>
           <TituloIICapitulo2Block dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2}}>
+        <SectionBox minPresenceAhead={60}>
           <TituloIIIPage1Block dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: 0}}>
+        <SectionBox minPresenceAhead={60}>
           <PorcentajePclBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2}}>
+        <SectionBox minPresenceAhead={60}>
           <ProcedimientoBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox style={{ marginTop: -2}}>
+        {/* ✅ Sustentación puede ser larga: permitir partir */}
+        <SectionBox minPresenceAhead={60}>
           <SustentacionOrigenBlock dictamen={dictamen} />
-          <FirmasJuntaBlock dictamen={dictamen} />
         </SectionBox>
 
+        {/* ✅ Firmas: NO partir, y reservar buen espacio */}
+        <SectionBox joinTop wrap={false} minPresenceAhead={220}>
+          <FirmasJuntaBlock dictamen={dictamen} />
+        </SectionBox>
       </PageFrame>
     </Document>
   );

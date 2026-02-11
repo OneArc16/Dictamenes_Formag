@@ -275,22 +275,27 @@ const GROUPS: GroupDef[] = [
 ];
 
 // CHUNKS (para evitar “huecos”)
-const CHUNK_MAX_H = 120;
-function chunkRows(rows: RowDef[], maxH: number) {
+const CHUNK_FIRST_H = 48; // deja el primero grande para que el texto rotado quepa
+const CHUNK_OTHER_H = 60;  // los siguientes más pequeños para aprovechar espacio
+
+function chunkRows(rows: RowDef[], firstMaxH = CHUNK_FIRST_H, otherMaxH = CHUNK_OTHER_H) {
   const out: RowDef[][] = [];
   let cur: RowDef[] = [];
   let h = 0;
+  let maxH = firstMaxH;
 
   for (const r of rows) {
     if (cur.length && h + r.h > maxH) {
       out.push(cur);
       cur = [r];
       h = r.h;
+      maxH = otherMaxH; // ✅ después del primer corte, chunks más pequeños
     } else {
       cur.push(r);
       h += r.h;
     }
   }
+
   if (cur.length) out.push(cur);
   return out;
 }
@@ -506,11 +511,14 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     );
   };
 
-  const groupsChunked = GROUPS.map((g) => ({ label: g.label, chunks: chunkRows(g.rows, CHUNK_MAX_H) }));
+  const groupsChunked = GROUPS.map((g) => ({
+    label: g.label,
+    chunks: chunkRows(g.rows), // ✅ usa first/other
+  }));
 
   return (
     <View>
-      <V minPresenceAhead={300}>
+      <View>
         <View style={styles.barRow} wrap={false}>
           <Text style={styles.barText}>TITULO III</Text>
         </View>
@@ -630,7 +638,7 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
             </View>
           </View>
         </View>
-      </V>
+      </View>
     </View>
   );
 }
