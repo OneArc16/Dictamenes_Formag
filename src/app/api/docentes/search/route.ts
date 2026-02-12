@@ -7,11 +7,8 @@ export const runtime = 'nodejs';
 function mapSexoToFrontend(sexo: string | null): string {
   if (!sexo) return '';
   const s = sexo.toUpperCase();
-
-  // BD: H = Hombre, M = Mujer
-  // Formulario: M = Masculino, F = Femenino
-  if (s === 'H') return 'M'; // Masculino
-  if (s === 'M' || s === 'F') return 'F'; // por si hay datos viejos con F
+  if (s === 'H') return 'M';
+  if (s === 'M' || s === 'F') return 'F';
   return 'O';
 }
 
@@ -26,7 +23,7 @@ function mapZonaToFrontend(z: string | null): string {
 function mapNivelEscalafonToFrontend(n: string | null): string {
   if (!n) return '';
   if (n === '0') return 'NO_APLICA';
-  return n.toUpperCase(); // A, B, C, D
+  return n.toUpperCase();
 }
 
 export async function GET(req: Request) {
@@ -42,10 +39,9 @@ export async function GET(req: Request) {
   try {
     const usuarios = await prisma.usuario.findMany({
       where: isNumeric
-        ? {
-            identificacion: q,
-          }
+        ? { identificacion: q, tipoUsuario: 'DO' }
         : {
+            tipoUsuario: 'DO',
             OR: [
               { primerNombre: { contains: q, mode: 'insensitive' } },
               { segundoNombre: { contains: q, mode: 'insensitive' } },
@@ -63,7 +59,6 @@ export async function GET(req: Request) {
         primerApellido: true,
         segundoApellido: true,
 
-        // 🔹 Campos que te faltaban
         sexo: true,
         edad: true,
         telefono: true,
@@ -80,46 +75,68 @@ export async function GET(req: Request) {
         fechaNacimiento: true,
 
         codigoEps: true,
-        eps: {
-          select: {
-            nombreEntidad: true,
-          },
-        },
+        eps: { select: { nombreEntidad: true } },
 
-        codigoDepartamento: true,
-        codigoMunicipio: true,
-        departamento: {
-          select: { nombre: true },
-        },
-        municipio: {
-          select: { nombre: true },
-        },
+        departamento: { select: { nombre: true } },
+        municipio: { select: { nombre: true } },
+
         barrio: true,
-        barrioRef: {
-          select: { nombre: true },
-        },
-        secretariaRef: {
-          select: { nombre: true },
-        },
-        institucionEducativaRef: {
-          select: { nombre: true },
-        },
+        barrioRef: { select: { nombre: true } },
+
+        secretariaRef: { select: { nombre: true } },
+        institucionEducativaRef: { select: { nombre: true } },
+
+        // ✅ NUEVOS
+        escolaridad: true,
+        cargoDocenteId: true,
+        cargoDocente: { select: { id: true, nombre: true } },
+
+        // ✅ Para fallback si no hay FK
+        codigoOcupacion: true,
       },
       take: 25,
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
     });
 
+    // ✅ Fallback masivo por codigoOcupacion
+    const codigosSinFk = Array.from(
+      new Set(
+        usuarios
+          .filter((u) => !u.cargoDocenteId && u.codigoOcupacion)
+          .map((u) => u.codigoOcupacion as string),
+      ),
+    );
+
+    const cargosByCodigo = codigosSinFk.length
+      ? await prisma.cargoDocente.findMany({
+          where: { codigo: { in: codigosSinFk } },
+          select: { id: true, codigo: true, nombre: true },
+        })
+      : [];
+
+    const mapCargoCodigo = new Map<string, { id: number; nombre: string }>();
+    for (const c of cargosByCodigo) {
+      if (c.codigo) mapCargoCodigo.set(c.codigo, { id: c.id, nombre: c.nombre });
+    }
+
     const rows = usuarios.map((u) => {
       const telefono = u.celular || u.telefono || null;
-      const departamentoNombre = u.departamento?.nombre ?? null;
-      const municipioNombre = u.municipio?.nombre ?? null;
-      const barrioNombre = u.barrioRef?.nombre ?? u.barrio ?? null;
-      const secretariaNombre = u.secretariaRef?.nombre ?? null;
-      const institucionNombre = u.institucionEducativaRef?.nombre ?? null;
       const nombreEps = u.eps?.nombreEntidad ?? null;
 
+      // cargo por FK
+      let cargoId = u.cargoDocenteId ?? null;
+      let cargoNombre = u.cargoDocente?.nombre ?? null;
+
+      // fallback por código
+      if (!cargoId && u.codigoOcupacion) {
+        const found = mapCargoCodigo.get(u.codigoOcupacion);
+        if (found) {
+          cargoId = found.id;
+          cargoNombre = found.nombre;
+        }
+      }
+
       return {
-        // 🔹 Campos "limpios" para el nuevo formulario
         id: u.id,
         identificacion: u.identificacion,
         tipoIdentificacion: u.tipoIdentificacion,
@@ -142,34 +159,20 @@ export async function GET(req: Request) {
 
         fechaNacimiento: u.fechaNacimiento,
 
-        // 🔹 Aseguradora / EPS
         codigoEps: u.codigoEps,
-        aseguradoraCodigo: u.codigoEps,
-        aseguradoraNombre: nombreEps,
         epsNombre: nombreEps,
 
-        // 🔹 Ubicación
-        departamento: departamentoNombre,
-        municipio: municipioNombre,
-        barrio: barrioNombre,
+        departamento: u.departamento?.nombre ?? null,
+        municipio: u.municipio?.nombre ?? null,
+        barrio: u.barrioRef?.nombre ?? u.barrio ?? null,
 
-        secretaria: secretariaNombre,
-        institucionEducativa: institucionNombre,
+        secretaria: u.secretariaRef?.nombre ?? null,
+        institucionEducativa: u.institucionEducativaRef?.nombre ?? null,
 
-        // 🔹 Campos con nombres "viejos" por si algún otro lado los usa
-        IdUsuario: u.id,
-        Identificaci_n_usuario: u.identificacion,
-        Tipo_identificaci_n: u.tipoIdentificacion,
-        Primer_nombre: u.primerNombre,
-        Segundo_nombre: u.segundoNombre,
-        Primer_apellido: u.primerApellido,
-        Segundo_apellido: u.segundoApellido,
-        Sexo: mapSexoToFrontend(u.sexo),
-        Edad: u.edad,
-        Celular: u.celular,
-        Tel_fono: u.telefono,
-        Direcci_n: u.direccion,
-        Codigo_eps: u.codigoEps,
+        // ✅ NUEVOS
+        escolaridad: u.escolaridad ?? null,
+        cargoDocenteId: cargoId,
+        cargoDocenteNombre: cargoNombre,
       };
     });
 

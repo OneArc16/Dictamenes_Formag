@@ -33,6 +33,10 @@ type DocenteForm = {
   gradoEscalafon: string;
   nivelEscalafon: string;
   institucionLabora: string;
+
+  // ✅ NUEVOS
+  cargoDocenteId: string; // guardamos el ID como string para el form (en BD es Int)
+  escolaridad: string;
 };
 
 const emptyForm: DocenteForm = {
@@ -60,6 +64,10 @@ const emptyForm: DocenteForm = {
   gradoEscalafon: '',
   nivelEscalafon: '',
   institucionLabora: '',
+
+  // ✅ NUEVOS
+  cargoDocenteId: '',
+  escolaridad: '',
 };
 
 type UpdateDocenteModalProps = {
@@ -136,6 +144,9 @@ type InstitucionOption = {
   idSecretaria: number | null;
 };
 
+// ✅ NUEVO: Cargo docente
+type CargoDocenteOption = { id: number; codigo?: string | null; nombre: string };
+
 export function ActualizarDocenteModal({
   open,
   onClose,
@@ -148,9 +159,7 @@ export function ActualizarDocenteModal({
   });
 
   const [paises, setPaises] = useState<PaisOption[]>([]);
-  const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>(
-    [],
-  );
+  const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioOption[]>([]);
   const [barrios, setBarrios] = useState<BarrioOption[]>([]);
   const [epsList, setEpsList] = useState<EpsOption[]>([]);
@@ -160,12 +169,13 @@ export function ActualizarDocenteModal({
   const [selectedMunicipio, setSelectedMunicipio] = useState('');
 
   const [secretarias, setSecretarias] = useState<SecretariaOption[]>([]);
-  const [instituciones, setInstituciones] = useState<InstitucionOption[]>(
-    [],
-  );
-  const [selectedSecretariaId, setSelectedSecretariaId] =
-    useState<string>('');
+  const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
+  const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
   const [loadingInstituciones, setLoadingInstituciones] = useState(false);
+
+  // ✅ NUEVO: estados cargo docente
+  const [cargosDocentes, setCargosDocentes] = useState<CargoDocenteOption[]>([]);
+  const [loadingCargos, setLoadingCargos] = useState(false);
 
   const [ubicacionLoaded, setUbicacionLoaded] = useState(false);
   const [docenteLoaded, setDocenteLoaded] = useState(false);
@@ -200,17 +210,13 @@ export function ActualizarDocenteModal({
   // Calcular edad automáticamente
   useEffect(() => {
     if (!form.fechaNacimiento) {
-      setForm((prev) =>
-        prev.edad !== '' ? { ...prev, edad: '' } : prev,
-      );
+      setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
       return;
     }
 
     const birth = new Date(form.fechaNacimiento);
     if (Number.isNaN(birth.getTime())) {
-      setForm((prev) =>
-        prev.edad !== '' ? { ...prev, edad: '' } : prev,
-      );
+      setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
       return;
     }
 
@@ -223,15 +229,24 @@ export function ActualizarDocenteModal({
 
     const ageStr = age >= 0 ? String(age) : '';
 
-    setForm((prev) =>
-      prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev,
-    );
+    setForm((prev) => (prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev));
   }, [form.fechaNacimiento]);
+
+    const ensureCargoInOptions = (cargoIdStr: string, cargoNombre?: string) => {
+    const id = Number(cargoIdStr);
+    if (!cargoIdStr || !Number.isFinite(id)) return;
+
+    const name = (cargoNombre ?? '').trim() || `Cargo #${id}`;
+
+    setCargosDocentes((prev) => {
+      if (prev.some((x) => x.id === id)) return prev;
+      return [{ id, codigo: null, nombre: name }, ...prev];
+    });
+  };
 
   /* ======================================================
      🔹 Búsqueda async de instituciones (typeahead)
      ====================================================== */
-  // 🔹 Búsqueda async de instituciones (solo por secretaría + texto)
   const searchInstituciones = async (term: string) => {
     const secretariaId = selectedSecretariaId;
 
@@ -242,7 +257,6 @@ export function ActualizarDocenteModal({
 
     const trimmed = term.trim();
     if (trimmed.length < 3) {
-      // Por debajo del mínimo limpiamos resultados
       setInstituciones([]);
       return;
     }
@@ -253,15 +267,11 @@ export function ActualizarDocenteModal({
       const params = new URLSearchParams();
       params.set('q', trimmed);
       params.set('secretariaId', secretariaId);
-      // 👆 OJO: ya NO mandamos municipio para evitar sobre-filtrar
 
-      const res = await fetch(
-        `/api/instituciones/search?${params.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        },
-      );
+      const res = await fetch(`/api/instituciones/search?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
       const data = await res.json();
 
@@ -271,7 +281,6 @@ export function ActualizarDocenteModal({
         return;
       }
 
-      // 🔹 Quitamos duplicados por nombre
       const byNombre = new Map<string, InstitucionOption>();
       for (const i of data.instituciones ?? []) {
         const item: InstitucionOption = {
@@ -281,9 +290,7 @@ export function ActualizarDocenteModal({
           idMunicipio: i.idMunicipio ?? null,
           idSecretaria: i.idSecretaria ?? null,
         };
-        if (!byNombre.has(item.nombre)) {
-          byNombre.set(item.nombre, item);
-        }
+        if (!byNombre.has(item.nombre)) byNombre.set(item.nombre, item);
       }
 
       setInstituciones(Array.from(byNombre.values()));
@@ -295,6 +302,69 @@ export function ActualizarDocenteModal({
     }
   };
 
+  /* ======================================================
+     ✅ NUEVO: Búsqueda async de CARGOS DOCENTES (typeahead)
+     ====================================================== */
+  const CARGOS_ENDPOINT = '/api/cargos-docentes/search'; // si cambia tu ruta, cambia SOLO esto
+
+  const searchCargosDocentes = async (term: string) => {
+    const q = (term ?? '').trim();
+    if (q.length < 3) {
+      setCargosDocentes([]);
+      return;
+    }
+
+    // cargoAbortRef.current?.abort();
+    const controller = new AbortController();
+    // cargoAbortRef.current = controller;
+
+    try {
+      setLoadingCargos(true);
+
+      const res = await fetch(`${CARGOS_ENDPOINT}?q=${encodeURIComponent(q)}`, {
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setCargosDocentes([]);
+        return;
+      }
+
+      // soporta distintos nombres de respuesta
+      const raw: any[] =
+        (Array.isArray(data.items) && data.items) ||
+        (Array.isArray(data.cargos) && data.cargos) ||
+        (Array.isArray(data.rows) && data.rows) ||
+        (Array.isArray(data.cargosDocentes) && data.cargosDocentes) ||
+        [];
+
+      const byId = new Map<number, CargoDocenteOption>();
+      for (const c of raw) {
+        const id = Number(c.id);
+        if (!Number.isFinite(id)) continue;
+
+        const nombre = String(c.nombre ?? c.Nombre ?? '').trim();
+        if (!nombre) continue;
+
+        byId.set(id, {
+          id,
+          codigo: c.codigo ?? c.Codigo ?? null,
+          nombre,
+        });
+      }
+
+      setCargosDocentes(Array.from(byId.values()));
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('Error buscando cargos docentes', err);
+      setCargosDocentes([]);
+    } finally {
+      if (!controller.signal.aborted) setLoadingCargos(false);
+    }
+  };
 
   /* ======================================================
      🔹 React Query: opciones de ubicación (una sola vez)
@@ -311,15 +381,13 @@ export function ActualizarDocenteModal({
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(
-          data?.error ?? 'Error cargando opciones de ubicación',
-        );
+        throw new Error(data?.error ?? 'Error cargando opciones de ubicación');
       }
 
       return data;
     },
     enabled: open && !ubicacionLoaded,
-    staleTime: 1000 * 60 * 10, // 10 minutos
+    staleTime: 1000 * 60 * 10,
   });
 
   // Mapear ubicacionData -> estados locales (solo una vez)
@@ -331,33 +399,29 @@ export function ActualizarDocenteModal({
     try {
       const data = ubicacionData;
 
-      const paisesMapped: PaisOption[] = (data.paises ?? []).map(
-        (p: any) => ({ codigo: p.codigo, nombre: p.nombre }),
-      );
-      const departamentosMapped: DepartamentoOption[] = (
-        data.departamentos ?? []
-      ).map((d: any) => ({
+      const paisesMapped: PaisOption[] = (data.paises ?? []).map((p: any) => ({
+        codigo: p.codigo,
+        nombre: p.nombre,
+      }));
+
+      const departamentosMapped: DepartamentoOption[] = (data.departamentos ?? []).map((d: any) => ({
         codigo: d.codigo,
         nombre: d.nombre,
       }));
-      const municipiosMapped: MunicipioOption[] = (
-        data.municipios ?? []
-      ).map((m: any) => ({
+
+      const municipiosMapped: MunicipioOption[] = (data.municipios ?? []).map((m: any) => ({
         codigo: m.codigo,
         nombre: m.nombre,
         codigoDepartamento: m.codigoDepartamento,
       }));
-      const barriosMapped: BarrioOption[] = (data.barrios ?? []).map(
-        (b: any) => ({
-          id: b.id,
-          nombre: b.nombre,
-          codigoMunicipio: b.codigoMunicipio,
-        }),
-      );
 
-      const secretariasMapped: SecretariaOption[] = (
-        data.secretarias ?? []
-      ).map((s: any) => ({
+      const barriosMapped: BarrioOption[] = (data.barrios ?? []).map((b: any) => ({
+        id: b.id,
+        nombre: b.nombre,
+        codigoMunicipio: b.codigoMunicipio,
+      }));
+
+      const secretariasMapped: SecretariaOption[] = (data.secretarias ?? []).map((s: any) => ({
         id: s.id,
         nombre: s.nombre,
       }));
@@ -375,16 +439,11 @@ export function ActualizarDocenteModal({
       setEpsList(epsMapped);
       setUbicacionLoaded(true);
     } catch (err) {
-      console.error(
-        'Error mapeando ubicacionData en ActualizarDocente:',
-        err,
-      );
+      console.error('Error mapeando ubicacionData en ActualizarDocente:', err);
     }
   }, [open, ubicacionData, ubicacionLoaded]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -399,13 +458,10 @@ export function ActualizarDocenteModal({
 
     setSearching(true);
     try {
-      const res = await fetch(
-        `/api/docentes/search?q=${encodeURIComponent(doc)}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        },
-      );
+      const res = await fetch(`/api/docentes/search?q=${encodeURIComponent(doc)}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
       const contentType = res.headers.get('content-type') || '';
       let data: any;
@@ -439,16 +495,32 @@ export function ActualizarDocenteModal({
         (d as any).CODIGO_EPS ??
         (d as any).Codigo_Eps;
 
+      // ✅ NUEVOS (tolerante a nombres)
+      const cargoDocenteIdRes =
+        (d as any).cargoDocenteId ??
+        (d as any).cargo_docente_id ??
+        (d as any).cargoDocenteID ??
+        (d as any).CARGO_DOCENTE_ID ??
+        '';
+
+      const cargoDocenteNombreRes =
+        (d as any).cargoDocenteNombre ??
+        (d as any).cargo_docente_nombre ??
+        (d as any).cargoDocente?.nombre ??
+        '';
+
+      const escolaridadRes =
+        (d as any).escolaridad ??
+        (d as any).Escolaridad ??
+        (d as any).ESCOLARIDAD;
+
       const updated: DocenteForm = {
         ...emptyForm,
         ...form,
-        tipoDocumento:
-          d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
-        numeroDocumento:
-          d.identificacion ?? d.numeroDocumento ?? doc,
+        tipoDocumento: d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
+        numeroDocumento: d.identificacion ?? d.numeroDocumento ?? doc,
         fechaNacimiento:
-          (d.fechaNacimiento && String(d.fechaNacimiento).slice(0, 10)) ??
-          form.fechaNacimiento,
+          (d.fechaNacimiento && String(d.fechaNacimiento).slice(0, 10)) ?? form.fechaNacimiento,
         edad: d.edad != null ? String(d.edad) : form.edad,
         primerNombre: d.primerNombre ?? form.primerNombre,
         segundoNombre: d.segundoNombre ?? form.segundoNombre,
@@ -469,8 +541,11 @@ export function ActualizarDocenteModal({
         estadoCivil: d.estadoCivil ?? form.estadoCivil,
         gradoEscalafon: d.gradoEscalafon ?? form.gradoEscalafon,
         nivelEscalafon: d.nivelEscalafon ?? form.nivelEscalafon,
-        institucionLabora:
-          d.institucionEducativa ?? form.institucionLabora,
+        institucionLabora: d.institucionEducativa ?? form.institucionLabora,
+
+        // ✅ NUEVOS
+        cargoDocenteId: cargoDocenteIdRes != null ? String(cargoDocenteIdRes) : form.cargoDocenteId,
+        escolaridad: escolaridadRes ?? form.escolaridad,
       };
 
       // Sincronizar combos
@@ -480,9 +555,7 @@ export function ActualizarDocenteModal({
       }
 
       if (departamentos.length && updated.departamento) {
-        const dep = departamentos.find(
-          (x) => x.nombre === updated.departamento,
-        );
+        const dep = departamentos.find((x) => x.nombre === updated.departamento);
         if (dep) setSelectedDepartamento(dep.codigo);
       }
 
@@ -492,9 +565,7 @@ export function ActualizarDocenteModal({
       }
 
       if (secretarias.length && updated.secretariaLabora) {
-        const sec = secretarias.find(
-          (s) => s.nombre === updated.secretariaLabora,
-        );
+        const sec = secretarias.find((s) => s.nombre === updated.secretariaLabora);
         if (sec) {
           const secId = String(sec.id);
           setSelectedSecretariaId(secId);
@@ -502,6 +573,11 @@ export function ActualizarDocenteModal({
       }
 
       setForm(updated);
+
+      if (updated.cargoDocenteId) {
+        ensureCargoInOptions(updated.cargoDocenteId, String(cargoDocenteNombreRes ?? ''));
+      }
+
       setDocenteLoaded(true);
       showToast('success', 'Docente cargado correctamente');
     } catch (err) {
@@ -532,9 +608,7 @@ export function ActualizarDocenteModal({
 
     // Departamento
     if (!selectedDepartamento && form.departamento && departamentos.length) {
-      const dep = departamentos.find(
-        (x) => x.nombre === form.departamento,
-      );
+      const dep = departamentos.find((x) => x.nombre === form.departamento);
       if (dep) setSelectedDepartamento(dep.codigo);
     }
 
@@ -546,9 +620,7 @@ export function ActualizarDocenteModal({
 
     // Secretaría
     if (!selectedSecretariaId && form.secretariaLabora && secretarias.length) {
-      const sec = secretarias.find(
-        (s) => s.nombre === form.secretariaLabora,
-      );
+      const sec = secretarias.find((s) => s.nombre === form.secretariaLabora);
       if (sec) {
         const secId = String(sec.id);
         setSelectedSecretariaId(secId);
@@ -577,19 +649,15 @@ export function ActualizarDocenteModal({
     if (!open) return;
     if (!selectedSecretariaId) return;
     if (!form.institucionLabora) return;
-    if (instituciones.length) return; // ya tenemos opciones
+    if (instituciones.length) return;
 
-    // Traemos opciones alrededor de la institución actual
     searchInstituciones(form.institucionLabora);
   }, [open, selectedSecretariaId, form.institucionLabora, instituciones.length]);
 
   const handleActualizarDatos = async () => {
     if (saving) return;
 
-    const camposObligatorios: {
-      key: keyof DocenteForm;
-      label: string;
-    }[] = [
+    const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
       { key: 'tipoDocumento', label: 'Tipo de documento' },
       { key: 'numeroDocumento', label: 'Número de documento' },
       { key: 'primerNombre', label: 'Primer nombre' },
@@ -604,11 +672,7 @@ export function ActualizarDocenteModal({
 
     if (faltantes.length > 0) {
       const nombres = faltantes.map((f) => f.label).join(', ');
-      console.warn(
-        'Campos obligatorios faltantes (actualizar):',
-        nombres,
-        { formActual: form },
-      );
+      console.warn('Campos obligatorios faltantes (actualizar):', nombres, { formActual: form });
       showToast('error', `Faltan datos del formulario: ${nombres}`);
       return;
     }
@@ -616,6 +680,15 @@ export function ActualizarDocenteModal({
     setSaving(true);
 
     try {
+
+      const cargoIdNum =
+        form.cargoDocenteId && /^\d+$/.test(form.cargoDocenteId) ? Number(form.cargoDocenteId) : null;
+
+      const payloadForm: any = {
+        ...form,
+        cargoDocenteId: cargoIdNum,
+      };
+
       const resDocente = await fetch('/api/docentes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -627,17 +700,13 @@ export function ActualizarDocenteModal({
 
       if (!resDocente.ok || !dataDocente?.ok) {
         console.error('Error actualizando docente', dataDocente);
-        showToast(
-          'error',
-          dataDocente?.error ?? 'Error actualizando docente',
-        );
+        showToast('error', dataDocente?.error ?? 'Error actualizando docente');
         return;
       }
 
       showToast('success', 'Datos del docente actualizados correctamente');
-      if (onUpdate) {
-        onUpdate();
-      }
+      if (onUpdate) onUpdate();
+
       setTimeout(() => {
         onClose();
       }, 1200);
@@ -652,9 +721,7 @@ export function ActualizarDocenteModal({
   if (!open) return null;
 
   const municipiosFiltrados = selectedDepartamento
-    ? municipios.filter(
-        (m) => m.codigoDepartamento === selectedDepartamento,
-      )
+    ? municipios.filter((m) => m.codigoDepartamento === selectedDepartamento)
     : municipios;
 
   const barriosFiltrados = selectedMunicipio
@@ -666,9 +733,7 @@ export function ActualizarDocenteModal({
       <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-white shadow-xl">
         {/* Header modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">
-            Actualizar datos del docente
-          </h2>
+          <h2 className="text-lg font-semibold">Actualizar datos del docente</h2>
           <button
             type="button"
             onClick={onClose}
@@ -688,12 +753,8 @@ export function ActualizarDocenteModal({
           {/* Card de datos de identificación y ubicación */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white rounded">
-                🧾
-              </span>
-              <h3 className="text-sm font-semibold">
-                Datos de identificación y ubicación
-              </h3>
+              <span className="px-2 py-1 text-xs bg-white rounded">🧾</span>
+              <h3 className="text-sm font-semibold">Datos de identificación y ubicación</h3>
             </header>
 
             <div className="p-4 space-y-4">
@@ -710,15 +771,9 @@ export function ActualizarDocenteModal({
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione…</option>
-                    <option value="CC">
-                      Cédula de ciudadanía (CC)
-                    </option>
-                    <option value="TI">
-                      Tarjeta de identidad (TI)
-                    </option>
-                    <option value="CE">
-                      Cédula de extranjería (CE)
-                    </option>
+                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="TI">Tarjeta de identidad (TI)</option>
+                    <option value="CE">Cédula de extranjería (CE)</option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
@@ -732,9 +787,7 @@ export function ActualizarDocenteModal({
                       name="numeroDocumento"
                       value={form.numeroDocumento}
                       onChange={handleChange}
-                      onKeyDown={(
-                        e: React.KeyboardEvent<HTMLInputElement>,
-                      ) => {
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           handleBuscarDocente();
@@ -876,9 +929,7 @@ export function ActualizarDocenteModal({
                       setSelectedDepartamento(newCodigo);
                       setSelectedMunicipio('');
 
-                      const dep = departamentos.find(
-                        (d) => d.codigo === newCodigo,
-                      );
+                      const dep = departamentos.find((d) => d.codigo === newCodigo);
 
                       setForm((prev) => ({
                         ...prev,
@@ -887,7 +938,6 @@ export function ActualizarDocenteModal({
                         barrio: '',
                       }));
 
-                      // Al cambiar depto limpiamos instituciones
                       setInstituciones([]);
                     }}
                   />
@@ -906,9 +956,7 @@ export function ActualizarDocenteModal({
                     onChange={(newCodigo) => {
                       setSelectedMunicipio(newCodigo);
 
-                      const muni = municipiosFiltrados.find(
-                        (m) => m.codigo === newCodigo,
-                      );
+                      const muni = municipiosFiltrados.find((m) => m.codigo === newCodigo);
 
                       setForm((prev) => ({
                         ...prev,
@@ -916,7 +964,6 @@ export function ActualizarDocenteModal({
                         barrio: '',
                       }));
 
-                      // Al cambiar municipio limpiamos instituciones
                       setInstituciones([]);
                     }}
                   />
@@ -984,9 +1031,7 @@ export function ActualizarDocenteModal({
                     onChange={(newCodigo) => {
                       setSelectedPaisCodigo(newCodigo);
 
-                      const pais = paises.find(
-                        (p) => p.codigo === newCodigo,
-                      );
+                      const pais = paises.find((p) => p.codigo === newCodigo);
 
                       setForm((prev) => ({
                         ...prev,
@@ -1040,12 +1085,8 @@ export function ActualizarDocenteModal({
           {/* Card de datos laborales */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white rounded">
-                🧑‍🏫
-              </span>
-              <h3 className="text-sm font-semibold">
-                Datos laborales del docente
-              </h3>
+              <span className="px-2 py-1 text-xs bg-white rounded">🧑‍🏫</span>
+              <h3 className="text-sm font-semibold">Datos laborales del docente</h3>
             </header>
 
             <div className="p-4 space-y-4">
@@ -1065,9 +1106,7 @@ export function ActualizarDocenteModal({
                     onChange={(newId) => {
                       setSelectedSecretariaId(newId);
 
-                      const secretaria = secretarias.find(
-                        (s) => String(s.id) === newId,
-                      );
+                      const secretaria = secretarias.find((s) => String(s.id) === newId);
 
                       setForm((prev) => ({
                         ...prev,
@@ -1075,7 +1114,6 @@ export function ActualizarDocenteModal({
                         institucionLabora: '',
                       }));
 
-                      // Al cambiar secretaría limpiamos instituciones
                       setInstituciones([]);
                     }}
                   />
@@ -1103,15 +1141,60 @@ export function ActualizarDocenteModal({
                     minSearchLength={3}
                     isLoading={loadingInstituciones}
                     onChange={(newValue) => {
-                      const inst = instituciones.find(
-                        (i) => i.nombre === newValue,
-                      );
+                      const inst = instituciones.find((i) => i.nombre === newValue);
                       setForm((prev) => ({
                         ...prev,
                         institucionLabora: inst?.nombre ?? '',
                       }));
                     }}
                   />
+                </div>
+              </div>
+
+              {/* ✅ NUEVO: Cargo docente + Escolaridad */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Cargo docente</label>
+                  <SearchableSelect
+                    value={form.cargoDocenteId}
+                    options={cargosDocentes.map((c) => ({
+                      value: String(c.id),
+                      label: c.codigo ? `${c.nombre} (${c.codigo})` : c.nombre,
+                    }))}
+                    placeholder={loadingCargos ? 'Buscando cargos…' : 'Escriba al menos 3 letras para buscar…'}
+                    onSearch={searchCargosDocentes}
+                    minSearchLength={3}
+                    isLoading={loadingCargos}
+                    onChange={(newId) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        cargoDocenteId: newId,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Escolaridad
+                  </label>
+                  <select
+                    name="escolaridad"
+                    value={form.escolaridad}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    <option value="PRIMARIA">PRIMARIA</option>
+                    <option value="SECUNDARIA">SECUNDARIA</option>
+                    <option value="TÉCNICO">TÉCNICO</option>
+                    <option value="TECNÓLOGO">TECNÓLOGO</option>
+                    <option value="PROFESIONAL">PROFESIONAL</option>
+                    <option value="ESPECIALIZACIÓN">ESPECIALIZACIÓN</option>
+                    <option value="MAESTRÍA">MAESTRÍA</option>
+                    <option value="DOCTORADO">DOCTORADO</option>
+                    <option value="OTRO">OTRO</option>
+                  </select>
                 </div>
               </div>
 
@@ -1129,9 +1212,7 @@ export function ActualizarDocenteModal({
                   >
                     <option value="">Seleccione…</option>
                     <option value="PROPIEDAD">Propiedad</option>
-                    <option value="PROVISIONALIDAD">
-                      Provisionalidad
-                    </option>
+                    <option value="PROVISIONALIDAD">Provisionalidad</option>
                   </select>
                 </div>
                 <div>

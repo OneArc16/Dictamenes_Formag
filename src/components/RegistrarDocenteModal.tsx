@@ -20,7 +20,7 @@ type DocenteForm = {
   direccion: string;
   barrio: string;
   departamento: string;
-  municipio: string; // (guardas NOMBRE en el form)
+  municipio: string; // guardas NOMBRE en el form
   zona: string;
   telefono: string;
   pais: string;
@@ -32,6 +32,11 @@ type DocenteForm = {
   gradoEscalafon: string;
   nivelEscalafon: string;
   institucionLabora: string;
+
+  // ✅ NUEVO
+  cargoDocenteId: number | null;
+  cargoDocenteNombre: string;
+  escolaridad: string;
 };
 
 const emptyForm: DocenteForm = {
@@ -59,6 +64,10 @@ const emptyForm: DocenteForm = {
   gradoEscalafon: '',
   nivelEscalafon: '',
   institucionLabora: '',
+
+  cargoDocenteId: null,
+  cargoDocenteNombre: '',
+  escolaridad: '',
 };
 
 type ModalProps = {
@@ -91,18 +100,12 @@ function Toast({ open, type, message, onClose }: ToastProps) {
 
   return (
     <div className="fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
-      <div
-        className={`flex items-center gap-3 rounded-xl ${bgClass} px-4 py-3 text-sm text-white shadow-2xl`}
-      >
+      <div className={`flex items-center gap-3 rounded-xl ${bgClass} px-4 py-3 text-sm text-white shadow-2xl`}>
         <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full bg-white/10">
           {type === 'success' ? '✓' : type === 'error' ? '!' : 'i'}
         </span>
         <span>{message}</span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="ml-3 text-xs text-white/80 hover:text-white"
-        >
+        <button type="button" onClick={onClose} className="ml-3 text-xs text-white/80 hover:text-white">
           Cerrar
         </button>
       </div>
@@ -134,6 +137,9 @@ type InstitucionOption = {
   idSecretaria: number | null;
 };
 
+// ✅ Cargo docente (buscador)
+type CargoDocenteOption = { id: number; codigo: string; nombre: string };
+
 function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   const [form, setForm] = useState<DocenteForm>(emptyForm);
 
@@ -145,7 +151,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
   const [selectedPaisCodigo, setSelectedPaisCodigo] = useState('');
   const [selectedDepartamento, setSelectedDepartamento] = useState('');
-  const [selectedMunicipio, setSelectedMunicipio] = useState(''); // <- CÓDIGO DANE (siempre)
+  const [selectedMunicipio, setSelectedMunicipio] = useState(''); // <- CÓDIGO DANE
 
   const [ubicacionLoaded, setUbicacionLoaded] = useState(false);
 
@@ -153,6 +159,10 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   const [instituciones, setInstituciones] = useState<InstitucionOption[]>([]);
   const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
   const [loadingInstituciones, setLoadingInstituciones] = useState(false);
+
+  // ✅ cargos docentes
+  const [cargosDocentes, setCargosDocentes] = useState<CargoDocenteOption[]>([]);
+  const [loadingCargos, setLoadingCargos] = useState(false);
 
   // 🔔 Toast
   const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
@@ -169,15 +179,13 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   function normTxt(s: string) {
     return (s ?? '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // quita tildes
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
   }
 
   function resolveMunicipioCodigoFromList(list: MunicipioOption[], nombreOrCodigo?: string) {
     if (!nombreOrCodigo) return undefined;
-
-    // Si ya es código 5 dígitos
     if (/^\d{5}$/.test(nombreOrCodigo)) return nombreOrCodigo;
 
     const n = normTxt(nombreOrCodigo);
@@ -187,14 +195,11 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
   function resolveMunicipioNombreFromList(list: MunicipioOption[], nombreOrCodigo?: string) {
     if (!nombreOrCodigo) return undefined;
-
-    // Si viene código, buscamos el nombre
     if (/^\d{5}$/.test(nombreOrCodigo)) {
       const found = list.find((m) => m.codigo === nombreOrCodigo);
       return found?.nombre;
     }
 
-    // Si ya viene nombre, lo devolvemos tal cual (pero preferimos el de la lista)
     const n = normTxt(nombreOrCodigo);
     const found = list.find((m) => normTxt(m.nombre) === n);
     return found?.nombre ?? nombreOrCodigo;
@@ -215,15 +220,17 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   }
 
   // =========================
-  // Abort controllers (evita race conditions)
+  // Abort controllers
   // =========================
   const instAbortRef = useRef<AbortController | null>(null);
   const instFetchAbortRef = useRef<AbortController | null>(null);
+  const cargoAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       instAbortRef.current?.abort();
       instFetchAbortRef.current?.abort();
+      cargoAbortRef.current?.abort();
     };
   }, []);
 
@@ -232,7 +239,67 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     setInstituciones([]);
   }, [selectedSecretariaId, selectedMunicipio]);
 
-  // 🔎 Búsqueda async de instituciones (autocomplete) con fallback (código -> nombre -> sin municipio)
+  // ✅ helper: asegurar cargo actual dentro de options (para que quede seleccionado)
+  const ensureCargoInOptions = (cargoId: number | null, cargoNombre: string) => {
+    if (!cargoId || !cargoNombre) return;
+    setCargosDocentes((prev) => {
+      if (prev.some((x) => x.id === cargoId)) return prev;
+      return [{ id: cargoId, codigo: '', nombre: cargoNombre }, ...prev];
+    });
+  };
+
+  // ✅ Búsqueda async de cargos docentes (soporta items|cargos|rows)
+  const handleSearchCargoDocente = async (term: string) => {
+    const q = term?.trim() ?? '';
+    if (q.length < 3) {
+      setCargosDocentes([]);
+      return;
+    }
+
+    cargoAbortRef.current?.abort();
+    const controller = new AbortController();
+    cargoAbortRef.current = controller;
+
+    try {
+      setLoadingCargos(true);
+
+      const res = await fetch(`/api/cargos-docentes/search?q=${encodeURIComponent(q)}`, {
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setCargosDocentes([]);
+        return;
+      }
+
+      const raw =
+        (Array.isArray(data.items) && data.items) ||
+        (Array.isArray(data.cargos) && data.cargos) ||
+        (Array.isArray(data.rows) && data.rows) ||
+        [];
+
+      const mapped: CargoDocenteOption[] = raw
+        .map((c: any) => ({
+          id: Number(c.id),
+          codigo: String(c.codigo ?? c.Codigo ?? ''),
+          nombre: String(c.nombre ?? c.Nombre ?? ''),
+        }))
+        .filter((c: CargoDocenteOption) => Number.isFinite(c.id) && !!c.nombre);
+
+      setCargosDocentes(mapped);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('Error buscando cargos docentes:', err);
+      setCargosDocentes([]);
+    } finally {
+      if (!controller.signal.aborted) setLoadingCargos(false);
+    }
+  };
+
+  // 🔎 Búsqueda instituciones (igual que tenías)
   const handleSearchInstitucion = async (term: string) => {
     if (!selectedSecretariaId) {
       setInstituciones([]);
@@ -245,7 +312,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       return;
     }
 
-    // Cancela la búsqueda anterior
     instAbortRef.current?.abort();
     const controller = new AbortController();
     instAbortRef.current = controller;
@@ -275,17 +341,14 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const muniCodigo = currentMunicipioCodigo();
       const muniNombre = currentMunicipioNombre();
 
-      // 1) con código
       let out = await run(muniCodigo);
       if (controller.signal.aborted) return;
 
-      // 2) si vacío, con nombre
       if (muniCodigo && out.instituciones.length === 0 && muniNombre) {
         out = await run(muniNombre);
         if (controller.signal.aborted) return;
       }
 
-      // 3) si vacío, sin municipio
       if (out.instituciones.length === 0) {
         out = await run(undefined);
         if (controller.signal.aborted) return;
@@ -309,7 +372,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     }
   };
 
-  // ⭐ Cargar instituciones (por secretaría y opcional municipio) con fallback (código -> nombre -> sin municipio)
   const fetchInstituciones = async (secretariaId?: string, municipioMaybe?: string) => {
     if (!secretariaId) {
       setInstituciones([]);
@@ -343,23 +405,18 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       setLoadingInstituciones(true);
 
       const muniCodigo =
-        resolveMunicipioCodigoFromList(municipios, municipioMaybe) ??
-        currentMunicipioCodigo();
+        resolveMunicipioCodigoFromList(municipios, municipioMaybe) ?? currentMunicipioCodigo();
       const muniNombre =
-        resolveMunicipioNombreFromList(municipios, municipioMaybe) ??
-        currentMunicipioNombre();
+        resolveMunicipioNombreFromList(municipios, municipioMaybe) ?? currentMunicipioNombre();
 
-      // 1) con código
       let out = await run(muniCodigo);
       if (controller.signal.aborted) return;
 
-      // 2) si vacío, con nombre
       if (muniCodigo && out.instituciones.length === 0 && muniNombre) {
         out = await run(muniNombre);
         if (controller.signal.aborted) return;
       }
 
-      // 3) si vacío, sin municipio
       if (out.instituciones.length === 0) {
         out = await run(undefined);
         if (controller.signal.aborted) return;
@@ -396,14 +453,34 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        setForm({ ...emptyForm, ...data });
+
+        const cargoId =
+          data?.cargoDocenteId == null || data?.cargoDocenteId === ''
+            ? null
+            : Number(data.cargoDocenteId);
+
+        const safeCargoId = Number.isFinite(cargoId as any) ? (cargoId as number) : null;
+
+        setForm({
+          ...emptyForm,
+          ...data,
+          cargoDocenteId: safeCargoId,
+          cargoDocenteNombre: data?.cargoDocenteNombre ?? '',
+          escolaridad: data?.escolaridad ?? '',
+        });
+
+        // asegura que el select pueda mostrarlo
+        if (safeCargoId && (data?.cargoDocenteNombre ?? '')) {
+          ensureCargoInOptions(safeCargoId, String(data.cargoDocenteNombre ?? ''));
+        }
       }
     } catch (err) {
       console.error('Error cargando localStorage', err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⭐ Calcular edad automáticamente cuando cambia la fecha de nacimiento
+  // Calcular edad automáticamente
   useEffect(() => {
     if (!form.fechaNacimiento) {
       setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
@@ -425,7 +502,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     setForm((prev) => (prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev));
   }, [form.fechaNacimiento]);
 
-  // 🔹 React Query: traer opciones de ubicación
+  // React Query: traer opciones de ubicación
   const { data: ubicacionData, isLoading: ubicacionLoading } = useQuery({
     queryKey: ['ubicacion-opciones'],
     queryFn: async () => {
@@ -542,7 +619,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value } as DocenteForm));
   };
 
   const handleLimpiar = () => {
@@ -551,6 +628,8 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     setSelectedMunicipio('');
     setSelectedSecretariaId('');
     setInstituciones([]);
+    setCargosDocentes([]);
+
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch (err) {
@@ -604,6 +683,24 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         (d as any).CODIGO_EPS ??
         (d as any).Codigo_Eps;
 
+      // ✅ cargo docente y escolaridad (tolerante)
+      const cargoDocenteIdRes =
+        (d as any).cargoDocenteId ??
+        (d as any).cargo_docente_id ??
+        (d as any).cargoDocente?.id ??
+        null;
+
+      const cargoDocenteNombreRes =
+        (d as any).cargoDocenteNombre ??
+        (d as any).cargo_docente_nombre ??
+        (d as any).cargoDocente?.nombre ??
+        '';
+
+      const escolaridadRes = (d as any).escolaridad ?? '';
+
+      const cargoIdNum =
+        cargoDocenteIdRes != null && cargoDocenteIdRes !== '' ? Number(cargoDocenteIdRes) : null;
+
       const updated: DocenteForm = {
         ...form,
         tipoDocumento: d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
@@ -618,7 +715,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         direccion: d.direccion ?? form.direccion,
         barrio: d.barrio ?? form.barrio,
         departamento: d.departamento ?? form.departamento,
-        municipio: d.municipio ?? form.municipio, // puede venir como NOMBRE
+        municipio: d.municipio ?? form.municipio,
         zona: d.zonaResidencia ?? d.zona ?? form.zona,
         telefono: d.telefono ?? form.telefono,
         pais: form.pais,
@@ -630,9 +727,16 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         gradoEscalafon: d.gradoEscalafon ?? form.gradoEscalafon,
         nivelEscalafon: d.nivelEscalafon ?? form.nivelEscalafon,
         institucionLabora: d.institucionEducativa ?? form.institucionLabora,
+
+        cargoDocenteId: Number.isFinite(cargoIdNum as any) ? cargoIdNum : null,
+        cargoDocenteNombre: String(cargoDocenteNombreRes ?? ''),
+        escolaridad: String(escolaridadRes ?? ''),
       };
 
       setForm(updated);
+
+      // ✅ asegura que el cargo quede seleccionado aunque no hayas buscado cargos aún
+      ensureCargoInOptions(updated.cargoDocenteId, updated.cargoDocenteNombre);
 
       // Sincronizar combos
       if (paises.length && updated.pais) {
@@ -645,7 +749,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         if (dep) setSelectedDepartamento(dep.codigo);
       }
 
-      // Municipio: convertir nombre -> código
       if (municipios.length && updated.municipio) {
         const muniCodigo = resolveMunicipioCodigoFromList(municipios, updated.municipio);
         if (muniCodigo) setSelectedMunicipio(muniCodigo);
@@ -821,17 +924,13 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         {/* Header modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">Registrar docente</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
+          <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">
             ✕
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Card de datos de identificación y ubicación */}
+          {/* Card identificación y ubicación */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
               <span className="px-2 py-1 text-xs bg-white border rounded">🧾</span>
@@ -842,9 +941,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Primera fila */}
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Tipo de documento
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Tipo de documento</label>
                   <select
                     name="tipoDocumento"
                     value={form.tipoDocumento}
@@ -860,9 +957,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Número de documento
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Número de documento</label>
                   <div className="flex gap-2">
                     <input
                       name="numeroDocumento"
@@ -888,9 +983,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Fecha de nacimiento
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de nacimiento</label>
                   <input
                     type="date"
                     name="fechaNacimiento"
@@ -901,9 +994,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Edad (años)
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Edad (años)</label>
                   <input
                     name="edad"
                     value={form.edad}
@@ -916,9 +1007,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Nombres + apellidos */}
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Primer nombre
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Primer nombre</label>
                   <input
                     name="primerNombre"
                     value={form.primerNombre}
@@ -927,9 +1016,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Segundo nombre
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Segundo nombre</label>
                   <input
                     name="segundoNombre"
                     value={form.segundoNombre}
@@ -938,9 +1025,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Primer apellido
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Primer apellido</label>
                   <input
                     name="primerApellido"
                     value={form.primerApellido}
@@ -949,9 +1034,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Segundo apellido
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Segundo apellido</label>
                   <input
                     name="segundoApellido"
                     value={form.segundoApellido}
@@ -964,9 +1047,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Sexo + dirección */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Sexo
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Sexo</label>
                   <select
                     name="sexo"
                     value={form.sexo}
@@ -981,9 +1062,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Dirección
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Dirección</label>
                   <input
                     name="direccion"
                     value={form.direccion}
@@ -996,9 +1075,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Barrio, departamento, municipio */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Departamento / Estado
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Departamento / Estado</label>
                   <SearchableSelect
                     value={selectedDepartamento}
                     options={departamentos.map((d) => ({ value: d.codigo, label: d.nombre }))}
@@ -1022,9 +1099,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Ciudad / Municipio
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Ciudad / Municipio</label>
                   <SearchableSelect
                     value={selectedMunicipio}
                     options={municipiosFiltrados.map((m) => ({ value: m.codigo, label: m.nombre }))}
@@ -1046,9 +1121,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Barrio / Vereda
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Barrio / Vereda</label>
                   <SearchableSelect
                     value={form.barrio}
                     options={barriosFiltrados.map((b) => ({ value: b.nombre, label: b.nombre }))}
@@ -1061,9 +1134,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Zona, teléfono, país */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Zona
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Zona</label>
                   <select
                     name="zona"
                     value={form.zona}
@@ -1077,9 +1148,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Teléfono de contacto
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Teléfono de contacto</label>
                   <input
                     name="telefono"
                     value={form.telefono}
@@ -1089,9 +1158,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    País
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">País</label>
                   <SearchableSelect
                     value={selectedPaisCodigo}
                     options={paises.map((p) => ({ value: p.codigo, label: p.nombre }))}
@@ -1108,9 +1175,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Aseguradora (EPS) + Categoría */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="md:col-span-2">
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Aseguradora (EPS)
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Aseguradora (EPS)</label>
                   <SearchableSelect
                     value={form.codigoEps}
                     options={epsList.map((eps) => ({ value: eps.codigo, label: eps.nombre }))}
@@ -1119,9 +1184,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Categoría
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Categoría</label>
                   <select
                     name="categoria"
                     value={form.categoria}
@@ -1137,7 +1200,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
             </div>
           </section>
 
-          {/* Card de datos laborales */}
+          {/* Card laborales */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
               <span className="px-2 py-1 text-xs bg-white border rounded">🧑‍🏫</span>
@@ -1145,12 +1208,59 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
             </header>
 
             <div className="p-4 space-y-4">
+              {/* ✅ Cargo docente + Escolaridad */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Cargo docente</label>
+                  <SearchableSelect
+                    value={form.cargoDocenteId ? String(form.cargoDocenteId) : ''}
+                    options={cargosDocentes.map((c) => ({
+                      value: String(c.id),
+                      label: c.codigo ? `${c.nombre} (${c.codigo})` : c.nombre,
+                    }))}
+                    placeholder={loadingCargos ? 'Buscando cargos…' : 'Escribe mínimo 3 letras…'}
+                    onSearch={handleSearchCargoDocente}
+                    isLoading={loadingCargos}
+                    minSearchLength={3}
+                    onChange={(newValue) => {
+                      const id = newValue ? Number(newValue) : null;
+                      const c = cargosDocentes.find((x) => x.id === id);
+
+                      setForm((prev) => ({
+                        ...prev,
+                        cargoDocenteId: Number.isFinite(id as any) ? (id as number) : null,
+                        cargoDocenteNombre: c?.nombre ?? prev.cargoDocenteNombre,
+                      }));
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Escolaridad</label>
+                  <select
+                    name="escolaridad"
+                    value={form.escolaridad}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccione…</option>
+                    <option value="PRIMARIA">PRIMARIA</option>
+                    <option value="SECUNDARIA">SECUNDARIA</option>
+                    <option value="TÉCNICO">TÉCNICO</option>
+                    <option value="TECNÓLOGO">TECNÓLOGO</option>
+                    <option value="PROFESIONAL">PROFESIONAL</option>
+                    <option value="ESPECIALIZACIÓN">ESPECIALIZACIÓN</option>
+                    <option value="MAESTRÍA">MAESTRÍA</option>
+                    <option value="DOCTORADO">DOCTORADO</option>
+                    <option value="OTRO">OTRO</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Secretaría + Institución */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Secretaría donde labora
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Secretaría donde labora</label>
                   <SearchableSelect
                     value={selectedSecretariaId}
                     options={secretarias.map((s) => ({ value: String(s.id), label: s.nombre }))}
@@ -1177,9 +1287,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Institución donde labora
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Institución donde labora</label>
                   <SearchableSelect
                     value={form.institucionLabora}
                     options={instituciones.map((i) => ({ value: i.nombre, label: i.nombre }))}
@@ -1208,9 +1316,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Forma de vinculación + Estado civil */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Forma de vinculación
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Forma de vinculación</label>
                   <select
                     name="formaVinculacion"
                     value={form.formaVinculacion}
@@ -1223,9 +1329,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Estado civil
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Estado civil</label>
                   <select
                     name="estadoCivil"
                     value={form.estadoCivil}
@@ -1245,9 +1349,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
               {/* Escalafón */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Grado de escalafón
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Grado de escalafón</label>
                   <input
                     name="gradoEscalafon"
                     value={form.gradoEscalafon}
@@ -1257,9 +1359,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Nivel de escalafón
-                  </label>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Nivel de escalafón</label>
                   <select
                     name="nivelEscalafon"
                     value={form.nivelEscalafon}
@@ -1315,12 +1415,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           </div>
         </form>
 
-        <Toast
-          open={!!toast}
-          type={toast?.type ?? 'info'}
-          message={toast?.message ?? ''}
-          onClose={() => setToast(null)}
-        />
+        <Toast open={!!toast} type={toast?.type ?? 'info'} message={toast?.message ?? ''} onClose={() => setToast(null)} />
       </div>
     </div>
   );

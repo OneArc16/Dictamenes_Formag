@@ -206,7 +206,7 @@ enum DictamenOrigenEvento {
 model CargoDocente {
   id     Int     @id @default(autoincrement())
   codigo String? @db.VarChar(20)
-  nombre String  @db.VarChar(150)
+  nombre String  @db.Text
   estado Boolean @default(true)
 
   usuarios Usuario[]
@@ -523,8 +523,8 @@ model Usuario {
   lugarNacimiento String? @db.VarChar(5)
 
   nroHijos    Int     @default(0) @db.SmallInt
-  escolaridad String? @db.VarChar(2)
-
+  escolaridad String? @db.Text
+  
   fechaAfiliacion DateTime @default(now())
 
   celular            String? @db.VarChar(15)

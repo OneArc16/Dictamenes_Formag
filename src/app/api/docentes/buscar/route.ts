@@ -1,5 +1,8 @@
+// app/api/docentes/buscar/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
@@ -10,13 +13,13 @@ export async function GET(req: Request) {
     if (!documento) {
       return NextResponse.json(
         { ok: false, error: 'El número de documento es obligatorio' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const where: any = {
       identificacion: documento,
-      tipoUsuario: 'DO', // solo docentes
+      tipoUsuario: 'DO',
     };
 
     if (tipoDocumento) {
@@ -30,12 +33,30 @@ export async function GET(req: Request) {
         municipio: true,
         barrioRef: true,
         paisResidencia: true,
+        secretariaRef: true,
+        institucionEducativaRef: true,
+        cargoDocente: true, // FK (si existe)
       },
     });
 
-    // Si no existe, devolvemos ok=true pero docente=null
     if (!usuario) {
       return NextResponse.json({ ok: true, docente: null });
+    }
+
+    // ✅ Fallback: si no hay FK, intentar resolver por codigoOcupacion -> CargoDocente.codigo
+    let cargoId = usuario.cargoDocenteId ?? null;
+    let cargoNombre = usuario.cargoDocente?.nombre ?? '';
+
+    if (!cargoId && usuario.codigoOcupacion) {
+      const cargoByCodigo = await prisma.cargoDocente.findFirst({
+        where: { codigo: usuario.codigoOcupacion },
+        select: { id: true, nombre: true },
+      });
+
+      if (cargoByCodigo) {
+        cargoId = cargoByCodigo.id;
+        cargoNombre = cargoByCodigo.nombre ?? '';
+      }
     }
 
     const docente = {
@@ -44,31 +65,46 @@ export async function GET(req: Request) {
       fechaNacimiento: usuario.fechaNacimiento
         ? usuario.fechaNacimiento.toISOString().slice(0, 10)
         : '',
+      edad: usuario.edad != null ? String(usuario.edad) : '',
+
       primerNombre: usuario.primerNombre ?? '',
       segundoNombre: usuario.segundoNombre ?? '',
       primerApellido: usuario.primerApellido ?? '',
       segundoApellido: usuario.segundoApellido ?? '',
+
       sexo: usuario.sexo ?? '',
       direccion: usuario.direccion ?? '',
       barrio: usuario.barrioRef?.nombre ?? usuario.barrio ?? '',
       departamento: usuario.departamento?.nombre ?? '',
       municipio: usuario.municipio?.nombre ?? '',
+
       zona:
         usuario.zonaResidencia === 'U'
           ? 'URBANA'
           : usuario.zonaResidencia === 'R'
           ? 'RURAL'
           : '',
+
       telefono:
         usuario.celular ||
         usuario.telefono ||
         usuario.telefonoSecundario ||
         '',
+
       pais: usuario.paisResidencia?.nombre ?? '',
-      secretariaLabora: usuario.secretaria ?? '',
+
+      codigoEps: usuario.codigoEps ?? '',
+      categoria: usuario.categoria ?? '',
+
+      secretariaLabora: usuario.secretariaRef?.nombre ?? '',
       gradoEscalafon: usuario.gradoEscalafon ?? '',
       nivelEscalafon: usuario.nivelEscalafon ?? '',
-      institucionLabora: usuario.institucionEducativa ?? '',
+      institucionLabora: usuario.institucionEducativaRef?.nombre ?? '',
+
+      // ✅ NUEVOS
+      escolaridad: usuario.escolaridad ?? '',
+      cargoDocenteId: cargoId,
+      cargoDocenteNombre: cargoNombre,
     };
 
     return NextResponse.json({ ok: true, docente });
@@ -76,7 +112,7 @@ export async function GET(req: Request) {
     console.error('Error en /api/docentes/buscar', error);
     return NextResponse.json(
       { ok: false, error: 'Error interno buscando docente' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

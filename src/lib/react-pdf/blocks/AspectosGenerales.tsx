@@ -166,7 +166,7 @@ export function AspectosGeneralesBlock({ dictamen }: Props) {
       {/* Valores (azul body) */}
       <View style={[styles.row, styles.hVal]}>
         <Cell flex={COL.c1} style={styles.bgBody}><Text style={styles.td}>{ciudad}</Text></Cell>
-        <Cell flex={COL.c2} style={styles.bgBody}><Text style={styles.td}>{enfermedadGeneral}</Text></Cell>
+        <Cell flex={COL.c2} style={styles.bgBody}><Text style={styles.td}>ATEP</Text></Cell>
         <Cell flex={COL.c3} style={styles.bgBody}><Text style={styles.td}>{ley}</Text></Cell>
         <Cell flex={COL.c4} style={styles.bgBody}><Text style={styles.td}>PROCEDIMIENTO B</Text></Cell>
         <Cell flex={COL.c5} style={styles.bgBody} last><Text style={styles.td}>{marcaB}</Text></Cell>
