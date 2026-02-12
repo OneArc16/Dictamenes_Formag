@@ -181,7 +181,15 @@ function expandAnalisisOcupacional(arr: any[]) {
           null,
       ) ?? null;
 
-    const g = normalizeGravedad(it?.gravedad ?? it?.grado ?? it?.clase ?? it?.nivel ?? it?.valorGravedad ?? it?.valor ?? null);
+    const g = normalizeGravedad(
+      it?.gravedad ??
+        it?.grado ??
+        it?.clase ??
+        it?.nivel ??
+        it?.valorGravedad ??
+        it?.valor ??
+        null,
+    );
 
     if (!g || (!factor && !criterio)) continue;
 
@@ -265,7 +273,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
       analisisOcupacional: true,
 
-      // ✅ NUEVO: firmas “congeladas” del cierre (dictamen_junta)
+      // ✅ firmas “congeladas” del cierre (dictamen_junta)
       junta: {
         orderBy: { orden: 'asc' },
         select: {
@@ -276,7 +284,6 @@ export async function GET(req: Request, ctx: RouteCtx) {
           firma: true,
           firmaMime: true,
           empleadoId: true,
-
           empleado: { select: { tratamiento: true } },
         },
       },
@@ -297,7 +304,9 @@ export async function GET(req: Request, ctx: RouteCtx) {
           sexo: true,
           genero: true,
 
+          // ✅ ESCOLARIDAD (ya la estabas trayendo)
           escolaridad: true,
+
           estadoCivil: true,
 
           fechaNacimiento: true,
@@ -307,7 +316,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
           codigoOcupacion: true,
 
-          // ✅ NUEVO (si lo usarás en el PDF)
+          // ✅ CARGO DOCENTE (relación)
+          cargoDocenteId: true,
           cargoDocente: { select: { id: true, codigo: true, nombre: true } },
 
           gradoEscalafon: true,
@@ -358,19 +368,18 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
   // ✅ 1) Si ya existe snapshot en dictamen_junta -> eso manda (PDF “congelado”)
   // ✅ 2) Si NO existe -> fallback a médicos activos de junta (para dictamen en edición)
-  let juntaPdf: any[] = (dictamen as any).junta?.map((j: any) => ({
-    orden: j.orden,
-    empleadoId: j.empleadoId ?? null,
-    nombreCompleto: j.nombreCompleto,
-    registroMedico: j.registroMedico ?? null,
-    licencia: j.licencia ?? null,
-    firmaSrc: bytesToDataUrl(j.firma, j.firmaMime),
-
-    tratamiento: j?.empleado?.tratamiento ?? 'DR',
-  })) ?? [];
+  let juntaPdf: any[] =
+    (dictamen as any).junta?.map((j: any) => ({
+      orden: j.orden,
+      empleadoId: j.empleadoId ?? null,
+      nombreCompleto: j.nombreCompleto,
+      registroMedico: j.registroMedico ?? null,
+      licencia: j.licencia ?? null,
+      firmaSrc: bytesToDataUrl(j.firma, j.firmaMime),
+      tratamiento: j?.empleado?.tratamiento ?? 'DR',
+    })) ?? [];
 
   if (juntaPdf.length === 0) {
-    // OJO: este where asume que ya agregaste el campo booleano en Empleado (ej: esMiembroJunta)
     const activosJunta = await prisma.empleado.findMany({
       where: { activo: true, esMiembroJunta: true },
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
@@ -383,7 +392,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
         registroMedico: true,
         licencia: true,
         firma: true,
-        tratamiento: true
+        tratamiento: true,
       },
     });
 
@@ -394,14 +403,23 @@ export async function GET(req: Request, ctx: RouteCtx) {
       registroMedico: e.registroMedico ?? null,
       licencia: e.licencia ?? null,
       firmaSrc: bytesToDataUrl(e.firma, null),
-
       tratamiento: e.tratamiento ?? 'DR',
     }));
   }
 
+  // ✅ Normalizaciones para CARGO + ESCOLARIDAD
+  const cargoDoc = u?.cargoDocente ?? null;
+  const cargoDocenteNombre = cargoDoc?.nombre ? String(cargoDoc.nombre) : null;
+  const cargoDocenteCodigo = cargoDoc?.codigo != null ? String(cargoDoc.codigo) : null;
+  const cargoDocenteId = cargoDoc?.id ?? u?.cargoDocenteId ?? null;
+
+  // fallback por si hay usuarios viejos con codigoOcupacion
+  const cargoFallback = cargoDocenteNombre ?? (u?.codigoOcupacion ? String(u.codigoOcupacion) : null);
+
+  const escolaridadFix = toText(u?.escolaridad);
+
   const dictamenPdf: any = {
     ...dictamen,
-
     analisisOcupacional: analisisFix,
 
     tituloII: {
@@ -424,8 +442,14 @@ export async function GET(req: Request, ctx: RouteCtx) {
           numeroDocumento: u.identificacion,
           documento: u.identificacion,
 
-          // si ya migras a cargoDocente en UI, igual dejo fallback al código viejo
-          cargo: u?.cargoDocente?.nombre ?? u.codigoOcupacion ?? null,
+          // ✅ CAMPOS “LISTOS PARA IMPRIMIR” EN EL PDF
+          escolaridad: escolaridadFix,
+          cargo: cargoFallback,
+
+          // ✅ aliases extra (por si tu componente los usa)
+          cargoDocenteId,
+          cargoDocenteNombre,
+          cargoDocenteCodigo,
 
           institucionEducativaRef: u.institucionEducativaRef
             ? {

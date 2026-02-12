@@ -34,6 +34,11 @@ enum TratamientoProfesional {
   DRA
 }
 
+enum TipoDictamen {
+  CALIFICACION
+  RECALIFICACION
+}
+
 // Modo de valoración para MOVIMIENTO
 enum MovimientoModo {
   RESTRICCION
@@ -524,6 +529,8 @@ model Usuario {
 
   nroHijos    Int     @default(0) @db.SmallInt
   escolaridad String? @db.Text
+
+  fechaVinculacion DateTime? @db.Date @map("fecha_vinculacion")
   
   fechaAfiliacion DateTime @default(now())
 
@@ -767,6 +774,8 @@ model Dictamen {
   updatedAt        DateTime         @updatedAt
   procedimientoPcl ProcedimientoPcl
 
+  tipoDictamen TipoDictamen @default(CALIFICACION) @map("tipo_dictamen")
+
   totalTitulo1           Decimal?                @db.Decimal(6, 2)
   totalCap1              Decimal?                @db.Decimal(6, 2)
   claseLimitacionLaboral ClaseLimitacionLaboral?
@@ -803,6 +812,7 @@ model Dictamen {
 
   @@index([usuarioId])
   @@index([empleadoId])
+  @@index([tipoDictamen])
   @@index([estado, reabierto, fechaDictamen])
   @@map("dictamenes")
 }

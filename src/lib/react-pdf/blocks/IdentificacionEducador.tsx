@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
 
 type Props = {
   dictamen: any;
@@ -28,6 +27,18 @@ function calcAge(birth?: string | Date | null, ref?: string | Date | null) {
   const m = r.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && r.getDate() < b.getDate())) age--;
   return age;
+}
+
+// ✅ evita [object Object]
+function asText(v: any): string {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const pick = v.nombre ?? v.name ?? v.label ?? v.valor ?? v.codigo ?? null;
+    return pick != null ? String(pick) : '—';
+  }
+  return String(v);
 }
 
 // Colores plantilla (Office)
@@ -135,41 +146,44 @@ function zonaLabel(z?: string | null) {
 }
 
 export function IdentificacionEducadorBlock({ dictamen }: Props) {
-  // ✅ en tu schema Dictamen -> usuario (Usuario)
+  // ✅ Dictamen -> usuario (Usuario)
   const u = dictamen?.usuario ?? {};
 
-  // ✅ Usuario: primerNombre/segundoNombre/primerApellido/segundoApellido
   const nombres = [u?.primerNombre, u?.segundoNombre].filter(Boolean).join(' ') || '—';
   const apellidos = [u?.primerApellido, u?.segundoApellido].filter(Boolean).join(' ') || '—';
 
-  // ✅ Usuario: identificacion / tipoIdentificacion (si quieres mostrar solo el número, deja identificacion)
   const documento = u?.identificacion ?? '—';
 
-  // ✅ Usuario: sexo / escolaridad / estadoCivil
   const genero = sexoLabel(u?.sexo ?? u?.genero ?? null);
-  const escolaridad = u?.escolaridad ?? '—';
-  const estadoCivil = u?.estadoCivil ?? '—';
 
-  // ✅ Usuario: fechaNacimiento / edad
+  // ✅ escolaridad (ya llega como string desde tu route, pero tolerante)
+  const escolaridad = asText(u?.escolaridad);
+
+  const estadoCivil = asText(u?.estadoCivil);
+
   const fechaNac = u?.fechaNacimiento ?? null;
   const edadCalc =
     u?.edad != null ? u.edad : calcAge(fechaNac, dictamen?.fechaDictamen ?? dictamen?.fecha ?? null);
 
-  // ✅ Usuario: direccion / zonaResidencia
-  const direccion = u?.direccion ?? '—';
+  const direccion = asText(u?.direccion);
   const zona = zonaLabel(u?.zonaResidencia ?? null);
 
-  // ✅ Relaciones: municipio / departamento (Usuario.municipio / Usuario.departamento)
   const municipio = u?.municipio?.nombre ?? '—';
   const departamento = u?.departamento?.nombre ?? '—';
 
-  // ✅ Usuario: NO existe "cargo" en tu schema. Si no tienes campo, lo dejamos con fallback.
-  // Si quieres, puedes usar codigoOcupacion (Char(4)) como “cargo”.
-  const cargo = u?.codigoOcupacion ?? '—';
+  // ✅ CARGO: primero el nombre del CargoDocente, luego fallback
+  // (tu route ya manda usuario.cargo y cargoDocenteNombre, pero dejamos todo tolerante)
+  const cargo =
+    asText(u?.cargoDocenteNombre) !== '—'
+      ? asText(u?.cargoDocenteNombre)
+      : asText(u?.cargoDocente?.nombre) !== '—'
+      ? asText(u?.cargoDocente?.nombre)
+      : asText(u?.cargo) !== '—'
+      ? asText(u?.cargo)
+      : asText(u?.codigoOcupacion);
 
-  // ✅ Usuario: gradoEscalafon / formaVinculacion (existen)
-  const gradoEscalafon = u?.gradoEscalafon ?? '—';
-  const formaVinculacion = u?.formaVinculacion ?? '—';
+  const gradoEscalafon = asText(u?.gradoEscalafon);
+  const formaVinculacion = asText(u?.formaVinculacion);
 
   return (
     <View>
@@ -188,7 +202,7 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
         </Cell>
       </View>
 
-      {/* Row 2: Documento (label azul / valor azul claro) */}
+      {/* Row 2: Documento */}
       <View style={[styles.row, styles.h2]}>
         <Cell flex={2.4} bg={COLOR.blue}>
           <Text style={styles.text}>
@@ -218,7 +232,11 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
       {/* Row 4: Fecha nac / Edad */}
       <View style={[styles.row, styles.h4]}>
         <Cell flex={2.5} bg={COLOR.blue}>
-          <FieldInline label="Fecha de nacimiento:" value={formatDateDMY(fechaNac)} uppercaseValue={false} />
+          <FieldInline
+            label="Fecha de nacimiento:"
+            value={formatDateDMY(fechaNac)}
+            uppercaseValue={false}
+          />
         </Cell>
         <Cell flex={1.2} bg={COLOR.blueLight} last>
           <FieldInline
