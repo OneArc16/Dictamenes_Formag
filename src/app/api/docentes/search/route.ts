@@ -74,6 +74,9 @@ export async function GET(req: Request) {
 
         fechaNacimiento: true,
 
+        // ✅ NUEVO (agregado)
+        fechaVinculacion: true,
+
         codigoEps: true,
         eps: { select: { nombreEntidad: true } },
 
@@ -97,6 +100,23 @@ export async function GET(req: Request) {
       take: 25,
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
     });
+
+    // ✅ Traer tipoDictamen (último dictamen) por cada usuario
+    const usuarioIds = usuarios.map((u) => u.id);
+    const dictamenesUltimos = usuarioIds.length
+      ? await prisma.dictamen.findMany({
+          where: { usuarioId: { in: usuarioIds } },
+          select: { usuarioId: true, tipoDictamen: true, fechaDictamen: true, id: true },
+          orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
+        })
+      : [];
+
+    const mapTipoDictamen = new Map<number, string>();
+    for (const d of dictamenesUltimos) {
+      if (!mapTipoDictamen.has(d.usuarioId)) {
+        mapTipoDictamen.set(d.usuarioId, String(d.tipoDictamen));
+      }
+    }
 
     // ✅ Fallback masivo por codigoOcupacion
     const codigosSinFk = Array.from(
@@ -158,6 +178,10 @@ export async function GET(req: Request) {
         formaVinculacion: u.formaVinculacion,
 
         fechaNacimiento: u.fechaNacimiento,
+
+        // ✅ NUEVOS (agregados)
+        fechaVinculacion: u.fechaVinculacion,
+        tipoDictamen: mapTipoDictamen.get(u.id) ?? 'CALIFICACION',
 
         codigoEps: u.codigoEps,
         epsNombre: nombreEps,

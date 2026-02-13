@@ -37,6 +37,10 @@ type DocenteForm = {
   cargoDocenteId: number | null;
   cargoDocenteNombre: string;
   escolaridad: string;
+
+  // ✅ NUEVO (agregado)
+  tipoDictamen: 'CALIFICACION' | 'RECALIFICACION' | '';
+  fechaVinculacion: string;
 };
 
 const emptyForm: DocenteForm = {
@@ -68,6 +72,9 @@ const emptyForm: DocenteForm = {
   cargoDocenteId: null,
   cargoDocenteNombre: '',
   escolaridad: '',
+
+  tipoDictamen: 'CALIFICACION',
+  fechaVinculacion: '',
 };
 
 type ModalProps = {
@@ -467,6 +474,8 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           cargoDocenteId: safeCargoId,
           cargoDocenteNombre: data?.cargoDocenteNombre ?? '',
           escolaridad: data?.escolaridad ?? '',
+          tipoDictamen: (data?.tipoDictamen ?? 'CALIFICACION') as any,
+          fechaVinculacion: data?.fechaVinculacion ?? '',
         });
 
         // asegura que el select pueda mostrarlo
@@ -701,6 +710,12 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       const cargoIdNum =
         cargoDocenteIdRes != null && cargoDocenteIdRes !== '' ? Number(cargoDocenteIdRes) : null;
 
+      const fechaVinculacionRes =
+        (d as any).fechaVinculacion ??
+        (d as any).fecha_vinculacion ??
+        (d as any).fechaVinculacionDocente ??
+        null;
+
       const updated: DocenteForm = {
         ...form,
         tipoDocumento: d.tipoIdentificacion ?? d.tipoDocumento ?? form.tipoDocumento,
@@ -731,6 +746,10 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         cargoDocenteId: Number.isFinite(cargoIdNum as any) ? cargoIdNum : null,
         cargoDocenteNombre: String(cargoDocenteNombreRes ?? ''),
         escolaridad: String(escolaridadRes ?? ''),
+
+        tipoDictamen: form.tipoDictamen,
+        fechaVinculacion:
+          (fechaVinculacionRes && String(fechaVinculacionRes).slice(0, 10)) ?? form.fechaVinculacion,
       };
 
       setForm(updated);
@@ -837,6 +856,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           usuarioId,
           fechaDictamen,
           procedimientoPcl: 'A',
+          tipoDictamen: form.tipoDictamen || 'CALIFICACION',
         }),
       });
 
@@ -1253,6 +1273,32 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                     <option value="MAESTRÍA">MAESTRÍA</option>
                     <option value="DOCTORADO">DOCTORADO</option>
                     <option value="OTRO">OTRO</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* ✅ Tipo dictamen + Fecha de vinculación */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de vinculación</label>
+                  <input
+                    type="date"
+                    name="fechaVinculacion"
+                    value={form.fechaVinculacion}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">Tipo de dictamen</label>
+                  <select
+                    name="tipoDictamen"
+                    value={form.tipoDictamen}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="CALIFICACION">Calificación</option>
+                    <option value="RECALIFICACION">Recalificación</option>
                   </select>
                 </div>
               </div>

@@ -37,6 +37,10 @@ type DocenteForm = {
   // ✅ NUEVOS
   cargoDocenteId: string; // guardamos el ID como string para el form (en BD es Int)
   escolaridad: string;
+
+  // ✅ NUEVOS (agregados)
+  fechaVinculacion: string; // YYYY-MM-DD
+  tipoDictamen: string; // CALIFICACION | RECALIFICACION
 };
 
 const emptyForm: DocenteForm = {
@@ -68,6 +72,10 @@ const emptyForm: DocenteForm = {
   // ✅ NUEVOS
   cargoDocenteId: '',
   escolaridad: '',
+
+  // ✅ NUEVOS (agregados)
+  fechaVinculacion: '',
+  tipoDictamen: 'CALIFICACION',
 };
 
 type UpdateDocenteModalProps = {
@@ -232,7 +240,7 @@ export function ActualizarDocenteModal({
     setForm((prev) => (prev.edad !== ageStr ? { ...prev, edad: ageStr } : prev));
   }, [form.fechaNacimiento]);
 
-    const ensureCargoInOptions = (cargoIdStr: string, cargoNombre?: string) => {
+  const ensureCargoInOptions = (cargoIdStr: string, cargoNombre?: string) => {
     const id = Number(cargoIdStr);
     if (!cargoIdStr || !Number.isFinite(id)) return;
 
@@ -514,6 +522,19 @@ export function ActualizarDocenteModal({
         (d as any).Escolaridad ??
         (d as any).ESCOLARIDAD;
 
+      // ✅ NUEVOS (agregados)
+      const fechaVinculacionRes =
+        (d as any).fechaVinculacion ??
+        (d as any).fecha_vinculacion ??
+        (d as any).fechaVinculación ??
+        null;
+
+      const tipoDictamenRes =
+        (d as any).tipoDictamen ??
+        (d as any).tipo_dictamen ??
+        (d as any).TIPO_DICTAMEN ??
+        null;
+
       const updated: DocenteForm = {
         ...emptyForm,
         ...form,
@@ -546,6 +567,10 @@ export function ActualizarDocenteModal({
         // ✅ NUEVOS
         cargoDocenteId: cargoDocenteIdRes != null ? String(cargoDocenteIdRes) : form.cargoDocenteId,
         escolaridad: escolaridadRes ?? form.escolaridad,
+
+        // ✅ NUEVOS (agregados)
+        fechaVinculacion: fechaVinculacionRes ? String(fechaVinculacionRes).slice(0, 10) : '',
+        tipoDictamen: (tipoDictamenRes ? String(tipoDictamenRes) : form.tipoDictamen) || 'CALIFICACION',
       };
 
       // Sincronizar combos
@@ -680,7 +705,6 @@ export function ActualizarDocenteModal({
     setSaving(true);
 
     try {
-
       const cargoIdNum =
         form.cargoDocenteId && /^\d+$/.test(form.cargoDocenteId) ? Number(form.cargoDocenteId) : null;
 
@@ -1194,6 +1218,37 @@ export function ActualizarDocenteModal({
                     <option value="MAESTRÍA">MAESTRÍA</option>
                     <option value="DOCTORADO">DOCTORADO</option>
                     <option value="OTRO">OTRO</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* ✅ NUEVOS (agregados): Fecha vinculación + Tipo dictamen */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Fecha de vinculación
+                  </label>
+                  <input
+                    type="date"
+                    name="fechaVinculacion"
+                    value={form.fechaVinculacion}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-700">
+                    Tipo de dictamen
+                  </label>
+                  <select
+                    name="tipoDictamen"
+                    value={form.tipoDictamen}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="CALIFICACION">CALIFICACIÓN</option>
+                    <option value="RECALIFICACION">RECALIFICACIÓN</option>
                   </select>
                 </div>
               </div>

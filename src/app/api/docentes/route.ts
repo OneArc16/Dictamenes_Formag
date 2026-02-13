@@ -43,6 +43,15 @@ function calcularEdadYFecha(fechaStr?: string): { fechaNacimiento: Date | null; 
   return { fechaNacimiento: fecha, edad };
 }
 
+// ✅ NUEVO: parse para Date-only (similar a fechaNacimiento)
+function parseDateOnly(fechaStr?: any): Date | null {
+  const v = String(fechaStr ?? '').trim().slice(0, 10);
+  if (!v) return null;
+
+  const d = new Date(`${v}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 // ==========================
 // ✅ Anti-P2000: obtener límites VARCHAR reales y truncar
 // ==========================
@@ -89,9 +98,9 @@ function applyDbStringLimits(data: Record<string, any>, limits: Record<string, n
   for (const [key, val] of Object.entries(data)) {
     if (typeof val !== 'string') continue;
 
-    const k1 = key;                 // camelCase
-    const k2 = key.toLowerCase();   // por si info_schema devuelve lowercase
-    const k3 = toSnake(key);        // snake_case por si tu tabla usa underscores
+    const k1 = key; // camelCase
+    const k2 = key.toLowerCase(); // por si info_schema devuelve lowercase
+    const k3 = toSnake(key); // snake_case por si tu tabla usa underscores
 
     const max =
       limits[k1] ??
@@ -136,6 +145,9 @@ export async function POST(req: Request) {
 
     // 2) Edad y fecha de nacimiento
     const { fechaNacimiento, edad } = calcularEdadYFecha(form.fechaNacimiento);
+
+    // ✅ NUEVO: Fecha de vinculación (Usuario)
+    const fechaVinculacion = parseDateOnly(form.fechaVinculacion);
 
     // 3) País residencia
     let residenciaPaisCodigo = 'COL';
@@ -302,6 +314,9 @@ export async function POST(req: Request) {
       // ✅ NUEVO
       cargoDocenteId,
       escolaridad,
+
+      // ✅ NUEVO: Fecha de vinculación
+      fechaVinculacion,
     };
 
     // ✅ APLICAR límites reales de la BD (evita P2000)

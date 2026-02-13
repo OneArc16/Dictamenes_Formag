@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import { z } from 'zod';
-import { ProcedimientoPcl } from '@prisma/client';
+import { ProcedimientoPcl, TipoDictamen } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -140,6 +140,7 @@ export async function GET(req: Request) {
 
     const rows = dictamenes.map((d) => ({
       id: d.id,
+      tipoDictamen: d.tipoDictamen,
       fechaDictamen: d.fechaDictamen
         ? d.fechaDictamen.toISOString()
         : null,
@@ -175,6 +176,7 @@ const CreateDictamenSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)'),
   procedimientoPcl: z.enum(['A', 'B']),
+  tipoDictamen: z.enum(['CALIFICACION', 'RECALIFICACION']).optional(),
   antecedentesClinicos: z.string().optional(),
   condicionSalud: z.string().optional(),
   descripcionHallazgos: z.string().optional(),
@@ -208,6 +210,9 @@ export async function POST(req: Request) {
         usuarioId: data.usuarioId,
         fechaDictamen: fecha,
         procedimientoPcl: data.procedimientoPcl as ProcedimientoPcl,
+        tipoDictamen: data.tipoDictamen
+          ? (data.tipoDictamen as TipoDictamen)
+          : undefined,
         antecedentesClinicos,
         condicionSalud,
         descripcionHallazgos,

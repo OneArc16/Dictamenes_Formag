@@ -43,6 +43,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, docente: null });
     }
 
+    // ✅ Traer el último dictamen para exponer tipoDictamen
+    const ultimoDictamen = await prisma.dictamen.findFirst({
+      where: { usuarioId: usuario.id },
+      orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
+      select: { tipoDictamen: true },
+    });
+
     // ✅ Fallback: si no hay FK, intentar resolver por codigoOcupacion -> CargoDocente.codigo
     let cargoId = usuario.cargoDocenteId ?? null;
     let cargoNombre = usuario.cargoDocente?.nombre ?? '';
@@ -105,6 +112,12 @@ export async function GET(req: Request) {
       escolaridad: usuario.escolaridad ?? '',
       cargoDocenteId: cargoId,
       cargoDocenteNombre: cargoNombre,
+
+      // ✅ NUEVOS (agregados)
+      fechaVinculacion: usuario.fechaVinculacion
+        ? usuario.fechaVinculacion.toISOString().slice(0, 10)
+        : '',
+      tipoDictamen: ultimoDictamen?.tipoDictamen ?? 'CALIFICACION',
     };
 
     return NextResponse.json({ ok: true, docente });
