@@ -1,3 +1,5 @@
+//DictamenReactPdf
+
 import React from 'react';
 import { Document } from '@react-pdf/renderer';
 
@@ -5,7 +7,7 @@ import { PageFrame } from './components/PageFrame';
 import { SectionBox } from './components/SectionBox';
 import { HeaderBlock } from './blocks/Header';
 import { AspectosGeneralesBlock } from './blocks/AspectosGenerales';
-import { CondicionHallazgosBlock } from './blocks/CondicionHallazgos';
+import { CondicionSaludBlock, HallazgosClinicosBlock } from './blocks/CondicionHallazgos';
 import { IdentificacionEducadorBlock } from './blocks/IdentificacionEducador';
 import { AntecedentesClinicosBlock } from './blocks/AntecedentesClinicos';
 import { DiagnosticosMotivoBlock } from './blocks/DiagnosticosMotivo';
@@ -15,7 +17,10 @@ import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
 import { TituloIIIPage1Block } from './blocks/TituloIIIPage1Block';
 import PorcentajePclBlock from '@/lib/react-pdf/blocks/PorcentajePclBlock';
 import ProcedimientoBlock from './blocks/ProcedimientoBlock';
-import SustentacionOrigenBlock from './blocks/SustentacionOrigenBlock';
+import SustentacionOrigenBlock, {
+  SustentacionTextoPart,
+  SustentacionTablaOrigenPart,
+} from './blocks/SustentacionOrigenBlock';
 import FirmasJuntaBlock from '@/lib/react-pdf/blocks/FirmasJuntaBlock';
 
 type Props = {
@@ -55,8 +60,9 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         </SectionBox>
 
         {/* ✅ Largo: permitir partir */}
-        <SectionBox minPresenceAhead={40}>
-          <CondicionHallazgosBlock condicion={condicion} hallazgos={hallazgos} />
+        <SectionBox minPresenceAhead={10}>
+          <CondicionSaludBlock condicion={condicion} />
+          <HallazgosClinicosBlock hallazgos={hallazgos} />
         </SectionBox>
 
         <SectionBox minPresenceAhead={60}>
@@ -83,9 +89,14 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
           <ProcedimientoBlock dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ Sustentación puede ser larga: permitir partir */}
-        <SectionBox minPresenceAhead={60}>
-          <SustentacionOrigenBlock dictamen={dictamen} />
+        {/* ✅ Sustentación (texto) PARTIBLE: llena el espacio en blanco */}
+        <SectionBox minPresenceAhead={20} joinBottom>
+          <SustentacionTextoPart dictamen={dictamen} />
+        </SectionBox>
+
+        {/* ✅ Tabla NO PARTIBLE: si no cabe, se va completa a la siguiente página */}
+        <SectionBox joinTop wrap={false} minPresenceAhead={120}>
+          <SustentacionTablaOrigenPart dictamen={dictamen} />
         </SectionBox>
 
         {/* ✅ Firmas: NO partir, y reservar buen espacio */}

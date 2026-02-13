@@ -32,9 +32,20 @@ function dateParts(v: any): { dd: string; mm: string; yyyy: string } {
 // ancho fijo por % (evita “torcido”)
 const w = (n: number, total: number) => ({ width: `${(n / total) * 100}%` });
 
-export default function SustentacionOrigenBlock({ dictamen }: Props) {
+export function SustentacionTextoPart({ dictamen }: Props) {
   const sust = safeText(dictamen?.sustentacionObservaciones);
 
+  return (
+    <View style={styles.sustWrap}>
+      <Text style={styles.sustText}>
+        <Text style={styles.bold}>5. SUSTENTACIÓN Y OBSERVACIONES: </Text>
+        {sust}
+      </Text>
+    </View>
+  );
+}
+
+export function SustentacionTablaOrigenPart({ dictamen }: Props) {
   const { dd, mm, yyyy } = dateParts(dictamen?.fechaEstructuracionInvalidez);
 
   const tipo = dictamen?.tipoEvento as 'ENFERMEDAD' | 'ACCIDENTE' | undefined;
@@ -42,27 +53,18 @@ export default function SustentacionOrigenBlock({ dictamen }: Props) {
 
   const mark = (val: any, expected: any) => (val === expected ? 'X' : '');
 
-  // Columnas FECHA (deja el 3er cuadro ligeramente diferente si quieres, pero aquí van estables)
+  // Columnas FECHA
   const COL_DATE = { label: 64, d: 12, m: 12, y: 12 } as const;
   const TOTAL_DATE = COL_DATE.label + COL_DATE.d + COL_DATE.m + COL_DATE.y;
 
-  // Columnas CALIFICACIONES (label + opcion + check + separador + opcion + check)
+  // Columnas CALIFICACIONES
   const COL = { label: 24, opt1: 22, chk1: 8, sep: 16, opt2: 22, chk2: 8 } as const;
   const TOTAL = COL.label + COL.opt1 + COL.chk1 + COL.sep + COL.opt2 + COL.chk2;
 
-  // bloque completo “no-partible” (como el formato)
   return (
-    <View style={styles.box} wrap={false} minPresenceAhead={170}>
-      {/* 5. Sustentación y Observaciones */}
-      <View style={styles.sustWrap}>
-        <Text style={styles.sustText}>
-          <Text style={styles.bold}>5. SUSTENTACIÓN Y OBSERVACIONES: </Text>
-          {sust}
-        </Text>
-      </View>
-
+    <View>
       {/* Fecha estructuración */}
-      <View style={[styles.row, styles.bb]} wrap={false}>
+      <View style={[styles.row, styles.bb]}>
         <View style={[styles.cellLeft, w(COL_DATE.label, TOTAL_DATE), styles.blueCell]}>
           <Text style={styles.leftLabel}>
             FECHA DE ESTRUCTURACIÓN DE LA INVALIDEZ (DIA, MES,{'\n'}AÑOS)
@@ -83,12 +85,12 @@ export default function SustentacionOrigenBlock({ dictamen }: Props) {
       </View>
 
       {/* Header calificaciones */}
-      <View style={[styles.headerRow, styles.bb]} wrap={false}>
+      <View style={[styles.headerRow, styles.bb]}>
         <Text style={styles.headerText}>CALIFICACIONES DEL ORIGEN</Text>
       </View>
 
       {/* Tipo de evento */}
-      <View style={[styles.row, styles.bb]} wrap={false}>
+      <View style={[styles.row, styles.bb]}>
         <View style={[styles.cellLeft, w(COL.label, TOTAL), styles.blueCell]}>
           <Text style={styles.leftLabel}>TIPO DE EVENTO:</Text>
         </View>
@@ -113,7 +115,7 @@ export default function SustentacionOrigenBlock({ dictamen }: Props) {
       </View>
 
       {/* Origen */}
-      <View style={styles.row} wrap={false}>
+      <View style={styles.row}>
         <View style={[styles.cellLeft, w(COL.label, TOTAL), styles.blueCell]}>
           <Text style={styles.leftLabel}>ORIGEN:</Text>
         </View>
@@ -140,13 +142,20 @@ export default function SustentacionOrigenBlock({ dictamen }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  box: {
-    width: '100%',
-    borderWidth: BW,
-    borderColor: BC,
-  },
+/**
+ * Mantengo el default export por compatibilidad,
+ * pero YA NO LO USES en 1 solo SectionBox si quieres que parta.
+ */
+export default function SustentacionOrigenBlock({ dictamen }: Props) {
+  return (
+    <View>
+      <SustentacionTextoPart dictamen={dictamen} />
+      <SustentacionTablaOrigenPart dictamen={dictamen} />
+    </View>
+  );
+}
 
+const styles = StyleSheet.create({
   // líneas
   row: { flexDirection: 'row', width: '100%' },
   bb: { borderBottomWidth: BW, borderBottomColor: BC },
@@ -157,7 +166,7 @@ const styles = StyleSheet.create({
   lightCell: { backgroundColor: COLOR.light },
   whiteCell: { backgroundColor: COLOR.white },
 
-  // Sustentación
+  // Sustentación (con separador abajo, como en el formato)
   sustWrap: {
     paddingHorizontal: 6,
     paddingVertical: 6,
