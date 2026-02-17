@@ -15,6 +15,9 @@ type DocenteInfo = {
   edad: number | null;
   secretaria: string | null;
   institucion: string | null;
+
+  // ✅ NUEVO
+  tipoDictamen?: string | null;
 };
 
 type MedicoInfo = {
@@ -22,12 +25,12 @@ type MedicoInfo = {
 } | null;
 
 type DictamenLeftPanelProps = {
-  dictamenId: number; // 👈 USAMOS ESTE ID PARA DEXIE
+  dictamenId: number;
   estado: DictamenEstado;
   docente: DocenteInfo;
-  medico: MedicoInfo; // se mantiene por compatibilidad
+  medico: MedicoInfo;
   numeroDictamen: string | null;
-  fechaDictamen: string; // YYYY-MM-DD o ''
+  fechaDictamen: string;
   onChangeFecha: (value: string) => void;
   procedimientoPcl: 'A' | 'B';
   onChangeProcedimiento: (value: 'A' | 'B') => void;
@@ -64,7 +67,6 @@ function estadoBadge(estado: DictamenEstado) {
   };
 }
 
-// ✅ ddMMyyyy + documento (solo dígitos)
 function buildNumeroDictamenPreview(fechaYYYYMMDD: string, documento: string) {
   const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
   const datePart = `${(dd ?? '').padStart(2, '0')}${(mm ?? '').padStart(2, '0')}${yyyy ?? ''}`;
@@ -87,16 +89,13 @@ export default function DictamenLeftPanel({
   const estadoInfo = estadoBadge(estado);
   const router = useRouter();
 
-  // ✅ Hook para persistir procedimiento en BD
   const actualizarProcedimiento = useActualizarProcedimientoDictamen(dictamenId);
 
-  // 🔹 Estado local que se sincroniza con Dexie
   const [localFecha, setLocalFecha] = useState<string>(fechaDictamen || '');
   const [localProcedimiento, setLocalProcedimiento] = useState<'A' | 'B'>(procedimientoPcl);
   const [loaded, setLoaded] = useState(false);
   const [savingLocal, setSavingLocal] = useState(false);
 
-  // ✅ Número que se muestra en UI
   const numeroLabel =
     localFecha && docente?.documento
       ? buildNumeroDictamenPreview(localFecha, docente.documento)
@@ -104,14 +103,12 @@ export default function DictamenLeftPanel({
       ? numeroDictamen.trim()
       : '-';
 
-  // 1️⃣ Al montar, leemos de Dexie si ya existe un borrador
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
         const draft = await db.dictamenDrafts.get(dictamenId);
-
         if (cancelled) return;
 
         if (draft?.data) {
@@ -122,11 +119,9 @@ export default function DictamenLeftPanel({
           setLocalFecha(fecha);
           setLocalProcedimiento(proc);
 
-          // sincronizamos también el estado del padre
           onChangeFecha(fecha);
           onChangeProcedimiento(proc);
         } else {
-          // si no hay nada en Dexie, usamos los valores que vienen del backend
           setLocalFecha(fechaDictamen || '');
           setLocalProcedimiento(procedimientoPcl);
         }
@@ -146,7 +141,6 @@ export default function DictamenLeftPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictamenId]);
 
-  // 2️⃣ Cada vez que cambian fecha o procedimiento, guardamos en Dexie (debounced)
   useEffect(() => {
     if (!loaded) return;
 
@@ -175,20 +169,17 @@ export default function DictamenLeftPanel({
     return () => clearTimeout(id);
   }, [dictamenId, localFecha, localProcedimiento, loaded]);
 
-  // ✅ Guardar procedimiento en BD apenas cambie (y refrescar UI server)
   const handleChangeProcedimiento = async (val: 'A' | 'B') => {
     const prev = localProcedimiento;
 
-    // UI inmediata
     setLocalProcedimiento(val);
     onChangeProcedimiento(val);
 
     try {
       await actualizarProcedimiento.mutateAsync(val);
       toast.success('Procedimiento actualizado');
-      router.refresh(); // fuerza a que el panel lea el procedimiento correcto desde servidor
+      router.refresh();
     } catch (e: any) {
-      // rollback
       setLocalProcedimiento(prev);
       onChangeProcedimiento(prev);
       toast.error(e?.message ?? 'Error actualizando procedimiento');
@@ -204,12 +195,23 @@ export default function DictamenLeftPanel({
             <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-500">
               Docente
             </h2>
+
             <p className="mt-1 text-lg font-semibold text-slate-900">
               {docente.nombreCompleto}
             </p>
+
             <p className="text-xs text-slate-600">
               {docente.tipoDocumento} {docente.documento}
             </p>
+
+            {/* ✅ NUEVO: Tipo de dictamen */}
+            <p className="mt-1 text-xs text-slate-600">
+              Tipo de dictamen:{' '}
+              <span className="font-medium text-slate-700">
+                {docente.tipoDictamen?.trim?.() ? docente.tipoDictamen : '—'}
+              </span>
+            </p>
+
             <p className="mt-1 text-xs text-slate-600">
               Edad:{' '}
               {docente.edad != null ? `${docente.edad} años` : 'Edad no registrada'}
@@ -261,7 +263,6 @@ export default function DictamenLeftPanel({
             </span>
           </div>
 
-          {/* Fecha de dictamen (persistida en Dexie) */}
           <div>
             <p className="text-xs text-slate-500">Fecha de dictamen</p>
             <input
@@ -279,7 +280,6 @@ export default function DictamenLeftPanel({
             </p>
           </div>
 
-          {/* Procedimiento (Dexie + BD automática) */}
           <div>
             <p className="text-xs text-slate-500">Procedimiento</p>
             <select

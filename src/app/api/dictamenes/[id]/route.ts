@@ -81,6 +81,15 @@ function toColombiaMidnightUTC(fechaYYYYMMDD: string) {
   return new Date(`${fechaYYYYMMDD}T05:00:00.000Z`);
 }
 
+// ✅ NUEVO: resolver tipo de dictamen (por si es string o relación)
+function resolveTipoDictamen(dictamen: any): string | null {
+  return (
+    (dictamen?.tipoDictamen != null ? String(dictamen.tipoDictamen) : null) ??
+    (dictamen?.tipoDictamenRef?.nombre != null ? String(dictamen.tipoDictamenRef.nombre) : null) ??
+    null
+  );
+}
+
 // ✅ ServerVersion definitiva: hash del contenido (detecta cambios directos en BD)
 function computeServerVersion(dictamen: any) {
   const payload = {
@@ -88,6 +97,9 @@ function computeServerVersion(dictamen: any) {
     numeroDictamen: dictamen.numeroDictamen ?? null,
     fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString().slice(0, 10) : null,
     procedimientoPcl: dictamen.procedimientoPcl ?? null,
+
+    // ✅ NUEVO
+    tipoDictamen: resolveTipoDictamen(dictamen),
 
     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
     condicionSalud: dictamen.condicionSalud ?? '',
@@ -190,6 +202,9 @@ export async function GET(_req: Request, context: RouteContext) {
           include: { cie10: true },
           orderBy: { id: 'asc' },
         },
+
+        // ✅ SOLO si tienes relación: descomenta y ajusta el nombre exacto
+        // tipoDictamenRef: true,
       },
     });
 
@@ -211,12 +226,18 @@ export async function GET(_req: Request, context: RouteContext) {
     // ✅ readOnly FINAL: por rol (ADMIN/ADMISIONISTA) o por estado (CERRADO y no reabierto)
     const readOnly = isReadOnlyByRole(role) || estado === 'CERRADO';
 
+    // ✅ NUEVO: tipo de dictamen resuelto
+    const tipoDictamen = resolveTipoDictamen(dictamen);
+
     return NextResponse.json({
       ok: true,
       readOnly,
       serverVersion,
       dictamen: {
         id: dictamen.id,
+
+        // ✅ NUEVO (para tu LeftPanel)
+        tipoDictamen,
 
         numeroDictamen: dictamen.numeroDictamen != null ? String(dictamen.numeroDictamen) : null,
 
@@ -256,6 +277,9 @@ export async function GET(_req: Request, context: RouteContext) {
           sexo: docente.sexo,
           secretaria: docente.secretariaRef?.nombre ?? null,
           institucion: docente.institucionEducativaRef?.nombre ?? null,
+
+          // ✅ OPCIONAL: si quieres que también venga dentro del bloque docente
+          tipoDictamen,
         },
 
         medico: medico
@@ -292,6 +316,9 @@ const UpdateDictamenSchema = z.object({
   fechaEstructuracionInvalidez: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   tipoEvento: z.enum(['ENFERMEDAD', 'ACCIDENTE']).optional(),
   origenEvento: z.enum(['LABORAL', 'COMUN']).optional(),
+
+  // ✅ (si después quieres permitir actualizar tipo dictamen)
+  // tipoDictamen: z.string().optional(),
 });
 
 export async function PUT(req: Request, context: RouteContext) {
@@ -374,10 +401,10 @@ export async function PUT(req: Request, context: RouteContext) {
       updateData.fechaEstructuracionInvalidez = fechaE;
     }
     if ('tipoEvento' in data) {
-      updateData.tipoEvento = data.tipoEvento ?? null; // ENFERMEDAD | ACCIDENTE
+      updateData.tipoEvento = data.tipoEvento ?? null;
     }
     if ('origenEvento' in data) {
-      updateData.origenEvento = data.origenEvento ?? null; // LABORAL | COMUN
+      updateData.origenEvento = data.origenEvento ?? null;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -394,6 +421,9 @@ export async function PUT(req: Request, context: RouteContext) {
         fechaEstructuracionInvalidez: true,
         tipoEvento: true,
         origenEvento: true,
+
+        // ✅ si quieres devolverlo también en PUT:
+        // tipoDictamen: true,
       },
     });
 
