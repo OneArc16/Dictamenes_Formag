@@ -197,6 +197,7 @@ export default function DictamenCenterPanel({
               procedimientoPcl={procedimientoPcl}
               serverVersion={serverVersion}
               onGoNext={() => setTab('DIAGNOSTICOS')}
+              readOnly={effectiveReadOnly}
             />
           )}
 
@@ -222,6 +223,7 @@ export default function DictamenCenterPanel({
               procedimientoPcl={procedimientoPcl}
               initialClase={dictamen.claseLimitacionLaboral ?? null}
               initialTotal={dictamen.totalCap2 ?? null}
+              readOnly={effectiveReadOnly}
             />
           )}
 

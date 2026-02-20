@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
 import { useDictamenDeficienciasPanel } from '@/hooks/useDictamenDeficienciasPanel';
 import {
   CLASES_CAP2,
@@ -16,46 +15,26 @@ type Props = {
   procedimientoPcl: ProcedimientoPcl; // 'A' | 'B'
   initialClase?: ClaseLimitacionLaboral | null;
   initialTotal?: number | null;
-};
 
-type TotalesPcl = {
-  totalTitulo1: number; // lo mantiene TabDeficiencias/RightPanel
-  totalCap2: number; // lo actualiza este tab
+  // ✅ NUEVO: ya no depende de provider
+  readOnly?: boolean;
 };
-
-function toNum(v: any): number {
-  if (v == null) return 0;
-  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  if (typeof v === 'string') {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  if (typeof v === 'object' && typeof v?.toString === 'function') {
-    const n = Number(String(v.toString()));
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
 
 export function TituloIICapitulo2Tab({
   dictamenId,
   procedimientoPcl,
   initialClase = null,
+  readOnly = false,
 }: Props) {
-  const { readOnly } = useMedicoAccess();
   const queryClient = useQueryClient();
 
-  // ✅ cache compartida con RightPanel
+  // ✅ Cache compartida con RightPanel
   const panel = useDictamenDeficienciasPanel(dictamenId, procedimientoPcl);
 
-  // Estado local (UI inmediata)
   const [clase, setClase] = useState<ClaseLimitacionLaboral | null>(initialClase);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const totalesKey = useMemo(() => ['dictamen', dictamenId, 'totales'] as const, [dictamenId]);
-
-  // ✅ Rehidrata clase desde servidor (cuando cambia por refetch)
   useEffect(() => {
     if (!panel.isSuccess) return;
 
@@ -66,51 +45,16 @@ export function TituloIICapitulo2Tab({
     setClase((prev) => (prev === serverClase ? prev : serverClase));
   }, [panel.isSuccess, panel.data?.dictamen?.claseLimitacionLaboral]);
 
-  // ✅ IMPORTANTÍSIMO:
-  // cada vez que el panel traiga totales desde BD, sincronizamos el cache ['dictamen', id, 'totales']
-  // para que CenterPanel tenga valores correctos incluso antes de editar.
-  useEffect(() => {
-    if (!panel.isSuccess) return;
-
-    const serverT1 = toNum(panel.data?.dictamen?.totalTitulo1);
-    const serverCap2 = toNum(panel.data?.dictamen?.totalCap2);
-
-    queryClient.setQueryData<TotalesPcl>(totalesKey, (prev) => ({
-      totalTitulo1: Number.isFinite(serverT1) ? serverT1 : prev?.totalTitulo1 ?? 0,
-      totalCap2: Number.isFinite(serverCap2) ? serverCap2 : prev?.totalCap2 ?? 0,
-    }));
-  }, [
-    panel.isSuccess,
-    panel.data?.dictamen?.totalTitulo1,
-    panel.data?.dictamen?.totalCap2,
-    queryClient,
-    totalesKey,
-  ]);
-
-  // Total calculado SIEMPRE desde helper (según procedimiento y clase)
   const total = useMemo(() => getTotalCap2(procedimientoPcl, clase), [procedimientoPcl, clase]);
 
-  // Mensaje inline tipo “toast”
   useEffect(() => {
     if (!msg) return;
     const t = setTimeout(() => setMsg(null), 2500);
     return () => clearTimeout(t);
   }, [msg]);
 
-  const saveCap2 = async (
-    newClase: ClaseLimitacionLaboral | null,
-    prevClase: ClaseLimitacionLaboral | null,
-    newTotalCap2: number,
-  ) => {
+  const saveCap2 = async (newClase: ClaseLimitacionLaboral | null) => {
     if (!dictamenId) return;
-
-    // ✅ optimistic update del cache compartido (INMEDIATO)
-    const prevTotales = queryClient.getQueryData<TotalesPcl>(totalesKey);
-
-    queryClient.setQueryData<TotalesPcl>(totalesKey, (prev) => ({
-      totalTitulo1: prev?.totalTitulo1 ?? prevTotales?.totalTitulo1 ?? 0,
-      totalCap2: newTotalCap2,
-    }));
 
     setSaving(true);
     try {
@@ -129,7 +73,6 @@ export function TituloIICapitulo2Tab({
         throw new Error(data?.error ?? 'Error guardando Capítulo 2');
       }
 
-      // ✅ Refresca RightPanel y este tab (consumen el mismo query)
       await queryClient.invalidateQueries({
         queryKey: ['dictamen-deficiencias-panel', dictamenId],
         exact: false,
@@ -138,14 +81,6 @@ export function TituloIICapitulo2Tab({
       setMsg('Guardado');
     } catch (e: any) {
       console.error(e);
-
-      // ✅ rollback UI + rollback cache compartido
-      setClase(prevClase);
-
-      if (prevTotales) {
-        queryClient.setQueryData<TotalesPcl>(totalesKey, prevTotales);
-      }
-
       setMsg(e?.message ?? 'Error guardando');
     } finally {
       setSaving(false);
@@ -154,14 +89,8 @@ export function TituloIICapitulo2Tab({
 
   const onSelectClase = async (c: ClaseLimitacionLaboral) => {
     if (readOnly) return;
-
-    const prevClase = clase;
-
-    // UI inmediata
     setClase(c);
-
-    const newTotalCap2 = toNum(getTotalCap2(procedimientoPcl, c));
-    await saveCap2(c, prevClase, newTotalCap2);
+    await saveCap2(c);
   };
 
   const isA = procedimientoPcl === 'A';
@@ -169,7 +98,6 @@ export function TituloIICapitulo2Tab({
 
   return (
     <div className="space-y-4">
-      {/* Encabezado */}
       <div className="flex items-center justify-between p-4 bg-white border rounded-lg">
         <div>
           <h3 className="text-sm font-semibold">Título II - Capítulo 2</h3>
@@ -191,7 +119,6 @@ export function TituloIICapitulo2Tab({
         </div>
       </div>
 
-      {/* Tabla */}
       <div className="overflow-hidden bg-white border rounded-lg">
         <div className="grid grid-cols-4 text-xs font-semibold border-b bg-slate-50 text-slate-700">
           <div className="p-3">CLASE</div>
@@ -233,7 +160,6 @@ export function TituloIICapitulo2Tab({
           );
         })}
 
-        {/* Total */}
         <div className="grid grid-cols-4 bg-white">
           <div className="col-span-2 p-3 text-sm font-semibold">VALOR TOTAL</div>
           <div className="col-span-2 p-3 text-sm font-semibold text-right">

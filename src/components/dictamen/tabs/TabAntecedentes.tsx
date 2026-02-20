@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { db } from '@/lib/dexieClient';
 
@@ -16,6 +16,9 @@ type Props = {
   serverVersion?: string;
   /** 👇 callback opcional para ir a la siguiente pestaña */
   onGoNext?: () => void;
+
+  /** ✅ NUEVO: modo solo lectura (admisionista / dictamen cerrado) */
+  readOnly?: boolean;
 };
 
 type FieldErrors = {
@@ -30,6 +33,7 @@ export default function TabAntecedentes({
   procedimientoPcl,
   serverVersion,
   onGoNext,
+  readOnly = false,
 }: Props) {
   const initialA = initial.antecedentesClinicos ?? '';
   const initialC = initial.condicionSalud ?? '';
@@ -49,6 +53,7 @@ export default function TabAntecedentes({
 
   // ==========================
   // 1) Cargar borrador desde Dexie (con invalidación por serverVersion)
+  //    ✅ en readOnly NO usamos drafts: mostramos lo del backend
   // ==========================
   useEffect(() => {
     let mounted = true;
@@ -56,6 +61,14 @@ export default function TabAntecedentes({
 
     (async () => {
       try {
+        if (readOnly) {
+          // ✅ Solo lectura: mostrar siempre lo del backend
+          setAntecedentesClinicos(initialA);
+          setCondicionSalud(initialC);
+          setDescripcionHallazgos(initialH);
+          return;
+        }
+
         // ✅ Si tenemos serverVersion, validamos contra dictamenMeta (si existe)
         if (serverVersion) {
           const metaTable = (db as any).dictamenMeta;
@@ -102,14 +115,15 @@ export default function TabAntecedentes({
     return () => {
       mounted = false;
     };
-    // ⚠️ dependencias primitivas (evita re-run por objeto initial nuevo)
-  }, [dictamenId, initialA, initialC, initialH, serverVersion]);
+  }, [dictamenId, initialA, initialC, initialH, serverVersion, readOnly]);
 
   // ==========================
   // 2) Guardar borrador en Dexie (auto-save) — con MERGE
+  //    ✅ en readOnly no guardamos drafts
   // ==========================
   useEffect(() => {
     if (!loaded) return;
+    if (readOnly) return;
 
     let cancelled = false;
 
@@ -144,7 +158,7 @@ export default function TabAntecedentes({
       cancelled = true;
       clearTimeout(handler);
     };
-  }, [loaded, dictamenId, antecedentesClinicos, condicionSalud, descripcionHallazgos]);
+  }, [loaded, readOnly, dictamenId, antecedentesClinicos, condicionSalud, descripcionHallazgos]);
 
   // limpiar mensaje de "guardado" después de unos segundos
   useEffect(() => {
@@ -181,6 +195,7 @@ export default function TabAntecedentes({
   // 4) Guardar en backend
   // ==========================
   const handleSave = async () => {
+    if (readOnly) return;
     if (saving) return;
 
     const ok = validate();
@@ -236,7 +251,9 @@ export default function TabAntecedentes({
         </label>
         <textarea
           value={antecedentesClinicos}
+          disabled={readOnly}
           onChange={(e) => {
+            if (readOnly) return;
             setAntecedentesClinicos(e.target.value);
             if (fieldErrors.antecedentesClinicos) {
               setFieldErrors((prev) => ({ ...prev, antecedentesClinicos: false }));
@@ -245,7 +262,7 @@ export default function TabAntecedentes({
           rows={4}
           className={`${baseTextareaClasses} ${
             fieldErrors.antecedentesClinicos ? errorTextareaClasses : normalTextareaClasses
-          }`}
+          } ${readOnly ? 'bg-slate-50 cursor-not-allowed' : ''}`}
         />
       </div>
 
@@ -255,7 +272,9 @@ export default function TabAntecedentes({
         </label>
         <textarea
           value={condicionSalud}
+          disabled={readOnly}
           onChange={(e) => {
+            if (readOnly) return;
             setCondicionSalud(e.target.value);
             if (fieldErrors.condicionSalud) {
               setFieldErrors((prev) => ({ ...prev, condicionSalud: false }));
@@ -264,7 +283,7 @@ export default function TabAntecedentes({
           rows={4}
           className={`${baseTextareaClasses} ${
             fieldErrors.condicionSalud ? errorTextareaClasses : normalTextareaClasses
-          }`}
+          } ${readOnly ? 'bg-slate-50 cursor-not-allowed' : ''}`}
         />
       </div>
 
@@ -274,7 +293,9 @@ export default function TabAntecedentes({
         </label>
         <textarea
           value={descripcionHallazgos}
+          disabled={readOnly}
           onChange={(e) => {
+            if (readOnly) return;
             setDescripcionHallazgos(e.target.value);
             if (fieldErrors.descripcionHallazgos) {
               setFieldErrors((prev) => ({ ...prev, descripcionHallazgos: false }));
@@ -283,25 +304,33 @@ export default function TabAntecedentes({
           rows={5}
           className={`${baseTextareaClasses} ${
             fieldErrors.descripcionHallazgos ? errorTextareaClasses : normalTextareaClasses
-          }`}
+          } ${readOnly ? 'bg-slate-50 cursor-not-allowed' : ''}`}
         />
       </div>
 
       <div className="flex items-center justify-between pt-2">
         <div className="text-[11px] text-slate-400">
-          {!loaded && 'Cargando datos…'}
-          {loaded && draftStatus === 'saving' && 'Guardando borrador local…'}
-          {loaded && draftStatus === 'saved' && 'Borrador guardado localmente'}
+          {readOnly ? (
+            'Modo solo lectura'
+          ) : (
+            <>
+              {!loaded && 'Cargando datos…'}
+              {loaded && draftStatus === 'saving' && 'Guardando borrador local…'}
+              {loaded && draftStatus === 'saved' && 'Borrador guardado localmente'}
+            </>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
-        >
-          {saving ? 'Guardando…' : 'Guardar antecedentes'}
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+          >
+            {saving ? 'Guardando…' : 'Guardar antecedentes'}
+          </button>
+        )}
       </div>
     </div>
   );
