@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
 import TabSustentacion from '@/components/dictamen/tabs/TabSustentacion';
@@ -53,6 +54,15 @@ type DictamenCenterPanelProps = {
   fechaDictamen: string;
 };
 
+type TotalesPcl = {
+  totalTitulo1: number | null;
+  totalCap2: number | null;
+};
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 export default function DictamenCenterPanel({
   dictamen,
   procedimientoPcl,
@@ -62,10 +72,39 @@ export default function DictamenCenterPanel({
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
+  const queryClient = useQueryClient();
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
 
+  // ✅ Cache compartido (lo escriben Cap2 y Deficiencias)
+  const totalesKey = useMemo(() => ['dictamen', dictamen.id, 'totales'] as const, [dictamen.id]);
+
+  // ✅ "local-only": NO hace fetch, solo se suscribe al cache para re-render inmediato
+  const { data: totales } = useQuery<TotalesPcl>({
+    queryKey: totalesKey,
+    queryFn: async () => ({ totalTitulo1: null, totalCap2: null }),
+    enabled: false,
+    initialData: () => {
+      const cached = queryClient.getQueryData<TotalesPcl>(totalesKey);
+      return (
+        cached ?? {
+          totalTitulo1: null, // no lo tienes en props => se llenará desde Deficiencias/RightPanel
+          totalCap2: dictamen.totalCap2 ?? null,
+        }
+      );
+    },
+  });
+
   const isAvdDisabled = procedimientoPcl === 'A';
-  const isTituloIIIDisabled = procedimientoPcl === 'B';
+
+  // ✅ Regla negocio T3:
+  // - Solo Procedimiento A
+  // - Solo si (Total Título I + Total Cap2) < 100
+  const sumReady = totales?.totalTitulo1 != null && totales?.totalCap2 != null;
+  const base = round2((totales?.totalTitulo1 ?? 0) + (totales?.totalCap2 ?? 0));
+  const faltante = round2(Math.max(0, 100 - base));
+
+  const tituloIIIDisabledBySum = procedimientoPcl === 'A' && sumReady && faltante <= 0;
+  const isTituloIIIDisabled = procedimientoPcl === 'B' || tituloIIIDisabledBySum;
 
   const isClosed = dictamen.estado === 'CERRADO';
   const effectiveReadOnly = readOnly || isClosed;
@@ -95,14 +134,17 @@ export default function DictamenCenterPanel({
           const active = tab === id;
 
           const disabled =
-            (id === 'AVD_AIVD' && isAvdDisabled) ||
-            (id === 'TITULO_III' && isTituloIIIDisabled);
+            (id === 'AVD_AIVD' && isAvdDisabled) || (id === 'TITULO_III' && isTituloIIIDisabled);
 
           const disabledTitle =
             id === 'AVD_AIVD'
               ? 'No aplica para Procedimiento A'
               : id === 'TITULO_III'
-              ? 'Aplica únicamente para Procedimiento A'
+              ? procedimientoPcl === 'B'
+                ? 'Aplica únicamente para Procedimiento A'
+                : tituloIIIDisabledBySum
+                ? `No aplica: (Título I + Título II Cap.2) ya alcanzó 100% (Base: ${base.toFixed(2)}%).`
+                : undefined
               : undefined;
 
           return (
@@ -138,7 +180,9 @@ export default function DictamenCenterPanel({
         )}
 
         {cie10Error && tab === 'DIAGNOSTICOS' && (
-          <div className="mb-3 text-[11px] text-red-600">Error cargando el catálogo CIE10. Intenta recargar la página.</div>
+          <div className="mb-3 text-[11px] text-red-600">
+            Error cargando el catálogo CIE10. Intenta recargar la página.
+          </div>
         )}
 
         <fieldset disabled={effectiveReadOnly} className={effectiveReadOnly ? 'opacity-95' : ''}>
@@ -166,7 +210,9 @@ export default function DictamenCenterPanel({
             />
           )}
 
-          {tab === 'DEFICIENCIAS' && <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
+          {tab === 'DEFICIENCIAS' && (
+            <TabDeficiencias dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />
+          )}
 
           {tab === 'AVD_AIVD' && <TabAvdAivd dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
 
@@ -196,4 +242,4 @@ export default function DictamenCenterPanel({
       </div>
     </div>
   );
-}
+} 

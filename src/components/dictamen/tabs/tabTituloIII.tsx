@@ -33,6 +33,9 @@ type Titulo3Response = {
   items: { factor: FactorKey; gravedad: GravedadAnalisisKey }[];
   naFactors?: FactorKey[];
   summary: Titulo3Summary;
+
+  // ✅ viene de la API
+  habilitado?: boolean;
 };
 
 type UpdateBody =
@@ -48,17 +51,13 @@ async function safeJson(res: Response) {
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     const text = await res.text();
-    throw new Error(
-      `API no devolvió JSON (${res.status}). Ej: ${text.slice(0, 120)}...`
-    );
+    throw new Error(`API no devolvió JSON (${res.status}). Ej: ${text.slice(0, 120)}...`);
   }
   return res.json();
 }
 
 async function fetchTitulo3(dictamenId: number): Promise<Titulo3Response> {
-  const res = await fetch(`/api/dictamenes/${dictamenId}/titulo3`, {
-    cache: 'no-store',
-  });
+  const res = await fetch(`/api/dictamenes/${dictamenId}/titulo3`, { cache: 'no-store' });
   const data = await safeJson(res);
   if (!res.ok) throw new Error(data?.message ?? 'Error cargando Título III');
   return data;
@@ -81,20 +80,9 @@ async function updateTitulo3(dictamenId: number, body: UpdateBody) {
 }
 
 /** UI helpers estilo Dictamy */
-function Card({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={cn(
-        'bg-white border border-slate-200 shadow-sm rounded-xl',
-        className
-      )}
-    >
+    <div className={cn('bg-white border border-slate-200 shadow-sm rounded-xl', className)}>
       {children}
     </div>
   );
@@ -114,9 +102,7 @@ function CardHeader({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-slate-900">{title}</div>
-          {subtitle ? (
-            <div className="mt-1 text-xs text-slate-500">{subtitle}</div>
-          ) : null}
+          {subtitle ? <div className="mt-1 text-xs text-slate-500">{subtitle}</div> : null}
         </div>
         {right}
       </div>
@@ -132,13 +118,7 @@ function Badge({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SmallMuted({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function SmallMuted({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn('text-xs text-slate-500', className)}>{children}</div>;
 }
 
@@ -155,7 +135,7 @@ function GravedadSegment({
     <div
       className={cn(
         'inline-flex rounded-lg border border-slate-200 overflow-hidden bg-white',
-        disabled && 'opacity-60 pointer-events-none'
+        disabled && 'opacity-60 pointer-events-none',
       )}
     >
       {GRAVEDAD_ORDER.map((g) => {
@@ -168,9 +148,7 @@ function GravedadSegment({
             onClick={() => onChange(g)}
             className={cn(
               'px-3 py-1.5 text-xs font-medium transition',
-              selected
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-50'
+              selected ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50',
             )}
             title={`Marcar ${GRAVEDAD_LABEL[g]}`}
           >
@@ -189,19 +167,22 @@ export default function TabTituloIII({
   dictamenId: number;
   procedimientoPcl?: 'A' | 'B';
 }) {
+  // ✅ Hooks SIEMPRE en el mismo orden
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [onlyPending, setOnlyPending] = useState(false);
   const [openMetodologia, setOpenMetodologia] = useState(false);
+  const [savingFactor, setSavingFactor] = useState<FactorKey | null>(null);
+
+  const isProcA = procedimientoPcl === 'A';
+  const isProcB = procedimientoPcl === 'B';
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dictamen', dictamenId, 'titulo3'],
     queryFn: () => fetchTitulo3(dictamenId),
-    enabled: !!dictamenId && procedimientoPcl !== 'B',
+    enabled: !!dictamenId && isProcA, // ✅ Solo controla el fetch, NO el hook
   });
-
-  const [savingFactor, setSavingFactor] = useState<FactorKey | null>(null);
 
   const mutation = useMutation({
     mutationFn: (body: UpdateBody) => updateTitulo3(dictamenId, body),
@@ -209,15 +190,9 @@ export default function TabTituloIII({
     onMutate: async (body) => {
       setSavingFactor(body.factor);
 
-      await queryClient.cancelQueries({
-        queryKey: ['dictamen', dictamenId, 'titulo3'],
-      });
+      await queryClient.cancelQueries({ queryKey: ['dictamen', dictamenId, 'titulo3'] });
 
-      const prev = queryClient.getQueryData<Titulo3Response>([
-        'dictamen',
-        dictamenId,
-        'titulo3',
-      ]);
+      const prev = queryClient.getQueryData<Titulo3Response>(['dictamen', dictamenId, 'titulo3']);
       if (!prev) return { prev };
 
       const itemsMap = new Map(prev.items.map((it) => [it.factor, it.gravedad]));
@@ -236,10 +211,7 @@ export default function TabTituloIII({
 
       const next: Titulo3Response = {
         ...prev,
-        items: Array.from(itemsMap.entries()).map(([factor, gravedad]) => ({
-          factor,
-          gravedad,
-        })),
+        items: Array.from(itemsMap.entries()).map(([factor, gravedad]) => ({ factor, gravedad })),
         naFactors: Array.from(naSet),
       };
 
@@ -248,18 +220,12 @@ export default function TabTituloIII({
     },
 
     onError: (err, _body, ctx) => {
-      if (ctx?.prev) {
-        queryClient.setQueryData(['dictamen', dictamenId, 'titulo3'], ctx.prev);
-      }
+      if (ctx?.prev) queryClient.setQueryData(['dictamen', dictamenId, 'titulo3'], ctx.prev);
       toast.error(err instanceof Error ? err.message : 'Error guardando');
     },
 
     onSuccess: (server) => {
-      const prev = queryClient.getQueryData<Titulo3Response>([
-        'dictamen',
-        dictamenId,
-        'titulo3',
-      ]);
+      const prev = queryClient.getQueryData<Titulo3Response>(['dictamen', dictamenId, 'titulo3']);
       if (!prev) return;
 
       queryClient.setQueryData<Titulo3Response>(['dictamen', dictamenId, 'titulo3'], {
@@ -270,7 +236,6 @@ export default function TabTituloIII({
         summary: server.summary,
       });
 
-      // ✅ CLAVE: refresca automáticamente el RightPanel (hook del panel)
       queryClient.invalidateQueries({
         queryKey: ['dictamen-deficiencias-panel', dictamenId],
         exact: false,
@@ -290,6 +255,9 @@ export default function TabTituloIII({
 
   const basePcl = data?.summary?.basePcl ?? data?.basePcl ?? 0;
   const faltante = round2(Math.max(0, 100 - basePcl));
+
+  // ✅ Regla negocio final (API manda habilitado, si no viene usamos faltante)
+  const habilitado = isProcA && (data?.habilitado ?? faltante > 0);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -312,13 +280,25 @@ export default function TabTituloIII({
     }).filter((g) => g.factors.length > 0);
   }, [normalizedSearch, onlyPending, itemsMap, naSet]);
 
-  if (procedimientoPcl === 'B') {
+  // ✅ Returns condicionales (DESPUÉS de hooks)
+  if (isProcB) {
     return (
       <Card>
-        <CardHeader title="Título III" subtitle="Aplica únicamente para Procedimiento A." />
+        <CardHeader title="Título III" subtitle="No aplica (solo Procedimiento A)." />
+        <div className="p-4">
+          <SmallMuted>Este dictamen está en Procedimiento B, por lo tanto no aplica Título III.</SmallMuted>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!procedimientoPcl) {
+    return (
+      <Card>
+        <CardHeader title="Título III" subtitle="No aplica (seleccione primero el procedimiento)." />
         <div className="p-4">
           <SmallMuted>
-            Este dictamen está en Procedimiento B, por lo tanto no aplica Título III.
+            Cuando el procedimiento sea A, aquí se habilitará el análisis ocupacional solo si hace falta para llegar al 100%.
           </SmallMuted>
         </div>
       </Card>
@@ -341,9 +321,7 @@ export default function TabTituloIII({
       <Card className="border-red-200">
         <CardHeader title="Título III" subtitle="Ocurrió un error cargando la sección." />
         <div className="p-4">
-          <SmallMuted className="text-red-600">
-            {error instanceof Error ? error.message : 'Error'}
-          </SmallMuted>
+          <SmallMuted className="text-red-600">{error instanceof Error ? error.message : 'Error'}</SmallMuted>
           <button
             type="button"
             onClick={() => refetch()}
@@ -358,6 +336,30 @@ export default function TabTituloIII({
 
   if (!data) return null;
 
+  // ✅ No aplica cuando ya llegó a 100%
+  if (!habilitado) {
+    return (
+      <Card>
+        <CardHeader
+          title="Título III"
+          subtitle={
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Badge>Procedimiento: A</Badge>
+              <Badge>Base PCL (T1 + T2 Cap.2): {basePcl.toFixed(2)}%</Badge>
+              <Badge>Pendiente vs 100%: {faltante.toFixed(2)}%</Badge>
+              <Badge>No aplica</Badge>
+            </div>
+          }
+        />
+        <div className="p-4">
+          <SmallMuted>
+            No aplica porque la sumatoria (Título I + Título II Capítulo 2) ya alcanza 100%.
+          </SmallMuted>
+        </div>
+      </Card>
+    );
+  }
+
   const summary = data.summary;
   const counts = summary?.counts ?? { CERO: 0, I: 0, II: 0, III: 0, IV: 0 };
 
@@ -365,7 +367,6 @@ export default function TabTituloIII({
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
       {/* ================= MAIN ================= */}
       <div className="space-y-4">
-        {/* Header */}
         <Card>
           <CardHeader
             title="Título III — Análisis ocupacional del educador"
@@ -381,7 +382,7 @@ export default function TabTituloIII({
             subtitle={
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge>Procedimiento: A</Badge>
-                <Badge>Base PCL (T1+T2): {basePcl.toFixed(2)}%</Badge>
+                <Badge>Base PCL (T1 + T2 Cap.2): {basePcl.toFixed(2)}%</Badge>
                 <Badge>Pendiente vs 100%: {faltante.toFixed(2)}%</Badge>
               </div>
             }
@@ -406,7 +407,6 @@ export default function TabTituloIII({
           )}
         </Card>
 
-        {/* Controls */}
         <Card>
           <CardHeader title="Filtros" />
           <div className="p-4">
@@ -435,7 +435,6 @@ export default function TabTituloIII({
           </div>
         </Card>
 
-        {/* Groups */}
         <div className="space-y-3">
           {filteredGroups.length === 0 ? (
             <Card>
@@ -446,11 +445,7 @@ export default function TabTituloIII({
             </Card>
           ) : (
             filteredGroups.map((group) => (
-              <details
-                key={group.key}
-                open
-                className="bg-white border shadow-sm border-slate-200 rounded-xl"
-              >
+              <details key={group.key} open className="bg-white border shadow-sm border-slate-200 rounded-xl">
                 <summary className="px-4 py-3 border-b cursor-pointer select-none border-slate-200 bg-slate-50 rounded-t-xl">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-slate-900">{group.label}</div>
@@ -482,9 +477,7 @@ export default function TabTituloIII({
                             key={factor}
                             className="grid grid-cols-[1fr_110px_380px_120px] gap-3 px-2 py-3 items-center"
                           >
-                            <div className="text-sm font-medium text-slate-900">
-                              {FACTOR_LABELS[factor]}
-                            </div>
+                            <div className="text-sm font-medium text-slate-900">{FACTOR_LABELS[factor]}</div>
 
                             <div>
                               <input
@@ -540,10 +533,7 @@ export default function TabTituloIII({
           <div className="p-4">
             <div className="grid grid-cols-5 gap-2">
               {GRAVEDAD_ORDER.map((g) => (
-                <div
-                  key={g}
-                  className="p-2 text-center bg-white border rounded-lg border-slate-200"
-                >
+                <div key={g} className="p-2 text-center bg-white border rounded-lg border-slate-200">
                   <div className="text-xs text-slate-500">{GRAVEDAD_LABEL[g]}</div>
                   <div className="text-lg font-semibold text-slate-900">{counts?.[g] ?? 0}</div>
                 </div>
@@ -554,8 +544,7 @@ export default function TabTituloIII({
               <div className="p-3 mt-3 text-sm border rounded-lg border-amber-200 bg-amber-50 text-amber-900">
                 <div className="font-medium">Empate detectado</div>
                 <div className="mt-1 text-xs">
-                  Empate entre: {summary.empatadas.map((e) => GRAVEDAD_LABEL[e]).join(', ')}. Se tomó
-                  la mayor.
+                  Empate entre: {summary.empatadas.map((e) => GRAVEDAD_LABEL[e]).join(', ')}. Se tomó la mayor.
                 </div>
               </div>
             )}
@@ -578,7 +567,7 @@ export default function TabTituloIII({
               <div className="h-px my-2 bg-slate-100" />
 
               <div className="flex items-center justify-between">
-                <span className="text-slate-600">Base PCL (T1+T2)</span>
+                <span className="text-slate-600">Base PCL (T1 + T2 Cap.2)</span>
                 <span className="font-semibold text-slate-900">{basePcl.toFixed(2)}%</span>
               </div>
 
@@ -597,8 +586,7 @@ export default function TabTituloIII({
               </div>
 
               <SmallMuted className="mt-2">
-                Guardado en dictamen.totalTitulo3:{' '}
-                {Number(data.storedTotalTitulo3 ?? 0).toFixed(2)}%
+                Guardado en dictamen.totalTitulo3: {Number(data.storedTotalTitulo3 ?? 0).toFixed(2)}%
               </SmallMuted>
             </div>
 
@@ -621,7 +609,7 @@ export default function TabTituloIII({
             <SmallMuted>
               - “N/A” no cuenta en la sumatoria. <br />
               - “Pendiente” = sin selección y sin N/A. <br />
-              - El incremento se calcula sobre la Base PCL (T1+T2).
+              - El incremento se calcula sobre la Base PCL (T1 + T2 Cap.2).
             </SmallMuted>
           </div>
         </Card>

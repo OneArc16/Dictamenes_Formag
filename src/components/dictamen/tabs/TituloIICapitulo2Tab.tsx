@@ -18,6 +18,25 @@ type Props = {
   initialTotal?: number | null;
 };
 
+type TotalesPcl = {
+  totalTitulo1: number; // lo mantiene TabDeficiencias/RightPanel
+  totalCap2: number; // lo actualiza este tab
+};
+
+function toNum(v: any): number {
+  if (v == null) return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (typeof v === 'object' && typeof v?.toString === 'function') {
+    const n = Number(String(v.toString()));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export function TituloIICapitulo2Tab({
   dictamenId,
   procedimientoPcl,
@@ -26,15 +45,17 @@ export function TituloIICapitulo2Tab({
   const { readOnly } = useMedicoAccess();
   const queryClient = useQueryClient();
 
-  // ✅ Nos colgamos del mismo query del panel (cache compartida con RightPanel)
+  // ✅ cache compartida con RightPanel
   const panel = useDictamenDeficienciasPanel(dictamenId, procedimientoPcl);
 
-  // Estado local (para UI inmediata)
+  // Estado local (UI inmediata)
   const [clase, setClase] = useState<ClaseLimitacionLaboral | null>(initialClase);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // ✅ Cuando el panel traiga la clase desde BD (o cambie por refetch), rehidrata la selección
+  const totalesKey = useMemo(() => ['dictamen', dictamenId, 'totales'] as const, [dictamenId]);
+
+  // ✅ Rehidrata clase desde servidor (cuando cambia por refetch)
   useEffect(() => {
     if (!panel.isSuccess) return;
 
@@ -42,11 +63,31 @@ export function TituloIICapitulo2Tab({
       (panel.data?.dictamen?.claseLimitacionLaboral as ClaseLimitacionLaboral | null | undefined) ??
       null;
 
-    // Solo sincroniza si es distinto (evita re-renders innecesarios)
     setClase((prev) => (prev === serverClase ? prev : serverClase));
   }, [panel.isSuccess, panel.data?.dictamen?.claseLimitacionLaboral]);
 
-  // Total calculado SIEMPRE desde helper
+  // ✅ IMPORTANTÍSIMO:
+  // cada vez que el panel traiga totales desde BD, sincronizamos el cache ['dictamen', id, 'totales']
+  // para que CenterPanel tenga valores correctos incluso antes de editar.
+  useEffect(() => {
+    if (!panel.isSuccess) return;
+
+    const serverT1 = toNum(panel.data?.dictamen?.totalTitulo1);
+    const serverCap2 = toNum(panel.data?.dictamen?.totalCap2);
+
+    queryClient.setQueryData<TotalesPcl>(totalesKey, (prev) => ({
+      totalTitulo1: Number.isFinite(serverT1) ? serverT1 : prev?.totalTitulo1 ?? 0,
+      totalCap2: Number.isFinite(serverCap2) ? serverCap2 : prev?.totalCap2 ?? 0,
+    }));
+  }, [
+    panel.isSuccess,
+    panel.data?.dictamen?.totalTitulo1,
+    panel.data?.dictamen?.totalCap2,
+    queryClient,
+    totalesKey,
+  ]);
+
+  // Total calculado SIEMPRE desde helper (según procedimiento y clase)
   const total = useMemo(() => getTotalCap2(procedimientoPcl, clase), [procedimientoPcl, clase]);
 
   // Mensaje inline tipo “toast”
@@ -56,8 +97,20 @@ export function TituloIICapitulo2Tab({
     return () => clearTimeout(t);
   }, [msg]);
 
-  const saveCap2 = async (newClase: ClaseLimitacionLaboral | null) => {
+  const saveCap2 = async (
+    newClase: ClaseLimitacionLaboral | null,
+    prevClase: ClaseLimitacionLaboral | null,
+    newTotalCap2: number,
+  ) => {
     if (!dictamenId) return;
+
+    // ✅ optimistic update del cache compartido (INMEDIATO)
+    const prevTotales = queryClient.getQueryData<TotalesPcl>(totalesKey);
+
+    queryClient.setQueryData<TotalesPcl>(totalesKey, (prev) => ({
+      totalTitulo1: prev?.totalTitulo1 ?? prevTotales?.totalTitulo1 ?? 0,
+      totalCap2: newTotalCap2,
+    }));
 
     setSaving(true);
     try {
@@ -76,7 +129,7 @@ export function TituloIICapitulo2Tab({
         throw new Error(data?.error ?? 'Error guardando Capítulo 2');
       }
 
-      // ✅ Refresca RightPanel y también este tab (porque consumimos el mismo query)
+      // ✅ Refresca RightPanel y este tab (consumen el mismo query)
       await queryClient.invalidateQueries({
         queryKey: ['dictamen-deficiencias-panel', dictamenId],
         exact: false,
@@ -85,6 +138,14 @@ export function TituloIICapitulo2Tab({
       setMsg('Guardado');
     } catch (e: any) {
       console.error(e);
+
+      // ✅ rollback UI + rollback cache compartido
+      setClase(prevClase);
+
+      if (prevTotales) {
+        queryClient.setQueryData<TotalesPcl>(totalesKey, prevTotales);
+      }
+
       setMsg(e?.message ?? 'Error guardando');
     } finally {
       setSaving(false);
@@ -93,8 +154,14 @@ export function TituloIICapitulo2Tab({
 
   const onSelectClase = async (c: ClaseLimitacionLaboral) => {
     if (readOnly) return;
-    setClase(c); // UI inmediata
-    await saveCap2(c);
+
+    const prevClase = clase;
+
+    // UI inmediata
+    setClase(c);
+
+    const newTotalCap2 = toNum(getTotalCap2(procedimientoPcl, c));
+    await saveCap2(c, prevClase, newTotalCap2);
   };
 
   const isA = procedimientoPcl === 'A';

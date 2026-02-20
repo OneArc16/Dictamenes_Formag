@@ -6,20 +6,15 @@ import { useQuery } from '@tanstack/react-query';
 
 import Appnav from '@/components/AppNav';
 
-import {
-  DictamenExportButton,
-  DictamenExportRow,
-} from '@/components/DictamenExportButton';
+import { DictamenExportButton, DictamenExportRow } from '@/components/DictamenExportButton';
 
-import {
-  DictamenFiltersBar,
-  MedicoOption,
-} from '@/components/dictamen/DictamenFiltersBar';
+import { DictamenFiltersBar, MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
 
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
 import { DictamenRow, EstadoDictamenFiltro } from '@/components/dictamen/types';
 
 import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
+import ImprimirDictamenButton from '@/components/admisiones/dictamenes/ImprimirDictamenButton';
 
 function formatFechaExport(value: any): string {
   if (!value) return '';
@@ -28,22 +23,17 @@ function formatFechaExport(value: any): string {
   return str.includes('T') ? str.split('T')[0] : str;
 }
 
-function isAbiertoFromEstadoLabel(estado: any) {
-  const s = String(estado ?? '').toUpperCase();
-  return s === 'PENDIENTE' || s === 'REABIERTO';
-}
-
 export default function AdmisionesPage() {
   const router = useRouter();
 
-  // Filtros (igual que antes)
+  // Filtros
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [documento, setDocumento] = useState('');
   const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['TODOS']);
   const [medicoIds, setMedicoIds] = useState<number[]>([]);
 
-  // ✅ Médicos (React Query)
+  // ✅ Médicos
   const medicosQuery = useQuery({
     queryKey: ['medicos-options'],
     queryFn: async () => {
@@ -58,12 +48,9 @@ export default function AdmisionesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // ✅ Dictámenes (React Query) — clave depende de filtros
+  // ✅ Dictámenes
   const dictamenesQuery = useQuery({
-    queryKey: [
-      'dictamenes-admisiones',
-      { medicoIds, estado, fechaDesde, fechaHasta, documento },
-    ],
+    queryKey: ['dictamenes-admisiones', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
     queryFn: async () => {
       const params = new URLSearchParams();
 
@@ -93,7 +80,7 @@ export default function AdmisionesPage() {
 
       return mapped;
     },
-    placeholderData: (prev) => prev, // ✅ mantiene tabla mientras refetch
+    placeholderData: (prev) => prev,
   });
 
   const rows = dictamenesQuery.data ?? [];
@@ -159,9 +146,17 @@ export default function AdmisionesPage() {
           loading={loading}
           onOpenDictamen={handleOpenDictamen}
           renderActions={(row) => {
-            const estado = String((row as any).estado ?? '').toUpperCase();
-            const isCerrado = estado === 'CERRADO';
-            return isCerrado ? <ReabrirDictamenButton dictamenId={row.id} /> : null;
+            const estadoLabel = String((row as any).estado ?? '').toUpperCase();
+            const isCerrado = estadoLabel === 'CERRADO';
+
+            return (
+              <div className="flex items-center gap-2">
+                {/* ✅ Imprimir (para admisiones) */}
+                <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
+                {/* ✅ Reabrir solo si está cerrado */}
+                {isCerrado ? <ReabrirDictamenButton dictamenId={row.id} /> : null}
+              </div>
+            );
           }}
         />
       </main>
