@@ -36,10 +36,7 @@ export async function GET(req: Request) {
   try {
     const auth = await requireAuth();
     if (!auth) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -54,8 +51,7 @@ export async function GET(req: Request) {
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean) as EstadoFiltro[];
 
-    const estadosSeleccionados: EstadoFiltro[] =
-      estadosRaw.length === 0 ? [] : estadosRaw;
+    const estadosSeleccionados: EstadoFiltro[] = estadosRaw.length === 0 ? [] : estadosRaw;
 
     // medicos: "1,2,3" (ids de Empleado)
     const medicosRaw = (searchParams.get('medicos') ?? '')
@@ -86,8 +82,7 @@ export async function GET(req: Request) {
 
     // --- estado / reabierto ---
     const usarTodos =
-      estadosSeleccionados.length === 0 ||
-      estadosSeleccionados.includes('TODOS');
+      estadosSeleccionados.length === 0 || estadosSeleccionados.includes('TODOS');
 
     if (!usarTodos) {
       const includePend = estadosSeleccionados.includes('PENDIENTES');
@@ -134,40 +129,49 @@ export async function GET(req: Request) {
     const dictamenes = await prisma.dictamen.findMany({
       where,
       include: {
-        usuario: true,
+        // ✅ TRAER SECRETARÍA POR RELACIÓN + FALLBACK POR INSTITUCIÓN
+        usuario: {
+          include: {
+            secretariaRef: true,
+            institucionEducativaRef: {
+              include: {
+                secretaria: true,
+              },
+            },
+          },
+        },
         empleado: true,
       },
-      orderBy: [
-        { fechaDictamen: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
       take: 500,
     });
 
-    const rows = dictamenes.map((d) => ({
-      id: d.id,
-      fechaDictamen: d.fechaDictamen
-        ? d.fechaDictamen.toISOString()
-        : null,
-      docenteDocumento: d.usuario.identificacion,
-      docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
-      secretaria: d.usuario.secretaria,
-      estado: d.estado
-        ? d.reabierto
-          ? 'REABIERTO'
-          : 'PENDIENTE'
-        : 'CERRADO',
-      medicoNombre: d.empleado
-        ? `${d.empleado.primerNombre} ${d.empleado.primerApellido}`
-        : null,
-    }));
+    const rows = dictamenes.map((d) => {
+      const secretariaNombre =
+        d.usuario.secretariaRef?.nombre ??
+        d.usuario.institucionEducativaRef?.secretaria?.nombre ??
+        null;
+
+      return {
+        id: d.id,
+        fechaDictamen: d.fechaDictamen ? d.fechaDictamen.toISOString() : null,
+        docenteDocumento: d.usuario.identificacion,
+        docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
+        // ✅ AQUÍ YA NO ES d.usuario.secretaria (no existe)
+        secretaria: secretariaNombre,
+        estado: d.estado ? (d.reabierto ? 'REABIERTO' : 'PENDIENTE') : 'CERRADO',
+        medicoNombre: d.empleado
+          ? `${d.empleado.primerNombre} ${d.empleado.primerApellido}`
+          : null,
+      };
+    });
 
     return NextResponse.json({ ok: true, rows });
   } catch (err: any) {
     console.error('ERROR GET /api/dictamenes/admisiones:', err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? 'Error consultando dictámenes' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,138 +1,278 @@
-// app/admisiones/dictamenes/[id]/page.tsx
 'use client';
 
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import AppNav from '@/components/AppNav';
-import ReabrirDictamenButton from '@/components/dictamen/ReabrirDictamenButton';
+import React, { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 
+import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
+
 import DictamenLeftPanel from '@/components/dictamen/DictamenLeftPanel';
 import DictamenCenterPanel from '@/components/dictamen/DictamenCenterPanel';
 import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 
-async function fetchDictamen(id: number) {
-  const res = await fetch(`/api/dictamenes/${id}`, { credentials: 'include' });
-  const data = await res.json();
-  if (!res.ok || !data?.ok) throw new Error(data?.error || 'Error consultando dictamen');
-  return data as {
-    ok: true;
-    readOnly?: boolean;
-    dictamen: any;
-  };
-}
+// ✅ ADD: Provider para que NO explote useMedicoAccess en tabs (Cap.2)
+import MedicoAccessProvider from '@/components/medico/MedicoAccessProvider';
+import type { AuthUser } from '@/lib/auth/guards';
 
-// Formato: ddMMyyyy + id en 9 dígitos -> 01012025123456789
+/* =====================
+   Tipos
+   ===================== */
+
+type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
+
+type DictamenDiagnosticoDTO = {
+  cie10Codigo: string;
+  tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+  cie10Label?: string | null;
+};
+
+type DictamenDetalle = {
+  id: number;
+  numeroDictamen: string | null;
+  fechaDictamen: string | null;
+  procedimientoPcl: 'A' | 'B';
+  estado: DictamenEstado;
+
+  locked?: boolean;
+
+  antecedentesClinicos: string | null;
+  condicionSalud: string | null;
+  descripcionHallazgos: string | null;
+  diagnosticos: DictamenDiagnosticoDTO[];
+
+  docente: {
+    id: number;
+    documento: string;
+    tipoDocumento: string;
+    nombreCompleto: string;
+    edad: number | null;
+    sexo: string;
+    secretaria: string | null;
+    institucion: string | null;
+    tipoDictamen?: string | null;
+  };
+
+  medico: {
+    id: number;
+    nombreCompleto: string;
+  } | null;
+};
+
+/* =====================
+   Helper número dictamen
+   ===================== */
+
 function buildNumeroDictamen(id: number, fecha: string | null) {
   if (!fecha) return '';
-  const [yyyy, mm, dd] = fecha.split('-'); // YYYY-MM-DD
+  const [yyyy, mm, dd] = fecha.split('-');
   const datePart = `${dd}${mm}${yyyy}`;
   const consecutivo = String(id).padStart(9, '0');
   return `${datePart}${consecutivo}`;
 }
 
-export default function AdmisionesDictamenDetallePage() {
-  const params = useParams();
-  const id = Number((params as any)?.id);
+const ADMISIONES_USER = {
+  id: 0,
+  role: 'ADMISIONISTA',
+  name: 'ADMISIONES',
+} as unknown as AuthUser;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['dictamen', id],
-    queryFn: () => fetchDictamen(id),
-    enabled: Number.isFinite(id) && id > 0,
-    staleTime: 10_000,
-  });
+/* =====================
+   Página principal
+   ===================== */
 
-  // ✅ En admisiones siempre es solo lectura (y además tu API ya manda readOnly)
-  const readOnly = true;
+export default function AdmisionesVerHistoriaClinicaPage() {
+  const router = useRouter();
+  const { id } = useParams<{ id: string }>();
+  const dictamenId = Number(id);
 
-  const d = data?.dictamen;
+  const backTo = '/admisiones';
 
-  const procedimientoPcl: 'A' | 'B' = (d?.procedimientoPcl ?? 'A') as any;
+  const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
 
-  const rawFecha = d?.fechaDictamen ?? '';
-  const fechaDictamen =
-    rawFecha && typeof rawFecha === 'string' && rawFecha.length >= 10
-      ? rawFecha.substring(0, 10)
-      : '';
+  const [readOnly, setReadOnly] = useState(false);
+  const [locked, setLocked] = useState(false);
 
-  const numeroDictamen =
-    d?.numeroDictamen ?? buildNumeroDictamen(Number(d?.id ?? id), fechaDictamen || null);
+  const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
+  const [fechaDictamen, setFechaDictamen] = useState<string>('');
+  const [numeroDictamen, setNumeroDictamen] = useState<string>('');
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dictamenLoaded, setDictamenLoaded] = useState(false);
+
+  const fetchDictamen = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
+
+      const res = await fetch(`/api/dictamenes/${dictamenId}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ?? 'Error cargando información del dictamen');
+        return;
+      }
+
+      const d = data.dictamen as DictamenDetalle;
+      setDictamen(d);
+
+      const lockedNow = d.estado === 'CERRADO' || Boolean((d as any)?.locked);
+      setLocked(lockedNow);
+
+      setReadOnly(Boolean(data?.readOnly) || lockedNow);
+
+      const proc = d.procedimientoPcl ?? 'A';
+      setProcedimientoPcl(proc);
+
+      const rawFecha = d.fechaDictamen;
+      const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
+      setFechaDictamen(uiFecha);
+
+      const num = d.numeroDictamen ?? buildNumeroDictamen(d.id, uiFecha || null);
+      setNumeroDictamen(num);
+
+      setError(null);
+      setDictamenLoaded(true);
+    } catch (err) {
+      console.error('Error cargando dictamen:', err);
+      setError('Error cargando información del dictamen.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!dictamenId || Number.isNaN(dictamenId)) {
+      setError('ID de dictamen inválido.');
+      setLoading(false);
+      return;
+    }
+    fetchDictamen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictamenId]);
+
+  const handleChangeFecha = (newFecha: string) => {
+    if (readOnly) return;
+    setFechaDictamen(newFecha);
+    if (!dictamenId || Number.isNaN(dictamenId)) return;
+    setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
+  };
+
+  const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
+    if (readOnly) return;
+    setProcedimientoPcl(nuevoProc);
+    if (!dictamenId || Number.isNaN(dictamenId)) return;
+    setNumeroDictamen(buildNumeroDictamen(dictamenId, fechaDictamen || null));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AppNav />
+        <main className="px-4 py-4 lg:px-8">
+          <button
+            type="button"
+            onClick={() => router.push(backTo)}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Volver al listado
+          </button>
+
+          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">
+            Cargando dictamen…
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error || !dictamen) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AppNav />
+        <main className="px-4 py-4 lg:px-8">
+          <button
+            type="button"
+            onClick={() => router.push(backTo)}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Volver al listado
+          </button>
+
+          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">
+            {error ?? 'No se encontró el dictamen.'}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppNav title="Módulo de Admisiones" />
+    // ✅ ADD: envolver para que useMedicoAccess NO falle en tabs (Cap.2)
+    <MedicoAccessProvider user={ADMISIONES_USER} readOnly={true}>
+      <div className="min-h-screen bg-slate-50">
+        <AppNav />
 
-      <main className="px-4 py-4 space-y-4 lg:px-8">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800">Detalle dictamen</h1>
-            <p className="text-xs text-slate-500">Vista de admisiones (solo lectura)</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {Number.isFinite(id) && id > 0 && <ReabrirDictamenButton dictamenId={id} />}
-
-            <Link
-              href="/admisiones"
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+        <main className="px-4 py-4 lg:px-8">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => router.push(backTo)}
+              className="text-xs text-blue-600 hover:underline"
             >
-              Volver
-            </Link>
+              ← Volver al listado de dictámenes
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.open(`/api/dictamenes/${dictamen.id}/pdf-react`, '_blank', 'noopener,noreferrer');
+              }}
+              className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+            >
+              Imprimir PDF
+            </button>
           </div>
-        </div>
 
-        <div className="p-4 bg-white border shadow-sm border-slate-200 rounded-xl">
-          {!Number.isFinite(id) || id <= 0 ? (
-            <p className="text-sm text-rose-600">ID inválido</p>
-          ) : isLoading ? (
-            <p className="text-sm text-slate-500">Cargando dictamen…</p>
-          ) : error ? (
-            <p className="text-sm text-rose-600">{(error as any)?.message ?? 'Error'}</p>
-          ) : (
-            <>
-              {/* ✅ aviso solo lectura */}
-              <div className="px-4 py-2 mb-3 text-xs border rounded-xl border-amber-200 bg-amber-50 text-amber-800">
-                Estás en modo solo lectura. No puedes editar información del dictamen.
-              </div>
-
-              {/* ✅ MISMA VISTA DEL MÉDICO pero bloqueada (gris + sin interacción) */}
-              <div className="pointer-events-none opacity-80">
-                <DictamenFormLayout
-                  left={
-                    <DictamenLeftPanel
-                      dictamenId={d.id}
-                      estado={d.estado}
-                      docente={d.docente}
-                      medico={d.medico}
-                      numeroDictamen={numeroDictamen}
-                      fechaDictamen={fechaDictamen}
-                      onChangeFecha={() => {}}
-                      procedimientoPcl={procedimientoPcl}
-                      onChangeProcedimiento={() => {}}
-                      onEditDocente={() => {}}
-                    />
-                  }
-                  center={
-                    <DictamenCenterPanel
-                      dictamen={{
-                        id: d.id,
-                        antecedentesClinicos: d.antecedentesClinicos ?? '',
-                        condicionSalud: d.condicionSalud ?? '',
-                        descripcionHallazgos: d.descripcionHallazgos ?? '',
-                        diagnosticos: d.diagnosticos ?? [],
-                      }}
-                      procedimientoPcl={procedimientoPcl}
-                      fechaDictamen={fechaDictamen}
-                    />
-                  }
-                  right={<DictamenRightPanel />}
+          <div className="mt-4">
+            <DictamenFormLayout
+              stickyTopClassName="top-20"
+              left={
+                <DictamenLeftPanel
+                  dictamenId={dictamen.id}
+                  estado={dictamen.estado}
+                  docente={dictamen.docente}
+                  medico={dictamen.medico}
+                  numeroDictamen={numeroDictamen}
+                  fechaDictamen={fechaDictamen}
+                  onChangeFecha={handleChangeFecha}
+                  procedimientoPcl={procedimientoPcl}
+                  onChangeProcedimiento={handleChangeProcedimiento}
                 />
-              </div>
-            </>
-          )}
-        </div>
-      </main>
-    </div>
+              }
+              center={
+                <DictamenCenterPanel
+                  dictamen={{
+                    id: dictamen.id,
+                    estado: dictamen.estado,
+                    antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
+                    condicionSalud: dictamen.condicionSalud ?? '',
+                    descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                    diagnosticos: dictamen.diagnosticos ?? [],
+                  }}
+                  procedimientoPcl={procedimientoPcl}
+                  fechaDictamen={fechaDictamen}
+                  readOnly={true}
+                />
+              }
+              right={<DictamenRightPanel dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
+            />
+          </div>
+        </main>
+      </div>
+    </MedicoAccessProvider>
   );
 }
