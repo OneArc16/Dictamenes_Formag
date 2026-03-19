@@ -1,71 +1,48 @@
-// app/medico/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  DictamenExportButton,
-  DictamenExportRow,
-} from '@/components/DictamenExportButton';
-import Appnav from '@/components/AppNav';
-
-import {
-  DictamenFiltersBar,
-  MedicoOption,
-} from '@/components/dictamen/DictamenFiltersBar';
+import { DictamenExportButton, type DictamenExportRow } from '@/components/DictamenExportButton';
+import { DictamenFiltersBar, type MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
-import {
-  DictamenRow,
-  EstadoDictamenFiltro,
-} from '@/components/dictamen/types';
-
-// 👇 Modal de registro
+import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictamen/types';
 import { RegistrarDocenteModal } from '@/components/RegistrarDocenteModal';
+import ReadOnlyBanner from '@/components/medico/ReadOnlyBanner';
+import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
+import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
 
-// =====================
-// Helpers exportación
-// =====================
+type DictamenApiRow = {
+  id: number;
+  fechaDictamen: string | null;
+  docenteDocumento: string | null;
+  docenteNombre: string | null;
+  secretaria: string | null;
+  estado: string | null;
+  medicoNombre: string | null;
+};
 
-function formatFechaExport(value: any): string {
+function formatFechaExport(value: unknown): string {
   if (!value) return '';
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
-  const str = String(value);
-  if (str.includes('T')) {
-    return str.split('T')[0];
-  }
-  return str;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const formatted = String(value);
+  return formatted.includes('T') ? formatted.split('T')[0] : formatted;
 }
 
-// =====================
-// Página principal
-// =====================
 
 export default function MedicoPage() {
   const router = useRouter();
+  const { readOnly } = useMedicoAccess();
 
-  // Filtros
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [documento, setDocumento] = useState('');
-
-  const [estado, setEstado] = useState<EstadoDictamenFiltro[]>([
-    'PENDIENTES',
-  ]);
-
-  // Médicos (para el combo)
+  const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['PENDIENTES']);
   const [medicos, setMedicos] = useState<MedicoOption[]>([]);
   const [medicoIds, setMedicoIds] = useState<number[]>([]);
-
-  // Control modal registrar
   const [showRegistrarModal, setShowRegistrarModal] = useState(false);
 
-  // ==========================================================
-  // 1) Cargar médicos (puede quedarse con useEffect normal)
-  // ==========================================================
   useEffect(() => {
     async function loadMedicos() {
       try {
@@ -75,9 +52,8 @@ export default function MedicoPage() {
         });
 
         const data = await res.json();
-
         if (!res.ok || !data.ok) {
-          console.error(data.error || 'Error cargando médicos');
+          console.error(data.error || 'Error cargando medicos');
           setMedicos([]);
           setMedicoIds([]);
           return;
@@ -86,7 +62,6 @@ export default function MedicoPage() {
         const options: MedicoOption[] = data.options ?? [];
         setMedicos(options);
 
-        // solo setear el médico por defecto si aún no hay selección
         if (medicoIds.length === 0) {
           if (data.medicoIdActual) {
             setMedicoIds([data.medicoIdActual]);
@@ -94,8 +69,8 @@ export default function MedicoPage() {
             setMedicoIds([options[0].id]);
           }
         }
-      } catch (err) {
-        console.error('Error fetching medicos:', err);
+      } catch (error) {
+        console.error('Error fetching medicos:', error);
         setMedicos([]);
         setMedicoIds([]);
       }
@@ -105,9 +80,6 @@ export default function MedicoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ==========================================================
-  // 2) Cargar dictámenes con React Query
-  // ==========================================================
   const {
     data: dictamenRows = [],
     isLoading: loadingDictamenes,
@@ -115,150 +87,109 @@ export default function MedicoPage() {
   } = useQuery<DictamenRow[]>({
     queryKey: [
       'dictamenes-medico',
-      {
-        medicoIds,
-        estado,
-        fechaDesde,
-        fechaHasta,
-        documento,
-      },
+      { medicoIds, estado, fechaDesde, fechaHasta, documento },
     ],
-    enabled: medicoIds.length > 0, // solo cuando hay algún médico seleccionado
+    enabled: medicoIds.length > 0,
     queryFn: async () => {
       const params = new URLSearchParams();
 
-      if (medicoIds.length > 0) {
-        params.set('medicoIds', medicoIds.join(','));
-      }
-
-      if (estado.length > 0) {
-        params.set('estado', estado.join(','));
-      }
-
+      if (medicoIds.length > 0) params.set('medicoIds', medicoIds.join(','));
+      if (estado.length > 0) params.set('estado', estado.join(','));
       if (documento) params.set('documento', documento);
       if (fechaDesde) params.set('fechaDesde', fechaDesde);
       if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
-      const res = await fetch(
-        `/api/dictamenes/medico?${params.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        },
-      );
+      const res = await fetch(`/api/dictamenes/medico?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
       const data = await res.json();
-
       if (!res.ok || !data.ok) {
         console.error(data.error || 'Error en la consulta');
         throw new Error(data.error || 'Error en la consulta');
       }
 
-      const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
-        id: d.id,
-        fechaDictamen: d.fechaDictamen,
-        docenteDocumento: d.docenteDocumento,
-        docenteNombre: d.docenteNombre,
-        secretaria: d.secretaria,
-        estado: d.estado,
-        medicoNombre: d.medicoNombre,
+      const apiRows = (data.rows ?? []) as DictamenApiRow[];
+      return apiRows.map((dictamen) => ({
+        id: dictamen.id,
+        fechaDictamen: dictamen.fechaDictamen,
+        docenteDocumento: dictamen.docenteDocumento,
+        docenteNombre: dictamen.docenteNombre,
+        secretaria: dictamen.secretaria,
+        estado: dictamen.estado,
+        medicoNombre: dictamen.medicoNombre,
       }));
-
-      return mapped;
     },
   });
 
   const rows = dictamenRows;
   const loading = loadingDictamenes;
 
-  // ==========================================================
-  // 3) Acciones
-  // ==========================================================
+  const exportRows: DictamenExportRow[] = useMemo(
+    () =>
+      rows.map((row) => ({
+        fecha: formatFechaExport(row.fechaDictamen),
+        secretaria: row.secretaria ?? '',
+        documento: row.docenteDocumento ?? '',
+        docente: row.docenteNombre ?? '',
+        estado: row.estado ?? '',
+        medico: row.medicoNombre ?? '',
+      })),
+    [rows],
+  );
 
-  // Botón Registrar (de la barra de filtros)
-  const handleRegistrar = () => {
-    setShowRegistrarModal(true);
-  };
 
-  // Ver dictamen
   const handleOpenDictamen = (id: number) => {
     router.push(`/medico/dictamen/${id}`);
   };
 
-  // Cuando se crea un dictamen desde el modal, refrescamos la tabla
   const handleDictamenCreated = () => {
     refetchDictamenes();
   };
 
-  // Filas para exportar (formato CSV)
-  const exportRows: DictamenExportRow[] = rows.map(
-    (r): DictamenExportRow => ({
-      fecha: formatFechaExport(r.fechaDictamen),
-      secretaria: r.secretaria ?? '',
-      documento: r.docenteDocumento ?? '',
-      docente: r.docenteNombre ?? '',
-      estado: r.estado ?? '',
-      medico: r.medicoNombre ?? '',
-    }),
-  );
-
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100">
-      <Appnav title="Módulo del Médico" />
-
-      <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
-        {/* Encabezado */}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800">
-              Dictámenes del médico
-            </h1>
-            <p className="text-xs text-slate-500">
-              Visualiza y gestiona los dictámenes pendientes,
-              reabiertos y cerrados.
-            </p>
-          </div>
-
-          <DictamenExportButton
-            rows={exportRows}
-            filename="dictamenes_medico.csv"
-          />
-        </div>
-
-        {/* Barra de filtros */}
-        <DictamenFiltersBar
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          onFechaDesdeChange={setFechaDesde}
-          onFechaHastaChange={setFechaHasta}
-          documento={documento}
-          onDocumentoChange={setDocumento}
-          estado={estado}
-          onEstadoChange={setEstado}
-          medicos={medicos}
-          medicoIds={medicoIds}
-          onMedicoChange={setMedicoIds}
-          showMedicoSelect={true}
-          selectedMedicoIds={medicoIds}
-          onMedicoIdsChange={setMedicoIds}
-          onRegistrar={handleRegistrar}
+    <ModuleSidebarShell
+      moduleKey="medico"
+      title="Dictamenes del medico"
+      description="Consulta tus dictamenes pendientes, reabiertos y cerrados con una navegacion lateral separada del formulario clinico."
+      compactHero
+      actions={
+        <DictamenExportButton
+          rows={exportRows}
+          filename="dictamenes_medico.csv"
         />
+      }
+    >
+      <ReadOnlyBanner />
 
-        {/* Tabla de dictámenes */}
-        <DictamenTable
-          rows={rows}
-          loading={loading}
-          onOpenDictamen={handleOpenDictamen}
-        />
-      </main>
+      <DictamenFiltersBar
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        onFechaDesdeChange={setFechaDesde}
+        onFechaHastaChange={setFechaHasta}
+        documento={documento}
+        onDocumentoChange={setDocumento}
+        estado={estado}
+        onEstadoChange={setEstado}
+        medicos={medicos}
+        medicoIds={medicoIds}
+        onMedicoChange={setMedicoIds}
+        showMedicoSelect={true}
+        onRegistrar={readOnly ? undefined : () => setShowRegistrarModal(true)}
+      />
 
-      {/* Modal registrar docente / dictamen */}
+      <DictamenTable
+        rows={rows}
+        loading={loading}
+        onOpenDictamen={handleOpenDictamen}
+      />
+
       <RegistrarDocenteModal
         open={showRegistrarModal}
         onClose={() => setShowRegistrarModal(false)}
-        // 👇 NUEVO: cuando el flujo cree un dictamen, llamas esto
         onDictamenCreated={handleDictamenCreated}
       />
-    </div>
+    </ModuleSidebarShell>
   );
 }

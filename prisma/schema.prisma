@@ -39,6 +39,12 @@ enum TipoDictamen {
   RECALIFICACION
 }
 
+enum EstadoRecomendacionLaboral {
+  BORRADOR
+  CERRADA
+  ANULADA
+}
+
 // Modo de valoración para MOVIMIENTO
 enum MovimientoModo {
   RESTRICCION
@@ -273,11 +279,11 @@ model Departamento {
   codigo String @id @db.Char(2)
   nombre String @db.VarChar(50)
 
-  municipios     Municipio[]          @relation("DepartamentoMunicipios")
-  usuarios       Usuario[]            @relation("DepartamentoUsuarios")
-  eps            Eps[]                @relation("DepartamentoEps")
-  centrosMedicos CentroMedico[]       @relation("DepartamentoCentroMedico")
-  sedes          Sede[]               @relation("DepartamentoSedes")
+  municipios     Municipio[]            @relation("DepartamentoMunicipios")
+  usuarios       Usuario[]              @relation("DepartamentoUsuarios")
+  eps            Eps[]                  @relation("DepartamentoEps")
+  centrosMedicos CentroMedico[]         @relation("DepartamentoCentroMedico")
+  sedes          Sede[]                 @relation("DepartamentoSedes")
   instituciones  InstitucionEducativa[] @relation("DepartamentoInstituciones")
 
   @@map("departamentos")
@@ -293,12 +299,12 @@ model Municipio {
 
   departamento Departamento @relation("DepartamentoMunicipios", fields: [codigoDepartamento], references: [codigo])
 
-  usuarios       Usuario[]            @relation("MunicipioUsuarios")
-  eps            Eps[]                @relation("MunicipioEps")
-  barrios        Barrio[]             @relation("MunicipioBarrios")
-  centrosMedicos CentroMedico[]       @relation("MunicipioCentroMedico")
-  sedes          Sede[]               @relation("MunicipioSedes")
-  instituciones  InstitucionEducativa[] @relation("MunicipioInstituciones")
+  usuarios      Usuario[]              @relation("MunicipioUsuarios")
+  eps           Eps[]                  @relation("MunicipioEps")
+  barrios       Barrio[]               @relation("MunicipioBarrios")
+  centrosMedicos CentroMedico[]        @relation("MunicipioCentroMedico")
+  sedes         Sede[]                 @relation("MunicipioSedes")
+  instituciones InstitucionEducativa[] @relation("MunicipioInstituciones")
 
   @@index([codigoDepartamento])
   @@map("municipios")
@@ -490,7 +496,6 @@ model Usuario {
 
   codigoOcupacion String? @db.Char(4)
 
-  // ✅ NUEVO: Cargo docente
   cargoDocenteId Int?          @map("cargo_docente_id")
   cargoDocente   CargoDocente? @relation(fields: [cargoDocenteId], references: [id])
 
@@ -531,8 +536,7 @@ model Usuario {
   escolaridad String? @db.Text
 
   fechaVinculacion DateTime? @db.Date @map("fecha_vinculacion")
-  
-  fechaAfiliacion DateTime @default(now())
+  fechaAfiliacion  DateTime  @default(now())
 
   celular            String? @db.VarChar(15)
   email              String? @db.VarChar(100)
@@ -585,7 +589,8 @@ model Usuario {
   departamento Departamento? @relation("DepartamentoUsuarios", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
 
-  dictamenes Dictamen[]
+  dictamenes               Dictamen[]
+  recomendacionesLaborales RecomendacionLaboral[] @relation("UsuarioRecomendacionesLaborales")
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -625,24 +630,21 @@ model Empleado {
   perfilId Int?
   perfil   Perfil? @relation(fields: [perfilId], references: [id])
 
-  // Firma del empleado (para usar como fuente)
   firma     Bytes?
   firmaMime String? @db.VarChar(50) @map("firma_mime")
 
-  // ✅ NUEVO: marcar si hace parte de la junta médica
   esMiembroJunta Boolean @default(false) @map("es_miembro_junta")
 
   email  String? @db.VarChar(50)
   idSede Int?
 
-  // ✅ NUEVO: especialidades (1..n)
   especialidades EmpleadoEspecialidad[]
 
-  // Relación con dictámenes (médico responsable)
   dictamenes Dictamen[]
-
-  // ✅ NUEVO: relación a snapshots por dictamen
   dictamenJunta DictamenJunta[]
+
+  recomendacionesLaborales   RecomendacionLaboral[]      @relation("EmpleadoRecomendacionesLaborales")
+  recomendacionLaboralFirmas RecomendacionLaboralFirma[] @relation("EmpleadoFirmasRecomendacionLaboral")
 
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([email])
@@ -655,9 +657,9 @@ model Empleado {
 // CATÁLOGO DE DEFICIENCIAS
 // =====================================
 model Deficiencia {
-  id        Int    @id @default(autoincrement())
-  tabla     String @db.VarChar(10)
-  nombre    String @db.VarChar(255)
+  id        Int     @id @default(autoincrement())
+  tabla     String  @db.VarChar(10)
+  nombre    String  @db.VarChar(255)
   capitulo  String? @db.VarChar(20)
   decreto   String? @db.VarChar(50)
   tipoTabla String? @db.VarChar(50) @map("tipo_tabla")
@@ -704,7 +706,7 @@ model DeficienciaClase {
   procedimientoB Decimal? @db.Decimal(6, 2) @map("procedimiento_b")
   orden          Int      @default(1)
 
-  deficiencia          Deficiencia          @relation(fields: [deficienciaId], references: [id])
+  deficiencia          Deficiencia         @relation(fields: [deficienciaId], references: [id])
   dictamenDeficiencias DictamenDeficiencia[]
 
   @@index([deficienciaId])
@@ -807,7 +809,6 @@ model Dictamen {
   limitacionesAvdAivd DictamenLimitacionesAvdAivd[]
   analisisOcupacional DictamenAnalisisOcupacional[]
 
-  // ✅ NUEVO: snapshots de junta por dictamen (con firmas congeladas)
   junta DictamenJunta[]
 
   @@index([usuarioId])
@@ -817,17 +818,19 @@ model Dictamen {
   @@map("dictamenes")
 }
 
-// ✅ NUEVO: tabla para “congelar” las firmas y datos de la junta por dictamen
+// =====================================
+// Snapshots de junta por dictamen
+// =====================================
 model DictamenJunta {
   id         Int  @id @default(autoincrement())
   dictamenId Int  @map("dictamen_id")
   empleadoId Int? @map("empleado_id")
 
   nombreCompleto String  @db.VarChar(150) @map("nombre_completo")
-  registroMedico String? @db.VarChar(25)  @map("registro_medico")
-  licencia       String? @db.VarChar(30)  @map("licencia")
+  registroMedico String? @db.VarChar(25) @map("registro_medico")
+  licencia       String? @db.VarChar(30) @map("licencia")
   firma          Bytes?  @map("firma")
-  firmaMime      String? @db.VarChar(50)  @map("firma_mime")
+  firmaMime      String? @db.VarChar(50) @map("firma_mime")
 
   orden     Int      @default(1)
   cerradoEn DateTime @default(now()) @map("cerrado_en")
@@ -841,11 +844,90 @@ model DictamenJunta {
   @@map("dictamen_junta")
 }
 
+// =====================================
+// RECOMENDACIONES MÉDICO-LABORALES
+// =====================================
+model RecomendacionLaboral {
+  id Int @id @default(autoincrement())
+
+  usuarioId  Int
+  empleadoId Int?
+
+  numeroRecomendacion String?  @db.VarChar(30)
+  fechaRecomendacion  DateTime @db.Date
+
+  pesoKg Decimal? @db.Decimal(5, 2) @map("peso_kg")
+  tallaM Decimal? @db.Decimal(4, 2) @map("talla_m")
+  imc    Decimal? @db.Decimal(5, 2)
+
+  concepto                    String? @db.Text
+  recomendacionesObservaciones String? @db.Text @map("recomendaciones_observaciones")
+  restriccionesLaborales      String? @db.Text @map("restricciones_laborales")
+
+  estado EstadoRecomendacionLaboral @default(BORRADOR)
+
+  creadoEn  DateTime  @default(now()) @map("creado_en")
+  updatedAt DateTime  @updatedAt
+  cerradaEn DateTime? @map("cerrada_en")
+
+  usuario  Usuario  @relation("UsuarioRecomendacionesLaborales", fields: [usuarioId], references: [id])
+  empleado Empleado? @relation("EmpleadoRecomendacionesLaborales", fields: [empleadoId], references: [id])
+
+  examenes RecomendacionLaboralExamen[]
+  firmas   RecomendacionLaboralFirma[]
+
+  @@index([usuarioId])
+  @@index([empleadoId])
+  @@index([estado, fechaRecomendacion])
+  @@map("recomendaciones_laborales")
+}
+
+model RecomendacionLaboralExamen {
+  id Int @id @default(autoincrement())
+
+  recomendacionLaboralId Int @map("recomendacion_laboral_id")
+
+  nombre      String    @db.VarChar(150)
+  resultado   String?   @db.Text
+  observacion String?   @db.Text
+  fechaExamen DateTime? @db.Date @map("fecha_examen")
+  orden       Int       @default(1)
+
+  recomendacionLaboral RecomendacionLaboral @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
+
+  @@index([recomendacionLaboralId])
+  @@map("recomendacion_laboral_examenes")
+}
+
+model RecomendacionLaboralFirma {
+  id Int @id @default(autoincrement())
+
+  recomendacionLaboralId Int  @map("recomendacion_laboral_id")
+  empleadoId             Int? @map("empleado_id")
+
+  nombreCompleto String  @db.VarChar(150) @map("nombre_completo")
+  registroMedico String? @db.VarChar(25) @map("registro_medico")
+  licencia       String? @db.VarChar(30)
+  firma          Bytes?
+  firmaMime      String? @db.VarChar(50) @map("firma_mime")
+
+  orden     Int      @default(1)
+  cerradoEn DateTime @default(now()) @map("cerrado_en")
+
+  recomendacionLaboral RecomendacionLaboral @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
+  empleado             Empleado?            @relation("EmpleadoFirmasRecomendacionLaboral", fields: [empleadoId], references: [id], onDelete: SetNull)
+
+  @@unique([recomendacionLaboralId, orden])
+  @@index([recomendacionLaboralId])
+  @@index([empleadoId])
+  @@map("recomendacion_laboral_firmas")
+}
+
 model DictamenDiagnostico {
-  id          Int    @id @default(autoincrement())
-  dictamenId  Int
-  cie10Codigo String @db.VarChar(10)
-  tipo        TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
+  id         Int             @id @default(autoincrement())
+  dictamenId Int
+  cie10Codigo String         @db.VarChar(10)
+  tipo       TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
   cie10    Cie10    @relation(fields: [cie10Codigo], references: [codigo])
@@ -856,7 +938,7 @@ model DictamenDiagnostico {
 }
 
 model DictamenDeficiencia {
-  id            Int  @id @default(autoincrement())
+  id            Int @id @default(autoincrement())
   dictamenId    Int
   deficienciaId Int
   claseId       Int? @map("id_clase")
@@ -903,10 +985,10 @@ model DictamenDeficienciaMovimiento {
 
 // TÍTULO II – Cap. 1
 model DictamenLimitacionesAvdAivd {
-  id         Int           @id @default(autoincrement())
+  id         Int             @id @default(autoincrement())
   dictamenId Int
   actividad  ActividadAvdAivd
-  valor      Decimal       @db.Decimal(3, 1)
+  valor      Decimal         @db.Decimal(3, 1)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
 

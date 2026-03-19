@@ -1,66 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User2 } from 'lucide-react';
+
+import { useAuthMe } from '@/hooks/useAuthMe';
 import ModulesButton from './ModulesButton';
 
 type AppNavProps = {
   title?: string;
-  /** Ocultar o mostrar el botón de módulos */
   showModulesButton?: boolean;
-  /**
-   * Si lo pasas, fuerza el comportamiento.
-   * Si NO lo pasas, AppNav lo decide según el role del /api/auth/me
-   */
   canSwitchModules?: boolean;
 };
 
 export default function AppNav({
-  title = 'Módulo',
+  title = 'Modulo',
   showModulesButton = true,
-  canSwitchModules, // 👈 sin default aquí
+  canSwitchModules,
 }: AppNavProps) {
   const router = useRouter();
-  const [userName, setUserName] = useState<string>('Usuario');
-  const [canSwitch, setCanSwitch] = useState<boolean>(false);
+  const { data: user } = useAuthMe();
 
-  // Cargar nombre + role del usuario logueado desde /api/auth/me
-  useEffect(() => {
-    let active = true;
-
-    async function loadMe() {
-      try {
-        const res = await fetch('/api/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (!res.ok) return;
-
-        const data = await res.json();
-        if (!active) return;
-
-        if (data?.ok && data?.user) {
-          if (typeof data.user.name === 'string') setUserName(data.user.name);
-
-          // 👇 si NO me pasaron canSwitchModules por props, lo decido por role
-          if (canSwitchModules === undefined) {
-            setCanSwitch(String(data.user.role) === 'ADMIN');
-          }
-        }
-      } catch {
-        // no-op
-      }
-    }
-
-    loadMe();
-    return () => {
-      active = false;
-    };
-  }, [canSwitchModules]);
-
-  const effectiveCanSwitch = canSwitchModules ?? canSwitch;
+  const userName = user?.name ?? 'Usuario';
+  const effectiveCanSwitch = canSwitchModules ?? user?.role === 'ADMIN';
 
   const handleLogout = async () => {
     try {
@@ -68,8 +29,8 @@ export default function AppNav({
         method: 'POST',
         credentials: 'include',
       });
-    } catch (err) {
-      console.error('Error al cerrar sesión', err);
+    } catch (error) {
+      console.error('Error al cerrar sesion', error);
     } finally {
       router.replace('/login');
       router.refresh();
@@ -78,25 +39,23 @@ export default function AppNav({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between px-4 py-2 mx-auto max-w-7xl">
-        {/* Lado izquierdo: título / branding */}
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center justify-center text-xs font-bold text-white bg-blue-600 rounded-full shadow-sm h-7 w-7">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
             D
           </span>
           <div className="flex flex-col leading-tight">
             <span className="text-xs font-semibold text-slate-800">{title}</span>
             <span className="text-[10px] text-slate-400">
-              Plataforma de dictámenes PCL
+              Plataforma de dictamenes PCL
             </span>
           </div>
         </div>
 
-        {/* Lado derecho: módulos + usuario + logout */}
         <div className="flex items-center gap-2">
-          {showModulesButton && (
+          {showModulesButton ? (
             <ModulesButton canSwitchModules={effectiveCanSwitch} />
-          )}
+          ) : null}
 
           <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 shadow-sm sm:inline-flex">
             <User2 className="h-3.5 w-3.5 text-slate-500" />
@@ -106,13 +65,11 @@ export default function AppNav({
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm transition
-                       hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-1 focus:ring-offset-white"
-            title="Cerrar sesión"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-1 focus:ring-offset-white"
+            title="Cerrar sesion"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Cerrar sesión</span>
+            <span className="hidden sm:inline">Cerrar sesion</span>
           </button>
         </div>
       </div>

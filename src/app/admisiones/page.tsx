@@ -4,36 +4,42 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
-import Appnav from '@/components/AppNav';
-
-import { DictamenExportButton, DictamenExportRow } from '@/components/DictamenExportButton';
-
-import { DictamenFiltersBar, MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
-
-import { DictamenTable } from '@/components/dictamen/DictamenTable';
-import { DictamenRow, EstadoDictamenFiltro } from '@/components/dictamen/types';
-
-import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
+import { DictamenExportButton, type DictamenExportRow } from '@/components/DictamenExportButton';
+import AdmisionesBanner from '@/components/admisiones/AdmisionesBanner';
 import ImprimirDictamenButton from '@/components/admisiones/dictamenes/ImprimirDictamenButton';
+import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
+import { DictamenFiltersBar, type MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
+import { DictamenTable } from '@/components/dictamen/DictamenTable';
+import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictamen/types';
+import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
 
-function formatFechaExport(value: any): string {
+type DictamenApiRow = {
+  id: number;
+  fechaDictamen: string | null;
+  docenteDocumento: string | null;
+  docenteNombre: string | null;
+  secretaria: string | null;
+  estado: string | null;
+  medicoNombre: string | null;
+};
+
+function formatFechaExport(value: unknown): string {
   if (!value) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  const str = String(value);
-  return str.includes('T') ? str.split('T')[0] : str;
+  const formatted = String(value);
+  return formatted.includes('T') ? formatted.split('T')[0] : formatted;
 }
+
 
 export default function AdmisionesPage() {
   const router = useRouter();
 
-  // Filtros
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [documento, setDocumento] = useState('');
   const [estado, setEstado] = useState<EstadoDictamenFiltro[]>(['TODOS']);
   const [medicoIds, setMedicoIds] = useState<number[]>([]);
 
-  // ✅ Médicos
   const medicosQuery = useQuery({
     queryKey: ['medicos-options'],
     queryFn: async () => {
@@ -42,15 +48,19 @@ export default function AdmisionesPage() {
         credentials: 'include',
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) throw new Error(data?.error ?? 'Error cargando médicos');
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'Error cargando medicos');
+      }
       return (data.options ?? []) as MedicoOption[];
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // ✅ Dictámenes
   const dictamenesQuery = useQuery({
-    queryKey: ['dictamenes-admisiones', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
+    queryKey: [
+      'dictamenes-admisiones',
+      { medicoIds, estado, fechaDesde, fechaHasta, documento },
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
 
@@ -66,25 +76,43 @@ export default function AdmisionesPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) throw new Error(data?.error ?? 'Error consultando dictámenes');
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'Error consultando dictamenes');
+      }
 
-      const mapped: DictamenRow[] = (data.rows ?? []).map((d: any) => ({
-        id: d.id,
-        fechaDictamen: d.fechaDictamen,
-        docenteDocumento: d.docenteDocumento,
-        docenteNombre: d.docenteNombre,
-        secretaria: d.secretaria,
-        estado: d.estado,
-        medicoNombre: d.medicoNombre,
-      }));
-
-      return mapped;
+      const apiRows = (data.rows ?? []) as DictamenApiRow[];
+      return apiRows.map((dictamen) => ({
+        id: dictamen.id,
+        fechaDictamen: dictamen.fechaDictamen,
+        docenteDocumento: dictamen.docenteDocumento,
+        docenteNombre: dictamen.docenteNombre,
+        secretaria: dictamen.secretaria,
+        estado: dictamen.estado,
+        medicoNombre: dictamen.medicoNombre,
+      })) as DictamenRow[];
     },
-    placeholderData: (prev) => prev,
+    placeholderData: (previous) => previous,
   });
 
-  const rows = dictamenesQuery.data ?? [];
+  const rows = useMemo(
+    () => dictamenesQuery.data ?? [],
+    [dictamenesQuery.data],
+  );
   const loading = dictamenesQuery.isFetching;
+
+  const exportRows: DictamenExportRow[] = useMemo(
+    () =>
+      rows.map((row) => ({
+        fecha: formatFechaExport(row.fechaDictamen),
+        secretaria: row.secretaria ?? '',
+        documento: row.docenteDocumento ?? '',
+        docente: row.docenteNombre ?? '',
+        estado: row.estado ?? '',
+        medico: row.medicoNombre ?? '',
+      })),
+    [rows],
+  );
+
 
   const handleRegistrar = () => {
     router.push('/medico/dictamenes/nuevo');
@@ -94,72 +122,58 @@ export default function AdmisionesPage() {
     router.push(`/admisiones/dictamenes/${id}`);
   };
 
-  const exportRows: DictamenExportRow[] = useMemo(
-    () =>
-      rows.map((r) => ({
-        fecha: formatFechaExport(r.fechaDictamen),
-        secretaria: r.secretaria ?? '',
-        documento: r.docenteDocumento ?? '',
-        docente: r.docenteNombre ?? '',
-        estado: r.estado ?? '',
-        medico: r.medicoNombre ?? '',
-      })),
-    [rows]
-  );
-
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100">
-      <Appnav title="Módulo de Admisiones" />
-
-      <main className="flex-1 w-full max-w-6xl px-4 py-4 mx-auto space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800">Dictámenes de docentes</h1>
-            <p className="text-xs text-slate-500">
-              Visualiza y gestiona los dictámenes de cualquier médico y cualquier estado.
-            </p>
-          </div>
-
-          <DictamenExportButton rows={exportRows} filename="dictamenes_admisiones.csv" />
-        </div>
-
-        <DictamenFiltersBar
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          onFechaDesdeChange={setFechaDesde}
-          onFechaHastaChange={setFechaHasta}
-          documento={documento}
-          onDocumentoChange={setDocumento}
-          estado={estado}
-          onEstadoChange={setEstado}
-          medicos={medicosQuery.data ?? []}
-          medicoIds={medicoIds}
-          onMedicoChange={setMedicoIds}
-          showMedicoSelect={true}
-          selectedMedicoIds={medicoIds}
-          onMedicoIdsChange={setMedicoIds}
-          onRegistrar={handleRegistrar}
+    <ModuleSidebarShell
+      moduleKey="admisiones"
+      title="Control de dictamenes en admisiones"
+      description="Consulta transversal de docentes, filtros por medico y acceso operativo para impresion o reapertura cuando aplique."
+      compactHero
+      actions={
+        <DictamenExportButton
+          rows={exportRows}
+          filename="dictamenes_admisiones.csv"
         />
+      }
+    >
+      <AdmisionesBanner />
 
-        <DictamenTable
-          rows={rows}
-          loading={loading}
-          onOpenDictamen={handleOpenDictamen}
-          renderActions={(row) => {
-            const estadoLabel = String((row as any).estado ?? '').toUpperCase();
-            const isCerrado = estadoLabel === 'CERRADO';
+      <DictamenFiltersBar
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        onFechaDesdeChange={setFechaDesde}
+        onFechaHastaChange={setFechaHasta}
+        documento={documento}
+        onDocumentoChange={setDocumento}
+        estado={estado}
+        onEstadoChange={setEstado}
+        medicos={medicosQuery.data ?? []}
+        medicoIds={medicoIds}
+        onMedicoChange={setMedicoIds}
+        showMedicoSelect={true}
+        onRegistrar={handleRegistrar}
+      />
 
-            return (
-              <div className="flex items-center gap-2">
-                {/* ✅ Imprimir (para admisiones) */}
-                <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
-                {/* ✅ Reabrir solo si está cerrado */}
-                {isCerrado ? <ReabrirDictamenButton dictamenId={row.id} /> : null}
-              </div>
-            );
-          }}
-        />
-      </main>
-    </div>
+      <DictamenTable
+        rows={rows}
+        loading={loading}
+        onOpenDictamen={handleOpenDictamen}
+        renderActions={(row) => {
+          const estadoLabel = String(row.estado ?? '').toUpperCase();
+          const isCerrado = estadoLabel === 'CERRADO';
+
+          return (
+            <div className="flex items-center gap-2">
+              <ImprimirDictamenButton
+                dictamenId={row.id}
+                isCerrado={isCerrado}
+              />
+              {isCerrado ? (
+                <ReabrirDictamenButton dictamenId={row.id} />
+              ) : null}
+            </div>
+          );
+        }}
+      />
+    </ModuleSidebarShell>
   );
 }

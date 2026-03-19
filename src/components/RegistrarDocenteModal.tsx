@@ -4,6 +4,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const STORAGE_KEY = 'dictamy_registro_docente';
 
@@ -77,10 +85,15 @@ const emptyForm: DocenteForm = {
   fechaVinculacion: '',
 };
 
+type DocenteModalMode = 'DICTAMEN' | 'RECOMENDACION';
+
 type ModalProps = {
   open: boolean;
   onClose: () => void;
+  mode?: DocenteModalMode;
+  medicoResponsableId?: number | null;
   onDictamenCreated?: () => void;
+  onDocenteSaved?: (usuarioId: number) => void;
 };
 
 // =====================
@@ -147,7 +160,14 @@ type InstitucionOption = {
 // ✅ Cargo docente (buscador)
 type CargoDocenteOption = { id: number; codigo: string; nombre: string };
 
-function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
+function DocenteModal({
+  open,
+  onClose,
+  mode = 'DICTAMEN',
+  medicoResponsableId = null,
+  onDictamenCreated,
+  onDocenteSaved,
+}: ModalProps) {
   const [form, setForm] = useState<DocenteForm>(emptyForm);
 
   const [paises, setPaises] = useState<PaisOption[]>([]);
@@ -175,6 +195,17 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
   const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const isRecommendationMode = mode === 'RECOMENDACION';
+  const modalTitle = 'Registrar docente';
+  const modalDescription = isRecommendationMode
+    ? 'Crea o actualiza la informacion base del docente antes de diligenciar su recomendacion laboral.'
+    : 'Crea o actualiza la informacion base del docente antes de abrir su dictamen clinico.';
+  const submitLabel = saving
+    ? 'Guardando...'
+    : isRecommendationMode
+    ? 'Registrar docente'
+    : 'Registrar dictamen';
 
   const showToast = (type: ToastType, message: string) => {
     setToast({ type, message });
@@ -802,7 +833,7 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
 
     const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
       { key: 'tipoDocumento', label: 'Tipo de documento' },
-      { key: 'numeroDocumento', label: 'Número de documento' },
+      { key: 'numeroDocumento', label: 'Numero de documento' },
       { key: 'primerNombre', label: 'Primer nombre' },
       { key: 'primerApellido', label: 'Primer apellido' },
       { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
@@ -836,9 +867,34 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
         return;
       }
 
-      const usuarioId: number | undefined = dataDocente.usuario?.id;
+      const usuarioId = dataDocente.usuario?.id;
       if (!usuarioId) {
         showToast('error', 'No se pudo obtener el ID del docente');
+        return;
+      }
+
+      if (isRecommendationMode) {
+        const resRecomendacion = await fetch('/api/recomendaciones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            usuarioId,
+            empleadoId: medicoResponsableId,
+          }),
+        });
+
+        const dataRecomendacion = await resRecomendacion.json();
+
+        if (!resRecomendacion.ok || !dataRecomendacion?.ok) {
+          showToast('error', dataRecomendacion?.error ?? 'Error creando recomendacion laboral');
+          return;
+        }
+
+        showToast('success', 'Docente registrado y recomendacion lista en el listado');
+        onDocenteSaved?.(usuarioId);
+        handleLimpiar();
+        setTimeout(() => onClose(), 1200);
         return;
       }
 
@@ -874,7 +930,12 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
       setTimeout(() => onClose(), 1200);
     } catch (err) {
       console.error('Error guardando docente / dictamen:', err);
-      showToast('error', 'Error guardando docente / dictamen');
+      showToast(
+        'error',
+        isRecommendationMode
+          ? 'Error guardando docente para recomendacion'
+          : 'Error guardando docente / dictamen',
+      );
     } finally {
       setSaving(false);
     }
@@ -928,8 +989,6 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     }
   };
 
-  if (!open) return null;
-
   const municipiosFiltrados = selectedDepartamento
     ? municipios.filter((m) => m.codigoDepartamento === selectedDepartamento)
     : municipios;
@@ -939,87 +998,93 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
     : barrios;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
-        {/* Header modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">Registrar docente</h2>
-          <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">
-            ✕
-          </button>
-        </div>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent className="grid h-[min(92vh,960px)] w-[min(1080px,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border border-slate-200 bg-white p-0 text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.32)] sm:rounded-2xl">
+        <DialogHeader className="px-6 py-5 space-y-2 bg-white border-b border-slate-200 pr-14">
+          <DialogTitle className="text-xl text-slate-950">{modalTitle}</DialogTitle>
+          <DialogDescription className="max-w-3xl text-sm leading-6 text-slate-600">
+            {modalDescription}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="min-h-0 overflow-y-auto bg-white">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-white">
           {/* Card identificación y ubicación */}
-          <section className="border rounded-lg">
-            <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
+          <section className="bg-white border shadow-sm rounded-2xl border-slate-200">
+            <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/80">
               <span className="px-2 py-1 text-xs bg-white border rounded">🧾</span>
               <h3 className="text-sm font-semibold">Datos de identificación y ubicación</h3>
             </header>
 
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 bg-white">
               {/* Primera fila */}
-              <div className="grid gap-4 md:grid-cols-4">
-                <div>
+              <div className="grid gap-4 md:grid-cols-12">
+                <div className="md:col-span-3">
                   <label className="block mb-1 text-xs font-medium text-gray-700">Tipo de documento</label>
                   <select
                     name="tipoDocumento"
                     value={form.tipoDocumento}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-10 px-3 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
-                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="">Seleccione</option>
+                    <option value="CC">Cedula de ciudadania (CC)</option>
                     <option value="TI">Tarjeta de identidad (TI)</option>
-                    <option value="CE">Cédula de extranjería (CE)</option>
+                    <option value="CE">Cedula de extranjeria (CE)</option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
 
-                <div>
+                <div className="md:col-span-4">
                   <label className="block mb-1 text-xs font-medium text-gray-700">Número de documento</label>
-                  <div className="flex gap-2">
+                  <div className="flex items-stretch rounded-md shadow-sm">
                     <input
                       name="numeroDocumento"
                       value={form.numeroDocumento}
                       onChange={handleChange}
                       onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === "Enter") {
                           e.preventDefault();
                           handleBuscarDocente();
                         }
                       }}
-                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 h-10 min-w-0 px-3 text-sm border border-r-0 border-gray-300 rounded-r-none shadow-sm rounded-l-md focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={handleBuscarDocente}
                       disabled={searching}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-60"
+                      className="h-10 px-4 text-xs font-semibold border-gray-300 rounded-l-none text-slate-700 hover:bg-slate-50"
                     >
-                      {searching ? 'Buscando…' : 'Buscar'}
-                    </button>
+                      {searching ? "Buscando..." : "Buscar"}
+                    </Button>
                   </div>
                 </div>
 
-                <div>
+                <div className="md:col-span-3">
                   <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de nacimiento</label>
                   <input
                     type="date"
                     name="fechaNacimiento"
                     value={form.fechaNacimiento}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-10 px-3 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block mb-1 text-xs font-medium text-gray-700">Edad (años)</label>
                   <input
                     name="edad"
                     value={form.edad}
                     readOnly
-                    className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-md bg-gray-50"
+                    className="w-full h-10 px-3 text-sm text-gray-700 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
               </div>
@@ -1221,13 +1286,13 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           </section>
 
           {/* Card laborales */}
-          <section className="border rounded-lg">
-            <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
+          <section className="bg-white border shadow-sm rounded-2xl border-slate-200">
+            <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/80">
               <span className="px-2 py-1 text-xs bg-white border rounded">🧑‍🏫</span>
               <h3 className="text-sm font-semibold">Datos laborales del docente</h3>
             </header>
 
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 bg-white">
               {/* ✅ Cargo docente + Escolaridad */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -1277,33 +1342,49 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
                 </div>
               </div>
 
-              {/* ✅ Tipo dictamen + Fecha de vinculación */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de vinculación</label>
-                  <input
-                    type="date"
-                    name="fechaVinculacion"
-                    value={form.fechaVinculacion}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1 text-xs font-medium text-gray-700">Tipo de dictamen</label>
-                  <select
-                    name="tipoDictamen"
-                    value={form.tipoDictamen}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="CALIFICACION">Calificación</option>
-                    <option value="RECALIFICACION">Recalificación</option>
-                  </select>
-                </div>
-              </div>
 
-              {/* Secretaría + Institución */}
+          {/* Fecha de vinculacion y tipo de dictamen */}
+              {isRecommendationMode ? (
+                <div className="grid gap-4 md:grid-cols-1">
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de vinculacion</label>
+                    <input
+                      type="date"
+                      name="fechaVinculacion"
+                      value={form.fechaVinculacion}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-700">Fecha de vinculacion</label>
+                    <input
+                      type="date"
+                      name="fechaVinculacion"
+                      value={form.fechaVinculacion}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-700">Tipo de dictamen</label>
+                    <select
+                      name="tipoDictamen"
+                      value={form.tipoDictamen}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="CALIFICACION">Calificacion</option>
+                      <option value="RECALIFICACION">Recalificacion</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Secretaria + Institucion */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">Secretaría donde labora</label>
@@ -1425,45 +1506,54 @@ function DocenteModal({ open, onClose, onDictamenCreated }: ModalProps) {
           </section>
 
           {/* Botones inferiores */}
-          <div className="flex items-center justify-between pt-2">
-            <button
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <Button
               type="button"
+              variant="outline"
               onClick={handleLimpiar}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              className="rounded-lg"
             >
               Limpiar
-            </button>
+            </Button>
 
-            <div className="flex gap-2">
-              <button
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
                 type="button"
+                variant="outline"
                 onClick={onClose}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                className="rounded-lg"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleActualizarDatos}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md text-slate-700 hover:bg-gray-50 disabled:opacity-60"
+                className="rounded-lg"
               >
-                {saving ? 'Guardando…' : 'Actualizar datos'}
-              </button>
-              <button
+                {saving ? 'Guardando...' : 'Actualizar datos'}
+              </Button>
+              <Button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+                className="text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
-                {saving ? 'Guardando…' : 'Registrar dictamen'}
-              </button>
+                {submitLabel}
+              </Button>
             </div>
           </div>
         </form>
-
-        <Toast open={!!toast} type={toast?.type ?? 'info'} message={toast?.message ?? ''} onClose={() => setToast(null)} />
       </div>
-    </div>
+
+      <Toast
+        open={!!toast}
+        type={toast?.type ?? 'info'}
+        message={toast?.message ?? ''}
+        onClose={() => setToast(null)}
+      />
+    </DialogContent>
+  </Dialog>
   );
 }
 
@@ -1473,14 +1563,14 @@ export function RegistrarDocenteButton() {
 
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         disabled={readOnly}
-        className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-60"
+        className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
       >
         Registrar
-      </button>
+      </Button>
 
       <DocenteModal open={open} onClose={() => setOpen(false)} />
     </>

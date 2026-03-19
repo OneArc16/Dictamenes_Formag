@@ -1,9 +1,8 @@
-// src/lib/auth/guards.ts
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { verifyJwt } from '@/lib/auth';
 
-export type AppRole = 'ADMIN' | 'MEDICO' | 'ADMISIONISTA';
+import { verifyJwt } from '@/lib/auth';
+import type { AppRole } from '@/lib/module-navigation';
 
 export type AuthUser = {
   id: string;
@@ -20,12 +19,16 @@ async function getAuthUser(): Promise<AuthUser | null> {
     const payload = await verifyJwt(token);
     if (!payload) return null;
 
-    const p = payload as any;
+    const data = payload as {
+      sub?: string;
+      name?: string;
+      role?: AppRole;
+    };
 
     return {
-      id: String(p.sub),
-      name: String(p.name ?? ''),
-      role: String(p.role) as AppRole,
+      id: String(data.sub ?? ''),
+      name: String(data.name ?? ''),
+      role: String(data.role ?? '') as AppRole,
     };
   } catch {
     return null;
@@ -39,7 +42,6 @@ export async function requireAdmin() {
   return user;
 }
 
-/** ✅ MÓDULO MÉDICO: MEDICO puede editar, ADMIN solo lectura */
 export async function requireMedicoModule() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
@@ -53,7 +55,6 @@ export async function requireMedicoModule() {
   };
 }
 
-/** ✅ MÓDULO ADMISIONES: ADMISIONISTA y ADMIN con permisos de admisiones (incluye reabrir) */
 export async function requireAdmisionesModule() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
@@ -63,6 +64,19 @@ export async function requireAdmisionesModule() {
 
   return {
     user,
-    canReabrirDictamen: true, // (ADMIN y ADMISIONISTA)
+    canReabrirDictamen: true,
+  };
+}
+
+export async function requireRecomendacionesModule() {
+  const user = await getAuthUser();
+  if (!user) redirect('/login');
+
+  const allowed: AppRole[] = ['MEDICO', 'ADMIN'];
+  if (!allowed.includes(user.role)) redirect('/login');
+
+  return {
+    user,
+    readOnly: user.role === 'ADMIN',
   };
 }

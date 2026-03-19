@@ -107,7 +107,7 @@ export function SearchableSelect({
       />
 
       {open && !disabled && (
-        <div className="absolute left-0 right-0 z-20 mt-1 overflow-auto bg-white border rounded-md shadow-lg max-h-56">
+        <div className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-md border bg-white shadow-lg">
           {onSearch ? (
             query.trim().length < minSearchLength ? (
               <div className="px-3 py-2 text-xs text-slate-500">
