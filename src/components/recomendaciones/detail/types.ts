@@ -1,12 +1,4 @@
-export type RecomendacionEstado = 'BORRADOR' | 'CERRADA' | 'ANULADA';
-
-export type RecomendacionDetalleExamen = {
-  id: number;
-  nombre: string;
-  resultado: string | null;
-  observacion: string | null;
-  fechaExamen: string | null;
-};
+﻿export type RecomendacionEstado = 'BORRADOR' | 'CERRADA' | 'ANULADA';
 
 export type RecomendacionDetalleViewModel = {
   id: number;
@@ -32,8 +24,7 @@ export type RecomendacionDetalleViewModel = {
     peso: string | null;
     imc: string | null;
   };
-  concepto: string;
-  recomendacionesObservaciones: string;
-  restriccionesLaborales: string;
-  examenes: RecomendacionDetalleExamen[];
+  examenesRealizados: string;
+  motivo: string;
+  recomendacionesObservacionesRestricciones: string;
 };

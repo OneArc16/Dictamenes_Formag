@@ -860,9 +860,9 @@ model RecomendacionLaboral {
   tallaM Decimal? @db.Decimal(4, 2) @map("talla_m")
   imc    Decimal? @db.Decimal(5, 2)
 
-  concepto                    String? @db.Text
-  recomendacionesObservaciones String? @db.Text @map("recomendaciones_observaciones")
-  restriccionesLaborales      String? @db.Text @map("restricciones_laborales")
+  examenesRealizados                      String? @db.Text @map("examenes_realizados")
+  motivo                                  String? @db.Text
+  recomendacionesObservacionesRestricciones String? @db.Text @map("recomendaciones_observaciones_restricciones")
 
   estado EstadoRecomendacionLaboral @default(BORRADOR)
 
@@ -870,33 +870,15 @@ model RecomendacionLaboral {
   updatedAt DateTime  @updatedAt
   cerradaEn DateTime? @map("cerrada_en")
 
-  usuario  Usuario  @relation("UsuarioRecomendacionesLaborales", fields: [usuarioId], references: [id])
+  usuario  Usuario   @relation("UsuarioRecomendacionesLaborales", fields: [usuarioId], references: [id])
   empleado Empleado? @relation("EmpleadoRecomendacionesLaborales", fields: [empleadoId], references: [id])
 
-  examenes RecomendacionLaboralExamen[]
-  firmas   RecomendacionLaboralFirma[]
+  firmas RecomendacionLaboralFirma[]
 
   @@index([usuarioId])
   @@index([empleadoId])
   @@index([estado, fechaRecomendacion])
   @@map("recomendaciones_laborales")
-}
-
-model RecomendacionLaboralExamen {
-  id Int @id @default(autoincrement())
-
-  recomendacionLaboralId Int @map("recomendacion_laboral_id")
-
-  nombre      String    @db.VarChar(150)
-  resultado   String?   @db.Text
-  observacion String?   @db.Text
-  fechaExamen DateTime? @db.Date @map("fecha_examen")
-  orden       Int       @default(1)
-
-  recomendacionLaboral RecomendacionLaboral @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
-
-  @@index([recomendacionLaboralId])
-  @@map("recomendacion_laboral_examenes")
 }
 
 model RecomendacionLaboralFirma {

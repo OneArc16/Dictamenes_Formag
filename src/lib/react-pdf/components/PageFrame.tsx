@@ -1,39 +1,54 @@
-//PageFrame
+﻿import React from 'react';
+import { Page, StyleSheet, Text } from '@react-pdf/renderer';
 
-import React from 'react';
-import { Page, View, StyleSheet, Text } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
 
-type Props = { children: React.ReactNode };
+type Props = {
+  children: React.ReactNode;
+  safeBottom?: number;
+  pageNumberBottom?: number;
+};
 
-const PAD = pdfTheme.page.padding; // 18
-const SAFE_BOTTOM = 12; // como lo dejamos
+const PAD = pdfTheme.page.padding;
 
 const styles = StyleSheet.create({
   page: {
     ...pdfTheme.page,
     position: 'relative',
-    paddingBottom: PAD + SAFE_BOTTOM,
   },
-
-  // ✅ Paginación abajo a la izquierda
   pageNumber: {
     position: 'absolute',
     right: PAD,
-    bottom: 8, // ajusta si la quieres más arriba/abajo
     fontSize: 8,
     color: '#444',
   },
 });
 
-export function PageFrame({ children }: Props) {
+export function PageFrame({
+  children,
+  safeBottom = 12,
+  pageNumberBottom = 8,
+}: Props) {
   return (
-    <Page size="LETTER" style={styles.page} wrap>
-      {/* ✅ Footer fijo por página */}
+    <Page
+      size="LETTER"
+      style={[
+        styles.page,
+        {
+          paddingBottom: PAD + safeBottom,
+        },
+      ]}
+      wrap
+    >
       <Text
         fixed
-        style={styles.pageNumber}
-        render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
+        style={[
+          styles.pageNumber,
+          {
+            bottom: pageNumberBottom,
+          },
+        ]}
+        render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`}
       />
 
       {children}

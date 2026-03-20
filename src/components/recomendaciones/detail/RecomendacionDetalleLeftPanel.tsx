@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -59,11 +59,13 @@ function EditableMetricField({
   label,
   value,
   placeholder,
+  disabled,
   onChange,
 }: {
   label: string;
   value: string;
   placeholder: string;
+  disabled: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -74,7 +76,8 @@ function EditableMetricField({
         onChange={(event) => onChange(event.target.value)}
         inputMode="decimal"
         placeholder={placeholder}
-        className="mt-1 h-10 rounded-md border-slate-300 bg-white text-xs text-slate-700 shadow-none focus-visible:ring-1"
+        disabled={disabled}
+        className="mt-1 h-10 rounded-md border-slate-300 bg-white text-xs text-slate-700 shadow-none focus-visible:ring-1 disabled:bg-slate-50 disabled:text-slate-500"
       />
     </div>
   );
@@ -102,7 +105,17 @@ function ReadOnlyField({
   );
 }
 
-function SaveMessage({ saveState }: { saveState: SaveState }) {
+function SaveMessage({
+  isEditable,
+  saveState,
+}: {
+  isEditable: boolean;
+  saveState: SaveState;
+}) {
+  if (!isEditable) {
+    return <p className="text-[11px] text-slate-400">Formulario cerrado. La antropometria esta en solo lectura.</p>;
+  }
+
   if (saveState === 'saving') {
     return <p className="text-[11px] text-slate-400">Guardando cambios...</p>;
   }
@@ -128,6 +141,7 @@ export function RecomendacionDetalleLeftPanel({
   detalle: RecomendacionDetalleViewModel;
 }) {
   const docente = detalle.docente;
+  const isEditable = detalle.estado === 'BORRADOR';
   const [tallaInput, setTallaInput] = useState(detalle.datosAtencion.talla ?? '');
   const [pesoInput, setPesoInput] = useState(detalle.datosAtencion.peso ?? '');
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -152,6 +166,10 @@ export function RecomendacionDetalleLeftPanel({
   const imcValue = useMemo(() => computeImc(tallaInput, pesoInput), [pesoInput, tallaInput]);
 
   useEffect(() => {
+    if (!isEditable) {
+      return;
+    }
+
     const tallaToSave = serializeMetricInput(tallaInput, 2) ?? '';
     const pesoToSave = serializeMetricInput(pesoInput, 3) ?? '';
 
@@ -203,7 +221,7 @@ export function RecomendacionDetalleLeftPanel({
     }, 700);
 
     return () => window.clearTimeout(timeoutId);
-  }, [detalle.id, pesoInput, tallaInput]);
+  }, [detalle.id, isEditable, pesoInput, tallaInput]);
 
   return (
     <>
@@ -272,6 +290,7 @@ export function RecomendacionDetalleLeftPanel({
             label="Talla (m)"
             value={tallaInput}
             placeholder="Ej. 1.70"
+            disabled={!isEditable}
             onChange={(value) => setTallaInput(sanitizeMetricInput(value, 2))}
           />
 
@@ -279,6 +298,7 @@ export function RecomendacionDetalleLeftPanel({
             label="Peso (kg)"
             value={pesoInput}
             placeholder="Ej. 72.50"
+            disabled={!isEditable}
             onChange={(value) => setPesoInput(sanitizeMetricInput(value, 3))}
           />
 
@@ -288,7 +308,7 @@ export function RecomendacionDetalleLeftPanel({
             placeholder="Se calcula solo"
           />
 
-          <SaveMessage saveState={saveState} />
+          <SaveMessage isEditable={isEditable} saveState={saveState} />
         </div>
       </div>
     </>

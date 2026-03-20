@@ -23,22 +23,27 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-const UpdateExamenSchema = z.object({
-  nombre: z.string().optional(),
-  resultado: z.string().nullable().optional(),
-  observacion: z.string().nullable().optional(),
-  fechaExamen: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable()
-    .optional(),
-});
+type EspecialidadItem = {
+  principal: boolean | null;
+  especialidad: {
+    nombre: string | null;
+  } | null;
+};
+
+type EmpleadoLike = {
+  especialidades?: EspecialidadItem[] | null;
+};
 
 const UpdateRecomendacionSchema = z.object({
   tallaM: z.string().nullable().optional(),
   pesoKg: z.string().nullable().optional(),
-  concepto: z.string().optional(),
-  examenes: z.array(UpdateExamenSchema).optional(),
+  examenesRealizados: z.string().optional(),
+  motivo: z.string().optional(),
+  recomendacionesObservacionesRestricciones: z.string().optional(),
+});
+
+const CloseRecomendacionSchema = z.object({
+  action: z.literal('cerrar'),
 });
 
 function normalizeRole(role: unknown): string {
@@ -127,49 +132,52 @@ function normalizeTextValue(value: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function toColombiaMidnightUTC(value: string) {
-  return new Date(`${value}T05:00:00.000Z`);
+function normalizeSpecialtyName(value: string | null | undefined) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
-function normalizeExamenes(examenes: z.infer<typeof UpdateExamenSchema>[]) {
-  const normalized: Array<{
-    nombre: string;
-    resultado: string | null;
-    observacion: string | null;
-    fechaExamen: Date | null;
-    orden: number;
-  }> = [];
+function hasMedicinaLaboralSpecialty(empleado: EmpleadoLike | null | undefined) {
+  const items = Array.isArray(empleado?.especialidades) ? empleado.especialidades : [];
+  return items.some((item) =>
+    normalizeSpecialtyName(item?.especialidad?.nombre).includes('MEDICINA LABORAL'),
+  );
+}
 
-  for (const examen of examenes) {
-    const nombre = normalizeTextValue(examen.nombre) ?? '';
-    const resultado = normalizeTextValue(examen.resultado);
-    const observacion = normalizeTextValue(examen.observacion);
-    const fechaExamenRaw = normalizeTextValue(examen.fechaExamen);
+function fullName(...parts: Array<string | null | undefined>) {
+  return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
 
-    const hasContent = Boolean(nombre || resultado || observacion || fechaExamenRaw);
-    if (!hasContent) {
-      continue;
-    }
+async function loadEditableRecomendacion(recomendacionId: number) {
+  return prisma.recomendacionLaboral.findUnique({
+    where: { id: recomendacionId },
+    select: {
+      id: true,
+      empleadoId: true,
+      estado: true,
+    },
+  });
+}
 
-    if (!nombre) {
-      throw new Error('Cada examen diligenciado debe tener nombre.');
-    }
-
-    const fechaExamen = fechaExamenRaw ? toColombiaMidnightUTC(fechaExamenRaw) : null;
-    if (fechaExamenRaw && Number.isNaN(fechaExamen?.getTime())) {
-      throw new Error(`La fecha del examen ${nombre} no es valida.`);
-    }
-
-    normalized.push({
-      nombre,
-      resultado,
-      observacion,
-      fechaExamen,
-      orden: normalized.length + 1,
-    });
+function canManageRecomendacion(
+  recomendacion: { empleadoId: number | null; estado: string } | null,
+  auth: AuthCtx,
+) {
+  if (!recomendacion) {
+    return { ok: false, status: 404, error: 'Recomendacion no encontrada.' };
   }
 
-  return normalized;
+  if (
+    recomendacion.empleadoId != null &&
+    recomendacion.empleadoId !== auth.empleadoId
+  ) {
+    return { ok: false, status: 403, error: 'No tiene permiso sobre esta recomendacion.' };
+  }
+
+  return { ok: true as const };
 }
 
 export async function PUT(req: Request, context: RouteContext) {
@@ -199,40 +207,27 @@ export async function PUT(req: Request, context: RouteContext) {
     const body = UpdateRecomendacionSchema.parse(await req.json());
 
     const hasAntropometria = 'tallaM' in body || 'pesoKg' in body;
-    const hasConcepto = 'concepto' in body;
-    const hasExamenes = 'examenes' in body;
+    const hasExamenesRealizados = 'examenesRealizados' in body;
+    const hasMotivo = 'motivo' in body;
+    const hasRecomendacionesObservacionesRestricciones =
+      'recomendacionesObservacionesRestricciones' in body;
 
-    if (!hasAntropometria && !hasConcepto && !hasExamenes) {
+    if (
+      !hasAntropometria &&
+      !hasExamenesRealizados &&
+      !hasMotivo &&
+      !hasRecomendacionesObservacionesRestricciones
+    ) {
       return NextResponse.json(
         { ok: false, error: 'No se enviaron datos para actualizar.' },
         { status: 400 },
       );
     }
 
-    const recomendacion = await prisma.recomendacionLaboral.findUnique({
-      where: { id: recomendacionId },
-      select: {
-        id: true,
-        empleadoId: true,
-        estado: true,
-      },
-    });
-
-    if (!recomendacion) {
-      return NextResponse.json(
-        { ok: false, error: 'Recomendacion no encontrada.' },
-        { status: 404 },
-      );
-    }
-
-    if (
-      recomendacion.empleadoId != null &&
-      recomendacion.empleadoId !== auth.empleadoId
-    ) {
-      return NextResponse.json(
-        { ok: false, error: 'No tiene permiso sobre esta recomendacion.' },
-        { status: 403 },
-      );
+    const recomendacion = await loadEditableRecomendacion(recomendacionId);
+    const permission = canManageRecomendacion(recomendacion, auth);
+    if (!permission.ok) {
+      return NextResponse.json({ ok: false, error: permission.error }, { status: permission.status });
     }
 
     if (recomendacion.estado !== 'BORRADOR') {
@@ -247,7 +242,9 @@ export async function PUT(req: Request, context: RouteContext) {
       tallaM?: string | null;
       pesoKg?: string | null;
       imc?: string | null;
-      concepto?: string | null;
+      examenesRealizados?: string | null;
+      motivo?: string | null;
+      recomendacionesObservacionesRestricciones?: string | null;
     } = {};
 
     if (recomendacion.empleadoId == null) {
@@ -273,70 +270,34 @@ export async function PUT(req: Request, context: RouteContext) {
       updateData.imc = computeImc(tallaM, pesoKg);
     }
 
-    if (hasConcepto) {
-      updateData.concepto = normalizeTextValue(body.concepto);
+    if (hasExamenesRealizados) {
+      updateData.examenesRealizados = normalizeTextValue(body.examenesRealizados);
     }
 
-    const normalizedExamenes = hasExamenes
-      ? normalizeExamenes(body.examenes ?? [])
-      : null;
+    if (hasMotivo) {
+      updateData.motivo = normalizeTextValue(body.motivo);
+    }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      if (Object.keys(updateData).length > 0) {
-        await tx.recomendacionLaboral.update({
-          where: { id: recomendacionId },
-          data: updateData,
-        });
-      }
-
-      if (normalizedExamenes) {
-        await tx.recomendacionLaboralExamen.deleteMany({
-          where: { recomendacionLaboralId: recomendacionId },
-        });
-
-        if (normalizedExamenes.length > 0) {
-          await tx.recomendacionLaboralExamen.createMany({
-            data: normalizedExamenes.map((examen) => ({
-              recomendacionLaboralId: recomendacionId,
-              nombre: examen.nombre,
-              resultado: examen.resultado,
-              observacion: examen.observacion,
-              fechaExamen: examen.fechaExamen,
-              orden: examen.orden,
-            })),
-          });
-        }
-      }
-
-      return tx.recomendacionLaboral.findUnique({
-        where: { id: recomendacionId },
-        select: {
-          id: true,
-          tallaM: true,
-          pesoKg: true,
-          imc: true,
-          concepto: true,
-          updatedAt: true,
-          examenes: {
-            orderBy: { orden: 'asc' },
-            select: {
-              id: true,
-              nombre: true,
-              resultado: true,
-              observacion: true,
-              fechaExamen: true,
-            },
-          },
-        },
-      });
-    });
-
-    if (!updated) {
-      return NextResponse.json(
-        { ok: false, error: 'No se pudo cargar la recomendacion actualizada.' },
-        { status: 500 },
+    if (hasRecomendacionesObservacionesRestricciones) {
+      updateData.recomendacionesObservacionesRestricciones = normalizeTextValue(
+        body.recomendacionesObservacionesRestricciones,
       );
     }
+
+    const updated = await prisma.recomendacionLaboral.update({
+      where: { id: recomendacionId },
+      data: updateData,
+      select: {
+        id: true,
+        tallaM: true,
+        pesoKg: true,
+        imc: true,
+        examenesRealizados: true,
+        motivo: true,
+        recomendacionesObservacionesRestricciones: true,
+        updatedAt: true,
+      },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -345,16 +306,10 @@ export async function PUT(req: Request, context: RouteContext) {
         tallaM: updated.tallaM != null ? String(updated.tallaM) : null,
         pesoKg: updated.pesoKg != null ? String(updated.pesoKg) : null,
         imc: updated.imc != null ? String(updated.imc) : null,
-        concepto: updated.concepto ?? '',
-        examenes: updated.examenes.map((examen) => ({
-          id: examen.id,
-          nombre: examen.nombre,
-          resultado: examen.resultado ?? '',
-          observacion: examen.observacion ?? '',
-          fechaExamen: examen.fechaExamen
-            ? examen.fechaExamen.toISOString().slice(0, 10)
-            : '',
-        })),
+        examenesRealizados: updated.examenesRealizados ?? '',
+        motivo: updated.motivo ?? '',
+        recomendacionesObservacionesRestricciones:
+          updated.recomendacionesObservacionesRestricciones ?? '',
         updatedAt: updated.updatedAt.toISOString(),
       },
     });
@@ -365,8 +320,156 @@ export async function PUT(req: Request, context: RouteContext) {
       error instanceof z.ZodError
         ? error.issues[0]?.message ?? 'Datos invalidos.'
         : error instanceof Error
-        ? error.message
-        : 'Error actualizando recomendacion';
+          ? error.message
+          : 'Error actualizando recomendacion';
+
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+  }
+}
+
+export async function POST(req: Request, context: RouteContext) {
+  try {
+    const auth = await requireAuth();
+    if (!auth) {
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    }
+
+    if (auth.role !== 'MEDICO') {
+      return NextResponse.json(
+        { ok: false, error: 'No autorizado para cerrar esta recomendacion.' },
+        { status: 403 },
+      );
+    }
+
+    const { id: idParam } = await context.params;
+    const recomendacionId = Number(idParam);
+
+    if (!Number.isFinite(recomendacionId) || recomendacionId <= 0) {
+      return NextResponse.json(
+        { ok: false, error: 'ID de recomendacion invalido.' },
+        { status: 400 },
+      );
+    }
+
+    CloseRecomendacionSchema.parse(await req.json());
+
+    const recomendacion = await loadEditableRecomendacion(recomendacionId);
+    const permission = canManageRecomendacion(recomendacion, auth);
+    if (!permission.ok) {
+      return NextResponse.json({ ok: false, error: permission.error }, { status: permission.status });
+    }
+
+    if (recomendacion.estado !== 'BORRADOR') {
+      return NextResponse.json(
+        { ok: false, error: 'La recomendacion ya fue cerrada o anulada.' },
+        { status: 409 },
+      );
+    }
+
+    const closed = await prisma.$transaction(async (tx) => {
+      const current = await tx.recomendacionLaboral.findUnique({
+        where: { id: recomendacionId },
+        include: {
+          firmas: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!current) {
+        throw new Error('Recomendacion no encontrada.');
+      }
+
+      const nextEmpleadoId = current.empleadoId ?? auth.empleadoId;
+
+      const updated = await tx.recomendacionLaboral.update({
+        where: { id: recomendacionId },
+        data: {
+          empleadoId: nextEmpleadoId,
+          estado: 'CERRADA',
+          cerradaEn: new Date(),
+        },
+        select: {
+          id: true,
+          estado: true,
+          cerradaEn: true,
+        },
+      });
+
+      if (current.firmas.length === 0) {
+        const juntaMedica = await tx.empleado.findMany({
+          where: {
+            activo: true,
+            esMiembroJunta: true,
+          },
+          include: {
+            especialidades: {
+              select: {
+                principal: true,
+                especialidad: {
+                  select: {
+                    nombre: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [
+            { primerApellido: 'asc' },
+            { segundoApellido: 'asc' },
+            { primerNombre: 'asc' },
+            { segundoNombre: 'asc' },
+          ],
+        });
+
+        const firmantes = juntaMedica.filter((empleado) =>
+          hasMedicinaLaboralSpecialty(empleado),
+        );
+
+        if (firmantes.length > 0) {
+          await tx.recomendacionLaboralFirma.createMany({
+            data: firmantes.map((empleado, index) => ({
+              recomendacionLaboralId: recomendacionId,
+              empleadoId: empleado.id,
+              nombreCompleto:
+                fullName(
+                  empleado.primerNombre,
+                  empleado.segundoNombre,
+                  empleado.primerApellido,
+                  empleado.segundoApellido,
+                ) || 'MEDICO SIN NOMBRE',
+              registroMedico: empleado.registroMedico,
+              licencia: empleado.licencia,
+              firma: empleado.firma,
+              firmaMime: empleado.firmaMime,
+              orden: index + 1,
+            })),
+          });
+        }
+      }
+
+      return updated;
+    });
+
+    return NextResponse.json({
+      ok: true,
+      recomendacion: {
+        id: closed.id,
+        estado: closed.estado,
+        cerradaEn: closed.cerradaEn?.toISOString() ?? null,
+      },
+    });
+  } catch (error) {
+    console.error('ERROR POST /api/recomendaciones/[id]:', error);
+
+    const message =
+      error instanceof z.ZodError
+        ? error.issues[0]?.message ?? 'Datos invalidos.'
+        : error instanceof Error
+          ? error.message
+          : 'Error cerrando recomendacion';
 
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
