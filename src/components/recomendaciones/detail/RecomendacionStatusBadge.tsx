@@ -1,4 +1,4 @@
-import { type RecomendacionEstado } from '@/components/recomendaciones/detail/types';
+﻿import { type RecomendacionEstado } from '@/components/recomendaciones/detail/types';
 
 const statusMap: Record<
   RecomendacionEstado,
@@ -7,6 +7,10 @@ const statusMap: Record<
   BORRADOR: {
     label: 'Pendiente',
     className: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+  },
+  REABIERTO: {
+    label: 'Reabierta',
+    className: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
   },
   CERRADA: {
     label: 'Cerrada',
@@ -27,7 +31,10 @@ export function RecomendacionStatusBadge({
 
   return (
     <span
-      className={'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ' + config.className}
+      className={
+        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ' +
+        config.className
+      }
     >
       {config.label}
     </span>

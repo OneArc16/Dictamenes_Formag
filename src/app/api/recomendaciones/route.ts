@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { prisma } from '@/lib/prisma';
@@ -23,9 +23,17 @@ async function requireAuth() {
   const payload = (await verifyJwt(token)) as JwtPayload | null;
   if (!payload?.sub) return null;
 
+  const normalizedRole = String(payload.role ?? '').trim().toUpperCase();
+  const role =
+    normalizedRole === 'ADMINISTRADOR'
+      ? 'ADMIN'
+      : normalizedRole === 'ADMICIONES' || normalizedRole === 'ADMISIONES'
+        ? 'ADMISIONISTA'
+        : normalizedRole;
+
   return {
     empleadoId: Number(payload.sub),
-    role: payload.role ?? null,
+    role,
   };
 }
 
@@ -33,9 +41,10 @@ function toNombreCompleto(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function mapEstado(estado: string): 'PENDIENTE' | 'CERRADA' | 'ANULADA' {
+function mapEstado(estado: string): 'PENDIENTE' | 'REABIERTO' | 'CERRADA' | 'ANULADA' {
   if (estado === 'ANULADA') return 'ANULADA';
   if (estado === 'CERRADA') return 'CERRADA';
+  if (estado === 'REABIERTO') return 'REABIERTO';
   return 'PENDIENTE';
 }
 
@@ -179,14 +188,13 @@ export async function GET(req: Request) {
     }
 
     if (estado !== 'TODOS') {
-      and.push({
-        estado:
-          estado === 'CERRADAS'
-            ? 'CERRADA'
-            : estado === 'ANULADAS'
-            ? 'ANULADA'
-            : 'BORRADOR',
-      });
+      if (estado === 'CERRADAS') {
+        and.push({ estado: 'CERRADA' });
+      } else if (estado === 'ANULADAS') {
+        and.push({ estado: 'ANULADA' });
+      } else {
+        and.push({ estado: { in: ['BORRADOR', 'REABIERTO'] } });
+      }
     }
 
     if (fechaDesde || fechaHasta) {

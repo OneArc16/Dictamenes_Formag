@@ -113,7 +113,11 @@ function SaveMessage({
   saveState: SaveState;
 }) {
   if (!isEditable) {
-    return <p className="text-[11px] text-slate-400">Formulario cerrado. La antropometria esta en solo lectura.</p>;
+    return (
+      <p className="text-[11px] text-slate-400">
+        Esta seccion esta en solo lectura para el estado o perfil actual.
+      </p>
+    );
   }
 
   if (saveState === 'saving') {
@@ -129,19 +133,29 @@ function SaveMessage({
   }
 
   if (saveState === 'error') {
-    return <p className="text-[11px] text-rose-600">No se pudo guardar. Revisa los valores.</p>;
+    return (
+      <p className="text-[11px] text-rose-600">
+        No se pudo guardar. Revisa los valores.
+      </p>
+    );
   }
 
-  return <p className="text-[11px] text-slate-400">El IMC se calcula y se guarda automaticamente.</p>;
+  return (
+    <p className="text-[11px] text-slate-400">
+      El IMC se calcula y se guarda automaticamente.
+    </p>
+  );
 }
 
 export function RecomendacionDetalleLeftPanel({
   detalle,
+  canEdit,
 }: {
   detalle: RecomendacionDetalleViewModel;
+  canEdit: boolean;
 }) {
   const docente = detalle.docente;
-  const isEditable = detalle.estado === 'BORRADOR';
+  const isEditable = canEdit && (detalle.estado === 'BORRADOR' || detalle.estado === 'REABIERTO');
   const [tallaInput, setTallaInput] = useState(detalle.datosAtencion.talla ?? '');
   const [pesoInput, setPesoInput] = useState(detalle.datosAtencion.peso ?? '');
   const [saveState, setSaveState] = useState<SaveState>('idle');

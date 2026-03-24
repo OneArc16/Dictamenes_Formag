@@ -7,8 +7,10 @@ import { type RecomendacionDetalleViewModel } from '@/components/recomendaciones
 
 export function RecomendacionDetalleCenterPanel({
   detalle,
+  canEdit,
 }: {
   detalle: RecomendacionDetalleViewModel;
+  canEdit: boolean;
 }) {
   return (
     <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
@@ -26,7 +28,7 @@ export function RecomendacionDetalleCenterPanel({
 
         <TabsContent value="formulario" className="mt-0 p-4 focus-visible:ring-0">
           <CardContent className="p-0">
-            <RecomendacionTabFormulario detalle={detalle} />
+            <RecomendacionTabFormulario detalle={detalle} canEdit={canEdit} />
           </CardContent>
         </TabsContent>
       </Tabs>

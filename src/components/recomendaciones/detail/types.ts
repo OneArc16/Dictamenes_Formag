@@ -1,4 +1,10 @@
-﻿export type RecomendacionEstado = 'BORRADOR' | 'CERRADA' | 'ANULADA';
+﻿export type RecomendacionEstado = 'BORRADOR' | 'REABIERTO' | 'CERRADA' | 'ANULADA';
+
+export type RecomendacionMotivoReaperturaOption = {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+};
 
 export type RecomendacionDetalleViewModel = {
   id: number;

@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
-import { useState, useTransition } from 'react';
 import { Lock, Printer } from 'lucide-react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -17,23 +17,41 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { ReabrirRecomendacionDialog } from '@/components/recomendaciones/ReabrirRecomendacionDialog';
 import { RecomendacionStatusBadge } from '@/components/recomendaciones/detail/RecomendacionStatusBadge';
-import { type RecomendacionEstado } from '@/components/recomendaciones/detail/types';
+import {
+  type RecomendacionEstado,
+  type RecomendacionMotivoReaperturaOption,
+} from '@/components/recomendaciones/detail/types';
 
 export function RecomendacionDetalleRightPanel({
   recomendacionId,
   estado,
+  canClose,
+  canReopen,
+  motivosReapertura,
 }: {
   recomendacionId: number;
   estado: RecomendacionEstado;
+  canClose: boolean;
+  canReopen: boolean;
+  motivosReapertura: RecomendacionMotivoReaperturaOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
-  const isClosed = estado !== 'BORRADOR';
   const isBusy = isClosing || isPending;
+  const hasMotivosReapertura = motivosReapertura.length > 0;
+
+  const closeButtonLabel = canClose
+    ? 'Cerrar formulario'
+    : estado === 'CERRADA'
+      ? 'Formulario cerrado'
+      : estado === 'ANULADA'
+        ? 'Formulario anulado'
+        : 'Cierre no disponible';
 
   const handlePrint = () => {
     window.open(
@@ -60,7 +78,7 @@ export function RecomendacionDetalleRightPanel({
       }
 
       toast.success('Formulario cerrado correctamente.');
-      setOpen(false);
+      setCloseOpen(false);
       startTransition(() => {
         router.refresh();
       });
@@ -97,28 +115,57 @@ export function RecomendacionDetalleRightPanel({
           Imprimir PDF
         </Button>
 
-        <AlertDialog open={open} onOpenChange={setOpen}>
+        {canReopen && hasMotivosReapertura ? (
+          <ReabrirRecomendacionDialog
+            recomendacionId={recomendacionId}
+            motivosReapertura={motivosReapertura}
+            disabled={isBusy}
+            triggerLabel="Reabrir recomendacion"
+            triggerClassName="w-full justify-start border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800 disabled:text-slate-400"
+            triggerVariant="outline"
+          />
+        ) : null}
+
+        {canReopen && !hasMotivosReapertura ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-xs font-medium text-slate-700">
+              No hay motivos activos de reapertura.
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-500">
+              Configuralos desde administrador para habilitar esta accion.
+            </p>
+          </div>
+        ) : null}
+
+        <AlertDialog open={closeOpen} onOpenChange={setCloseOpen}>
           <AlertDialogTrigger asChild>
             <Button
               type="button"
               className="w-full justify-start text-white hover:text-white disabled:text-white/80"
-              disabled={isClosed || isBusy}
+              disabled={!canClose || isBusy}
             >
               <Lock className="h-4 w-4" />
-              {isClosed ? 'Formulario cerrado' : 'Cerrar formulario'}
+              {closeButtonLabel}
             </Button>
           </AlertDialogTrigger>
 
           <AlertDialogContent className="sm:max-w-md border-slate-200 bg-white shadow-2xl">
             <AlertDialogHeader className="space-y-3">
-              <AlertDialogTitle className="text-xl text-slate-900">Cerrar formulario</AlertDialogTitle>
+              <AlertDialogTitle className="text-xl text-slate-900">
+                Cerrar formulario
+              </AlertDialogTitle>
               <AlertDialogDescription className="leading-6 text-slate-600">
                 Al cerrar la recomendacion, el formulario quedara bloqueado y no se podra seguir editando.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             <AlertDialogFooter className="gap-2">
-              <AlertDialogCancel disabled={isBusy} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Cancelar</AlertDialogCancel>
+              <AlertDialogCancel
+                disabled={isBusy}
+                className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={(event) => {
                   event.preventDefault();
@@ -127,7 +174,7 @@ export function RecomendacionDetalleRightPanel({
                 className="bg-red-600 text-white hover:bg-red-700"
                 disabled={isBusy}
               >
-                {isBusy ? 'Cerrando...' : 'Si, cerrar'}
+                {isClosing ? 'Cerrando...' : 'Si, cerrar'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -135,9 +182,12 @@ export function RecomendacionDetalleRightPanel({
       </div>
 
       <p className="mt-4 text-[11px] leading-5 text-slate-500">
-        Cuando el formulario este cerrado, los campos quedaran en solo lectura.
+        {canClose
+          ? 'Solo los formularios en borrador o reabiertos pueden cerrarse.'
+          : canReopen && !hasMotivosReapertura
+            ? 'La reapertura estara disponible cuando existan motivos activos.'
+            : 'Las recomendaciones cerradas solo pueden reabrirse con un motivo registrado.'}
       </p>
     </div>
   );
 }
-

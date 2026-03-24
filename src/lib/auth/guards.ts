@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+﻿import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { verifyJwt } from '@/lib/auth';
@@ -72,11 +72,11 @@ export async function requireRecomendacionesModule() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
 
-  const allowed: AppRole[] = ['MEDICO', 'ADMIN'];
+  const allowed: AppRole[] = ['MEDICO', 'ADMISIONISTA', 'ADMIN'];
   if (!allowed.includes(user.role)) redirect('/login');
 
   return {
     user,
-    readOnly: user.role === 'ADMIN',
+    readOnly: user.role !== 'MEDICO',
   };
 }

@@ -6,8 +6,12 @@ import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
 import { RecomendacionDetalleCenterPanel } from '@/components/recomendaciones/detail/RecomendacionDetalleCenterPanel';
 import { RecomendacionDetalleLeftPanel } from '@/components/recomendaciones/detail/RecomendacionDetalleLeftPanel';
 import { RecomendacionDetalleRightPanel } from '@/components/recomendaciones/detail/RecomendacionDetalleRightPanel';
-import { type RecomendacionDetalleViewModel } from '@/components/recomendaciones/detail/types';
+import {
+  type RecomendacionDetalleViewModel,
+  type RecomendacionMotivoReaperturaOption,
+} from '@/components/recomendaciones/detail/types';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/session';
 
 function formatDate(value: Date | null) {
   if (!value) return 'Sin fecha';
@@ -42,24 +46,36 @@ export default async function RecomendacionDetallePage({
     notFound();
   }
 
-  const recomendacion = await prisma.recomendacionLaboral.findUnique({
-    where: { id: recomendacionId },
-    include: {
-      usuario: {
-        include: {
-          eps: true,
-          cargoDocente: true,
-          secretariaRef: true,
-          institucionEducativaRef: {
-            include: {
-              secretaria: true,
+  const [recomendacion, session, motivosReapertura] = await Promise.all([
+    prisma.recomendacionLaboral.findUnique({
+      where: { id: recomendacionId },
+      include: {
+        usuario: {
+          include: {
+            eps: true,
+            cargoDocente: true,
+            secretariaRef: true,
+            institucionEducativaRef: {
+              include: {
+                secretaria: true,
+              },
             },
           },
         },
+        empleado: true,
       },
-      empleado: true,
-    },
-  });
+    }),
+    getSession(),
+    prisma.motivoReaperturaRecomendacion.findMany({
+      where: { estado: true },
+      orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+      },
+    }),
+  ]);
 
   if (!recomendacion) {
     notFound();
@@ -67,6 +83,26 @@ export default async function RecomendacionDetallePage({
 
   const docente = recomendacion.usuario;
   const medico = recomendacion.empleado;
+  const sessionRole = session?.role ?? null;
+  const sessionEmpleadoId = Number(session?.sub ?? NaN);
+  const ownsRecomendacion =
+    Number.isFinite(sessionEmpleadoId) &&
+    recomendacion.empleadoId != null &&
+    recomendacion.empleadoId === sessionEmpleadoId;
+
+  const canEdit =
+    sessionRole === 'MEDICO' &&
+    (recomendacion.empleadoId == null || ownsRecomendacion);
+
+  const canClose =
+    canEdit &&
+    (recomendacion.estado === 'BORRADOR' || recomendacion.estado === 'REABIERTO');
+
+  const canReopen =
+    recomendacion.estado === 'CERRADA' &&
+    (sessionRole === 'ADMIN' ||
+      sessionRole === 'ADMISIONISTA' ||
+      (sessionRole === 'MEDICO' && ownsRecomendacion));
 
   const detalle: RecomendacionDetalleViewModel = {
     id: recomendacion.id,
@@ -115,6 +151,12 @@ export default async function RecomendacionDetallePage({
       recomendacion.recomendacionesObservacionesRestricciones ?? '',
   };
 
+  const motivos: RecomendacionMotivoReaperturaOption[] = motivosReapertura.map((item) => ({
+    id: item.id,
+    nombre: item.nombre,
+    descripcion: item.descripcion,
+  }));
+
   return (
     <div className="min-h-screen bg-slate-50">
       <AppNav title="Recomendaciones Laborales" showModulesButton={false} />
@@ -130,12 +172,15 @@ export default async function RecomendacionDetallePage({
         <div className="mt-4">
           <DictamenFormLayout
             stickyTopClassName="top-20"
-            left={<RecomendacionDetalleLeftPanel detalle={detalle} />}
-            center={<RecomendacionDetalleCenterPanel detalle={detalle} />}
+            left={<RecomendacionDetalleLeftPanel detalle={detalle} canEdit={canEdit} />}
+            center={<RecomendacionDetalleCenterPanel detalle={detalle} canEdit={canEdit} />}
             right={
               <RecomendacionDetalleRightPanel
                 recomendacionId={detalle.id}
                 estado={detalle.estado}
+                canClose={canClose}
+                canReopen={canReopen}
+                motivosReapertura={motivos}
               />
             }
           />

@@ -1,4 +1,4 @@
-export type AppRole = 'ADMIN' | 'MEDICO' | 'ADMISIONISTA';
+﻿export type AppRole = 'ADMIN' | 'MEDICO' | 'ADMISIONISTA';
 
 export type ModuleKey =
   | 'admin'
@@ -34,7 +34,7 @@ export const MODULE_DEFINITIONS: readonly ModuleDefinition[] = [
     label: 'Recomendaciones',
     href: '/recomendaciones',
     description: 'Formulario laboral independiente para docentes y medicos.',
-    allowedRoles: ['MEDICO', 'ADMIN'],
+    allowedRoles: ['MEDICO', 'ADMISIONISTA', 'ADMIN'],
   },
   {
     key: 'admin',

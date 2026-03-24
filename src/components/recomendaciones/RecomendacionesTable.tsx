@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Eye } from 'lucide-react';
 
@@ -61,6 +61,10 @@ function getEstadoStyles(estado: string | undefined) {
     return 'border border-amber-100 bg-amber-50 text-amber-700';
   }
 
+  if (normalized === 'REABIERTO') {
+    return 'border border-sky-100 bg-sky-50 text-sky-700';
+  }
+
   if (normalized === 'ANULADA') {
     return 'border border-rose-100 bg-rose-50 text-rose-700';
   }
@@ -72,6 +76,7 @@ function getEstadoLabel(estado: string | undefined) {
   const normalized = String(estado ?? '').toUpperCase();
 
   if (normalized === 'PENDIENTE') return 'Pendiente';
+  if (normalized === 'REABIERTO') return 'Reabierta';
   if (normalized === 'ANULADA') return 'Anulada';
   return 'Cerrada';
 }

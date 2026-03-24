@@ -20,8 +20,10 @@ function getDefaultValue(value: string, fallback: string) {
 
 export function RecomendacionTabFormulario({
   detalle,
+  canEdit,
 }: {
   detalle: RecomendacionDetalleViewModel;
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
@@ -47,7 +49,7 @@ export function RecomendacionTabFormulario({
     detalle.id,
   ]);
 
-  const isEditable = detalle.estado === 'BORRADOR';
+  const isEditable = canEdit && (detalle.estado === 'BORRADOR' || detalle.estado === 'REABIERTO');
   const isBusy = isSaving || isRefreshing;
 
   const handleSave = async () => {

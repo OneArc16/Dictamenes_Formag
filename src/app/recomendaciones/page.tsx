@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/DictamenExportButton';
 import { RegistrarDocenteModal } from '@/components/RegistrarDocenteModal';
 import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
+import { ReabrirRecomendacionDialog } from '@/components/recomendaciones/ReabrirRecomendacionDialog';
 import {
   RecomendacionesFiltersBar,
   type RecomendacionMedicoOption,
@@ -19,6 +21,8 @@ import {
   type EstadoRecomendacionFiltro,
   type RecomendacionRow,
 } from '@/components/recomendaciones/types';
+import { type RecomendacionMotivoReaperturaOption } from '@/components/recomendaciones/detail/types';
+import { useMe } from '@/hooks/useMe';
 
 type RecomendacionApiRow = {
   id: number;
@@ -35,6 +39,10 @@ type MedicosOptionsResponse = {
   medicoIdActual: number | null;
 };
 
+type MotivosReaperturaResponse = {
+  options: RecomendacionMotivoReaperturaOption[];
+};
+
 function formatFechaExport(value: unknown): string {
   if (!value) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -42,9 +50,9 @@ function formatFechaExport(value: unknown): string {
   return formatted.includes('T') ? formatted.split('T')[0] : formatted;
 }
 
-
 export default function RecomendacionesPage() {
   const router = useRouter();
+  const { me } = useMe();
 
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
@@ -75,9 +83,31 @@ export default function RecomendacionesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const motivosReaperturaQuery = useQuery<MotivosReaperturaResponse>({
+    queryKey: ['motivos-reapertura-recomendaciones'],
+    enabled: Boolean(me),
+    queryFn: async () => {
+      const response = await fetch('/api/recomendaciones/motivos-reapertura', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'Error cargando motivos de reapertura');
+      }
+
+      return {
+        options: (data.options ?? []) as RecomendacionMotivoReaperturaOption[],
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const defaultMedicoId = useMemo(() => {
     const payload = medicosQuery.data;
     if (!payload || payload.options.length === 0) return null;
+    if (me?.role !== 'MEDICO') return null;
 
     const hasCurrentDoctor = payload.options.some(
       (medico) => medico.id === payload.medicoIdActual,
@@ -88,9 +118,13 @@ export default function RecomendacionesPage() {
     }
 
     return payload.options[0].id;
-  }, [medicosQuery.data]);
+  }, [medicosQuery.data, me?.role]);
 
   const effectiveMedicoId = medicoId === undefined ? defaultMedicoId : medicoId;
+  const canRegister = me?.role === 'MEDICO';
+  const canUseReopenAction =
+    me?.role === 'MEDICO' || me?.role === 'ADMISIONISTA' || me?.role === 'ADMIN';
+  const motivosReapertura = motivosReaperturaQuery.data?.options ?? [];
 
   const recomendacionesQuery = useQuery<RecomendacionRow[]>({
     queryKey: [
@@ -123,11 +157,10 @@ export default function RecomendacionesPage() {
         docenteDocumento: row.docenteDocumento,
         docenteNombre: row.docenteNombre,
         secretaria: row.secretaria,
-        estado: row.estado,
+        estado: row.estado ?? undefined,
         medicoNombre: row.medicoNombre,
       }));
     },
-    placeholderData: (previous) => previous,
   });
 
   const rows = useMemo(() => recomendacionesQuery.data ?? [], [recomendacionesQuery.data]);
@@ -192,22 +225,51 @@ export default function RecomendacionesPage() {
         medicos={medicosQuery.data?.options ?? []}
         medicoId={effectiveMedicoId ?? null}
         onMedicoChange={setMedicoId}
-        onRegistrar={() => setShowRegistrarModal(true)}
+        onRegistrar={canRegister ? () => setShowRegistrarModal(true) : undefined}
       />
 
       <RecomendacionesTable
         rows={rows}
         loading={recomendacionesQuery.isFetching}
         onOpenRecommendation={handleOpenRecommendation}
+        renderActions={(row) => {
+          if (
+            !canUseReopenAction ||
+            row.estado !== 'CERRADA' ||
+            motivosReapertura.length === 0
+          ) {
+            return null;
+          }
+
+          return (
+            <ReabrirRecomendacionDialog
+              recomendacionId={row.id}
+              motivosReapertura={motivosReapertura}
+              disabled={motivosReaperturaQuery.isLoading || recomendacionesQuery.isFetching}
+              triggerLabel="Reabrir recomendacion"
+              triggerTitle="Reabrir recomendacion"
+              triggerVariant="outline"
+              triggerSize="icon"
+              triggerClassName="h-8 w-8 rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800"
+              icon={RotateCcw}
+              iconOnly
+              onReopened={() => {
+                void recomendacionesQuery.refetch();
+              }}
+            />
+          );
+        }}
       />
 
-      <RegistrarDocenteModal
-        open={showRegistrarModal}
-        onClose={() => setShowRegistrarModal(false)}
-        mode="RECOMENDACION"
-        medicoResponsableId={effectiveMedicoId ?? null}
-        onDocenteSaved={handleDocenteSaved}
-      />
+      {canRegister ? (
+        <RegistrarDocenteModal
+          open={showRegistrarModal}
+          onClose={() => setShowRegistrarModal(false)}
+          mode="RECOMENDACION"
+          medicoResponsableId={effectiveMedicoId ?? null}
+          onDocenteSaved={handleDocenteSaved}
+        />
+      ) : null}
     </ModuleSidebarShell>
   );
 }

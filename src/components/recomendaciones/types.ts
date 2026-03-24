@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 export type EstadoRecomendacionFiltro =
   | 'PENDIENTES'
@@ -12,6 +12,6 @@ export interface RecomendacionRow {
   docenteDocumento?: string | null;
   docenteNombre?: string | null;
   secretaria?: string | null;
-  estado?: 'PENDIENTE' | 'CERRADA' | 'ANULADA' | string;
+  estado?: 'PENDIENTE' | 'REABIERTO' | 'CERRADA' | 'ANULADA' | string;
   medicoNombre?: string | null;
 }

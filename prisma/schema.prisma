@@ -41,9 +41,17 @@ enum TipoDictamen {
 
 enum EstadoRecomendacionLaboral {
   BORRADOR
+  REABIERTO
   CERRADA
   ANULADA
 }
+
+enum TipoHistorialRecomendacionLaboral {
+  REAPERTURA
+  EDICION
+  CIERRE
+}
+
 
 // Modo de valoración para MOVIMIENTO
 enum MovimientoModo {
@@ -646,6 +654,10 @@ model Empleado {
   recomendacionesLaborales   RecomendacionLaboral[]      @relation("EmpleadoRecomendacionesLaborales")
   recomendacionLaboralFirmas RecomendacionLaboralFirma[] @relation("EmpleadoFirmasRecomendacionLaboral")
 
+  recomendacionesReabiertas RecomendacionLaboral[]          @relation("EmpleadoReaberturasRecomendacionesLaborales")
+  historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("EmpleadoHistorialRecomendacionesLaborales")
+
+
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([email])
   @@index([esMiembroJunta])
@@ -866,20 +878,60 @@ model RecomendacionLaboral {
 
   estado EstadoRecomendacionLaboral @default(BORRADOR)
 
-  creadoEn  DateTime  @default(now()) @map("creado_en")
-  updatedAt DateTime  @updatedAt
-  cerradaEn DateTime? @map("cerrada_en")
+  cerradaEn   DateTime? @map("cerrada_en")
+  reabiertaEn DateTime? @map("reabierta_en")
+
+  reabiertaPorId    Int? @map("reabierta_por_id")
+  motivoReaperturaId Int? @map("motivo_reapertura_id")
+
+  creadoEn  DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt
 
   usuario  Usuario   @relation("UsuarioRecomendacionesLaborales", fields: [usuarioId], references: [id])
   empleado Empleado? @relation("EmpleadoRecomendacionesLaborales", fields: [empleadoId], references: [id])
 
-  firmas RecomendacionLaboralFirma[]
+  reabiertaPor    Empleado?                    @relation("EmpleadoReaberturasRecomendacionesLaborales", fields: [reabiertaPorId], references: [id])
+  motivoReapertura MotivoReaperturaRecomendacion? @relation("MotivoReaperturaActualRecomendacionLaboral", fields: [motivoReaperturaId], references: [id])
+
+  firmas    RecomendacionLaboralFirma[]
+  historial RecomendacionLaboralHistorial[]
 
   @@index([usuarioId])
   @@index([empleadoId])
+  @@index([reabiertaPorId])
+  @@index([motivoReaperturaId])
   @@index([estado, fechaRecomendacion])
   @@map("recomendaciones_laborales")
 }
+
+model RecomendacionLaboralHistorial {
+  id Int @id @default(autoincrement())
+
+  recomendacionLaboralId Int @map("recomendacion_laboral_id")
+  empleadoId             Int? @map("empleado_id")
+  motivoReaperturaId     Int? @map("motivo_reapertura_id")
+
+  tipo TipoHistorialRecomendacionLaboral
+
+  estadoAnterior EstadoRecomendacionLaboral? @map("estado_anterior")
+  estadoNuevo    EstadoRecomendacionLaboral? @map("estado_nuevo")
+
+  formularioAnterior Json? @map("formulario_anterior")
+  formularioNuevo    Json? @map("formulario_nuevo")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  recomendacionLaboral RecomendacionLaboral          @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
+  empleado             Empleado?                     @relation("EmpleadoHistorialRecomendacionesLaborales", fields: [empleadoId], references: [id], onDelete: SetNull)
+  motivoReapertura     MotivoReaperturaRecomendacion? @relation("MotivoReaperturaHistorialRecomendacionLaboral", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
+
+  @@index([recomendacionLaboralId])
+  @@index([empleadoId])
+  @@index([motivoReaperturaId])
+  @@index([tipo, createdAt])
+  @@map("recomendaciones_laborales_historial")
+}
+
 
 model RecomendacionLaboralFirma {
   id Int @id @default(autoincrement())
@@ -904,6 +956,29 @@ model RecomendacionLaboralFirma {
   @@index([empleadoId])
   @@map("recomendacion_laboral_firmas")
 }
+
+model MotivoReaperturaRecomendacion {
+  id          Int     @id @default(autoincrement())
+  codigo      String? @db.VarChar(20)
+  nombre      String  @db.VarChar(150)
+  descripcion String? @db.Text
+  estado      Boolean @default(true)
+  orden       Int     @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  recomendacionesReabiertas RecomendacionLaboral[]          @relation("MotivoReaperturaActualRecomendacionLaboral")
+  historial                 RecomendacionLaboralHistorial[] @relation("MotivoReaperturaHistorialRecomendacionLaboral")
+
+  @@unique([nombre])
+  @@index([codigo])
+  @@index([estado, orden])
+  @@map("motivos_reapertura_recomendacion")
+}
+
 
 model DictamenDiagnostico {
   id         Int             @id @default(autoincrement())

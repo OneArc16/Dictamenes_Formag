@@ -1,4 +1,5 @@
-﻿import { NextResponse } from 'next/server';
+﻿import { Prisma } from '@prisma/client';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
@@ -34,6 +35,24 @@ type EmpleadoLike = {
   especialidades?: EspecialidadItem[] | null;
 };
 
+const FORM_FIELDS = [
+  'tallaM',
+  'pesoKg',
+  'imc',
+  'examenesRealizados',
+  'motivo',
+  'recomendacionesObservacionesRestricciones',
+] as const;
+
+type FormField = (typeof FORM_FIELDS)[number];
+type FormSnapshot = Record<FormField, string | null>;
+
+type PermissionResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string };
+
+type ManagedRecomendacion = NonNullable<Awaited<ReturnType<typeof loadManagedRecomendacion>>>;
+
 const UpdateRecomendacionSchema = z.object({
   tallaM: z.string().nullable().optional(),
   pesoKg: z.string().nullable().optional(),
@@ -42,9 +61,15 @@ const UpdateRecomendacionSchema = z.object({
   recomendacionesObservacionesRestricciones: z.string().optional(),
 });
 
-const CloseRecomendacionSchema = z.object({
-  action: z.literal('cerrar'),
-});
+const RecomendacionActionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('cerrar'),
+  }),
+  z.object({
+    action: z.literal('reabrir'),
+    motivoReaperturaId: z.coerce.number().int().positive(),
+  }),
+]);
 
 function normalizeRole(role: unknown): string {
   const normalized = String(role ?? '').trim().toUpperCase();
@@ -151,33 +176,220 @@ function fullName(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
-async function loadEditableRecomendacion(recomendacionId: number) {
+async function loadManagedRecomendacion(recomendacionId: number) {
   return prisma.recomendacionLaboral.findUnique({
     where: { id: recomendacionId },
     select: {
       id: true,
       empleadoId: true,
       estado: true,
+      tallaM: true,
+      pesoKg: true,
+      imc: true,
+      examenesRealizados: true,
+      motivo: true,
+      recomendacionesObservacionesRestricciones: true,
+      cerradaEn: true,
+      reabiertaEn: true,
+      reabiertaPorId: true,
+      motivoReaperturaId: true,
+      updatedAt: true,
+      firmas: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 }
 
-function canManageRecomendacion(
-  recomendacion: { empleadoId: number | null; estado: string } | null,
+function isEditableState(estado: string) {
+  return estado === 'BORRADOR' || estado === 'REABIERTO';
+}
+
+function canEditRecomendacion(
+  recomendacion: ManagedRecomendacion,
   auth: AuthCtx,
-) {
-  if (!recomendacion) {
-    return { ok: false, status: 404, error: 'Recomendacion no encontrada.' };
+): PermissionResult {
+  if (auth.role !== 'MEDICO') {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No autorizado para editar esta recomendacion.',
+    };
   }
 
   if (
     recomendacion.empleadoId != null &&
     recomendacion.empleadoId !== auth.empleadoId
   ) {
-    return { ok: false, status: 403, error: 'No tiene permiso sobre esta recomendacion.' };
+    return {
+      ok: false,
+      status: 403,
+      error: 'No tiene permiso sobre esta recomendacion.',
+    };
   }
 
-  return { ok: true as const };
+  return { ok: true };
+}
+
+function canReopenRecomendacion(
+  recomendacion: ManagedRecomendacion,
+  auth: AuthCtx,
+): PermissionResult {
+  if (auth.role === 'MEDICO') {
+    if (
+      recomendacion.empleadoId == null ||
+      recomendacion.empleadoId !== auth.empleadoId
+    ) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'Solo puedes reabrir tus propias recomendaciones.',
+      };
+    }
+
+    return { ok: true };
+  }
+
+  if (auth.role === 'ADMIN' || auth.role === 'ADMISIONISTA') {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    status: 403,
+    error: 'No autorizado para reabrir esta recomendacion.',
+  };
+}
+
+function buildFormSnapshot(recomendacion: ManagedRecomendacion): FormSnapshot {
+  return {
+    tallaM: recomendacion.tallaM != null ? String(recomendacion.tallaM) : null,
+    pesoKg: recomendacion.pesoKg != null ? String(recomendacion.pesoKg) : null,
+    imc: recomendacion.imc != null ? String(recomendacion.imc) : null,
+    examenesRealizados: recomendacion.examenesRealizados ?? null,
+    motivo: recomendacion.motivo ?? null,
+    recomendacionesObservacionesRestricciones:
+      recomendacion.recomendacionesObservacionesRestricciones ?? null,
+  };
+}
+
+function toJsonObject(value: Partial<FormSnapshot>): Prisma.InputJsonObject {
+  return value as Prisma.InputJsonObject;
+}
+
+function getChangedFormSnapshots(before: FormSnapshot, after: FormSnapshot) {
+  const previous: Partial<FormSnapshot> = {};
+  const next: Partial<FormSnapshot> = {};
+
+  for (const field of FORM_FIELDS) {
+    if (before[field] !== after[field]) {
+      previous[field] = before[field];
+      next[field] = after[field];
+    }
+  }
+
+  if (Object.keys(previous).length === 0) {
+    return null;
+  }
+
+  return {
+    previous: toJsonObject(previous),
+    next: toJsonObject(next),
+  };
+}
+
+async function ensureLaboralFirmas(
+  tx: Prisma.TransactionClient,
+  recomendacionId: number,
+  currentFirmasCount: number,
+) {
+  if (currentFirmasCount > 0) {
+    return;
+  }
+
+  const juntaMedica = await tx.empleado.findMany({
+    where: {
+      activo: true,
+      esMiembroJunta: true,
+    },
+    include: {
+      especialidades: {
+        select: {
+          principal: true,
+          especialidad: {
+            select: {
+              nombre: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [
+      { primerApellido: 'asc' },
+      { segundoApellido: 'asc' },
+      { primerNombre: 'asc' },
+      { segundoNombre: 'asc' },
+    ],
+  });
+
+  const firmantes = juntaMedica.filter((empleado) => hasMedicinaLaboralSpecialty(empleado));
+
+  if (firmantes.length === 0) {
+    return;
+  }
+
+  await tx.recomendacionLaboralFirma.createMany({
+    data: firmantes.map((empleado, index) => ({
+      recomendacionLaboralId: recomendacionId,
+      empleadoId: empleado.id,
+      nombreCompleto:
+        fullName(
+          empleado.primerNombre,
+          empleado.segundoNombre,
+          empleado.primerApellido,
+          empleado.segundoApellido,
+        ) || 'MEDICO SIN NOMBRE',
+      registroMedico: empleado.registroMedico,
+      licencia: empleado.licencia,
+      firma: empleado.firma,
+      firmaMime: empleado.firmaMime,
+      orden: index + 1,
+    })),
+  });
+}
+
+function serializeRecomendacionResponse(
+  recomendacion: Pick<
+    ManagedRecomendacion,
+    | 'id'
+    | 'estado'
+    | 'tallaM'
+    | 'pesoKg'
+    | 'imc'
+    | 'examenesRealizados'
+    | 'motivo'
+    | 'recomendacionesObservacionesRestricciones'
+    | 'cerradaEn'
+    | 'reabiertaEn'
+    | 'updatedAt'
+  >,
+) {
+  return {
+    id: recomendacion.id,
+    estado: recomendacion.estado,
+    tallaM: recomendacion.tallaM != null ? String(recomendacion.tallaM) : null,
+    pesoKg: recomendacion.pesoKg != null ? String(recomendacion.pesoKg) : null,
+    imc: recomendacion.imc != null ? String(recomendacion.imc) : null,
+    examenesRealizados: recomendacion.examenesRealizados ?? '',
+    motivo: recomendacion.motivo ?? '',
+    recomendacionesObservacionesRestricciones:
+      recomendacion.recomendacionesObservacionesRestricciones ?? '',
+    cerradaEn: recomendacion.cerradaEn?.toISOString() ?? null,
+    reabiertaEn: recomendacion.reabiertaEn?.toISOString() ?? null,
+    updatedAt: recomendacion.updatedAt.toISOString(),
+  };
 }
 
 export async function PUT(req: Request, context: RouteContext) {
@@ -185,13 +397,6 @@ export async function PUT(req: Request, context: RouteContext) {
     const auth = await requireAuth();
     if (!auth) {
       return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
-
-    if (auth.role !== 'MEDICO') {
-      return NextResponse.json(
-        { ok: false, error: 'No autorizado para editar esta recomendacion.' },
-        { status: 403 },
-      );
     }
 
     const { id: idParam } = await context.params;
@@ -224,18 +429,28 @@ export async function PUT(req: Request, context: RouteContext) {
       );
     }
 
-    const recomendacion = await loadEditableRecomendacion(recomendacionId);
-    const permission = canManageRecomendacion(recomendacion, auth);
+    const recomendacion = await loadManagedRecomendacion(recomendacionId);
+    if (!recomendacion) {
+      return NextResponse.json(
+        { ok: false, error: 'Recomendacion no encontrada.' },
+        { status: 404 },
+      );
+    }
+
+    const permission = canEditRecomendacion(recomendacion, auth);
     if (!permission.ok) {
       return NextResponse.json({ ok: false, error: permission.error }, { status: permission.status });
     }
 
-    if (recomendacion.estado !== 'BORRADOR') {
+    if (!isEditableState(recomendacion.estado)) {
       return NextResponse.json(
         { ok: false, error: 'La recomendacion ya no admite cambios.' },
         { status: 409 },
       );
     }
+
+    const beforeSnapshot = buildFormSnapshot(recomendacion);
+    const nextSnapshot: FormSnapshot = { ...beforeSnapshot };
 
     const updateData: {
       empleadoId?: number;
@@ -265,53 +480,84 @@ export async function PUT(req: Request, context: RouteContext) {
         return NextResponse.json({ ok: false, error: pesoError }, { status: 400 });
       }
 
+      const imc = computeImc(tallaM, pesoKg);
+
       updateData.tallaM = tallaM;
       updateData.pesoKg = pesoKg;
-      updateData.imc = computeImc(tallaM, pesoKg);
+      updateData.imc = imc;
+
+      nextSnapshot.tallaM = tallaM;
+      nextSnapshot.pesoKg = pesoKg;
+      nextSnapshot.imc = imc;
     }
 
     if (hasExamenesRealizados) {
-      updateData.examenesRealizados = normalizeTextValue(body.examenesRealizados);
+      const normalized = normalizeTextValue(body.examenesRealizados);
+      updateData.examenesRealizados = normalized;
+      nextSnapshot.examenesRealizados = normalized;
     }
 
     if (hasMotivo) {
-      updateData.motivo = normalizeTextValue(body.motivo);
+      const normalized = normalizeTextValue(body.motivo);
+      updateData.motivo = normalized;
+      nextSnapshot.motivo = normalized;
     }
 
     if (hasRecomendacionesObservacionesRestricciones) {
-      updateData.recomendacionesObservacionesRestricciones = normalizeTextValue(
-        body.recomendacionesObservacionesRestricciones,
-      );
+      const normalized = normalizeTextValue(body.recomendacionesObservacionesRestricciones);
+      updateData.recomendacionesObservacionesRestricciones = normalized;
+      nextSnapshot.recomendacionesObservacionesRestricciones = normalized;
     }
 
-    const updated = await prisma.recomendacionLaboral.update({
-      where: { id: recomendacionId },
-      data: updateData,
-      select: {
-        id: true,
-        tallaM: true,
-        pesoKg: true,
-        imc: true,
-        examenesRealizados: true,
-        motivo: true,
-        recomendacionesObservacionesRestricciones: true,
-        updatedAt: true,
-      },
+    const changedSnapshots = getChangedFormSnapshots(beforeSnapshot, nextSnapshot);
+    const needsAssignment = updateData.empleadoId != null;
+
+    if (!changedSnapshots && !needsAssignment) {
+      return NextResponse.json({
+        ok: true,
+        recomendacion: serializeRecomendacionResponse(recomendacion),
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await tx.recomendacionLaboral.update({
+        where: { id: recomendacionId },
+        data: updateData,
+        select: {
+          id: true,
+          estado: true,
+          tallaM: true,
+          pesoKg: true,
+          imc: true,
+          examenesRealizados: true,
+          motivo: true,
+          recomendacionesObservacionesRestricciones: true,
+          cerradaEn: true,
+          reabiertaEn: true,
+          updatedAt: true,
+        },
+      });
+
+      if (changedSnapshots) {
+        await tx.recomendacionLaboralHistorial.create({
+          data: {
+            recomendacionLaboralId: recomendacionId,
+            empleadoId: auth.empleadoId,
+            tipo: 'EDICION',
+            estadoAnterior: recomendacion.estado,
+            estadoNuevo: recomendacion.estado,
+            formularioAnterior: changedSnapshots.previous,
+            formularioNuevo: changedSnapshots.next,
+          },
+        });
+      }
+
+      return next;
     });
 
     return NextResponse.json({
       ok: true,
-      recomendacion: {
-        id: updated.id,
-        tallaM: updated.tallaM != null ? String(updated.tallaM) : null,
-        pesoKg: updated.pesoKg != null ? String(updated.pesoKg) : null,
-        imc: updated.imc != null ? String(updated.imc) : null,
-        examenesRealizados: updated.examenesRealizados ?? '',
-        motivo: updated.motivo ?? '',
-        recomendacionesObservacionesRestricciones:
-          updated.recomendacionesObservacionesRestricciones ?? '',
-        updatedAt: updated.updatedAt.toISOString(),
-      },
+      recomendacion: serializeRecomendacionResponse(updated),
     });
   } catch (error) {
     console.error('ERROR PUT /api/recomendaciones/[id]:', error);
@@ -334,13 +580,6 @@ export async function POST(req: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
-    if (auth.role !== 'MEDICO') {
-      return NextResponse.json(
-        { ok: false, error: 'No autorizado para cerrar esta recomendacion.' },
-        { status: 403 },
-      );
-    }
-
     const { id: idParam } = await context.params;
     const recomendacionId = Number(idParam);
 
@@ -351,115 +590,155 @@ export async function POST(req: Request, context: RouteContext) {
       );
     }
 
-    CloseRecomendacionSchema.parse(await req.json());
+    const body = RecomendacionActionSchema.parse(await req.json());
+    const recomendacion = await loadManagedRecomendacion(recomendacionId);
 
-    const recomendacion = await loadEditableRecomendacion(recomendacionId);
-    const permission = canManageRecomendacion(recomendacion, auth);
+    if (!recomendacion) {
+      return NextResponse.json(
+        { ok: false, error: 'Recomendacion no encontrada.' },
+        { status: 404 },
+      );
+    }
+
+    if (body.action === 'cerrar') {
+      const permission = canEditRecomendacion(recomendacion, auth);
+      if (!permission.ok) {
+        return NextResponse.json({ ok: false, error: permission.error }, { status: permission.status });
+      }
+
+      if (!isEditableState(recomendacion.estado)) {
+        return NextResponse.json(
+          { ok: false, error: 'La recomendacion ya fue cerrada o anulada.' },
+          { status: 409 },
+        );
+      }
+
+      const currentSnapshot = buildFormSnapshot(recomendacion);
+
+      const closed = await prisma.$transaction(async (tx) => {
+        const nextEmpleadoId = recomendacion.empleadoId ?? auth.empleadoId;
+
+        const updated = await tx.recomendacionLaboral.update({
+          where: { id: recomendacionId },
+          data: {
+            empleadoId: nextEmpleadoId,
+            estado: 'CERRADA',
+            cerradaEn: new Date(),
+          },
+          select: {
+            id: true,
+            estado: true,
+            tallaM: true,
+            pesoKg: true,
+            imc: true,
+            examenesRealizados: true,
+            motivo: true,
+            recomendacionesObservacionesRestricciones: true,
+            cerradaEn: true,
+            reabiertaEn: true,
+            updatedAt: true,
+          },
+        });
+
+        await tx.recomendacionLaboralHistorial.create({
+          data: {
+            recomendacionLaboralId: recomendacionId,
+            empleadoId: auth.empleadoId,
+            tipo: 'CIERRE',
+            estadoAnterior: recomendacion.estado,
+            estadoNuevo: 'CERRADA',
+            formularioAnterior: toJsonObject(currentSnapshot),
+            formularioNuevo: toJsonObject(currentSnapshot),
+          },
+        });
+
+        await ensureLaboralFirmas(tx, recomendacionId, recomendacion.firmas.length);
+
+        return updated;
+      });
+
+      return NextResponse.json({
+        ok: true,
+        recomendacion: serializeRecomendacionResponse(closed),
+      });
+    }
+
+    const permission = canReopenRecomendacion(recomendacion, auth);
     if (!permission.ok) {
       return NextResponse.json({ ok: false, error: permission.error }, { status: permission.status });
     }
 
-    if (recomendacion.estado !== 'BORRADOR') {
+    if (recomendacion.estado !== 'CERRADA') {
       return NextResponse.json(
-        { ok: false, error: 'La recomendacion ya fue cerrada o anulada.' },
+        { ok: false, error: 'Solo se pueden reabrir recomendaciones cerradas.' },
         { status: 409 },
       );
     }
 
-    const closed = await prisma.$transaction(async (tx) => {
-      const current = await tx.recomendacionLaboral.findUnique({
-        where: { id: recomendacionId },
-        include: {
-          firmas: {
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
+    const motivoReapertura = await prisma.motivoReaperturaRecomendacion.findFirst({
+      where: {
+        id: body.motivoReaperturaId,
+        estado: true,
+      },
+      select: {
+        id: true,
+        nombre: true,
+      },
+    });
 
-      if (!current) {
-        throw new Error('Recomendacion no encontrada.');
-      }
+    if (!motivoReapertura) {
+      return NextResponse.json(
+        { ok: false, error: 'El motivo de reapertura no existe o esta inactivo.' },
+        { status: 404 },
+      );
+    }
 
-      const nextEmpleadoId = current.empleadoId ?? auth.empleadoId;
+    const currentSnapshot = buildFormSnapshot(recomendacion);
 
+    const reopened = await prisma.$transaction(async (tx) => {
       const updated = await tx.recomendacionLaboral.update({
         where: { id: recomendacionId },
         data: {
-          empleadoId: nextEmpleadoId,
-          estado: 'CERRADA',
-          cerradaEn: new Date(),
+          estado: 'REABIERTO',
+          reabiertaEn: new Date(),
+          reabiertaPorId: auth.empleadoId,
+          motivoReaperturaId: motivoReapertura.id,
         },
         select: {
           id: true,
           estado: true,
+          tallaM: true,
+          pesoKg: true,
+          imc: true,
+          examenesRealizados: true,
+          motivo: true,
+          recomendacionesObservacionesRestricciones: true,
           cerradaEn: true,
+          reabiertaEn: true,
+          updatedAt: true,
         },
       });
 
-      if (current.firmas.length === 0) {
-        const juntaMedica = await tx.empleado.findMany({
-          where: {
-            activo: true,
-            esMiembroJunta: true,
-          },
-          include: {
-            especialidades: {
-              select: {
-                principal: true,
-                especialidad: {
-                  select: {
-                    nombre: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: [
-            { primerApellido: 'asc' },
-            { segundoApellido: 'asc' },
-            { primerNombre: 'asc' },
-            { segundoNombre: 'asc' },
-          ],
-        });
-
-        const firmantes = juntaMedica.filter((empleado) =>
-          hasMedicinaLaboralSpecialty(empleado),
-        );
-
-        if (firmantes.length > 0) {
-          await tx.recomendacionLaboralFirma.createMany({
-            data: firmantes.map((empleado, index) => ({
-              recomendacionLaboralId: recomendacionId,
-              empleadoId: empleado.id,
-              nombreCompleto:
-                fullName(
-                  empleado.primerNombre,
-                  empleado.segundoNombre,
-                  empleado.primerApellido,
-                  empleado.segundoApellido,
-                ) || 'MEDICO SIN NOMBRE',
-              registroMedico: empleado.registroMedico,
-              licencia: empleado.licencia,
-              firma: empleado.firma,
-              firmaMime: empleado.firmaMime,
-              orden: index + 1,
-            })),
-          });
-        }
-      }
+      await tx.recomendacionLaboralHistorial.create({
+        data: {
+          recomendacionLaboralId: recomendacionId,
+          empleadoId: auth.empleadoId,
+          motivoReaperturaId: motivoReapertura.id,
+          tipo: 'REAPERTURA',
+          estadoAnterior: recomendacion.estado,
+          estadoNuevo: 'REABIERTO',
+          formularioAnterior: toJsonObject(currentSnapshot),
+          formularioNuevo: toJsonObject(currentSnapshot),
+        },
+      });
 
       return updated;
     });
 
     return NextResponse.json({
       ok: true,
-      recomendacion: {
-        id: closed.id,
-        estado: closed.estado,
-        cerradaEn: closed.cerradaEn?.toISOString() ?? null,
-      },
+      recomendacion: serializeRecomendacionResponse(reopened),
+      motivoReapertura: motivoReapertura.nombre,
     });
   } catch (error) {
     console.error('ERROR POST /api/recomendaciones/[id]:', error);
@@ -469,7 +748,7 @@ export async function POST(req: Request, context: RouteContext) {
         ? error.issues[0]?.message ?? 'Datos invalidos.'
         : error instanceof Error
           ? error.message
-          : 'Error cerrando recomendacion';
+          : 'Error actualizando recomendacion';
 
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
