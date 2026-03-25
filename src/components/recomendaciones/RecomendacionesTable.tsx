@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { Eye } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Eye, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -19,7 +20,7 @@ type RecomendacionesTableProps = {
   rows: RecomendacionRow[];
   loading: boolean;
   onOpenRecommendation: (id: number) => void;
-  renderActions?: (row: RecomendacionRow) => React.ReactNode;
+  renderActions?: (row: RecomendacionRow) => ReactNode;
 };
 
 function formatFecha(value: string | Date | null | undefined) {
@@ -81,6 +82,28 @@ function getEstadoLabel(estado: string | undefined) {
   return 'Cerrada';
 }
 
+function getRowClassName(row: RecomendacionRow) {
+  if (String(row.estado ?? '').toUpperCase() === 'REABIERTO') {
+    return 'border-sky-100 bg-sky-50/30 hover:bg-sky-50/50';
+  }
+
+  return 'border-slate-100 hover:bg-slate-50/70';
+}
+
+function buildReaperturaMeta(row: RecomendacionRow) {
+  const parts: string[] = [];
+
+  if (row.reabiertaEn) {
+    parts.push(`Ult. reapertura: ${formatFecha(row.reabiertaEn)}`);
+  }
+
+  if (row.reabiertaPorNombre) {
+    parts.push(`Por: ${row.reabiertaPorNombre}`);
+  }
+
+  return parts.join(' · ');
+}
+
 export function RecomendacionesTable({
   rows,
   loading,
@@ -121,47 +144,76 @@ export function RecomendacionesTable({
           ) : null}
 
           {!loading
-            ? rows.map((row, index) => (
-                <TableRow key={row.id} className="border-slate-100 hover:bg-slate-50/70">
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-500">{index + 1}</TableCell>
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-700">
-                    {formatFecha(row.fechaRecomendacion)}
-                  </TableCell>
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-700">
-                    {row.secretaria || 'Sin secretaria'}
-                  </TableCell>
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-700">
-                    {row.docenteDocumento || '-'}
-                  </TableCell>
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-700">
-                    {row.docenteNombre || '-'}
-                  </TableCell>
-                  <TableCell className="px-3 py-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEstadoStyles(row.estado)}`}
-                    >
-                      {getEstadoLabel(row.estado)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-3 py-2 text-[11px] text-slate-700">
-                    {row.medicoNombre || '-'}
-                  </TableCell>
-                  <TableCell className="px-3 py-2 text-center">
-                    <div className="inline-flex items-center justify-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                        onClick={() => onOpenRecommendation(row.id)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {renderActions ? renderActions(row) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+            ? rows.map((row, index) => {
+                const reaperturaMeta = buildReaperturaMeta(row);
+                const hasReaperturaContext = Boolean(
+                  row.fueReabierta || row.reabiertaEn || row.reabiertaPorNombre || row.motivoReapertura,
+                );
+                const currentEstado = String(row.estado ?? '').toUpperCase();
+
+                return (
+                  <TableRow key={row.id} className={getRowClassName(row)}>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-500">{index + 1}</TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {formatFecha(row.fechaRecomendacion)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.secretaria || 'Sin secretaria'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.docenteDocumento || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.docenteNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top">
+                      <div className="max-w-[240px] space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEstadoStyles(row.estado)}`}
+                          >
+                            {getEstadoLabel(row.estado)}
+                          </span>
+                          {hasReaperturaContext && currentEstado !== 'REABIERTO' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">
+                              <RotateCcw className="h-3 w-3" />
+                              Con reapertura
+                            </span>
+                          ) : null}
+                        </div>
+                        {hasReaperturaContext ? (
+                          <div className="space-y-0.5 text-[10px] leading-4 text-slate-500">
+                            {reaperturaMeta ? <p>{reaperturaMeta}</p> : null}
+                            {row.motivoReapertura ? (
+                              <p className="break-words text-slate-600">
+                                Motivo: {row.motivoReapertura}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.medicoNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-center">
+                      <div className="inline-flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          title="Ver recomendacion"
+                          className="h-8 w-8 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                          onClick={() => onOpenRecommendation(row.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {renderActions ? renderActions(row) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             : null}
         </TableBody>
       </Table>

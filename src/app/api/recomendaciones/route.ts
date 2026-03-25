@@ -6,7 +6,7 @@ import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
-type EstadoFiltro = 'PENDIENTES' | 'CERRADAS' | 'ANULADAS' | 'TODOS';
+type EstadoFiltro = 'PENDIENTES' | 'REABIERTAS' | 'CERRADAS' | 'ANULADAS' | 'TODOS';
 
 type JwtPayload = {
   sub: string;
@@ -192,8 +192,10 @@ export async function GET(req: Request) {
         and.push({ estado: 'CERRADA' });
       } else if (estado === 'ANULADAS') {
         and.push({ estado: 'ANULADA' });
+      } else if (estado === 'REABIERTAS') {
+        and.push({ estado: 'REABIERTO' });
       } else {
-        and.push({ estado: { in: ['BORRADOR', 'REABIERTO'] } });
+        and.push({ estado: 'BORRADOR' });
       }
     }
 
@@ -224,37 +226,75 @@ export async function GET(req: Request) {
           },
         },
         empleado: true,
+        reabiertaPor: {
+          select: {
+            primerNombre: true,
+            segundoNombre: true,
+            primerApellido: true,
+            segundoApellido: true,
+          },
+        },
+        motivoReapertura: {
+          select: {
+            nombre: true,
+          },
+        },
       },
-      orderBy: [{ fechaRecomendacion: 'desc' }, { id: 'desc' }],
+      orderBy:
+        estado === 'REABIERTAS'
+          ? [{ reabiertaEn: 'desc' }, { fechaRecomendacion: 'desc' }, { id: 'desc' }]
+          : [{ fechaRecomendacion: 'desc' }, { id: 'desc' }],
       take: 500,
     });
 
-    const rows = recomendaciones.map((recomendacion) => ({
-      id: recomendacion.id,
-      fechaRecomendacion: recomendacion.fechaRecomendacion
-        ? recomendacion.fechaRecomendacion.toISOString()
-        : null,
-      docenteDocumento: recomendacion.usuario.identificacion,
-      docenteNombre: toNombreCompleto(
-        recomendacion.usuario.primerNombre,
-        recomendacion.usuario.segundoNombre,
-        recomendacion.usuario.primerApellido,
-        recomendacion.usuario.segundoApellido,
-      ),
-      secretaria:
-        recomendacion.usuario.secretariaRef?.nombre ??
-        recomendacion.usuario.institucionEducativaRef?.secretaria?.nombre ??
-        null,
-      estado: mapEstado(recomendacion.estado),
-      medicoNombre: recomendacion.empleado
+    const rows = recomendaciones.map((recomendacion) => {
+      const reabiertaPorNombre = recomendacion.reabiertaPor
         ? toNombreCompleto(
-            recomendacion.empleado.primerNombre,
-            recomendacion.empleado.segundoNombre,
-            recomendacion.empleado.primerApellido,
-            recomendacion.empleado.segundoApellido,
+            recomendacion.reabiertaPor.primerNombre,
+            recomendacion.reabiertaPor.segundoNombre,
+            recomendacion.reabiertaPor.primerApellido,
+            recomendacion.reabiertaPor.segundoApellido,
           )
-        : null,
-    }));
+        : null;
+
+      const motivoReapertura = recomendacion.motivoReapertura?.nombre ?? null;
+      const fueReabierta = Boolean(
+        recomendacion.reabiertaEn || reabiertaPorNombre || motivoReapertura,
+      );
+
+      return {
+        id: recomendacion.id,
+        fechaRecomendacion: recomendacion.fechaRecomendacion
+          ? recomendacion.fechaRecomendacion.toISOString()
+          : null,
+        docenteDocumento: recomendacion.usuario.identificacion,
+        docenteNombre: toNombreCompleto(
+          recomendacion.usuario.primerNombre,
+          recomendacion.usuario.segundoNombre,
+          recomendacion.usuario.primerApellido,
+          recomendacion.usuario.segundoApellido,
+        ),
+        secretaria:
+          recomendacion.usuario.secretariaRef?.nombre ??
+          recomendacion.usuario.institucionEducativaRef?.secretaria?.nombre ??
+          null,
+        estado: mapEstado(recomendacion.estado),
+        medicoNombre: recomendacion.empleado
+          ? toNombreCompleto(
+              recomendacion.empleado.primerNombre,
+              recomendacion.empleado.segundoNombre,
+              recomendacion.empleado.primerApellido,
+              recomendacion.empleado.segundoApellido,
+            )
+          : null,
+        fueReabierta,
+        reabiertaEn: recomendacion.reabiertaEn
+          ? recomendacion.reabiertaEn.toISOString()
+          : null,
+        reabiertaPorNombre,
+        motivoReapertura,
+      };
+    });
 
     return NextResponse.json({ ok: true, rows });
   } catch (error) {

@@ -2,6 +2,7 @@
 
 export type EstadoRecomendacionFiltro =
   | 'PENDIENTES'
+  | 'REABIERTAS'
   | 'CERRADAS'
   | 'ANULADAS'
   | 'TODOS';
@@ -14,4 +15,8 @@ export interface RecomendacionRow {
   secretaria?: string | null;
   estado?: 'PENDIENTE' | 'REABIERTO' | 'CERRADA' | 'ANULADA' | string;
   medicoNombre?: string | null;
+  fueReabierta?: boolean;
+  reabiertaEn?: string | Date | null;
+  reabiertaPorNombre?: string | null;
+  motivoReapertura?: string | null;
 }

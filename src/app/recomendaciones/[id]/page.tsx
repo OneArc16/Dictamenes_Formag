@@ -1,4 +1,5 @@
 ﻿import Link from 'next/link';
+import { type Prisma } from '@prisma/client';
 import { notFound } from 'next/navigation';
 
 import AppNav from '@/components/AppNav';
@@ -10,6 +11,10 @@ import {
   type RecomendacionDetalleViewModel,
   type RecomendacionMotivoReaperturaOption,
 } from '@/components/recomendaciones/detail/types';
+import {
+  buildRecomendacionHistoryChanges,
+  parseRecomendacionHistorySnapshot,
+} from '@/lib/recomendaciones/historial';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 
@@ -21,6 +26,16 @@ function formatDate(value: Date | null) {
     month: '2-digit',
     year: 'numeric',
     timeZone: 'UTC',
+  });
+}
+
+function formatDateTime(value: Date) {
+  return value.toLocaleString('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -63,6 +78,31 @@ export default async function RecomendacionDetallePage({
           },
         },
         empleado: true,
+        historial: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: {
+            id: true,
+            tipo: true,
+            estadoAnterior: true,
+            estadoNuevo: true,
+            formularioAnterior: true,
+            formularioNuevo: true,
+            createdAt: true,
+            empleado: {
+              select: {
+                primerNombre: true,
+                segundoNombre: true,
+                primerApellido: true,
+                segundoApellido: true,
+              },
+            },
+            motivoReapertura: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
       },
     }),
     getSession(),
@@ -84,7 +124,7 @@ export default async function RecomendacionDetallePage({
   const docente = recomendacion.usuario;
   const medico = recomendacion.empleado;
   const sessionRole = session?.role ?? null;
-  const sessionEmpleadoId = Number(session?.sub ?? NaN);
+  const sessionEmpleadoId = Number(session?.sub ?? Number.NaN);
   const ownsRecomendacion =
     Number.isFinite(sessionEmpleadoId) &&
     recomendacion.empleadoId != null &&
@@ -149,6 +189,33 @@ export default async function RecomendacionDetallePage({
     motivo: recomendacion.motivo ?? '',
     recomendacionesObservacionesRestricciones:
       recomendacion.recomendacionesObservacionesRestricciones ?? '',
+    historial: recomendacion.historial.map((item) => {
+      const actorNombre =
+        fullName(
+          item.empleado?.primerNombre,
+          item.empleado?.segundoNombre,
+          item.empleado?.primerApellido,
+          item.empleado?.segundoApellido,
+        ) || 'Usuario no disponible';
+
+      const previousSnapshot = parseRecomendacionHistorySnapshot(
+        item.formularioAnterior as Prisma.JsonValue | null,
+      );
+      const nextSnapshot = parseRecomendacionHistorySnapshot(
+        item.formularioNuevo as Prisma.JsonValue | null,
+      );
+
+      return {
+        id: item.id,
+        tipo: item.tipo,
+        fecha: formatDateTime(item.createdAt),
+        actorNombre,
+        estadoAnterior: item.estadoAnterior,
+        estadoNuevo: item.estadoNuevo,
+        motivoReapertura: item.motivoReapertura?.nombre ?? null,
+        cambios: buildRecomendacionHistoryChanges(previousSnapshot, nextSnapshot),
+      };
+    }),
   };
 
   const motivos: RecomendacionMotivoReaperturaOption[] = motivosReapertura.map((item) => ({
@@ -162,10 +229,7 @@ export default async function RecomendacionDetallePage({
       <AppNav title="Recomendaciones Laborales" showModulesButton={false} />
 
       <main className="px-4 py-4 lg:px-8">
-        <Link
-          href="/recomendaciones"
-          className="text-xs text-blue-600 hover:underline"
-        >
+        <Link href="/recomendaciones" className="text-xs text-blue-600 hover:underline">
           Volver al listado de recomendaciones
         </Link>
 

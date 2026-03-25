@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Lock, Printer } from 'lucide-react';
 import { useState, useTransition } from 'react';
@@ -120,9 +120,10 @@ export function RecomendacionDetalleRightPanel({
             recomendacionId={recomendacionId}
             motivosReapertura={motivosReapertura}
             disabled={isBusy}
-            triggerLabel="Reabrir recomendacion"
-            triggerClassName="w-full justify-start border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800 disabled:text-slate-400"
-            triggerVariant="outline"
+            triggerLabel="Reabrir formulario"
+            triggerTitle="Reabrir recomendacion"
+            triggerClassName="w-full justify-start bg-sky-600 text-white hover:bg-sky-700 hover:text-white disabled:bg-sky-200 disabled:text-white/80"
+            triggerVariant="default"
           />
         ) : null}
 
@@ -191,3 +192,4 @@ export function RecomendacionDetalleRightPanel({
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { CalendarDays, FilePlus2, Search, Stethoscope } from 'lucide-react';
 
@@ -41,6 +41,7 @@ const ESTADO_OPTIONS: Array<{
   label: string;
 }> = [
   { value: 'PENDIENTES', label: 'Pendientes' },
+  { value: 'REABIERTAS', label: 'Reabiertas' },
   { value: 'CERRADAS', label: 'Cerradas' },
   { value: 'ANULADAS', label: 'Anuladas' },
   { value: 'TODOS', label: 'Todos' },

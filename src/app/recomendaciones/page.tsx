@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,6 +32,10 @@ type RecomendacionApiRow = {
   secretaria: string | null;
   estado: string | null;
   medicoNombre: string | null;
+  fueReabierta: boolean;
+  reabiertaEn: string | null;
+  reabiertaPorNombre: string | null;
+  motivoReapertura: string | null;
 };
 
 type MedicosOptionsResponse = {
@@ -159,6 +163,10 @@ export default function RecomendacionesPage() {
         secretaria: row.secretaria,
         estado: row.estado ?? undefined,
         medicoNombre: row.medicoNombre,
+        fueReabierta: row.fueReabierta,
+        reabiertaEn: row.reabiertaEn,
+        reabiertaPorNombre: row.reabiertaPorNombre,
+        motivoReapertura: row.motivoReapertura,
       }));
     },
   });
