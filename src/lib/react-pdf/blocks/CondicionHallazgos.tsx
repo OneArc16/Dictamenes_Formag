@@ -10,7 +10,7 @@ const LIGHT_BLUE = '#DAE9F7';
 
 function safeText(v: any) {
   const s = String(v ?? '').replace(/\r/g, '').trim();
-  return s ? s : 'â€”';
+  return s ? s : '—';
 }
 
 const styles = StyleSheet.create({
@@ -43,7 +43,7 @@ export function CondicionSaludBlock({ condicion }: { condicion: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.paragraph}>
-        <Text style={styles.label}>CondiciÃ³n de salud (signos y sÃ­ntomas): </Text>
+        <Text style={styles.label}>Condición de salud (signos y síntomas): </Text>
         {condicionTxt}
       </Text>
     </View>
@@ -57,10 +57,12 @@ export function HallazgosClinicosBlock({ hallazgos }: { hallazgos: string }) {
     <View style={[styles.row, styles.rowBlue, styles.rowLast]}>
       <Text style={styles.paragraph}>
         <Text style={styles.label}>
-          Prueba o exÃ¡menes para clÃ­nicas (descripciÃ³n de hallazgos positivos):{' '}
+          Prueba o exámenes paraclínicos (descripción de hallazgos positivos):{' '}
         </Text>
         {hallazgosTxt}
       </Text>
     </View>
   );
 }
+
+

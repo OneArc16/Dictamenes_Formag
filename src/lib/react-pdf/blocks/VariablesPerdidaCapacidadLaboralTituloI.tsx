@@ -32,11 +32,12 @@ const COLOR = {
 };
 
 const COL = {
-  num: 2,
-  desc: 16,
-  cap: 4,
-  tabla: 6,
-  valor: 6,
+  num: '5.8824%',
+  desc: '47.0588%',
+  cap: '11.7647%',
+  tabla: '17.6471%',
+  valor: '17.6471%',
+  beforeValor: '82.3529%',
 } as const;
 
 function asRecord(value: unknown): UnknownRecord {
@@ -106,19 +107,19 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
         </GridBand>
 
         <GridRow style={styles.headRow}>
-          <GridCell flex={COL.num} backgroundColor={COLOR.head}>
+          <GridCell width={COL.num} backgroundColor={COLOR.head}>
             <Text style={styles.headText}>{' '}</Text>
           </GridCell>
-          <GridCell flex={COL.desc} backgroundColor={COLOR.head}>
+          <GridCell width={COL.desc} backgroundColor={COLOR.head}>
             <Text style={styles.headText}>Descripción de la deficiencia(s)</Text>
           </GridCell>
-          <GridCell flex={COL.cap} backgroundColor={COLOR.head}>
+          <GridCell width={COL.cap} backgroundColor={COLOR.head}>
             <Text style={styles.headText}>Capítulo</Text>
           </GridCell>
-          <GridCell flex={COL.tabla} backgroundColor={COLOR.head}>
+          <GridCell width={COL.tabla} backgroundColor={COLOR.head}>
             <Text style={styles.headText}>Tabla</Text>
           </GridCell>
-          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast>
+          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
             <Text style={styles.headText}>Valor de la deficiencia (%)</Text>
           </GridCell>
         </GridRow>
@@ -126,19 +127,19 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
 
       {printableRows.map((row, index) => (
         <GridRow key={`titulo-i-${index}`} style={styles.bodyRow}>
-          <GridCell flex={COL.num} backgroundColor={COLOR.body}>
+          <GridCell width={COL.num} backgroundColor={COLOR.body}>
             <Text style={styles.indexText}>{index + 1}.</Text>
           </GridCell>
-          <GridCell flex={COL.desc} backgroundColor={COLOR.body}>
+          <GridCell width={COL.desc} backgroundColor={COLOR.body}>
             <Text style={styles.descriptionText}>{row?.descripcion ?? '—'}</Text>
           </GridCell>
-          <GridCell flex={COL.cap} backgroundColor={COLOR.body}>
+          <GridCell width={COL.cap} backgroundColor={COLOR.body}>
             <Text style={styles.valueText}>{row?.capitulo ?? '—'}</Text>
           </GridCell>
-          <GridCell flex={COL.tabla} backgroundColor={COLOR.body}>
+          <GridCell width={COL.tabla} backgroundColor={COLOR.body}>
             <Text style={styles.valueText}>{row?.tabla ?? '—'}</Text>
           </GridCell>
-          <GridCell flex={COL.valor} backgroundColor={COLOR.body} isLast>
+          <GridCell width={COL.valor} backgroundColor={COLOR.body} isLast>
             <Text style={styles.valueText}>{formatPercent(row?.valorDeficiencia)}</Text>
           </GridCell>
         </GridRow>
@@ -146,25 +147,25 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
 
       <KeepTogether minPresenceAhead={18}>
         <GridRow style={styles.summaryRow}>
-          <GridCell flex={COL.num + COL.desc + COL.cap + COL.tabla} backgroundColor={COLOR.head}>
+          <GridCell width={COL.beforeValor} backgroundColor={COLOR.head}>
             <Text style={styles.summaryText}>
               Suma con fórmula de valores combinados (75% ó 50%):
             </Text>
           </GridCell>
-          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast>
+          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
             <Text style={styles.summaryText}>{formatPercent(dictamen?.totalTitulo1)}</Text>
           </GridCell>
         </GridRow>
 
         <GridRow style={styles.footerRow}>
           <GridCell
-            flex={COL.num + COL.desc + COL.cap + COL.tabla}
+            width={COL.beforeValor}
             backgroundColor={COLOR.head}
             align="flex-end"
           >
             <Text style={styles.footerLeftText}>Deficiencia</Text>
           </GridCell>
-          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast align="flex-start">
+          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast align="flex-start">
             <Text style={styles.footerRightText}>Ponderación máxima: {ponderacionMax}%</Text>
           </GridCell>
         </GridRow>
@@ -231,6 +232,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
 });
+
 
 
 

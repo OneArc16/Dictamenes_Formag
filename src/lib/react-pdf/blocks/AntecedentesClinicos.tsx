@@ -40,12 +40,12 @@ const styles = StyleSheet.create({
 });
 
 export function AntecedentesClinicosBlock({ dictamen }: Props) {
-  const texto = String(dictamen?.antecedentesClinicos ?? 'â€”');
+  const texto = String(dictamen?.antecedentesClinicos ?? '—');
 
   return (
     <View>
       <View style={styles.titleRow}>
-        <Text style={styles.titleText}>3. ANTECEDENTES CLÃNICOS (EPICRISIS Y ESTADO ACTUAL)</Text>
+        <Text style={styles.titleText}>3. ANTECEDENTES CLÍNICOS (EPICRISIS Y ESTADO ACTUAL)</Text>
       </View>
 
       <View style={styles.body}>
@@ -57,3 +57,4 @@ export function AntecedentesClinicosBlock({ dictamen }: Props) {
     </View>
   );
 }
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -168,7 +168,13 @@ export default function AdmisionesPage() {
                 isCerrado={isCerrado}
               />
               {isCerrado ? (
-                <ReabrirDictamenButton dictamenId={row.id} />
+                <ReabrirDictamenButton
+                  dictamenId={row.id}
+                  estado={row.estado}
+                  onReopened={() => {
+                    void dictamenesQuery.refetch();
+                  }}
+                />
               ) : null}
             </div>
           );

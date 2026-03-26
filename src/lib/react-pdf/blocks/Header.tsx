@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
 
@@ -121,7 +121,7 @@ export function HeaderBlock(props: Props) {
 
       <View style={styles.metaRow}>
         <View style={styles.cellLeft}>
-          <Text style={styles.label}>DICTAMEN NÚMERO:</Text>
+          <Text style={styles.label}>DICTAMEN NÃšMERO:</Text>
         </View>
         <View style={styles.cellRight}>
           <Text style={styles.value}>{numero}</Text>

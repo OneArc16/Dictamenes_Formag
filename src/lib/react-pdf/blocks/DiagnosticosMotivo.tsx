@@ -108,11 +108,11 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
       {/* Encabezado */}
       <View style={styles.headRow} wrap={false}>
         <View style={styles.headLeft}>
-          <Text style={styles.headText}>DiagnÃ³stico(s) motivo de calificaciÃ³n:</Text>
+          <Text style={styles.headText}>Diagnóstico(s) motivo de calificación:</Text>
         </View>
         <View style={styles.headRight}>
           <Text style={[styles.headText, { textAlign: 'center' }]}>
-            CÃ³digo(s){'\n'}CIE-10
+            Código(s){'\n'}CIE-10
           </Text>
         </View>
       </View>
@@ -124,18 +124,18 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
             <Text style={styles.numText}>1.</Text>
           </View>
           <View style={styles.cDiag}>
-            <Text style={styles.diagText}>â€”</Text>
+            <Text style={styles.diagText}>—</Text>
           </View>
           <View style={styles.cCode}>
-            <Text style={styles.codeText}>â€”</Text>
+            <Text style={styles.codeText}>—</Text>
           </View>
         </View>
       ) : (
         items.map((it: any, idx: number) => {
           const isLast = idx === items.length - 1;
 
-          const nombre = String(it?.cie10?.nombre ?? it?.cie10Label ?? it?.nombre ?? 'â€”');
-          const codigo = String(it?.cie10Codigo ?? it?.cie10?.codigo ?? 'â€”');
+          const nombre = String(it?.cie10?.nombre ?? it?.cie10Label ?? it?.nombre ?? '—');
+          const codigo = String(it?.cie10Codigo ?? it?.cie10?.codigo ?? '—');
 
           return (
             <View
@@ -159,4 +159,5 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
     </View>
   );
 }
+
 

@@ -1,120 +1,140 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
-import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { RefreshCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import toast from 'react-hot-toast';
+
 import { useAdmisionesAccess } from '@/components/admisiones/AdmisionesAccessProvider';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 type Props = {
   dictamenId: number;
-  /** estado=true => abierto/pendiente, estado=false => cerrado */
-  estado: boolean;
+  estado?: string | boolean | null;
+  onReopened?: () => void;
 };
 
-export default function ReabrirDictamenButton({ dictamenId, estado }: Props) {
+function isDictamenOpen(estado?: string | boolean | null) {
+  if (typeof estado === 'boolean') {
+    return estado;
+  }
+
+  const normalized = String(estado ?? '').trim().toUpperCase();
+  return normalized === 'PENDIENTE' || normalized === 'REABIERTO' || normalized === 'ABIERTO';
+}
+
+export default function ReabrirDictamenButton({
+  dictamenId,
+  estado,
+  onReopened,
+}: Props) {
   const router = useRouter();
-  const qc = useQueryClient(); // ✅
+  const queryClient = useQueryClient();
   const { canReabrirDictamen } = useAdmisionesAccess();
 
   const [open, setOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
-
-  const close = () => {
-    setOpen(false);
-    setConfirmText('');
-  };
-
-  const canConfirm = confirmText.trim().toUpperCase() === 'REABRIR';
-  const disabled = !canReabrirDictamen || estado === true;
+  const isAlreadyOpen = isDictamenOpen(estado);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/admisiones/dictamenes/${dictamenId}/reabrir`, {
+      const response = await fetch(`/api/admisiones/dictamenes/${dictamenId}/reabrir`, {
         method: 'POST',
         credentials: 'include',
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) throw new Error(data?.error ?? 'No se pudo reabrir');
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'No se pudo reabrir el dictamen.');
+      }
+
       return data;
     },
     onSuccess: async () => {
-      toast.success('Dictamen reabierto correctamente');
-      close();
+      toast.success('Dictamen reabierto correctamente.');
+      setOpen(false);
 
-      // ✅ refresca el listado de admisiones (React Query)
-      await qc.invalidateQueries({ queryKey: ['dictamenes-admisiones'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dictamenes-admisiones'] }),
+        queryClient.invalidateQueries({ queryKey: ['dictamenes'] }),
+        queryClient.invalidateQueries({ queryKey: ['dictamen', dictamenId] }),
+      ]);
 
-      // opcional (no estorba)
+      onReopened?.();
       router.refresh();
     },
-    onError: (err: any) => {
-      toast.error(err?.message ?? 'No se pudo reabrir');
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo reabrir el dictamen.');
     },
   });
 
+  const isBusy = mutation.isPending;
+
+  if (!canReabrirDictamen || isAlreadyOpen) {
+    return null;
+  }
+
   return (
-    <>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(true)}
-        className={[
-          'inline-flex items-center justify-center rounded-full',
-          'border border-blue-200 bg-white',
-          'h-8 w-8',
-          'text-blue-700 hover:bg-blue-50 active:bg-blue-100',
-          'transition',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-        ].join(' ')}
-        title={!canReabrirDictamen ? 'No tienes permisos' : estado ? 'Ya está abierto' : 'Reabrir dictamen'}
-        aria-label="Reabrir dictamen"
-      >
-        <RefreshCcw className="w-4 h-4" aria-hidden="true" />
-      </button>
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (isBusy) return;
+        setOpen(nextOpen);
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800"
+          title="Reabrir dictamen"
+          aria-label="Reabrir dictamen"
+          disabled={isBusy}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
 
-      {open && !disabled && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-slate-900/30"
-            onClick={mutation.isPending ? undefined : close}
-          />
-          <div className="relative w-full max-w-sm p-4 text-left bg-white border shadow-xl rounded-2xl border-slate-200">
-            <h3 className="text-sm font-semibold text-left text-slate-900">Reabrir dictamen</h3>
-            <p className="mt-1 text-[11px] text-slate-500 text-left">
-              Escribe <span className="font-semibold text-blue-700">REABRIR</span> para confirmar.
-            </p>
+      <AlertDialogContent className="max-w-lg border-slate-200 bg-white shadow-2xl">
+        <AlertDialogHeader className="space-y-3">
+          <AlertDialogTitle className="text-xl text-slate-900">
+            Reabrir dictamen
+          </AlertDialogTitle>
+          <AlertDialogDescription className="leading-6 text-slate-600">
+            El dictamen volvera a estado reabierto y quedara disponible nuevamente para su gestion.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-            <input
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:ring-2 focus:ring-blue-500/30"
-              placeholder="REABRIR"
-            />
-
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                type="button"
-                onClick={close}
-                disabled={mutation.isPending}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={() => mutation.mutate()}
-                disabled={!canConfirm || mutation.isPending}
-                className="rounded-full bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-              >
-                {mutation.isPending ? 'Reabriendo…' : 'Confirmar'}
-              </button>
-            </div>
-          </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
+          Esta accion reactiva el dictamen para que el equipo autorizado pueda retomarlo desde el flujo de trabajo.
         </div>
-      )}
-    </>
+
+        <AlertDialogFooter className="gap-2">
+          <AlertDialogCancel disabled={isBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isBusy}
+            className="text-white hover:text-white disabled:text-white/80"
+            onClick={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
+          >
+            {isBusy ? 'Reabriendo...' : 'Confirmar reapertura'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
