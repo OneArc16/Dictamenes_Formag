@@ -1,18 +1,25 @@
-// /lib/react-pdf/blocks/TituloIIIPage1Block.tsx
+﻿// /lib/react-pdf/blocks/TituloIIIPage1Block.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
+import { KeepTogether } from '../components/KeepTogether';
 
-type Props = { dictamen: any };
-const V: any = View;
+type DictamenLike = {
+  [key: string]: unknown;
+  procedimientoPcl?: unknown;
+  analisisOcupacional?: unknown;
+  totalTitulo3?: unknown;
+};
 
-const BW = 1;
+type Props = { dictamen: DictamenLike };
+
+const BW = Number(pdfTheme?.sizes?.borderWidth ?? 0.85);
 const BC = pdfTheme.colors.border;
 
 const COLOR = {
-  bar: '#1F4E79',
-  head: '#D9E1F2',
-  left: '#D9E1F2',
+  bar: '#1F4E78',
+  head: '#DAE9F7',
+  left: '#DAE9F7',
   white: '#FFFFFF',
 };
 
@@ -25,31 +32,32 @@ const COL = {
 const G_COLS = 5;
 const TOTAL = COL.criterio + COL.factor + COL.g * G_COLS; // 23
 
-// flex “estable” (evita redondeos por %)
+// flex �?oestable�?� (evita redondeos por %)
 const flexW = (n: number) => ({ flexGrow: n, flexShrink: 1, flexBasis: 0 });
 
-// ✅ convierte objetos/enums a texto útil
-function toText(v: any): string | null {
+// �o. convierte objetos/enums a texto útil
+function toText(v: unknown): string | null {
   if (v == null) return null;
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {
+    const record = v as Record<string, unknown>;
     const pick =
-      v.nombre ??
-      v.name ??
-      v.label ??
-      v.descripcion ??
-      v.descripcionFactor ??
-      v.descripcionCriterio ??
-      v.titulo ??
-      v.valor ??
+      record.nombre ??
+      record.name ??
+      record.label ??
+      record.descripcion ??
+      record.descripcionFactor ??
+      record.descripcionCriterio ??
+      record.titulo ??
+      record.valor ??
       null;
     return pick != null ? String(pick) : String(v);
   }
   return String(v);
 }
 
-function normKey(raw: any): string {
+function normKey(raw: unknown): string {
   const s = String(raw ?? '')
     .trim()
     .toUpperCase()
@@ -61,8 +69,8 @@ function normKey(raw: any): string {
     .replace(/^_+|_+$/g, '');
 }
 
-// ✅ gravedad más robusta (también lee CLASE_x, números, etc.)
-function normGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
+// �o. gravedad más robusta (también lee CLASE_x, números, etc.)
+function normGravedad(v: unknown): '0' | 'I' | 'II' | 'III' | 'IV' | null {
   if (v == null || v === '') return null;
 
   const s0 = String(v)
@@ -105,41 +113,40 @@ type RowDef = { keys: string[]; label: string; h: number };
 type GroupDef = { label: string; rows: RowDef[] };
 const K = (...raws: string[]) => raws.map(normKey);
 
-// ✅ Incluye la “última página” que mandaste (sensopercepción + motricidad)
+// �o. Incluye la �?oúltima página�?� que mandaste (sensopercepción + motricidad)
 const GROUPS: GroupDef[] = [
   {
-    label: 'DESCRIPCIÓN DE FACTORES PSICOLÓGICOS',
+    label: 'DESCRIPCI\u00d3N DE FACTORES PSICOL\u00d3GICOS',
     rows: [
-      { keys: K('ATENCION', 'ATENCIÓN'), label: 'ATENCIÓN', h: RH.sm },
+      { keys: K('ATENCION', 'ATENCI\u00d3N'), label: 'ATENCI\u00d3N', h: RH.sm },
       { keys: K('MEMORIA'), label: 'MEMORIA', h: RH.sm },
       {
         keys: K(
           'COMPRENSION_RESOLUCION_PROBLEMAS',
           'COMPRENSION Y RESOLUCION DE PROBLEMAS',
-          'COMPRENSIÓN Y RESOLUCIÓN DE PROBLEMAS',
+          'COMPRENSI\u00d3N Y RESOLUCI\u00d3N DE PROBLEMAS',
         ),
-        label: 'COMPRENSIÓN Y\nRESOLUCIÓN DE\nPROBLEMAS',
+        label: 'COMPRENSI\u00d3N Y\nRESOLUCI\u00d3N DE\nPROBLEMAS',
         h: RH.lg,
       },
       {
-        keys: K('INICIATIVA_AUTONOMIA', 'INICIATIVA Y AUTONOMIA', 'INICIATIVA Y AUTONOMÍA'),
-        label: 'INICIATIVA Y\nAUTONOMÍA',
+        keys: K('INICIATIVA_AUTONOMIA', 'INICIATIVA Y AUTONOMIA', 'INICIATIVA Y AUTONOM\u00cdA'),
+        label: 'INICIATIVA Y\nAUTONOM\u00cdA',
         h: RH.md,
       },
-      { keys: K('OBSERVACION', 'OBSERVACIÓN'), label: 'OBSERVACIÓN', h: RH.sm },
+      { keys: K('OBSERVACION', 'OBSERVACI\u00d3N'), label: 'OBSERVACI\u00d3N', h: RH.sm },
       {
-        keys: K('CAPACIDAD_ANALISIS_SINTESIS', 'CAPACIDAD DE ANALISIS Y SINTESIS', 'CAPACIDAD DE ANÁLISIS Y SÍNTESIS'),
-        label: 'CAPACIDAD DE\nANÁLISIS Y\nSÍNTESIS',
+        keys: K('CAPACIDAD_ANALISIS_SINTESIS', 'CAPACIDAD DE ANALISIS Y SINTESIS', 'CAPACIDAD DE AN\u00c1LISIS Y S\u00cdNTESIS'),
+        label: 'CAPACIDAD DE\nAN\u00c1LISIS Y\nS\u00cdNTESIS',
         h: RH.lg,
       },
-      { keys: K('COMPRENSION_ESPACIAL', 'COMPRENSIÓN ESPACIAL'), label: 'COMPRENSIÓN\nESPACIAL', h: RH.md },
-      { keys: K('ADAPTACION', 'ADAPTACIÓN'), label: 'ADAPTACIÓN', h: RH.sm },
+      { keys: K('COMPRENSION_ESPACIAL', 'COMPRENSI\u00d3N ESPACIAL'), label: 'COMPRENSI\u00d3N\nESPACIAL', h: RH.md },
+      { keys: K('ADAPTACION', 'ADAPTACI\u00d3N'), label: 'ADAPTACI\u00d3N', h: RH.sm },
       { keys: K('RELACIONES'), label: 'RELACIONES', h: RH.sm },
     ],
   },
-
   {
-    label: 'DESCRIPCIÓN DE RESPONSABILIDADES',
+    label: 'DESCRIPCI\u00d3N DE RESPONSABILIDADES',
     rows: [
       { keys: K('TOMA_DECISIONES', 'TOMA DE DECISIONES'), label: 'TOMA DE\nDECISIONES', h: RH.md },
       {
@@ -156,9 +163,9 @@ const GROUPS: GroupDef[] = [
         keys: K(
           'RESP_INFORMACION_VALORES',
           'RESPONSABILIDAD POR INFORMACION O CUIDADOS DE VALORES',
-          'RESPONSABILIDAD POR INFORMACIÓN O CUIDADOS DE VALORES',
+          'RESPONSABILIDAD POR INFORMACI\u00d3N O CUIDADOS DE VALORES',
         ),
-        label: 'RESPONSABILIDAD\nPOR\nINFORMACIÓN O\nCUIDADOS DE\nVALORES',
+        label: 'RESPONSABILIDAD\nPOR\nINFORMACI\u00d3N O\nCUIDADOS DE\nVALORES',
         h: RH.lg,
       },
       {
@@ -173,103 +180,89 @@ const GROUPS: GroupDef[] = [
       },
     ],
   },
-
   {
-    label: 'DESCRIPCIÓN DE COMUNICACIÓN',
+    label: 'DESCRIPCI\u00d3N DE COMUNICACI\u00d3N',
     rows: [
-      { keys: K('COMUNICACION_ORAL', 'ORAL', 'COMUNICACION ORAL', 'COMUNICACIÓN ORAL'), label: 'ORAL', h: RH.sm },
-      { keys: K('COMUNICACION_GESTUAL', 'GESTUAL', 'COMUNICACION GESTUAL', 'COMUNICACIÓN GESTUAL'), label: 'GESTUAL', h: RH.sm },
+      { keys: K('COMUNICACION_ORAL', 'ORAL', 'COMUNICACION ORAL', 'COMUNICACI\u00d3N ORAL'), label: 'ORAL', h: RH.sm },
+      { keys: K('COMUNICACION_GESTUAL', 'GESTUAL', 'COMUNICACION GESTUAL', 'COMUNICACI\u00d3N GESTUAL'), label: 'GESTUAL', h: RH.sm },
     ],
   },
-
   {
-    label: 'DESCRIPCIÓN DE CONOCIMIENTOS ACADÉMICOS',
+    label: 'DESCRIPCI\u00d3N DE CONOCIMIENTOS ACAD\u00c9MICOS',
     rows: [
-      { keys: K('LECTURA', 'CONOCIMIENTOS ACADEMICOS LECTURA', 'CONOCIMIENTOS ACADÉMICOS LECTURA'), label: 'LECTURA', h: RH.sm },
-      { keys: K('ESCRITURA', 'CONOCIMIENTOS ACADEMICOS ESCRITURA', 'CONOCIMIENTOS ACADÉMICOS ESCRITURA'), label: 'ESCRITURA', h: RH.sm },
-      { keys: K('MATEMATICAS', 'MATEMÁTICAS', 'CONOCIMIENTOS ACADEMICOS MATEMATICAS', 'CONOCIMIENTOS ACADÉMICOS MATEMÁTICAS'), label: 'MATEMATICAS', h: RH.sm },
+      { keys: K('LECTURA', 'CONOCIMIENTOS ACADEMICOS LECTURA', 'CONOCIMIENTOS ACAD\u00c9MICOS LECTURA'), label: 'LECTURA', h: RH.sm },
+      { keys: K('ESCRITURA', 'CONOCIMIENTOS ACADEMICOS ESCRITURA', 'CONOCIMIENTOS ACAD\u00c9MICOS ESCRITURA'), label: 'ESCRITURA', h: RH.sm },
+      { keys: K('MATEMATICAS', 'MATEM\u00c1TICAS', 'CONOCIMIENTOS ACADEMICOS MATEMATICAS', 'CONOCIMIENTOS ACAD\u00c9MICOS MATEM\u00c1TICAS'), label: 'MATEM\u00c1TICAS', h: RH.sm },
     ],
   },
-
   {
-    label: 'DESCRIPCIÓN DE SENSOPERCEPCIÓN',
+    label: 'DESCRIPCI\u00d3N DE SENSOPERCEPCI\u00d3N',
     rows: [
-      { keys: K('VISION', 'VISIÓN'), label: 'VISIÓN', h: RH.sm },
-      { keys: K('PERCEPCION_COLOR', 'PERCEPCION DE COLORES', 'PERCEPCIÓN DE COLORES'), label: 'PERCEPCIÓN DE\nCOLORES', h: RH.sm },
-      { keys: K('PERCEPCION_FORMA', 'PERCEPCION DE LA FORMA', 'PERCEPCIÓN DE LA FORMA'), label: 'PERCEPCIÓN DE LA\nFORMA', h: RH.sm },
-      { keys: K('PERCEPCION_TAMANO', 'PERCEPCION DEL TAMANO', 'PERCEPCIÓN DEL TAMAÑO'), label: 'PERCEPCIÓN DEL\nTAMAÑO', h: RH.sm },
-      { keys: K('PERCEPCION_TEMPORAL', 'PERCEPCION TEMPORAL', 'PERCEPCIÓN TEMPORAL'), label: 'PERCEPCIÓN\nTEMPORAL', h: RH.sm },
-      { keys: K('ORIENTACION_ESPACIAL', 'ORIENTACION ESPACIAL', 'ORIENTACIÓN ESPACIAL'), label: 'ORIENTACIÓN\nESPACIAL', h: RH.sm },
-      { keys: K('AUDICION', 'AUDICIÓN'), label: 'AUDICIÓN', h: RH.sm },
-      { keys: K('UBICACION_FUENTE_SONORA', 'UBICACION DE FUENTE SONORA', 'UBICACIÓN DE FUENTE SONORA'), label: 'UBICACIÓN DE\nFUENTE SONORA', h: RH.md },
-      { keys: K('DISCRIMINACION_AUDITIVA', 'DISCRIMINACION AUDITIVA', 'DISCRIMINACIÓN AUDITIVA'), label: 'DISCRIMINACIÓN\nAUDITIVA', h: RH.md },
+      { keys: K('VISION', 'VISI\u00d3N'), label: 'VISI\u00d3N', h: RH.sm },
+      { keys: K('PERCEPCION_COLOR', 'PERCEPCION DE COLORES', 'PERCEPCI\u00d3N DE COLORES'), label: 'PERCEPCI\u00d3N DE\nCOLORES', h: RH.sm },
+      { keys: K('PERCEPCION_FORMA', 'PERCEPCION DE LA FORMA', 'PERCEPCI\u00d3N DE LA FORMA'), label: 'PERCEPCI\u00d3N DE LA\nFORMA', h: RH.sm },
+      { keys: K('PERCEPCION_TAMANO', 'PERCEPCION DEL TAMANO', 'PERCEPCI\u00d3N DEL TAMA\u00d1O'), label: 'PERCEPCI\u00d3N DEL\nTAMA\u00d1O', h: RH.sm },
+      { keys: K('PERCEPCION_TEMPORAL', 'PERCEPCION TEMPORAL', 'PERCEPCI\u00d3N TEMPORAL'), label: 'PERCEPCI\u00d3N\nTEMPORAL', h: RH.sm },
+      { keys: K('ORIENTACION_ESPACIAL', 'ORIENTACION ESPACIAL', 'ORIENTACI\u00d3N ESPACIAL'), label: 'ORIENTACI\u00d3N\nESPACIAL', h: RH.sm },
+      { keys: K('AUDICION', 'AUDICI\u00d3N'), label: 'AUDICI\u00d3N', h: RH.sm },
+      { keys: K('UBICACION_FUENTE_SONORA', 'UBICACION DE FUENTE SONORA', 'UBICACI\u00d3N DE FUENTE SONORA'), label: 'UBICACI\u00d3N DE\nFUENTE SONORA', h: RH.md },
+      { keys: K('DISCRIMINACION_AUDITIVA', 'DISCRIMINACION AUDITIVA', 'DISCRIMINACI\u00d3N AUDITIVA'), label: 'DISCRIMINACI\u00d3N\nAUDITIVA', h: RH.md },
       { keys: K('SENSIBILIDAD_SUPERFICIAL', 'SENSIBILIDAD SUPERFICIAL'), label: 'SENSIBILIDAD\nSUPERFICIAL', h: RH.md },
-
-      // ✅ OJO: enum = ESTEROGNOSIA, en tu UI estabas con ESTEREOGNOSIA
       { keys: K('ESTEROGNOSIA', 'ESTEREOGNOSIA'), label: 'ESTEREOGNOSIA', h: RH.sm },
       { keys: K('BAROGNOSIA'), label: 'BAROGNOSIA', h: RH.sm },
       {
         keys: K(
           'PROPIOCEPCION_SENTIDO_KINETICO',
           'PROPIOCEPCION Y SENTIDO KINETICO',
-          'PROPIOCEPCIÓN Y SENTIDO KINÉTICO',
-          'PROPIOCEPCIÓN Y SENTIDO KINETICO',
+          'PROPIOCEPCI\u00d3N Y SENTIDO KIN\u00c9TICO',
+          'PROPIOCEPCI\u00d3N Y SENTIDO KINETICO',
         ),
-        label: 'PROPIOCEPCIÓN Y\nSENTIDO KINETICO',
+        label: 'PROPIOCEPCI\u00d3N Y\nSENTIDO KIN\u00c9TICO',
         h: RH.md,
       },
       { keys: K('OLFATO'), label: 'OLFATO', h: RH.sm },
       { keys: K('GUSTO'), label: 'GUSTO', h: RH.sm },
     ],
   },
-
   {
     label: 'MOTRICIDAD GRUESA',
     rows: [
       { keys: K('DESPLAZAMIENTO'), label: 'DESPLAZAMIENTO', h: RH.sm },
       { keys: K('TRANSPORTAR_PESO', 'TRANSPORTAR PESO'), label: 'TRANSPORTAR\nPESO', h: RH.md },
-
-      // ✅ ESTABA FALTANDO (existe en tu enum)
       { keys: K('ALCANZAR'), label: 'ALCANZAR', h: RH.sm },
-
       { keys: K('HALAR'), label: 'HALAR', h: RH.sm },
       { keys: K('EMPUJAR'), label: 'EMPUJAR', h: RH.sm },
       { keys: K('LEVANTAR'), label: 'LEVANTAR', h: RH.sm },
-      { keys: K('POSICION_SENTADO', 'POSICION SENTADO', 'POSICIÓN SENTADO'), label: 'POSICIÓN\nSENTADO', h: RH.md },
-
-      // ✅ evita ambigüedad: NO pongas "SUPLENCIA" sola primero
-      { keys: K('SUPLENCIA_SENTADO', 'SUPLENCIA POSICION SENTADO', 'SUPLENCIA POSICIÓN SENTADO', 'SUPLENCIA'), label: 'SUPLENCIA', h: RH.sm },
-
-      { keys: K('POSICION_DE_PIE', 'POSICION DE PIE', 'POSICIÓN DE PIE'), label: 'POSICIÓN DE PIE', h: RH.sm },
-      { keys: K('SUPLENCIA_DE_PIE', 'SUPLENCIA POSICION DE PIE', 'SUPLENCIA POSICIÓN DE PIE', 'SUPLENCIA'), label: 'SUPLENCIA', h: RH.sm },
-
-      { keys: K('POSICION_RODILLAS', 'POSICION DE RODILLAS', 'POSICIÓN DE RODILLAS'), label: 'POSICIÓN DE\nRODILLAS', h: RH.md },
+      { keys: K('POSICION_SENTADO', 'POSICION SENTADO', 'POSICI\u00d3N SENTADO'), label: 'POSICI\u00d3N\nSENTADO', h: RH.md },
+      { keys: K('SUPLENCIA_SENTADO', 'SUPLENCIA POSICION SENTADO', 'SUPLENCIA POSICI\u00d3N SENTADO', 'SUPLENCIA'), label: 'SUPLENCIA', h: RH.sm },
+      { keys: K('POSICION_DE_PIE', 'POSICION DE PIE', 'POSICI\u00d3N DE PIE'), label: 'POSICI\u00d3N DE PIE', h: RH.sm },
+      { keys: K('SUPLENCIA_DE_PIE', 'SUPLENCIA POSICION DE PIE', 'SUPLENCIA POSICI\u00d3N DE PIE', 'SUPLENCIA'), label: 'SUPLENCIA', h: RH.sm },
+      { keys: K('POSICION_RODILLAS', 'POSICION DE RODILLAS', 'POSICI\u00d3N DE RODILLAS'), label: 'POSICI\u00d3N DE\nRODILLAS', h: RH.md },
       {
-        keys: K('POSICION_CUCLILLAS', 'POSICION EN CUNCLILLAS AGACHARSE', 'POSICIÓN EN CUNCLILLAS (AGACHARSE)', 'POSICION EN CUNCLILLAS (AGACHARSE)'),
-        label: 'POSICIÓN EN\nCUNCLILLAS\n(AGACHARSE)',
+        keys: K('POSICION_CUCLILLAS', 'POSICION EN CUNCLILLAS AGACHARSE', 'POSICI\u00d3N EN CUNCLILLAS (AGACHARSE)', 'POSICION EN CUNCLILLAS (AGACHARSE)'),
+        label: 'POSICI\u00d3N EN\nCUNCLILLAS\n(AGACHARSE)',
         h: RH.lg,
       },
-      { keys: K('EQUILIBRIO_ESTATICO', 'EQUILIBRIO ESTATICO', 'EQUILIBRIO ESTÁTICO'), label: 'EQUILIBRIO\nESTÁTICO', h: RH.md },
+      { keys: K('EQUILIBRIO_ESTATICO', 'EQUILIBRIO ESTATICO', 'EQUILIBRIO EST\u00c1TICO'), label: 'EQUILIBRIO\nEST\u00c1TICO', h: RH.md },
     ],
   },
-
   {
-    label: 'DESCRIPCIÓN DE MOTRICIDAD FINA',
+    label: 'DESCRIPCI\u00d3N DE MOTRICIDAD FINA',
     rows: [
       { keys: K('AGARRE_MANO_LLENA', 'AGARRE A MANO LLENA'), label: 'AGARRE A MANO\nLLENA', h: RH.md },
-      { keys: K('AGARRE_CILINDRICO', 'AGARRE CILINDRICO', 'AGARRE CILÍNDRICO'), label: 'AGARRE\nCILINDRICO', h: RH.md },
-      { keys: K('DIGITO_DIGITAL', 'DIGITO DIGITAL', 'DÍGITO-DIGITAL', 'DIGITO-DIGITAL'), label: 'DIGITO-DIGITAL', h: RH.sm },
+      { keys: K('AGARRE_CILINDRICO', 'AGARRE CILINDRICO', 'AGARRE CIL\u00cdNDRICO'), label: 'AGARRE\nCIL\u00cdNDRICO', h: RH.md },
+      { keys: K('DIGITO_DIGITAL', 'DIGITO DIGITAL', 'D\u00cdGITO-DIGITAL', 'DIGITO-DIGITAL'), label: 'D\u00cdGITO-DIGITAL', h: RH.sm },
       { keys: K('ENGANCHE'), label: 'ENGANCHE', h: RH.sm },
       { keys: K('PINZA_FINA', 'PINZA FINA'), label: 'PINZA FINA', h: RH.sm },
-      { keys: K('PINZA_TRIPODE', 'PINZA TRIPODE', 'PINZA TRÍPODE'), label: 'PINZA TRIPODE', h: RH.sm },
+      { keys: K('PINZA_TRIPODE', 'PINZA TRIPODE', 'PINZA TR\u00cdPODE'), label: 'PINZA TR\u00cdPODE', h: RH.sm },
       { keys: K('PINZA_LATERAL', 'PINZA LATERAL'), label: 'PINZA LATERAL', h: RH.sm },
       { keys: K('EXACTITUD'), label: 'EXACTITUD', h: RH.sm },
-      { keys: K('PRECISION', 'PRECISIÓN'), label: 'PRECISIÓN', h: RH.sm },
+      { keys: K('PRECISION', 'PRECISI\u00d3N'), label: 'PRECISI\u00d3N', h: RH.sm },
       { keys: K('PULSO'), label: 'PULSO', h: RH.sm },
       { keys: K('AGILIDAD'), label: 'AGILIDAD', h: RH.sm },
       { keys: K('DESTREZA_MANUAL', 'DESTREZA MANUAL'), label: 'DESTREZA\nMANUAL', h: RH.md },
       { keys: K('DESTREZA_DIGITAL', 'DESTREZA DIGITAL'), label: 'DESTREZA DIGITAL', h: RH.sm },
-      { keys: K('ARMONIA', 'ARMONÍA'), label: 'ARMONIA', h: RH.sm },
+      { keys: K('ARMONIA', 'ARMON\u00cdA'), label: 'ARMON\u00cdA', h: RH.sm },
     ],
   },
 ];
@@ -289,7 +282,7 @@ function chunkRows(rows: RowDef[], firstMaxH = CHUNK_FIRST_H, otherMaxH = CHUNK_
       out.push(cur);
       cur = [r];
       h = r.h;
-      maxH = otherMaxH; // ✅ después del primer corte, chunks más pequeños
+      maxH = otherMaxH; // �o. después del primer corte, chunks más pequeños
     } else {
       cur.push(r);
       h += r.h;
@@ -352,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rotWrap: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-  rotText: { fontSize: 7.0, fontWeight: 700, textAlign: 'center', transform: [{ rotate: '-90deg' }] },
+  rotText: { fontSize: 7.0, fontWeight: 700, textAlign: 'center' },
 
   sumText: { fontSize: 7.4, fontWeight: 700, textAlign: 'center' },
 });
@@ -371,8 +364,9 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     if (typeof v === 'string') return Number.isFinite(Number(v));
 
     if (typeof v === 'object') {
-      if (typeof (v as any).toNumber === 'function') {
-        const n = (v as any).toNumber();
+      const valueObject = v as { toNumber?: () => number };
+      if (typeof valueObject.toNumber === 'function') {
+        const n = valueObject.toNumber();
         return Number.isFinite(n);
       }
       const n = Number(String(v));
@@ -382,15 +376,15 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     return false;
   })();
 
-  // ✅ Reglas:
+  // �o. Reglas:
   // - B: siempre "NA"
   // - A: si proc === 'A' y hay totalTitulo3 => "X", si no => "NA"
   // - si proc === 'B', A queda en blanco (no aplica)
   const cellA = proc === 'A' ? (hasTitulo3 ? 'X' : 'NA') : ' ';
   const cellB = 'NA';
 
-  // ✅ añade keys robustas (factor/criterio invertidos, combos, y “partes” si vienen con separadores)
-  const addKeys = (raw: any, g: '0' | 'I' | 'II' | 'III' | 'IV') => {
+  // �o. añade keys robustas (factor/criterio invertidos, combos, y �?opartes�?� si vienen con separadores)
+  const addKeys = (raw: unknown, g: '0' | 'I' | 'II' | 'III' | 'IV') => {
     const t = toText(raw);
     if (!t) return;
 
@@ -431,7 +425,7 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     // 1) normal (factor)
     addKeys(factorTxt, g);
 
-    // 2) por si viene invertido (a veces “factor” está en criterio)
+    // 2) por si viene invertido (a veces �?ofactor�?� está en criterio)
     addKeys(criterioTxt, g);
 
     // 3) combinaciones en ambos órdenes
@@ -471,8 +465,11 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
           style={[
             styles.criterioMerged,
             flexW(COL.criterio),
-            { height: h },
-            isLastChunkOfGroup ? { borderBottomWidth: BW, borderBottomColor: BC } : null,
+            {
+              height: h,
+              borderBottomWidth: isLastChunkOfGroup ? BW : 0,
+              borderBottomColor: BC,
+            },
           ]}
         >
           {showLabel ? (
@@ -513,7 +510,7 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
 
   const groupsChunked = GROUPS.map((g) => ({
     label: g.label,
-    chunks: chunkRows(g.rows), // ✅ usa first/other
+    chunks: chunkRows(g.rows), // �o. usa first/other
   }));
 
   return (
@@ -524,7 +521,7 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
         </View>
 
         <View style={styles.tableBox}>
-          <View wrap={false}>
+          <KeepTogether minPresenceAhead={28}>
             <View style={styles.topDescRow} wrap={false}>
               <View style={[styles.descCell, flexW(TOTAL - COL.g * 2)]}>
                 <Text style={{ fontSize: 7.6, lineHeight: 1.15 }}>
@@ -554,7 +551,7 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
 
             <View style={[styles.row, styles.cellB]} wrap={false}>
               <View style={[styles.cell, styles.headBg, flexW(COL.criterio + COL.factor)]}>
-                <Text style={styles.headText}>ANALISIS OCUPACIONAL DEL{'\n'}USUARIO</Text>
+                <Text style={styles.headText}>ANÁLISIS OCUPACIONAL DEL{'\n'}USUARIO</Text>
               </View>
               <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g * G_COLS)]}>
                 <Text style={styles.headText}>GRAVEDAD</Text>
@@ -584,11 +581,11 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
                 <Text style={styles.headText}>IV</Text>
               </View>
             </View>
+          </KeepTogether>
 
-            {groupsChunked[0]?.chunks?.[0]
-              ? renderChunk(groupsChunked[0].label, groupsChunked[0].chunks[0], true, groupsChunked[0].chunks.length === 1)
-              : null}
-          </View>
+          {groupsChunked[0]?.chunks?.[0]
+            ? renderChunk(groupsChunked[0].label, groupsChunked[0].chunks[0], true, groupsChunked[0].chunks.length === 1)
+            : null}
 
           {groupsChunked.map((g, gi) =>
             g.chunks.map((chunk, ci) => {
@@ -642,3 +639,11 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     </View>
   );
 }
+
+
+
+
+
+
+
+

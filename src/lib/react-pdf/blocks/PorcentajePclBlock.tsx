@@ -1,142 +1,170 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
+import { GridBand, GridCell, GridRow } from '../components/Grid';
+import { KeepTogether } from '../components/KeepTogether';
 
-type Props = { dictamen: any };
+type DictamenLike = {
+  [key: string]: unknown;
+  procedimientoPcl?: unknown;
+  procedimiento?: unknown;
+  totalTitulo1?: unknown;
+  tituloI?: unknown;
+  totalCap1?: unknown;
+  totalCap2?: unknown;
+  tituloII?: unknown;
+  totalTitulo3?: unknown;
+  tituloIII?: unknown;
+  totalPcl?: unknown;
+  pclTotal?: unknown;
+};
 
-const BW = 1.2; // ✅ consistente con tu ajuste
-const BC = pdfTheme.colors.border;
+type Props = {
+  dictamen: DictamenLike;
+};
 
-// Colores exactos del ejemplo
 const COLOR = {
   blue: '#9BC2E6',
   light: '#E0EDF8',
   white: '#FFFFFF',
 };
 
-// Columnas (proporciones tomadas del ejemplo para que coincida)
 const COL = {
   etapa: 12,
-  a: 14,
-  sep: 8,
-  b: 11,
+  valorA: 14,
+  separador: 8,
+  valorB: 11,
 } as const;
 
-const TOTAL = COL.etapa + COL.a + COL.sep + COL.b;
-
-// ✅ CAMBIO: ancho fijo por % (evita “torcido” por redondeos de flex en cada fila)
-const flexW = (n: number) => ({ width: `${(n / TOTAL) * 100}%` });
-
-function toNum(v: any): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
-function fmtPct(v: number | null | undefined): string {
-  if (v == null) return ''; // en el ejemplo va vacío
+function toNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
-  // ✅ Tope máximo 100%
-  const capped = v > 100 ? 100 : v;
-
+function formatPercent(value: number | null | undefined): string {
+  if (value == null) return '';
+  const capped = value > 100 ? 100 : value;
   return Number.isInteger(capped) ? `${capped}%` : `${capped.toFixed(1)}%`;
 }
 
 export default function PorcentajePclBlock({ dictamen }: Props) {
-  const proc = (dictamen?.procedimientoPcl ?? dictamen?.procedimiento ?? 'A') as 'A' | 'B';
+  const procedimiento =
+    String(dictamen?.procedimientoPcl ?? dictamen?.procedimiento ?? 'A').toUpperCase() === 'B'
+      ? 'B'
+      : 'A';
 
-  // Intenta leer de varias rutas sin romper nada (si no existe, queda vacío)
-  const t1 = toNum(dictamen?.totalTitulo1 ?? dictamen?.tituloI?.valorTotal);
-  const c1 = toNum(dictamen?.totalCap1 ?? dictamen?.tituloII?.capitulo1?.valorTotal);
-  const c2 = toNum(dictamen?.totalCap2 ?? dictamen?.tituloII?.capitulo2?.valorTotal);
-  const t3 = toNum(dictamen?.totalTitulo3 ?? dictamen?.tituloIII?.valorTotal);
+  const tituloI = asRecord(dictamen?.tituloI);
+  const tituloII = asRecord(dictamen?.tituloII);
+  const capitulo1 = asRecord(tituloII.capitulo1);
+  const capitulo2 = asRecord(tituloII.capitulo2);
+  const tituloIII = asRecord(dictamen?.tituloIII);
 
-  const totalCalc = (() => {
-    let s = 0;
-    let any = false;
-    if (t1 != null) {
-      s += t1;
-      any = true;
+  const totalTitulo1 = toNumber(dictamen?.totalTitulo1 ?? tituloI.valorTotal);
+  const totalCap1 = toNumber(dictamen?.totalCap1 ?? capitulo1.valorTotal);
+  const totalCap2 = toNumber(dictamen?.totalCap2 ?? capitulo2.valorTotal);
+  const totalTitulo3 = toNumber(dictamen?.totalTitulo3 ?? tituloIII.valorTotal);
+
+  const totalCalculado = (() => {
+    let sum = 0;
+    let hasAny = false;
+
+    for (const value of [totalTitulo1, totalCap1, totalCap2]) {
+      if (value != null) {
+        sum += value;
+        hasAny = true;
+      }
     }
-    if (c1 != null) {
-      s += c1;
-      any = true;
+
+    if (procedimiento === 'A' && totalTitulo3 != null) {
+      sum += totalTitulo3;
+      hasAny = true;
     }
-    if (c2 != null) {
-      s += c2;
-      any = true;
-    }
-    if (proc === 'A' && t3 != null) {
-      s += t3;
-      any = true;
-    }
-    return any ? s : null;
+
+    return hasAny ? sum : null;
   })();
 
-  const total = toNum(dictamen?.totalPcl ?? dictamen?.pclTotal ?? totalCalc);
-
-  const valA = (v: number | null) => (proc === 'A' ? fmtPct(v) : '');
-  const valB = (v: number | null) => (proc === 'B' ? fmtPct(v) : '');
+  const totalPcl = toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? totalCalculado);
 
   const rows: Array<{ label: string; a: string; b: string; bold?: boolean }> = [
-    { label: 'TITULO I', a: valA(t1), b: valB(t1) },
+    {
+      label: 'TITULO I',
+      a: procedimiento === 'A' ? formatPercent(totalTitulo1) : '',
+      b: procedimiento === 'B' ? formatPercent(totalTitulo1) : '',
+    },
     { label: 'TITULO II', a: '', b: '' },
-    { label: 'CAPITULO 1', a: valA(c1), b: valB(c1) },
-    { label: 'CAPITULO 2', a: valA(c2), b: valB(c2) },
-    { label: 'TITULO III', a: valA(t3), b: '' }, // en el ejemplo queda vacío si no aplica
-    { label: 'TOTAL PCL', a: valA(total), b: valB(total), bold: true },
+    {
+      label: 'CAPITULO 1',
+      a: procedimiento === 'A' ? formatPercent(totalCap1) : '',
+      b: procedimiento === 'B' ? formatPercent(totalCap1) : '',
+    },
+    {
+      label: 'CAPITULO 2',
+      a: procedimiento === 'A' ? formatPercent(totalCap2) : '',
+      b: procedimiento === 'B' ? formatPercent(totalCap2) : '',
+    },
+    {
+      label: 'TITULO III',
+      a: procedimiento === 'A' ? formatPercent(totalTitulo3) : '',
+      b: '',
+    },
+    {
+      label: 'TOTAL PCL',
+      a: procedimiento === 'A' ? formatPercent(totalPcl) : '',
+      b: procedimiento === 'B' ? formatPercent(totalPcl) : '',
+      bold: true,
+    },
   ];
 
-  // ✅ CLAVE: hacer el bloque COMPLETO “no-partible” para que NO quede el título/encabezado huérfano
-  const TITLE_H = 14;
-  const HEAD_H = 32;
-  const ROW_H = 16;
-  const MIN_AHEAD = TITLE_H + HEAD_H + rows.length * ROW_H + 12; // margen extra
-
   return (
-    <View style={styles.table} wrap={false} minPresenceAhead={MIN_AHEAD}>
-      {/* Título */}
-      <View style={[styles.row, styles.bb]} wrap={false}>
-        <View style={[styles.cell, flexW(TOTAL), styles.titleCell]}>
-          <Text style={styles.titleText}>PORCENTAJE DE PÉRDIDA DE CAPACIDAD LABORAL</Text>
-        </View>
-      </View>
+    <View>
+      <KeepTogether minPresenceAhead={24}>
+        <GridBand backgroundColor={COLOR.blue}>Porcentaje de perdida de capacidad laboral</GridBand>
 
-      {/* Encabezado */}
-      <View style={[styles.row, styles.bb]} wrap={false}>
-        <View style={[styles.cell, flexW(COL.etapa), styles.blueCell, styles.h32]}>
-          <Text style={styles.headText}>ETAPA</Text>
-        </View>
+        <GridRow style={styles.headerRow}>
+          <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
+            <Text style={styles.headText}>ETAPA</Text>
+          </GridCell>
+          <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
+            <Text style={styles.headText}>PROCEDIMIENTO A</Text>
+          </GridCell>
+          <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
+            <Text style={styles.headText}>{' '}</Text>
+          </GridCell>
+          <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
+            <Text style={styles.headText}>PROCEDIMIENTO B</Text>
+          </GridCell>
+        </GridRow>
+      </KeepTogether>
 
-        <View style={[styles.cell, styles.bl, flexW(COL.a), styles.lightCell, styles.h32]}>
-          <Text style={styles.headText}>PROCEDIMIENTO A</Text>
-        </View>
+      {rows.map((row, index) => {
+        const isLast = index === rows.length - 1;
+        const textStyle = row.bold ? styles.bodyTextBold : styles.bodyText;
+        const rowNode = (
+          <GridRow key={row.label} style={styles.bodyRow}>
+            <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
+              <Text style={textStyle}>{row.label}</Text>
+            </GridCell>
+            <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
+              <Text style={textStyle}>{row.a}</Text>
+            </GridCell>
+            <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
+              <Text style={styles.bodyText}>{' '}</Text>
+            </GridCell>
+            <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
+              <Text style={textStyle}>{row.b}</Text>
+            </GridCell>
+          </GridRow>
+        );
 
-        <View style={[styles.cell, styles.bl, flexW(COL.sep), styles.whiteCell, styles.h32]} />
-
-        <View style={[styles.cell, styles.bl, flexW(COL.b), styles.lightCell, styles.noPad]}>
-          <Text style={styles.headText}>PROCEDIMIENTO B</Text>
-        </View>
-      </View>
-
-      {/* Filas */}
-      {rows.map((r, idx) => {
-        const isLast = idx === rows.length - 1;
-        return (
-          <View key={r.label} style={[styles.row, !isLast && styles.bb]} wrap={false}>
-            <View style={[styles.cell, flexW(COL.etapa), styles.blueCell, styles.h16]}>
-              <Text style={[styles.bodyText, r.bold && styles.bold]}>{r.label}</Text>
-            </View>
-
-            <View style={[styles.cell, styles.bl, flexW(COL.a), styles.lightCell, styles.h16]}>
-              <Text style={[styles.bodyText, r.bold && styles.bold]}>{r.a}</Text>
-            </View>
-
-            <View style={[styles.cell, styles.bl, flexW(COL.sep), styles.whiteCell, styles.h16]} />
-
-            <View style={[styles.cell, styles.bl, flexW(COL.b), styles.lightCell, styles.h16]}>
-              <Text style={[styles.bodyText, r.bold && styles.bold]}>{r.b}</Text>
-            </View>
-          </View>
+        return isLast ? (
+          <KeepTogether key={row.label} minPresenceAhead={14}>
+            {rowNode}
+          </KeepTogether>
+        ) : (
+          rowNode
         );
       })}
     </View>
@@ -144,57 +172,24 @@ export default function PorcentajePclBlock({ dictamen }: Props) {
 }
 
 const styles = StyleSheet.create({
-  table: {
-    borderWidth: BW,
-    borderColor: BC,
-    width: '100%',
+  headerRow: {
+    minHeight: 32,
   },
-
-  // ✅ CAMBIO: asegura que el % de las celdas sea idéntico en TODAS las filas
-  row: { flexDirection: 'row', width: '100%' },
-
-  // bordes internos
-  bb: { borderBottomWidth: BW, borderBottomColor: BC },
-  bl: { borderLeftWidth: BW, borderLeftColor: BC },
-
-  cell: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 0,
+  headText: {
+    fontSize: 7.5,
+    fontWeight: 700,
+    textAlign: 'center',
   },
-
-  // backgrounds
-  blueCell: { backgroundColor: COLOR.blue },
-  lightCell: { backgroundColor: COLOR.light },
-  whiteCell: { backgroundColor: COLOR.white },
-
-  // alturas controladas
-  h16: { height: 16 },
-  h32: { height: 32 },
-
-  // title
-  titleCell: { backgroundColor: COLOR.blue, height: 14 },
-  titleText: { fontSize: 8, fontWeight: 700 },
-
-  headText: { fontSize: 7.5, fontWeight: 700 },
-  bodyText: { fontSize: 7.5 },
-  bold: { fontWeight: 700 },
-
-  // “PROCEDIMIENTO / B” split (lo dejo igual aunque no lo uses aquí)
-  noPad: { paddingHorizontal: 0, paddingVertical: 0, height: 32 },
-  bSplitTop: {
-    height: 16,
-    width: '100%',
-    borderBottomWidth: BW,
-    borderBottomColor: BC,
-    justifyContent: 'center',
-    alignItems: 'center',
+  bodyRow: {
+    minHeight: 16,
   },
-  bSplitBottom: {
-    height: 16,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+  bodyText: {
+    fontSize: 7.5,
+    textAlign: 'center',
+  },
+  bodyTextBold: {
+    fontSize: 7.5,
+    textAlign: 'center',
+    fontWeight: 700,
   },
 });

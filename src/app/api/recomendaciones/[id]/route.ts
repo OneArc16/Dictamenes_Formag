@@ -700,6 +700,7 @@ export async function POST(req: Request, context: RouteContext) {
         where: { id: recomendacionId },
         data: {
           estado: 'REABIERTO',
+          cerradaEn: null,
           reabiertaEn: new Date(),
           reabiertaPorId: auth.empleadoId,
           motivoReaperturaId: motivoReapertura.id,
@@ -753,3 +754,4 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
+

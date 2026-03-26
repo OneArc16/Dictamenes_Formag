@@ -1,4 +1,4 @@
-// src/lib/react-pdf/styles.ts
+﻿// src/lib/react-pdf/styles.ts
 import { StyleSheet } from '@react-pdf/renderer';
 
 export const styles = StyleSheet.create({
@@ -16,14 +16,14 @@ export const styles = StyleSheet.create({
   h1: { fontSize: 10.5, fontWeight: 700, textAlign: 'center' },
   h2: { fontSize: 9.2, fontWeight: 700 },
 
-  box: { borderWidth: 1, borderColor: '#000' },
-  boxThin: { borderWidth: 0.6, borderColor: '#000' },
+  box: { borderWidth: 0.95, borderColor: '#000' },
+  boxThin: { borderWidth: 0.75, borderColor: '#000' },
 
   sectionTitle: {
     fontWeight: 700,
     paddingVertical: 3,
     paddingHorizontal: 6,
-    borderWidth: 1,
+    borderWidth: 0.95,
     borderColor: '#000',
     textAlign: 'center',
   },
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
 
   cell: {
-    borderRightWidth: 1,
+    borderRightWidth: 0.95,
     borderRightColor: '#000',
     paddingHorizontal: 4,
     paddingVertical: 3,
@@ -44,3 +44,4 @@ export const styles = StyleSheet.create({
 
   label: { fontWeight: 700 },
 });
+

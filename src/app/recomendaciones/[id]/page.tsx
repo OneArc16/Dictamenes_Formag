@@ -218,6 +218,8 @@ export default async function RecomendacionDetallePage({
     }),
   };
 
+  const ultimaReapertura = detalle.historial.find((item) => item.tipo === 'REAPERTURA') ?? null;
+
   const motivos: RecomendacionMotivoReaperturaOption[] = motivosReapertura.map((item) => ({
     id: item.id,
     nombre: item.nombre,
@@ -245,6 +247,15 @@ export default async function RecomendacionDetallePage({
                 canClose={canClose}
                 canReopen={canReopen}
                 motivosReapertura={motivos}
+                ultimaReapertura={
+                  ultimaReapertura
+                    ? {
+                        fecha: ultimaReapertura.fecha,
+                        actorNombre: ultimaReapertura.actorNombre,
+                        motivoReapertura: ultimaReapertura.motivoReapertura,
+                      }
+                    : null
+                }
               />
             }
           />

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 
 type Props = {
@@ -6,9 +6,9 @@ type Props = {
 };
 
 function formatDateDMY(value?: string | Date | null) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return 'â€”';
   const dd = String(d.getUTCDate()).padStart(2, '0');
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
   const yyyy = String(d.getUTCFullYear());
@@ -29,26 +29,26 @@ function calcAge(birth?: string | Date | null, ref?: string | Date | null) {
   return age;
 }
 
-// ✅ evita [object Object]
+// âœ… evita [object Object]
 function asText(v: any): string {
-  if (v == null || v === '') return '—';
+  if (v == null || v === '') return 'â€”';
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {
     const pick = v.nombre ?? v.name ?? v.label ?? v.valor ?? v.codigo ?? null;
-    return pick != null ? String(pick) : '—';
+    return pick != null ? String(pick) : 'â€”';
   }
   return String(v);
 }
 
 // Colores plantilla (Office)
 const COLOR = {
-  title: '#F8CBAD', // melocotón
-  blue: '#9DC3E6', // azul plantilla
-  blueLight: '#D9E1F2', // azul claro plantilla
+  title: '#FCE4D6', // melocotÃ³n
+  blue: '#9BC2E6', // azul plantilla
+  blueLight: '#DAE9F7', // azul claro plantilla
 };
 
-// ✅ líneas internas más notorias
+// âœ… lÃ­neas internas mÃ¡s notorias
 const INNER_BORDER_W = 1;
 const INNER_BORDER_C = '#000000';
 
@@ -121,7 +121,7 @@ function FieldInline({
   value: any;
   uppercaseValue?: boolean;
 }) {
-  const v = value == null || value === '' ? '—' : String(value);
+  const v = value == null || value === '' ? 'â€”' : String(value);
   return (
     <Text style={styles.text}>
       <Text style={styles.label}>{label} </Text>
@@ -130,33 +130,33 @@ function FieldInline({
   );
 }
 
-// ✅ mapeos “bonitos” para códigos del schema
+// âœ… mapeos â€œbonitosâ€ para cÃ³digos del schema
 function sexoLabel(sexo?: string | null) {
   const s = (sexo ?? '').toUpperCase();
   if (s === 'H') return 'MASCULINO';
   if (s === 'M') return 'FEMENINO';
-  return sexo ?? '—';
+  return sexo ?? 'â€”';
 }
 
 function zonaLabel(z?: string | null) {
   const s = (z ?? '').toUpperCase();
   if (s === 'U') return 'URBANA';
   if (s === 'R') return 'RURAL';
-  return z ?? '—';
+  return z ?? 'â€”';
 }
 
 export function IdentificacionEducadorBlock({ dictamen }: Props) {
-  // ✅ Dictamen -> usuario (Usuario)
+  // âœ… Dictamen -> usuario (Usuario)
   const u = dictamen?.usuario ?? {};
 
-  const nombres = [u?.primerNombre, u?.segundoNombre].filter(Boolean).join(' ') || '—';
-  const apellidos = [u?.primerApellido, u?.segundoApellido].filter(Boolean).join(' ') || '—';
+  const nombres = [u?.primerNombre, u?.segundoNombre].filter(Boolean).join(' ') || 'â€”';
+  const apellidos = [u?.primerApellido, u?.segundoApellido].filter(Boolean).join(' ') || 'â€”';
 
-  const documento = u?.identificacion ?? '—';
+  const documento = u?.identificacion ?? 'â€”';
 
   const genero = sexoLabel(u?.sexo ?? u?.genero ?? null);
 
-  // ✅ escolaridad (ya llega como string desde tu route, pero tolerante)
+  // âœ… escolaridad (ya llega como string desde tu route, pero tolerante)
   const escolaridad = asText(u?.escolaridad);
 
   const estadoCivil = asText(u?.estadoCivil);
@@ -168,17 +168,17 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
   const direccion = asText(u?.direccion);
   const zona = zonaLabel(u?.zonaResidencia ?? null);
 
-  const municipio = u?.municipio?.nombre ?? '—';
-  const departamento = u?.departamento?.nombre ?? '—';
+  const municipio = u?.municipio?.nombre ?? 'â€”';
+  const departamento = u?.departamento?.nombre ?? 'â€”';
 
-  // ✅ CARGO: primero el nombre del CargoDocente, luego fallback
+  // âœ… CARGO: primero el nombre del CargoDocente, luego fallback
   // (tu route ya manda usuario.cargo y cargoDocenteNombre, pero dejamos todo tolerante)
   const cargo =
-    asText(u?.cargoDocenteNombre) !== '—'
+    asText(u?.cargoDocenteNombre) !== 'â€”'
       ? asText(u?.cargoDocenteNombre)
-      : asText(u?.cargoDocente?.nombre) !== '—'
+      : asText(u?.cargoDocente?.nombre) !== 'â€”'
       ? asText(u?.cargoDocente?.nombre)
-      : asText(u?.cargo) !== '—'
+      : asText(u?.cargo) !== 'â€”'
       ? asText(u?.cargo)
       : asText(u?.codigoOcupacion);
 
@@ -187,9 +187,9 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
 
   return (
     <View>
-      {/* Título */}
+      {/* TÃ­tulo */}
       <View style={styles.titleRow}>
-        <Text style={styles.titleText}>2. IDENTIFICACIÓN DEL EDUCADOR</Text>
+        <Text style={styles.titleText}>2. IDENTIFICACIÃ“N DEL EDUCADOR</Text>
       </View>
 
       {/* Row 1: Nombres / Apellidos (azul) */}
@@ -216,10 +216,10 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
         </Cell>
       </View>
 
-      {/* Row 3: Género / Escolaridad / Estado civil */}
+      {/* Row 3: GÃ©nero / Escolaridad / Estado civil */}
       <View style={[styles.row, styles.h3]}>
         <Cell flex={1.05} bg={COLOR.blue}>
-          <FieldInline label="Género:" value={genero} />
+          <FieldInline label="GÃ©nero:" value={genero} />
         </Cell>
         <Cell flex={1.6} bg={COLOR.blue}>
           <FieldInline label="Nivel de escolaridad:" value={escolaridad} />
@@ -241,17 +241,17 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
         <Cell flex={1.2} bg={COLOR.blueLight} last>
           <FieldInline
             label="Edad:"
-            value={edadCalc == null ? '—' : `${edadCalc} años`}
+            value={edadCalc == null ? 'â€”' : `${edadCalc} aÃ±os`}
             uppercaseValue={false}
           />
         </Cell>
       </View>
 
-      {/* Row 5: Dirección */}
+      {/* Row 5: DirecciÃ³n */}
       <View style={[styles.row, styles.h5]}>
         <Cell flex={1.6} bg={COLOR.blue}>
           <Text style={styles.text}>
-            <Text style={styles.label}>Dirección del calificado:</Text>
+            <Text style={styles.label}>DirecciÃ³n del calificado:</Text>
           </Text>
         </Cell>
         <Cell flex={2.9} bg={COLOR.blueLight} last>
@@ -274,16 +274,16 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
         </Cell>
       </View>
 
-      {/* Row 7: Cargo / Grado / Vinculación */}
+      {/* Row 7: Cargo / Grado / VinculaciÃ³n */}
       <View style={[styles.row, styles.h4, styles.rowLast]}>
         <Cell flex={1.35} bg={COLOR.blue}>
           <FieldInline label="Cargo:" value={cargo} />
         </Cell>
         <Cell flex={1.25} bg={COLOR.blue}>
-          <FieldInline label="Grado de escalafón:" value={gradoEscalafon} />
+          <FieldInline label="Grado de escalafÃ³n:" value={gradoEscalafon} />
         </Cell>
         <Cell flex={1.5} bg={COLOR.blueLight} last>
-          <FieldInline label="Forma de vinculación:" value={formaVinculacion} />
+          <FieldInline label="Forma de vinculaciÃ³n:" value={formaVinculacion} />
         </Cell>
       </View>
     </View>

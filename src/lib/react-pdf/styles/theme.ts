@@ -1,10 +1,10 @@
-import { StyleSheet } from '@react-pdf/renderer';
+﻿import { StyleSheet } from '@react-pdf/renderer';
 
 export const theme = {
   font: 'Helvetica',
   fontSize: 8.4,
   lineHeight: 1.2,
-  border: 1,
+  border: 0.95,
   padX: 4,
   padY: 3,
 };
@@ -23,3 +23,4 @@ export const styles = StyleSheet.create({
   small: { fontSize: 7.5 },
   bold: { fontWeight: 700 },
 });
+

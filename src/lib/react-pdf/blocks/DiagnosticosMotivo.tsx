@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
 
@@ -8,15 +8,15 @@ type Props = {
 
 const COLOR = {
   head: pdfTheme.colors.templateBlue,
-  body: '#D9E1F2', // azul claro plantilla
+  body: '#DAE9F7', // azul claro plantilla
 };
 
-// ✅ Anchos fijos (evita líneas “torcidas” por redondeos de flex)
+// âœ… Anchos fijos (evita lÃ­neas â€œtorcidasâ€ por redondeos de flex)
 const NUM_W = 18;
 const CODE_W = 64;
 
-// ✅ Líneas internas más notorias + línea superior visible
-const LINE_W = 1.2;
+// âœ… LÃ­neas internas mÃ¡s notorias + lÃ­nea superior visible
+const LINE_W = Number(pdfTheme?.sizes?.borderWidth ?? 0.85);
 
 const styles = StyleSheet.create({
   // Header
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     backgroundColor: COLOR.head,
-    borderTopWidth: LINE_W, // ✅ línea superior más notoria
+    borderTopWidth: LINE_W, // âœ… lÃ­nea superior mÃ¡s notoria
     borderTopColor: pdfTheme.colors.border,
     borderBottomWidth: LINE_W,
     borderBottomColor: pdfTheme.colors.border,
@@ -54,12 +54,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     backgroundColor: COLOR.body,
-    borderBottomWidth: LINE_W, // ✅ líneas internas más notorias
+    borderBottomWidth: LINE_W, // âœ… lÃ­neas internas mÃ¡s notorias
     borderBottomColor: pdfTheme.colors.border,
     minHeight: 16,
   },
   rowLast: {
-    borderBottomWidth: 0, // ✅ evita doble línea con el borde del SectionBox
+    borderBottomWidth: 0, // âœ… evita doble lÃ­nea con el borde del SectionBox
   },
   cNum: {
     width: NUM_W,
@@ -108,11 +108,11 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
       {/* Encabezado */}
       <View style={styles.headRow} wrap={false}>
         <View style={styles.headLeft}>
-          <Text style={styles.headText}>Diagnóstico(s) motivo de calificación:</Text>
+          <Text style={styles.headText}>DiagnÃ³stico(s) motivo de calificaciÃ³n:</Text>
         </View>
         <View style={styles.headRight}>
           <Text style={[styles.headText, { textAlign: 'center' }]}>
-            Código(s){'\n'}CIE-10
+            CÃ³digo(s){'\n'}CIE-10
           </Text>
         </View>
       </View>
@@ -124,18 +124,18 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
             <Text style={styles.numText}>1.</Text>
           </View>
           <View style={styles.cDiag}>
-            <Text style={styles.diagText}>—</Text>
+            <Text style={styles.diagText}>â€”</Text>
           </View>
           <View style={styles.cCode}>
-            <Text style={styles.codeText}>—</Text>
+            <Text style={styles.codeText}>â€”</Text>
           </View>
         </View>
       ) : (
         items.map((it: any, idx: number) => {
           const isLast = idx === items.length - 1;
 
-          const nombre = String(it?.cie10?.nombre ?? it?.cie10Label ?? it?.nombre ?? '—');
-          const codigo = String(it?.cie10Codigo ?? it?.cie10?.codigo ?? '—');
+          const nombre = String(it?.cie10?.nombre ?? it?.cie10Label ?? it?.nombre ?? 'â€”');
+          const codigo = String(it?.cie10Codigo ?? it?.cie10?.codigo ?? 'â€”');
 
           return (
             <View
@@ -159,3 +159,4 @@ export function DiagnosticosMotivoBlock({ dictamen }: Props) {
     </View>
   );
 }
+

@@ -1,4 +1,4 @@
-export const pdfTheme = {
+﻿export const pdfTheme = {
   page: {
     padding: 18,
     fontSize: 9,
@@ -9,18 +9,24 @@ export const pdfTheme = {
     border: '#000000',
     white: '#FFFFFF',
 
-    // Azul tipo plantilla (Word)
-    templateBlue: '#9CC3E6',
+    // Paleta exacta de la plantilla Word
+    templateBlue: '#9BC2E6',
+    templateBlueLight: '#DAE9F7',
+    templateBluePale: '#E0EDF8',
+    templateBlueSoft: '#DDEBF7',
+    templateBlueMid: '#A5C9EB',
+    templateDarkBlue: '#1F4E78',
+    templatePeach: '#FCE4D6',
 
     // Texto
     text: '#000000',
   },
 
   sizes: {
-    // ✅ más delgado (Word se ve más fino)
-    borderWidth: 0.7,
+    // âœ… mÃ¡s delgado (Word se ve mÃ¡s fino)
+    borderWidth: 0.85,
 
-    // ✅ menos “aire” para que se vea pegado
+    // âœ… menos â€œaireâ€ para que se vea pegado
     rowPadding: 4,
 
     // Header
@@ -31,5 +37,7 @@ export const pdfTheme = {
   },
 } as const;
 
-// ✅ opcional (para que también sirva import default)
+// âœ… opcional (para que tambiÃ©n sirva import default)
 export default pdfTheme;
+
+

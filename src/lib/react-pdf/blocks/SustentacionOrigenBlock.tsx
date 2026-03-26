@@ -1,12 +1,20 @@
-// /lib/react-pdf/blocks/SustentacionOrigenBlock.tsx
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { GridBand, GridCell, GridRow } from '../components/Grid';
+import { KeepTogether } from '../components/KeepTogether';
 import { pdfTheme } from '../theme';
 
-type Props = { dictamen: any };
+type DictamenLike = {
+  [key: string]: unknown;
+  sustentacionObservaciones?: unknown;
+  fechaEstructuracionInvalidez?: unknown;
+  tipoEvento?: unknown;
+  origenEvento?: unknown;
+};
 
-const BW = 1.2;
-const BC = pdfTheme.colors.border;
+type Props = {
+  dictamen: DictamenLike;
+};
 
 const COLOR = {
   blue: '#9BC2E6',
@@ -14,138 +22,127 @@ const COLOR = {
   white: '#FFFFFF',
 };
 
-function safeText(v: any): string {
-  return typeof v === 'string' ? v : v == null ? '' : String(v);
+const FECHA_COL = {
+  label: 64,
+  day: 12,
+  month: 12,
+  year: 12,
+} as const;
+
+const ORIGEN_COL = {
+  label: 24,
+  opt1: 22,
+  chk1: 8,
+  spacer: 16,
+  opt2: 22,
+  chk2: 8,
+} as const;
+
+function safeText(value: unknown) {
+  return typeof value === 'string' ? value : value == null ? '' : String(value);
 }
 
-function dateParts(v: any): { dd: string; mm: string; yyyy: string } {
-  if (!v) return { dd: '', mm: '', yyyy: '' };
-  const d = v instanceof Date ? v : new Date(v);
-  if (Number.isNaN(d.getTime())) return { dd: '', mm: '', yyyy: '' };
+function getDateParts(value: unknown) {
+  if (!value) return { day: '', month: '', year: '' };
 
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = String(d.getFullYear());
-  return { dd, mm, yyyy };
+  const date = value instanceof Date ? value : new Date(value as string | number | Date);
+  if (Number.isNaN(date.getTime())) return { day: '', month: '', year: '' };
+
+  return {
+    day: String(date.getDate()).padStart(2, '0'),
+    month: String(date.getMonth() + 1).padStart(2, '0'),
+    year: String(date.getFullYear()),
+  };
 }
 
-// ancho fijo por % (evita “torcido”)
-const w = (n: number, total: number) => ({ width: `${(n / total) * 100}%` });
+function mark(value: unknown, expected: string) {
+  return String(value ?? '').toUpperCase() === expected ? 'X' : '';
+}
 
 export function SustentacionTextoPart({ dictamen }: Props) {
-  const sust = safeText(dictamen?.sustentacionObservaciones);
+  const sustentacion = safeText(dictamen?.sustentacionObservaciones);
 
   return (
-    <View style={styles.sustWrap}>
-      <Text style={styles.sustText}>
-        <Text style={styles.bold}>5. SUSTENTACIÓN Y OBSERVACIONES: </Text>
-        {sust}
+    <View style={styles.textWrap}>
+      <Text style={styles.text}>
+        <Text style={styles.textBold}>5. SUSTENTACION Y OBSERVACIONES: </Text>
+        {sustentacion}
       </Text>
     </View>
   );
 }
 
 export function SustentacionTablaOrigenPart({ dictamen }: Props) {
-  const { dd, mm, yyyy } = dateParts(dictamen?.fechaEstructuracionInvalidez);
-
-  const tipo = dictamen?.tipoEvento as 'ENFERMEDAD' | 'ACCIDENTE' | undefined;
-  const origen = dictamen?.origenEvento as 'LABORAL' | 'COMUN' | undefined;
-
-  const mark = (val: any, expected: any) => (val === expected ? 'X' : '');
-
-  // Columnas FECHA
-  const COL_DATE = { label: 64, d: 12, m: 12, y: 12 } as const;
-  const TOTAL_DATE = COL_DATE.label + COL_DATE.d + COL_DATE.m + COL_DATE.y;
-
-  // Columnas CALIFICACIONES
-  const COL = { label: 24, opt1: 22, chk1: 8, sep: 16, opt2: 22, chk2: 8 } as const;
-  const TOTAL = COL.label + COL.opt1 + COL.chk1 + COL.sep + COL.opt2 + COL.chk2;
+  const { day, month, year } = getDateParts(dictamen?.fechaEstructuracionInvalidez);
 
   return (
-    <View>
-      {/* Fecha estructuración */}
-      <View style={[styles.row, styles.bb]}>
-        <View style={[styles.cellLeft, w(COL_DATE.label, TOTAL_DATE), styles.blueCell]}>
-          <Text style={styles.leftLabel}>
-            FECHA DE ESTRUCTURACIÓN DE LA INVALIDEZ (DIA, MES,{'\n'}AÑOS)
+    <KeepTogether minPresenceAhead={18}>
+      <GridRow style={styles.dataRow}>
+        <GridCell flex={FECHA_COL.label} backgroundColor={COLOR.blue} align="flex-start">
+          <Text style={styles.labelText}>
+            FECHA DE ESTRUCTURACION DE LA INVALIDEZ (DIA, MES,{"\n"}ANOS)
           </Text>
-        </View>
+        </GridCell>
+        <GridCell flex={FECHA_COL.day} backgroundColor={COLOR.light}>
+          <Text style={styles.valueText}>{day}</Text>
+        </GridCell>
+        <GridCell flex={FECHA_COL.month} backgroundColor={COLOR.light}>
+          <Text style={styles.valueText}>{month}</Text>
+        </GridCell>
+        <GridCell flex={FECHA_COL.year} backgroundColor={COLOR.light} isLast>
+          <Text style={styles.valueText}>{year}</Text>
+        </GridCell>
+      </GridRow>
 
-        <View style={[styles.cellCenter, styles.bl, w(COL_DATE.d, TOTAL_DATE), styles.lightCell]}>
-          <Text style={styles.valueText}>{dd}</Text>
-        </View>
+      <GridBand backgroundColor={COLOR.blue} joinTop joinBottom>
+        CALIFICACIONES DEL ORIGEN
+      </GridBand>
 
-        <View style={[styles.cellCenter, styles.bl, w(COL_DATE.m, TOTAL_DATE), styles.lightCell]}>
-          <Text style={styles.valueText}>{mm}</Text>
-        </View>
+      <GridRow style={styles.dataRow}>
+        <GridCell flex={ORIGEN_COL.label} backgroundColor={COLOR.blue} align="flex-start">
+          <Text style={styles.labelText}>TIPO DE EVENTO:</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.opt1} backgroundColor={COLOR.light}>
+          <Text style={styles.optionText}>ENFERMEDAD</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.chk1} backgroundColor={COLOR.white}>
+          <Text style={styles.checkText}>{mark(dictamen?.tipoEvento, 'ENFERMEDAD')}</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.spacer} backgroundColor={COLOR.white}>
+          <Text style={styles.checkText}>{' '}</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.opt2} backgroundColor={COLOR.light}>
+          <Text style={styles.optionText}>ACCIDENTE</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.chk2} backgroundColor={COLOR.white} isLast>
+          <Text style={styles.checkText}>{mark(dictamen?.tipoEvento, 'ACCIDENTE')}</Text>
+        </GridCell>
+      </GridRow>
 
-        <View style={[styles.cellCenter, styles.bl, w(COL_DATE.y, TOTAL_DATE), styles.lightCell]}>
-          <Text style={styles.valueText}>{yyyy}</Text>
-        </View>
-      </View>
-
-      {/* Header calificaciones */}
-      <View style={[styles.headerRow, styles.bb]}>
-        <Text style={styles.headerText}>CALIFICACIONES DEL ORIGEN</Text>
-      </View>
-
-      {/* Tipo de evento */}
-      <View style={[styles.row, styles.bb]}>
-        <View style={[styles.cellLeft, w(COL.label, TOTAL), styles.blueCell]}>
-          <Text style={styles.leftLabel}>TIPO DE EVENTO:</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.opt1, TOTAL), styles.lightCell]}>
-          <Text style={styles.midText}>ENFERMEDAD</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.chk1, TOTAL), styles.whiteCell]}>
-          <Text style={styles.xText}>{mark(tipo, 'ENFERMEDAD')}</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.sep, TOTAL), styles.whiteCell]} />
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.opt2, TOTAL), styles.lightCell]}>
-          <Text style={styles.midText}>ACCIDENTE</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.chk2, TOTAL), styles.whiteCell]}>
-          <Text style={styles.xText}>{mark(tipo, 'ACCIDENTE')}</Text>
-        </View>
-      </View>
-
-      {/* Origen */}
-      <View style={styles.row}>
-        <View style={[styles.cellLeft, w(COL.label, TOTAL), styles.blueCell]}>
-          <Text style={styles.leftLabel}>ORIGEN:</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.opt1, TOTAL), styles.lightCell]}>
-          <Text style={styles.midText}>LABORAL</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.chk1, TOTAL), styles.whiteCell]}>
-          <Text style={styles.xText}>{mark(origen, 'LABORAL')}</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.sep, TOTAL), styles.whiteCell]} />
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.opt2, TOTAL), styles.lightCell]}>
-          <Text style={styles.midText}>COMUN</Text>
-        </View>
-
-        <View style={[styles.cellCenter, styles.bl, w(COL.chk2, TOTAL), styles.whiteCell]}>
-          <Text style={styles.xText}>{mark(origen, 'COMUN')}</Text>
-        </View>
-      </View>
-    </View>
+      <GridRow style={styles.dataRow}>
+        <GridCell flex={ORIGEN_COL.label} backgroundColor={COLOR.blue} align="flex-start">
+          <Text style={styles.labelText}>ORIGEN:</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.opt1} backgroundColor={COLOR.light}>
+          <Text style={styles.optionText}>LABORAL</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.chk1} backgroundColor={COLOR.white}>
+          <Text style={styles.checkText}>{mark(dictamen?.origenEvento, 'LABORAL')}</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.spacer} backgroundColor={COLOR.white}>
+          <Text style={styles.checkText}>{' '}</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.opt2} backgroundColor={COLOR.light}>
+          <Text style={styles.optionText}>COMUN</Text>
+        </GridCell>
+        <GridCell flex={ORIGEN_COL.chk2} backgroundColor={COLOR.white} isLast>
+          <Text style={styles.checkText}>{mark(dictamen?.origenEvento, 'COMUN')}</Text>
+        </GridCell>
+      </GridRow>
+    </KeepTogether>
   );
 }
 
-/**
- * Mantengo el default export por compatibilidad,
- * pero YA NO LO USES en 1 solo SectionBox si quieres que parta.
- */
 export default function SustentacionOrigenBlock({ dictamen }: Props) {
   return (
     <View>
@@ -156,56 +153,42 @@ export default function SustentacionOrigenBlock({ dictamen }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // líneas
-  row: { flexDirection: 'row', width: '100%' },
-  bb: { borderBottomWidth: BW, borderBottomColor: BC },
-  bl: { borderLeftWidth: BW, borderLeftColor: BC },
-
-  // colores
-  blueCell: { backgroundColor: COLOR.blue },
-  lightCell: { backgroundColor: COLOR.light },
-  whiteCell: { backgroundColor: COLOR.white },
-
-  // Sustentación (con separador abajo, como en el formato)
-  sustWrap: {
+  textWrap: {
     paddingHorizontal: 6,
     paddingVertical: 6,
-    borderBottomWidth: BW,
-    borderBottomColor: BC,
+    borderBottomWidth: pdfTheme.sizes.borderWidth,
+    borderBottomColor: pdfTheme.colors.border,
     backgroundColor: COLOR.white,
   },
-  sustText: {
+  text: {
     fontSize: 8,
     lineHeight: 1.15,
     textAlign: 'justify',
   },
-
-  // Header calificaciones
-  headerRow: {
-    height: 16,
-    backgroundColor: COLOR.blue,
-    justifyContent: 'center',
-    alignItems: 'center',
+  textBold: {
+    fontWeight: 700,
   },
-  headerText: { fontSize: 8, fontWeight: 700 },
-
-  // celdas
-  cellLeft: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+  dataRow: {
+    minHeight: 16,
   },
-  cellCenter: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+  labelText: {
+    fontSize: 7.5,
+    fontWeight: 700,
   },
-
-  leftLabel: { fontSize: 7.5, fontWeight: 700 },
-  valueText: { fontSize: 8, fontWeight: 700 },
-  midText: { fontSize: 8, fontWeight: 700 },
-  xText: { fontSize: 9, fontWeight: 700 },
-
-  bold: { fontWeight: 700 },
+  valueText: {
+    fontSize: 8,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  optionText: {
+    fontSize: 8,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  checkText: {
+    fontSize: 9,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
 });
+

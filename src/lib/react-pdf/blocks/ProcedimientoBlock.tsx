@@ -1,141 +1,132 @@
-// /lib/react-pdf/blocks/ProcedimientoBlock.tsx
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { GridBand } from '../components/Grid';
+import { KeepTogether } from '../components/KeepTogether';
 import { pdfTheme } from '../theme';
 
-type Props = { dictamen: any };
+type DictamenLike = {
+  [key: string]: unknown;
+  procedimientoPcl?: unknown;
+  procedimiento?: unknown;
+  totalTitulo1?: unknown;
+  tituloI?: unknown;
+  totalCap1?: unknown;
+  totalCap2?: unknown;
+  tituloII?: unknown;
+  totalTitulo3?: unknown;
+  tituloIII?: unknown;
+  totalPcl?: unknown;
+  pclTotal?: unknown;
+};
 
-const BW = 1;
-const BC = pdfTheme.colors.border;
+type Props = {
+  dictamen: DictamenLike;
+};
 
-// Colores exactos del ejemplo
 const COLOR = {
   blue: '#9BC2E6',
   light: '#E0EDF8',
-  white: '#FFFFFF',
 };
 
-function toNum(v: any): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
-// ✅ devuelve SOLO el número (sin %), porque el % ya lo pintamos afuera
-function fmtNum(v: number): string {
-  return Number.isInteger(v) ? `${v}` : `${v.toFixed(1)}`;
+function toNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
-// ✅ para este formato: si es null o 0 → en blanco (______)
-// (así evitamos que aparezca "0%")
-function fmtBlankIfNullOrZero(v: number | null | undefined): string {
-  if (v == null) return '______';
-  if (v === 0) return '______';
-  return fmtNum(v);
+function formatValue(value: number | null | undefined): string {
+  if (value == null || value === 0) return '______';
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
 export default function ProcedimientoBlock({ dictamen }: Props) {
-  const proc = (dictamen?.procedimientoPcl ?? dictamen?.procedimiento ?? 'A') as 'A' | 'B';
+  const procedimiento =
+    String(dictamen?.procedimientoPcl ?? dictamen?.procedimiento ?? 'A').toUpperCase() === 'B'
+      ? 'B'
+      : 'A';
 
-  // Reuso de rutas “tolerantes” como en tu otro bloque
-  const t1 = toNum(dictamen?.totalTitulo1 ?? dictamen?.tituloI?.valorTotal);
-  const c1 = toNum(dictamen?.totalCap1 ?? dictamen?.tituloII?.capitulo1?.valorTotal);
-  const c2 = toNum(dictamen?.totalCap2 ?? dictamen?.tituloII?.capitulo2?.valorTotal);
+  const tituloI = asRecord(dictamen?.tituloI);
+  const tituloII = asRecord(dictamen?.tituloII);
+  const capitulo1 = asRecord(tituloII.capitulo1);
+  const capitulo2 = asRecord(tituloII.capitulo2);
+  const tituloIII = asRecord(dictamen?.tituloIII);
 
-  // ✅ totalTitulo3 (este es el campo que estás usando)
-  const t3 = toNum(dictamen?.totalTitulo3 ?? dictamen?.tituloIII?.valorTotal);
+  const totalTitulo1 = toNumber(dictamen?.totalTitulo1 ?? tituloI.valorTotal);
+  const totalCap1 = toNumber(dictamen?.totalCap1 ?? capitulo1.valorTotal);
+  const totalCap2 = toNumber(dictamen?.totalCap2 ?? capitulo2.valorTotal);
+  const totalTitulo3 = toNumber(dictamen?.totalTitulo3 ?? tituloIII.valorTotal);
 
-  // Base = Título I + (cap1+cap2) del Título II
   const base = (() => {
-    const hasAny = t1 != null || c1 != null || c2 != null;
+    const hasAny = totalTitulo1 != null || totalCap1 != null || totalCap2 != null;
     if (!hasAny) return null;
-    return (t1 ?? 0) + (c1 ?? 0) + (c2 ?? 0);
+    return (totalTitulo1 ?? 0) + (totalCap1 ?? 0) + (totalCap2 ?? 0);
   })();
 
-  // (se mantiene por si lo usas como fallback del total final)
-  const baseMasT3 = base != null && t3 != null ? base + t3 : null;
-
-  // ✅ Si ya tienes el total final en dictamen, lo respetamos; si no, usamos base + t3
-  const totalFinal = toNum(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasT3);
-
-  // Para PROCEDIMIENTO B: solo base (T1 + T2)
-  const baseB = base;
+  const baseMasTitulo3 = base != null && totalTitulo3 != null ? base + totalTitulo3 : null;
+  const totalFinal = toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasTitulo3);
 
   return (
-    // ✅ evita que se “parta” feo al cambiar de página
-    <View style={styles.box} wrap={false} minPresenceAhead={140}>
-      {/* Header */}
-      <View style={styles.header} wrap={false}>
-        <Text style={styles.headerText}>PROCEDIMIENTO</Text>
-      </View>
+    <View>
+      <GridBand backgroundColor={COLOR.blue}>Procedimiento</GridBand>
 
-      {/* Body */}
-      <View style={styles.body} wrap={false}>
-        {/* Líneas Procedimiento A */}
-        <Text style={styles.line}>
-          Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
-          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(base) : '______'}</Text>%{' '}
-          <Text style={styles.italic}>(Valor Pérdida de Capacidad Laboral)</Text>
-        </Text>
+      <KeepTogether minPresenceAhead={22}>
+        <View style={styles.body}>
+          <Text style={styles.line}>
+            Valor de la Deficiencia Titulo I + Valor de las limitaciones y restricciones Titulo II ={' '}
+            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(base) : '______'}</Text>%{' '}
+            <Text style={styles.italic}>(Valor perdida de capacidad laboral)</Text>
+          </Text>
 
-        <Text style={styles.line}>
-          Valor Pérdida de Capacidad Laboral X Valor Título III ={' '}
-          {/* ✅ AQUÍ VA totalTitulo3 */}
-          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(t3) : '______'}</Text>%{' '}
-          <Text style={styles.italic}>(Valor Para para adicionar por Título III)</Text>
-        </Text>
+          <Text style={styles.line}>
+            Valor perdida de capacidad laboral X Valor Titulo III ={' '}
+            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(totalTitulo3) : '______'}</Text>%{' '}
+            <Text style={styles.italic}>(Valor para adicionar por Titulo III)</Text>
+          </Text>
 
-        <Text style={styles.line}>
-          Valor Para para adicionar por Título III + Valor Pérdida de Capacidad Laboral ={' '}
-          <Text style={styles.bold}>{proc === 'A' ? fmtBlankIfNullOrZero(totalFinal) : '______'}</Text>%{' '}
-          <Text style={styles.italic}>(Valor final ajustado de PCL)</Text>
-        </Text>
+          <Text style={styles.line}>
+            Valor para adicionar por Titulo III + Valor perdida de capacidad laboral ={' '}
+            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(totalFinal) : '______'}</Text>%{' '}
+            <Text style={styles.italic}>(Valor final ajustado de PCL)</Text>
+          </Text>
 
-        {/* Separador / título Procedimiento B */}
-        <Text style={[styles.line, styles.mt6]}>PROCEDIMIENTO B</Text>
+          <Text style={[styles.line, styles.sectionLabel]}>PROCEDIMIENTO B</Text>
 
-        <Text style={styles.line}>
-          Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
-          <Text style={styles.bold}>{proc === 'B' ? fmtBlankIfNullOrZero(baseB) : '______'}</Text>%
-        </Text>
-      </View>
+          <Text style={styles.line}>
+            Valor de la Deficiencia Titulo I + Valor de las limitaciones y restricciones Titulo II ={' '}
+            <Text style={styles.bold}>{procedimiento === 'B' ? formatValue(base) : '______'}</Text>%
+          </Text>
+        </View>
+      </KeepTogether>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: {
-    width: '100%',
-    borderWidth: BW,
-    borderColor: BC,
-    backgroundColor: COLOR.light,
-  },
-
-  header: {
-    backgroundColor: COLOR.blue,
-    borderBottomWidth: BW,
-    borderBottomColor: BC,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    fontSize: 8,
-    fontWeight: 700,
-  },
-
   body: {
     paddingHorizontal: 6,
     paddingVertical: 6,
+    borderLeftWidth: pdfTheme.sizes.borderWidth,
+    borderRightWidth: pdfTheme.sizes.borderWidth,
+    borderBottomWidth: pdfTheme.sizes.borderWidth,
+    borderColor: pdfTheme.colors.border,
+    backgroundColor: COLOR.light,
   },
-
   line: {
     fontSize: 8,
     lineHeight: 1.15,
     marginBottom: 3,
   },
-
-  bold: { fontWeight: 700 },
-  italic: { fontStyle: 'italic' },
-
-  mt6: { marginTop: 6 },
+  sectionLabel: {
+    marginTop: 6,
+    fontWeight: 700,
+  },
+  bold: {
+    fontWeight: 700,
+  },
+  italic: {
+    fontStyle: 'italic',
+  },
 });

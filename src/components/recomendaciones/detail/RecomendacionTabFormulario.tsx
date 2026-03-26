@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,11 @@ const DEFAULT_MOTIVO = 'CONCEPTO MEDICO PARA RECOMENDACIONES LABORALES';
 function getDefaultValue(value: string, fallback: string) {
   const normalized = value.trim();
   return normalized.length > 0 ? value : fallback;
+}
+
+function normalizeTextValue(value: string) {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : '';
 }
 
 export function RecomendacionTabFormulario({
@@ -50,9 +55,35 @@ export function RecomendacionTabFormulario({
   ]);
 
   const isEditable = canEdit && (detalle.estado === 'BORRADOR' || detalle.estado === 'REABIERTO');
+  const persistedValues = useMemo(
+    () => ({
+      examenesRealizados: getDefaultValue(detalle.examenesRealizados, DEFAULT_EXAMENES_REALIZADOS),
+      motivo: getDefaultValue(detalle.motivo, DEFAULT_MOTIVO),
+      recomendaciones: detalle.recomendacionesObservacionesRestricciones,
+    }),
+    [
+      detalle.examenesRealizados,
+      detalle.motivo,
+      detalle.recomendacionesObservacionesRestricciones,
+    ],
+  );
+
+  const hasChanges = useMemo(
+    () =>
+      normalizeTextValue(examenesRealizados) !== normalizeTextValue(persistedValues.examenesRealizados) ||
+      normalizeTextValue(motivo) !== normalizeTextValue(persistedValues.motivo) ||
+      normalizeTextValue(recomendaciones) !== normalizeTextValue(persistedValues.recomendaciones),
+    [examenesRealizados, motivo, recomendaciones, persistedValues],
+  );
+
   const isBusy = isSaving || isRefreshing;
+  const canSave = isEditable && hasChanges && !isBusy;
 
   const handleSave = async () => {
+    if (!canSave) {
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -138,14 +169,22 @@ export function RecomendacionTabFormulario({
         />
       </section>
 
-      <div className="flex justify-end pt-1">
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <p className="text-xs text-slate-500">
+          {!isEditable
+            ? 'El formulario esta en solo lectura para el estado o perfil actual.'
+            : hasChanges
+              ? 'Hay cambios pendientes por guardar.'
+              : 'No hay cambios pendientes.'}
+        </p>
+
         <Button
           type="button"
           onClick={handleSave}
-          disabled={!isEditable || isBusy}
+          disabled={!canSave}
           className="rounded-xl px-5 text-white hover:text-white disabled:text-white/80"
         >
-          {isBusy ? 'Guardando...' : 'Guardar recomendacion'}
+          {isBusy ? 'Guardando...' : hasChanges ? 'Guardar recomendacion' : 'Sin cambios'}
         </Button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
 
@@ -7,7 +7,7 @@ type Props = {
 };
 
 const COLOR = {
-  title: '#F8CBAD',
+  title: '#FCE4D6',
 };
 
 const styles = StyleSheet.create({
@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     backgroundColor: pdfTheme.colors.white,
   },
 
-  // ✅ IMPORTANTE: el padding va en el Text para que se repita al partir página
+  // âœ… IMPORTANTE: el padding va en el Text para que se repita al partir pÃ¡gina
   bodyText: {
     fontSize: 7.6,
     lineHeight: 1.15,
@@ -40,19 +40,19 @@ const styles = StyleSheet.create({
 });
 
 export function AntecedentesClinicosBlock({ dictamen }: Props) {
-  const texto = String(dictamen?.antecedentesClinicos ?? '—');
+  const texto = String(dictamen?.antecedentesClinicos ?? 'â€”');
 
   return (
     <View>
       <View style={styles.titleRow}>
-        <Text style={styles.titleText}>3. ANTECEDENTES CLÍNICOS (EPICRISIS Y ESTADO ACTUAL)</Text>
+        <Text style={styles.titleText}>3. ANTECEDENTES CLÃNICOS (EPICRISIS Y ESTADO ACTUAL)</Text>
       </View>
 
       <View style={styles.body}>
         <Text style={styles.bodyText}>{texto}</Text>
       </View>
 
-      {/* ✅ Fuerza salto para que la siguiente sección NO quede pegada abajo */}
+      {/* âœ… Fuerza salto para que la siguiente secciÃ³n NO quede pegada abajo */}
       <View break style={{ height: 0 }} />
     </View>
   );

@@ -1,6 +1,4 @@
-//DictamenReactPdf
-
-import React from 'react';
+﻿import React from 'react';
 import { Document } from '@react-pdf/renderer';
 
 import { PageFrame } from './components/PageFrame';
@@ -17,14 +15,25 @@ import { TituloIICapitulo2Block } from './blocks/TituloIICapitulo2Block';
 import { TituloIIIPage1Block } from './blocks/TituloIIIPage1Block';
 import PorcentajePclBlock from '@/lib/react-pdf/blocks/PorcentajePclBlock';
 import ProcedimientoBlock from './blocks/ProcedimientoBlock';
-import SustentacionOrigenBlock, {
+import {
   SustentacionTextoPart,
   SustentacionTablaOrigenPart,
 } from './blocks/SustentacionOrigenBlock';
 import FirmasJuntaBlock from '@/lib/react-pdf/blocks/FirmasJuntaBlock';
 
+type DictamenPdfData = {
+  id?: number | string | null;
+  numeroDictamen?: string | null;
+  fechaDictamen?: string | Date | null;
+  logoSrc?: string | null;
+  condicionSalud?: string | null;
+  descripcionHallazgos?: string | null;
+  junta?: unknown;
+  [key: string]: unknown;
+};
+
 type Props = {
-  dictamen: any;
+  dictamen: DictamenPdfData;
   logoSrc?: string | null;
 };
 
@@ -42,67 +51,46 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
           fechaDictamen={dictamen?.fechaDictamen ?? null}
         />
 
-        <SectionBox joinTop wrap={false} minPresenceAhead={80}>
+        <SectionBox joinTop wrap={false} minPresenceAhead={24}>
           <AspectosGeneralesBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox joinTop wrap={false} minPresenceAhead={110}>
+        <SectionBox joinTop wrap={false} minPresenceAhead={28}>
           <IdentificacionEducadorBlock dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ Largo: permitir partir */}
-        <SectionBox minPresenceAhead={40}>
+        <SectionBox minPresenceAhead={8}>
           <AntecedentesClinicosBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox minPresenceAhead={40}>
+        <SectionBox minPresenceAhead={8}>
           <DiagnosticosMotivoBlock dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ Largo: permitir partir */}
-        <SectionBox minPresenceAhead={10}>
+        <SectionBox minPresenceAhead={0} joinBottom>
           <CondicionSaludBlock condicion={condicion} />
+        </SectionBox>
+
+        <SectionBox minPresenceAhead={0} joinTop>
           <HallazgosClinicosBlock hallazgos={hallazgos} />
         </SectionBox>
 
-        <SectionBox minPresenceAhead={60}>
-          <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
-        </SectionBox>
+        <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
+        <TituloIICapitulo1Block dictamen={dictamen} />
+        <TituloIICapitulo2Block dictamen={dictamen} />
+        <TituloIIIPage1Block dictamen={dictamen} />
+        <PorcentajePclBlock dictamen={dictamen} />
+        <ProcedimientoBlock dictamen={dictamen} />
 
-        <SectionBox minPresenceAhead={60}>
-          <TituloIICapitulo1Block dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={60}>
-          <TituloIICapitulo2Block dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={60}>
-          <TituloIIIPage1Block dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={60}>
-          <PorcentajePclBlock dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={60}>
-          <ProcedimientoBlock dictamen={dictamen} />
-        </SectionBox>
-
-        {/* ✅ Sustentación (texto) PARTIBLE: llena el espacio en blanco */}
-        <SectionBox minPresenceAhead={20} joinBottom>
+        <SectionBox minPresenceAhead={6} joinBottom>
           <SustentacionTextoPart dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ Tabla NO PARTIBLE: si no cabe, se va completa a la siguiente página */}
-        <SectionBox joinTop wrap={false} minPresenceAhead={120}>
+        <SectionBox joinTop minPresenceAhead={12}>
           <SustentacionTablaOrigenPart dictamen={dictamen} />
         </SectionBox>
 
-        {/* ✅ Firmas: NO partir, y reservar buen espacio */}
-        <SectionBox joinTop wrap={false} minPresenceAhead={220}>
-          <FirmasJuntaBlock dictamen={dictamen} />
-        </SectionBox>
+        <FirmasJuntaBlock dictamen={dictamen} />
       </PageFrame>
     </Document>
   );

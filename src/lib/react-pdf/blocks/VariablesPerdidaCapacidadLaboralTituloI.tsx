@@ -1,22 +1,36 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { GridBand, GridCell, GridRow } from '../components/Grid';
+import { KeepTogether } from '../components/KeepTogether';
 import { pdfTheme } from '../theme';
 
-type Props = {
-  dictamen: any;
+type UnknownRecord = Record<string, unknown>;
+
+type DictamenLike = {
+  [key: string]: unknown;
+  deficiencias?: unknown;
+  procedimientoPcl?: unknown;
+  totalTitulo1?: unknown;
 };
 
-// Para usar minPresenceAhead sin pelear con typings
-const V: any = View;
+type DeficienciaRow = {
+  descripcion: string;
+  capitulo: string;
+  tabla: string;
+  valorDeficiencia: unknown;
+};
+
+type Props = {
+  dictamen: DictamenLike;
+};
 
 const COLOR = {
-  title: '#F8CBAD', // franja beige (como Word)
-  bar: pdfTheme.colors.templateBlue, // barra “TITULO I”
-  head: '#9DC3E6', // encabezados de columnas (azul)
-  body: '#D9E1F2', // filas (azul claro)
+  title: '#FCE4D6',
+  bar: pdfTheme.colors.templateBlue,
+  head: '#9BC2E6',
+  body: '#DAE9F7',
 };
 
-// ✅ pesos enteros para que las líneas verticales queden derechas
 const COL = {
   num: 2,
   desc: 16,
@@ -25,266 +39,198 @@ const COL = {
   valor: 6,
 } as const;
 
-function formatPercent(v: any) {
-  if (v == null || v === '') return '—';
-  const n = typeof v === 'string' ? Number(String(v).replace('%', '').trim()) : Number(v);
-  if (!Number.isFinite(n)) return String(v);
-  return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
 }
 
-function buildTablaLabel(tablaBase: any, claseNombre: any) {
+function formatPercent(value: unknown) {
+  if (value == null || value === '') return '—';
+
+  const normalized =
+    typeof value === 'string' ? Number(String(value).replace('%', '').trim()) : Number(value);
+
+  if (!Number.isFinite(normalized)) return String(value);
+  return `${Number.isInteger(normalized) ? normalized : normalized.toFixed(1)}%`;
+}
+
+function buildTablaLabel(tablaBase: unknown, claseNombre: unknown) {
   const base = String(tablaBase ?? '—').trim();
-  const cn = String(claseNombre ?? '').trim();
-  if (!cn) return base;
+  const clase = String(claseNombre ?? '').trim();
+  if (!clase) return base;
 
-  // normaliza: si viene "Clase I" o "I", dejamos "I"
-  const solo = cn.replace(/^clase\s*/i, '').trim();
-  if (!solo) return base;
+  const shortClase = clase.replace(/^clase\s*/i, '').trim();
+  if (!shortClase) return base;
 
-  return `${base} (clase ${solo.toUpperCase()})`;
+  return `${base} (clase ${shortClase.toUpperCase()})`;
+}
+
+function extractRows(dictamen: DictamenLike): DeficienciaRow[] {
+  const deficiencias = Array.isArray(dictamen?.deficiencias) ? dictamen.deficiencias : [];
+
+  return deficiencias.map((item) => {
+    const record = asRecord(item);
+    const deficiencia = asRecord(record.deficiencia);
+    const clase = asRecord(record.clase);
+
+    return {
+      descripcion: String(deficiencia.nombre ?? '—'),
+      capitulo: String(deficiencia.capitulo ?? '—'),
+      tabla: buildTablaLabel(deficiencia.tabla, clase.nombre),
+      valorDeficiencia: record.valorDeficiencia,
+    };
+  });
+}
+
+export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props) {
+  const rows = extractRows(dictamen);
+  const printableRows = rows.length ? rows : [null];
+  const procedimiento = String(dictamen?.procedimientoPcl ?? '').toUpperCase();
+  const ponderacionMax = procedimiento === 'B' ? 50 : 75;
+
+  return (
+    <View>
+      <KeepTogether minPresenceAhead={24}>
+        <GridBand
+          backgroundColor={COLOR.title}
+          style={styles.titleBand}
+          joinBottom
+        >
+          4. Variables de la pérdida de la capacidad laboral
+        </GridBand>
+
+        <GridBand
+          backgroundColor={COLOR.bar}
+          textColor={pdfTheme.colors.white}
+        >
+          Titulo I
+        </GridBand>
+
+        <GridRow style={styles.headRow}>
+          <GridCell flex={COL.num} backgroundColor={COLOR.head}>
+            <Text style={styles.headText}>{' '}</Text>
+          </GridCell>
+          <GridCell flex={COL.desc} backgroundColor={COLOR.head}>
+            <Text style={styles.headText}>Descripción de la deficiencia(s)</Text>
+          </GridCell>
+          <GridCell flex={COL.cap} backgroundColor={COLOR.head}>
+            <Text style={styles.headText}>Capítulo</Text>
+          </GridCell>
+          <GridCell flex={COL.tabla} backgroundColor={COLOR.head}>
+            <Text style={styles.headText}>Tabla</Text>
+          </GridCell>
+          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast>
+            <Text style={styles.headText}>Valor de la deficiencia (%)</Text>
+          </GridCell>
+        </GridRow>
+      </KeepTogether>
+
+      {printableRows.map((row, index) => (
+        <GridRow key={`titulo-i-${index}`} style={styles.bodyRow}>
+          <GridCell flex={COL.num} backgroundColor={COLOR.body}>
+            <Text style={styles.indexText}>{index + 1}.</Text>
+          </GridCell>
+          <GridCell flex={COL.desc} backgroundColor={COLOR.body}>
+            <Text style={styles.descriptionText}>{row?.descripcion ?? '—'}</Text>
+          </GridCell>
+          <GridCell flex={COL.cap} backgroundColor={COLOR.body}>
+            <Text style={styles.valueText}>{row?.capitulo ?? '—'}</Text>
+          </GridCell>
+          <GridCell flex={COL.tabla} backgroundColor={COLOR.body}>
+            <Text style={styles.valueText}>{row?.tabla ?? '—'}</Text>
+          </GridCell>
+          <GridCell flex={COL.valor} backgroundColor={COLOR.body} isLast>
+            <Text style={styles.valueText}>{formatPercent(row?.valorDeficiencia)}</Text>
+          </GridCell>
+        </GridRow>
+      ))}
+
+      <KeepTogether minPresenceAhead={18}>
+        <GridRow style={styles.summaryRow}>
+          <GridCell flex={COL.num + COL.desc + COL.cap + COL.tabla} backgroundColor={COLOR.head}>
+            <Text style={styles.summaryText}>
+              Suma con fórmula de valores combinados (75% ó 50%):
+            </Text>
+          </GridCell>
+          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast>
+            <Text style={styles.summaryText}>{formatPercent(dictamen?.totalTitulo1)}</Text>
+          </GridCell>
+        </GridRow>
+
+        <GridRow style={styles.footerRow}>
+          <GridCell
+            flex={COL.num + COL.desc + COL.cap + COL.tabla}
+            backgroundColor={COLOR.head}
+            align="flex-end"
+          >
+            <Text style={styles.footerLeftText}>Deficiencia</Text>
+          </GridCell>
+          <GridCell flex={COL.valor} backgroundColor={COLOR.head} isLast align="flex-start">
+            <Text style={styles.footerRightText}>Ponderación máxima: {ponderacionMax}%</Text>
+          </GridCell>
+        </GridRow>
+      </KeepTogether>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  // ===== Título sección =====
-  titleRow: {
-    backgroundColor: COLOR.title,
-    alignItems: 'center',
-    justifyContent: 'center',
+  titleBand: {
     height: 18,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
   },
   titleText: {
     fontSize: 8.4,
     fontWeight: 700,
-    textTransform: 'uppercase',
-  },
-
-  // ===== Barra TITULO I =====
-  barRow: {
-    backgroundColor: COLOR.bar,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 16,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
   },
   barText: {
-    fontSize: 8.0,
+    fontSize: 8,
     fontWeight: 700,
-    textTransform: 'uppercase',
-    color: pdfTheme.colors.white,
   },
-
-  // ===== Encabezado columnas =====
   headRow: {
-    flexDirection: 'row',
-    backgroundColor: COLOR.head,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
+    minHeight: 18,
   },
-  hCell: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
-  },
-  hText: {
+  headText: {
     fontSize: 7.6,
     fontWeight: 700,
     textAlign: 'center',
   },
-
-  // ===== Filas =====
-  row: {
-    flexDirection: 'row',
-    backgroundColor: COLOR.body,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
+  bodyRow: {
     minHeight: 16,
   },
-  rowLast: {
-    borderBottomWidth: 0, // evita doble línea con el borde del SectionBox
+  indexText: {
+    fontSize: 7.6,
+    fontWeight: 700,
   },
-  cell: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
+  descriptionText: {
+    fontSize: 7.6,
+    textTransform: 'uppercase',
   },
-  cellLast: {
-    borderRightWidth: 0,
+  valueText: {
+    fontSize: 7.6,
+    textAlign: 'center',
   },
-
-  numText: { fontSize: 7.6, fontWeight: 700 },
-  descText: { fontSize: 7.6, textTransform: 'uppercase' },
-  midText: { fontSize: 7.6, textAlign: 'center' },
-  valText: { fontSize: 7.6, textAlign: 'center' },
-
-  // ===== Filas resumen =====
-  sumRow: {
-    flexDirection: 'row',
-    backgroundColor: COLOR.head,
+  summaryRow: {
+    minHeight: 16,
     borderTopWidth: pdfTheme.sizes.borderWidth,
     borderTopColor: pdfTheme.colors.border,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
-    minHeight: 16,
   },
-  sumLeft: {
-    flex: COL.num + COL.desc + COL.cap + COL.tabla,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
-    justifyContent: 'center',
+  summaryText: {
+    fontSize: 7.6,
+    fontWeight: 700,
+    textAlign: 'center',
   },
-  sumRight: {
-    flex: COL.valor,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sumText: { fontSize: 7.6, fontWeight: 700 },
-
   footerRow: {
-    flexDirection: 'row',
-    backgroundColor: COLOR.head,
     minHeight: 16,
   },
-  footerLeft: {
-    flex: COL.num + COL.desc + COL.cap + COL.tabla,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
-    justifyContent: 'center',
+  footerLeftText: {
+    fontSize: 7.6,
+    fontWeight: 700,
+    textAlign: 'right',
   },
-  footerRight: {
-    flex: COL.valor,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    justifyContent: 'center',
+  footerRightText: {
+    fontSize: 7.6,
+    textAlign: 'left',
   },
-  footerLeftText: { fontSize: 7.6, fontWeight: 700, textAlign: 'right' },
-  footerRightText: { fontSize: 7.6, textAlign: 'left' },
 });
 
-export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props) {
-  // ✅ Fuente real desde tu schema:
-  // Dictamen.deficiencias -> DictamenDeficiencia[]
-  // y la info viene de .deficiencia y .clase
-  const fromDb = Array.isArray(dictamen?.deficiencias) ? dictamen.deficiencias : [];
 
-  const itemsRaw = fromDb.map((d: any) => ({
-    descripcion: d?.deficiencia?.nombre ?? '—',
-    capitulo: d?.deficiencia?.capitulo ?? '—',
-    tabla: buildTablaLabel(d?.deficiencia?.tabla, d?.clase?.nombre),
-    valorDeficiencia: d?.valorDeficiencia,
-  }));
 
-  // ✅ YA NO limitamos a 5: mostramos la cantidad real (si no hay nada, 1 placeholder)
-  const rows = itemsRaw.length ? itemsRaw : [null];
-
-  // ✅ A=75%, B=50%
-  const proc = String(dictamen?.procedimientoPcl ?? '').toUpperCase();
-  const ponderacionMax = proc === 'B' ? 50 : 75;
-
-  // ✅ Total Título I (viene del modelo Dictamen.totalTitulo1)
-  const totalTituloI = dictamen?.totalTitulo1;
-
-  return (
-    <View>
-      <V minPresenceAhead={220}>
-        <View style={styles.titleRow} wrap={false}>
-          <Text style={styles.titleText}>4. Variables de la pérdida de la capacidad laboral</Text>
-        </View>
-
-        <View style={styles.barRow} wrap={false}>
-          <Text style={styles.barText}>TITULO I</Text>
-        </View>
-
-        {/* Encabezados */}
-        <View style={styles.headRow} wrap={false}>
-          <View style={[styles.hCell, { flex: COL.num }]}>
-            <Text style={styles.hText}>{' '}</Text>
-          </View>
-
-          <View style={[styles.hCell, { flex: COL.desc }]}>
-            <Text style={styles.hText}>Descripción de la Deficiencia (s)</Text>
-          </View>
-
-          <View style={[styles.hCell, { flex: COL.cap }]}>
-            <Text style={styles.hText}>Capítulo</Text>
-          </View>
-
-          <View style={[styles.hCell, { flex: COL.tabla }]}>
-            <Text style={styles.hText}>Tabla</Text>
-          </View>
-
-          <View style={[styles.hCell, { flex: COL.valor, borderRightWidth: 0 }]}>
-            <Text style={styles.hText}>Valor de la deficiencia (%)</Text>
-          </View>
-        </View>
-
-        {/* Filas */}
-        {rows.map((it: any, idx: number) => {
-          const isLast = idx === rows.length - 1;
-          const rowStyle = isLast ? [styles.row, styles.rowLast] : styles.row;
-
-          const desc = it == null ? '—' : String(it?.descripcion ?? '—');
-          const cap = it == null ? '—' : String(it?.capitulo ?? '—');
-          const tabla = it == null ? '—' : String(it?.tabla ?? '—');
-          const valor = it == null ? '—' : formatPercent(it?.valorDeficiencia);
-
-          return (
-            <View key={`t1-${idx}`} style={rowStyle} wrap={false}>
-              <View style={[styles.cell, { flex: COL.num }]}>
-                <Text style={styles.numText}>{idx + 1}.</Text>
-              </View>
-
-              <View style={[styles.cell, { flex: COL.desc }]}>
-                <Text style={styles.descText}>{desc}</Text>
-              </View>
-
-              <View style={[styles.cell, { flex: COL.cap }]}>
-                <Text style={styles.midText}>{cap}</Text>
-              </View>
-
-              <View style={[styles.cell, { flex: COL.tabla }]}>
-                <Text style={styles.midText}>{tabla}</Text>
-              </View>
-
-              <View style={[styles.cell, styles.cellLast, { flex: COL.valor }]}>
-                <Text style={styles.valText}>{valor}</Text>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Suma (a la derecha va Total Título I) */}
-        <View style={styles.sumRow} wrap={false}>
-          <View style={styles.sumLeft}>
-            <Text style={styles.sumText}>Suma con fórmula de valores combinados (75% ó 50%):</Text>
-          </View>
-          <View style={styles.sumRight}>
-            <Text style={styles.sumText}>{formatPercent(totalTituloI)}</Text>
-          </View>
-        </View>
-
-        {/* Pie (ponderación máxima depende del procedimiento) */}
-        <View style={styles.footerRow} wrap={false}>
-          <View style={styles.footerLeft}>
-            <Text style={styles.footerLeftText}>Deficiencia</Text>
-          </View>
-          <View style={styles.footerRight}>
-            <Text style={styles.footerRightText}>Ponderación máxima: {ponderacionMax}%</Text>
-          </View>
-        </View>
-      </V>
-    </View>
-  );
-}

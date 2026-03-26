@@ -1,10 +1,22 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
 
-type Props = { dictamen: any };
+type JuntaMember = {
+  nombreCompleto?: string | null;
+  tratamiento?: string | null;
+  firmaSrc?: string | null;
+  registroMedico?: string | null;
+  licencia?: string | null;
+};
 
-const BW = 1.2;
+type DictamenLike = {
+  junta?: unknown;
+};
+
+type Props = { dictamen: DictamenLike };
+
+const BW = Number(pdfTheme?.sizes?.borderWidth ?? 0.85);
 const BC = pdfTheme.colors.border;
 
 const COLOR = {
@@ -19,12 +31,10 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
-/** Devuelve "Dr. NOMBRE" o "Dra. NOMBRE" usando it.tratamiento (DR/DRA) */
-function formatNombreConTratamiento(it: any) {
+function formatNombreConTratamiento(it: JuntaMember | null | undefined) {
   const nombre = String(it?.nombreCompleto ?? '').trim();
   if (!nombre) return '';
 
-  // Si ya viene prefijado, no duplicar
   if (/^(dr\.?|dra\.?)\s/i.test(nombre)) return nombre;
 
   const t = String(it?.tratamiento ?? '').trim().toUpperCase();
@@ -34,21 +44,18 @@ function formatNombreConTratamiento(it: any) {
 }
 
 export default function FirmasJuntaBlock({ dictamen }: Props) {
-  const junta = Array.isArray(dictamen?.junta) ? dictamen.junta : [];
-
-  // si no hay junta, igual dejamos el bloque (para mantener formato)
+  const juntaRaw = Array.isArray(dictamen?.junta) ? dictamen.junta : [];
+  const junta = juntaRaw as JuntaMember[];
   const cols = 3;
   const rows = chunk(junta, cols);
 
   return (
-    <View style={styles.box} wrap={false} minPresenceAhead={220}>
-      {/* Header */}
+    <View style={styles.box} minPresenceAhead={32}>
       <View style={styles.header} wrap={false}>
         <Text style={styles.headerText}>FIRMAS JUNTA MÉDICA</Text>
       </View>
 
-      {/* Body */}
-      <View style={styles.body} wrap={false}>
+      <View style={styles.body}>
         {rows.length === 0 ? (
           <View style={styles.row} wrap={false}>
             {[0, 1, 2].map((i) => (
@@ -64,7 +71,7 @@ export default function FirmasJuntaBlock({ dictamen }: Props) {
           rows.map((r, idx) => (
             <View key={idx} style={styles.row} wrap={false}>
               {Array.from({ length: cols }).map((_, j) => {
-                const it = r[j];
+                const it: JuntaMember | undefined = r[j];
                 return (
                   <View key={j} style={styles.card}>
                     <View style={styles.signArea}>
@@ -73,13 +80,12 @@ export default function FirmasJuntaBlock({ dictamen }: Props) {
 
                     <View style={styles.line} />
 
-                    {/* ✅ aquí se agrega Dr / Dra */}
                     <Text style={styles.name}>{formatNombreConTratamiento(it)}</Text>
 
                     <Text style={styles.meta}>
-                      {(it?.registroMedico ? `RM: ${it.registroMedico}` : '')}
-                      {(it?.registroMedico && it?.licencia ? '  ' : '')}
-                      {(it?.licencia ? `Lic: ${it.licencia}` : '')}
+                      {it?.registroMedico ? `RM: ${it.registroMedico}` : ''}
+                      {it?.registroMedico && it?.licencia ? '  ' : ''}
+                      {it?.licencia ? `Lic: ${it.licencia}` : ''}
                     </Text>
                   </View>
                 );
@@ -154,3 +160,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
