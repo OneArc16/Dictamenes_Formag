@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import TabAntecedentes from '@/components/dictamen/tabs/TabAntecedentes';
 import TabSustentacion from '@/components/dictamen/tabs/TabSustentacion';
@@ -12,6 +11,7 @@ import TabHistorial from '@/components/dictamen/tabs/TabHistorial';
 import { TituloIICapitulo2Tab } from '@/components/dictamen/tabs/TituloIICapitulo2Tab';
 import TabTituloIII from '@/components/dictamen/tabs/tabTituloIII';
 import { useCie10Options } from '@/hooks/useCie10Options';
+import { useDictamenDeficienciasPanel } from '@/hooks/useDictamenDeficienciasPanel';
 import type { DictamenEstado, DictamenHistorialItem } from '@/components/dictamen/types';
 
 type TipoEvento = 'ENFERMEDAD' | 'ACCIDENTE';
@@ -52,11 +52,6 @@ type DictamenCenterPanelProps = {
   fechaDictamen: string;
 };
 
-type TotalesPcl = {
-  totalTitulo1: number | null;
-  totalCap2: number | null;
-};
-
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
@@ -69,29 +64,15 @@ export default function DictamenCenterPanel({
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
-  const queryClient = useQueryClient();
   const { data: cie10Options = [], error: cie10Error } = useCie10Options();
+  const panel = useDictamenDeficienciasPanel(dictamen.id, procedimientoPcl);
 
-  const totalesKey = useMemo(() => ['dictamen', dictamen.id, 'totales'] as const, [dictamen.id]);
-
-  const { data: totales } = useQuery<TotalesPcl>({
-    queryKey: totalesKey,
-    queryFn: async () => ({ totalTitulo1: null, totalCap2: null }),
-    enabled: false,
-    initialData: () => {
-      const cached = queryClient.getQueryData<TotalesPcl>(totalesKey);
-      return (
-        cached ?? {
-          totalTitulo1: null,
-          totalCap2: dictamen.totalCap2 ?? null,
-        }
-      );
-    },
-  });
+  const totalTitulo1 = panel.data?.dictamen?.totalTitulo1 ?? null;
+  const totalCap2 = panel.data?.dictamen?.totalCap2 ?? dictamen.totalCap2 ?? null;
 
   const isAvdDisabled = procedimientoPcl === 'A';
-  const sumReady = totales?.totalTitulo1 != null && totales?.totalCap2 != null;
-  const base = round2((totales?.totalTitulo1 ?? 0) + (totales?.totalCap2 ?? 0));
+  const sumReady = totalTitulo1 != null && totalCap2 != null;
+  const base = round2((totalTitulo1 ?? 0) + (totalCap2 ?? 0));
   const faltante = round2(Math.max(0, 100 - base));
 
   const tituloIIIDisabledBySum = procedimientoPcl === 'A' && sumReady && faltante <= 0;

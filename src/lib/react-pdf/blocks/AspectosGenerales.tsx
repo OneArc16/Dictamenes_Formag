@@ -115,7 +115,7 @@ function Cell({
 
 export function AspectosGeneralesBlock({ dictamen }: Props) {
   const u = dictamen?.usuario ?? {};
-  const ciudad = String(u?.municipio?.nombre ?? dictamen?.ciudad ?? dictamen?.municipio ?? '—');
+  const ciudad = 'SANTA MARTA';
 
   const origen = String(dictamen?.origenEvento ?? '').toUpperCase();
   const enfermedadGeneral = origen === 'LABORAL' ? 'ATEP' : String(dictamen?.enfermedadGeneral ?? '—');

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
 import AppNav from '@/components/AppNav';
@@ -43,7 +43,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDictamen = async (silent = false) => {
+  const fetchDictamen = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
 
@@ -84,7 +84,22 @@ export default function AdmisionesVerHistoriaClinicaPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [dictamenId]);
+
+  const markClosedLocally = useCallback((serverVersionValue?: string) => {
+    setDictamen((prev) =>
+      prev
+        ? {
+            ...prev,
+            estado: 'CERRADO',
+            locked: true,
+          }
+        : prev,
+    );
+    setLocked(true);
+    setReadOnly(true);
+    if (serverVersionValue) setServerVersion(serverVersionValue);
+  }, []);
 
   useEffect(() => {
     if (!dictamenId || Number.isNaN(dictamenId)) {
@@ -92,9 +107,29 @@ export default function AdmisionesVerHistoriaClinicaPage() {
       setLoading(false);
       return;
     }
-    fetchDictamen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dictamenId]);
+    void fetchDictamen(false);
+  }, [dictamenId, fetchDictamen]);
+
+  useEffect(() => {
+    const handleClosedState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ dictamenId?: number; serverVersion?: string }>;
+      if (customEvent.detail?.dictamenId !== dictamenId) return;
+
+      markClosedLocally(
+        customEvent.detail?.serverVersion ? String(customEvent.detail.serverVersion) : undefined,
+      );
+
+      void fetchDictamen(true);
+    };
+
+    window.addEventListener('dictamen:closed', handleClosedState as EventListener);
+    window.addEventListener('dictamen:estado_updated', handleClosedState as EventListener);
+
+    return () => {
+      window.removeEventListener('dictamen:closed', handleClosedState as EventListener);
+      window.removeEventListener('dictamen:estado_updated', handleClosedState as EventListener);
+    };
+  }, [dictamenId, fetchDictamen, markClosedLocally]);
 
   const handleChangeFecha = (newFecha: string) => {
     if (readOnly) return;

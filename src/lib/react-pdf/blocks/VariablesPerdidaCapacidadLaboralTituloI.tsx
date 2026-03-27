@@ -146,30 +146,17 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
       ))}
 
       <KeepTogether minPresenceAhead={18}>
-        <GridRow style={styles.summaryRow}>
-          <GridCell width={COL.beforeValor} backgroundColor={COLOR.head}>
-            <Text style={styles.summaryText}>
-              Suma con fórmula de valores combinados (75% ó 50%):
-            </Text>
-          </GridCell>
-          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
-            <Text style={styles.summaryText}>{formatPercent(dictamen?.totalTitulo1)}</Text>
-          </GridCell>
-        </GridRow>
-
-        <GridRow style={styles.footerRow}>
-          <GridCell
-            width={COL.beforeValor}
-            backgroundColor={COLOR.head}
-            align="flex-end"
-          >
-            <Text style={styles.footerLeftText}>Deficiencia</Text>
-          </GridCell>
-          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast align="flex-start">
-            <Text style={styles.footerRightText}>Ponderación máxima: {ponderacionMax}%</Text>
-          </GridCell>
-        </GridRow>
-      </KeepTogether>
+          <GridRow style={styles.summaryRow}>
+            <GridCell width={COL.beforeValor} backgroundColor={COLOR.head} align="flex-start">
+              <Text style={styles.summaryLabelText}>
+                Suma con fórmula de valores combinados (75% o 50%):
+              </Text>
+            </GridCell>
+            <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
+              <Text style={styles.summaryValueText}>{formatPercent(dictamen?.totalTitulo1)}</Text>
+            </GridCell>
+          </GridRow>
+        </KeepTogether>
     </View>
   );
 }
@@ -214,7 +201,12 @@ const styles = StyleSheet.create({
     borderTopWidth: pdfTheme.sizes.borderWidth,
     borderTopColor: pdfTheme.colors.border,
   },
-  summaryText: {
+  summaryLabelText: {
+    fontSize: 7.6,
+    fontWeight: 700,
+    textAlign: 'left',
+  },
+  summaryValueText: {
     fontSize: 7.6,
     fontWeight: 700,
     textAlign: 'center',
