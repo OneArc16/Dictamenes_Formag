@@ -319,7 +319,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
           // ✅ CARGO DOCENTE (relación)
           cargoDocenteId: true,
           cargoDocente: { select: { id: true, codigo: true, nombre: true } },
-
+          nivelEscalafon: true,
           gradoEscalafon: true,
           formaVinculacion: true,
           sector: true,

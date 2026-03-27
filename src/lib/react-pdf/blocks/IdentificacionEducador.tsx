@@ -182,7 +182,14 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
       ? asText(u?.cargo)
       : asText(u?.codigoOcupacion);
 
+  const nivelEscalafon = asText(u?.nivelEscalafon);
   const gradoEscalafon = asText(u?.gradoEscalafon);
+  const escalafon =
+    gradoEscalafon === '?'
+      ? '?'
+      : nivelEscalafon === '?'
+      ? gradoEscalafon
+      : `${gradoEscalafon}${nivelEscalafon}`;
   const formaVinculacion = asText(u?.formaVinculacion);
 
   return (
@@ -280,7 +287,7 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
           <FieldInline label="Cargo:" value={cargo} />
         </Cell>
         <Cell flex={1.25} bg={COLOR.blue}>
-          <FieldInline label="GRADO DE ESCALAFÓN:" value={gradoEscalafon} />
+          <FieldInline label="GRADO DE ESCALAFÓN:" value={escalafon} />
         </Cell>
         <Cell flex={1.5} bg={COLOR.blueLight} last>
           <FieldInline label="FORMA DE VINCULACIÓN:" value={formaVinculacion} />
