@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -7,29 +7,96 @@ type CerrarDictamenResponse = {
   dictamenId: number;
   estado: 'CERRADO' | 'PENDIENTE';
   updatedAt?: string;
+  serverVersion?: string;
   message?: string;
 };
 
-async function safeJson(res: Response) {
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API no devolvió JSON (${res.status}). Ej: ${text.slice(0, 120)}...`);
+type DictamenCacheShape = {
+  readOnly?: boolean;
+  serverVersion?: string;
+  estado?: string;
+  dictamenEstado?: string;
+  dictamen?: {
+    estado?: string;
+    readOnly?: boolean;
+  };
+  data?: {
+    readOnly?: boolean;
+    estado?: string;
+    dictamenEstado?: string;
+    dictamen?: {
+      estado?: string;
+      readOnly?: boolean;
+    };
+  };
+};
+
+type MutationContext = {
+  prevDictamen: unknown;
+  prevPanel: unknown;
+};
+
+function isDictamenCacheShape(value: unknown): value is DictamenCacheShape {
+  return typeof value === 'object' && value !== null;
+}
+
+function markClosedInCache(previous: unknown, serverVersion?: string): unknown {
+  if (!isDictamenCacheShape(previous)) {
+    return previous;
   }
-  return res.json();
+
+  return {
+    ...previous,
+    readOnly: true,
+    serverVersion: serverVersion ?? previous.serverVersion,
+    estado: previous.estado ?? 'CERRADO',
+    dictamenEstado: 'CERRADO',
+    dictamen: previous.dictamen
+      ? {
+          ...previous.dictamen,
+          estado: 'CERRADO',
+          readOnly: true,
+        }
+      : previous.dictamen,
+    data: previous.data
+      ? {
+          ...previous.data,
+          readOnly: true,
+          estado: previous.data.estado ?? 'CERRADO',
+          dictamenEstado: 'CERRADO',
+          dictamen: previous.data.dictamen
+            ? {
+                ...previous.data.dictamen,
+                estado: 'CERRADO',
+                readOnly: true,
+              }
+            : previous.data.dictamen,
+        }
+      : previous.data,
+  } satisfies DictamenCacheShape;
+}
+
+async function safeJson(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`API no devolvio JSON (${response.status}). Ej: ${text.slice(0, 120)}...`);
+  }
+
+  return response.json();
 }
 
 async function postCerrarDictamen(dictamenId: number): Promise<CerrarDictamenResponse> {
-  const res = await fetch(`/api/dictamenes/${dictamenId}/cerrar`, {
+  const response = await fetch(`/api/dictamenes/${dictamenId}/cerrar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });
 
-  const data = (await safeJson(res)) as CerrarDictamenResponse;
+  const data = (await safeJson(response)) as CerrarDictamenResponse;
 
-  if (!res.ok || data?.ok === false) {
-    throw new Error(data?.message ?? 'Error cerrando dictamen');
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.message ?? 'Error cerrando dictamen');
   }
 
   return data;
@@ -38,84 +105,41 @@ async function postCerrarDictamen(dictamenId: number): Promise<CerrarDictamenRes
 export function useCerrarDictamen(dictamenId: number) {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<CerrarDictamenResponse, Error, void, MutationContext>({
     mutationFn: () => postCerrarDictamen(dictamenId),
-
-    // ✅ OPTIMISTIC UPDATE: la UI se entera INMEDIATAMENTE
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['dictamen', dictamenId] });
 
       const prevDictamen = queryClient.getQueryData(['dictamen', dictamenId]);
       const prevPanel = queryClient.getQueryData(['dictamen-deficiencias-panel', dictamenId]);
 
-      // 1) Cache del dictamen (EL QUE USA EL SHELL)
-      queryClient.setQueryData(['dictamen', dictamenId], (prev: any) => {
-        if (!prev?.dictamen) return prev;
-        return {
-          ...prev,
-          readOnly: true,
-          dictamen: {
-            ...prev.dictamen,
-            estado: 'CERRADO',
-          },
-        };
-      });
-
-      // 2) Cache del panel (opcional pero útil si lo muestras allí)
-      queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], (prev: any) => {
-        if (!prev?.dictamen) return prev;
-        return {
-          ...prev,
-          dictamen: {
-            ...prev.dictamen,
-            estado: 'CERRADO',
-          },
-        };
-      });
-
-      // ✅ Evento inmediato (para listeners de UI)
-      window.dispatchEvent(
-        new CustomEvent('dictamen:closed', { detail: { dictamenId } })
+      queryClient.setQueryData(['dictamen', dictamenId], (previous: unknown) => markClosedInCache(previous));
+      queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], (previous: unknown) =>
+        markClosedInCache(previous),
       );
-      window.dispatchEvent(
-        new CustomEvent('dictamen:estado_updated', { detail: { dictamenId } })
-      );
+
+      window.dispatchEvent(new CustomEvent('dictamen:closed', { detail: { dictamenId } }));
+      window.dispatchEvent(new CustomEvent('dictamen:estado_updated', { detail: { dictamenId } }));
 
       return { prevDictamen, prevPanel };
     },
+    onError: (_error, _variables, context) => {
+      if (context?.prevDictamen !== undefined) {
+        queryClient.setQueryData(['dictamen', dictamenId], context.prevDictamen);
+      }
 
-    onError: (_err, _vars, ctx) => {
-      // rollback
-      if (ctx?.prevDictamen) queryClient.setQueryData(['dictamen', dictamenId], ctx.prevDictamen);
-      if (ctx?.prevPanel) queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], ctx.prevPanel);
+      if (context?.prevPanel !== undefined) {
+        queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], context.prevPanel);
+      }
     },
-
     onSuccess: async (server) => {
-      // ✅ asegura que el estado final refleje el server (por si retorna algo distinto)
-      queryClient.setQueryData(['dictamen', dictamenId], (prev: any) => {
-        if (!prev?.dictamen) return prev;
-        return {
-          ...prev,
-          readOnly: server.estado === 'CERRADO' ? true : prev.readOnly,
-          dictamen: {
-            ...prev.dictamen,
-            estado: server.estado,
-          },
-        };
-      });
+      queryClient.setQueryData(['dictamen', dictamenId], (previous: unknown) =>
+        markClosedInCache(previous, server.serverVersion),
+      );
+      queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], (previous: unknown) =>
+        markClosedInCache(previous, server.serverVersion),
+      );
 
-      queryClient.setQueryData(['dictamen-deficiencias-panel', dictamenId], (prev: any) => {
-        if (!prev?.dictamen) return prev;
-        return {
-          ...prev,
-          dictamen: {
-            ...prev.dictamen,
-            estado: server.estado,
-          },
-        };
-      });
-
-      // ✅ invalidaciones para sincronizar totales/otras tabs SIN reload
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['dictamen', dictamenId] }),
         queryClient.invalidateQueries({ queryKey: ['dictamen-deficiencias-panel', dictamenId] }),
@@ -123,13 +147,12 @@ export function useCerrarDictamen(dictamenId: number) {
         queryClient.invalidateQueries({ queryKey: ['dictamen', dictamenId, 'sustentacion'] }),
       ]);
 
-      // ✅ evento final (por si alguien espera onSuccess)
       window.dispatchEvent(
-        new CustomEvent('dictamen:closed', { detail: { dictamenId } })
+        new CustomEvent('dictamen:closed', {
+          detail: { dictamenId, serverVersion: server.serverVersion },
+        }),
       );
-      window.dispatchEvent(
-        new CustomEvent('dictamen:estado_updated', { detail: { dictamenId } })
-      );
+      window.dispatchEvent(new CustomEvent('dictamen:estado_updated', { detail: { dictamenId } }));
     },
   });
 }

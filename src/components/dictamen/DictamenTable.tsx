@@ -1,17 +1,29 @@
-'use client';
+﻿'use client';
 
-import { Eye } from 'lucide-react';
-import { DictamenRow } from './types';
+import type { ReactNode } from 'react';
+import { Eye, RotateCcw } from 'lucide-react';
 
-interface DictamenTableProps {
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import type { DictamenRow } from './types';
+
+type DictamenTableProps = {
   rows: DictamenRow[];
   loading: boolean;
   onOpenDictamen: (id: number) => void;
-  renderActions?: (row: DictamenRow) => React.ReactNode;
-}
+  renderActions?: (row: DictamenRow) => ReactNode;
+};
 
-// Helper para formatear la fecha
-function formatFecha(value: any): string {
+function formatFecha(value: string | Date | null | undefined) {
   if (!value) return '';
 
   if (value instanceof Date) {
@@ -22,13 +34,11 @@ function formatFecha(value: any): string {
     });
   }
 
-  const str = String(value);
-
-  // ISO con hora
-  if (str.includes('T')) {
-    const d = new Date(str);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('es-CO', {
+  const normalized = String(value);
+  if (normalized.includes('T')) {
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('es-CO', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -37,17 +47,56 @@ function formatFecha(value: any): string {
     }
   }
 
-  // YYYY-MM-DD
-  const base = str.split('T')[0];
-  const parts = base.split('-');
-  if (parts.length === 3) {
-    const [y, m, d] = parts;
-    if (y.length === 4) {
-      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
-    }
+  const [year, month, day] = normalized.split('T')[0].split('-');
+  if (year && month && day) {
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
   }
 
-  return str;
+  return normalized;
+}
+
+function getEstadoStyles(estado: string | undefined) {
+  const normalized = String(estado ?? '').toUpperCase();
+
+  if (normalized === 'PENDIENTE') {
+    return 'border border-amber-100 bg-amber-50 text-amber-700';
+  }
+
+  if (normalized === 'REABIERTO') {
+    return 'border border-sky-100 bg-sky-50 text-sky-700';
+  }
+
+  return 'border border-emerald-100 bg-emerald-50 text-emerald-700';
+}
+
+function getEstadoLabel(estado: string | undefined) {
+  const normalized = String(estado ?? '').toUpperCase();
+
+  if (normalized === 'PENDIENTE') return 'Pendiente';
+  if (normalized === 'REABIERTO') return 'Reabierto';
+  return 'Cerrado';
+}
+
+function getRowClassName(row: DictamenRow) {
+  if (String(row.estado ?? '').toUpperCase() === 'REABIERTO') {
+    return 'border-sky-100 bg-sky-50/30 hover:bg-sky-50/50';
+  }
+
+  return 'border-slate-100 hover:bg-slate-50/70';
+}
+
+function buildReaperturaMeta(row: DictamenRow) {
+  const parts: string[] = [];
+
+  if (row.reabiertaEn) {
+    parts.push(`Ult. reapertura: ${formatFecha(row.reabiertaEn)}`);
+  }
+
+  if (row.reabiertaPorNombre) {
+    parts.push(`Por: ${row.reabiertaPorNombre}`);
+  }
+
+  return parts.join(' · ');
 }
 
 export function DictamenTable({
@@ -56,149 +105,111 @@ export function DictamenTable({
   onOpenDictamen,
   renderActions,
 }: DictamenTableProps) {
-  const hasRows = rows && rows.length > 0;
-
   return (
-    <div className="overflow-hidden bg-white border shadow-sm rounded-xl border-slate-200">
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-xs">
-          <thead className="border-b bg-slate-50 border-slate-200">
-            <tr>
-              <th className="w-10 px-3 py-2 font-semibold text-left text-slate-500">
-                #
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Fecha
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Secretaría
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Documento
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Docente
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Estado
-              </th>
-              <th className="px-3 py-2 font-semibold text-left text-slate-500">
-                Médico
-              </th>
-              <th className="w-24 px-3 py-2 font-semibold text-center text-slate-500">
-                Acciones
-              </th>
-            </tr>
-          </thead>
+    <Card className="overflow-hidden rounded-xl border-slate-200 bg-white/95 shadow-sm">
+      <Table>
+        <TableHeader className="bg-slate-50/90">
+          <TableRow className="border-slate-200 hover:bg-slate-50/90">
+            <TableHead className="w-10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">#</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Fecha</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Secretaria</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Docente</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Estado</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Medico</TableHead>
+            <TableHead className="w-24 px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
 
-          <tbody className="divide-y divide-slate-100">
-            {loading && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-6 text-xs text-center text-slate-500"
-                >
-                  Cargando dictámenes...
-                </td>
-              </tr>
-            )}
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={8} className="px-3 py-6 text-center text-xs text-slate-500">
+                Cargando dictamenes...
+              </TableCell>
+            </TableRow>
+          ) : null}
 
-            {!loading && !hasRows && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-6 text-xs text-center text-slate-500"
-                >
-                  No hay dictámenes para los filtros seleccionados.
-                </td>
-              </tr>
-            )}
+          {!loading && rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="px-3 py-6 text-center text-xs text-slate-500">
+                No hay dictamenes para los filtros seleccionados.
+              </TableCell>
+            </TableRow>
+          ) : null}
 
-            {!loading &&
-              hasRows &&
-              rows.map((row, index) => {
-                const numero = index + 1;
-
-                // 🔹 Soportar tanto el shape nuevo como el anterior
-                const anyRow = row as any;
-                const fechaValue = anyRow.fecha ?? row.fechaDictamen;
-                const fechaStr = formatFecha(fechaValue);
-
-                const documento =
-                  anyRow.documento ?? row.docenteDocumento ?? '';
-                const docenteNombre =
-                  anyRow.docente ?? row.docenteNombre ?? '';
-                const medicoNombre =
-                  anyRow.medico ?? row.medicoNombre ?? '';
-                const secretaria = anyRow.secretaria ?? row.secretaria ?? '';
-
-                const estadoRaw = anyRow.estado ?? row.estado;
-                const estadoUpper = estadoRaw?.toUpperCase();
-                const isPendiente = estadoUpper === 'PENDIENTE';
-                const isReabierto = estadoUpper === 'REABIERTO';
-
-                let estadoLabel = 'Cerrado';
-                let estadoClasses =
-                  'bg-emerald-50 text-emerald-700 border border-emerald-100';
-
-                if (isPendiente) {
-                  estadoLabel = 'Pendiente';
-                  estadoClasses =
-                    'bg-amber-50 text-amber-700 border border-amber-100';
-                } else if (isReabierto) {
-                  estadoLabel = 'Reabierto';
-                  estadoClasses =
-                    'bg-indigo-50 text-indigo-700 border border-indigo-100';
-                }
+          {!loading
+            ? rows.map((row, index) => {
+                const hasReaperturaContext = Boolean(
+                  row.fueReabierto || row.reabiertaEn || row.reabiertaPorNombre || row.motivoReapertura,
+                );
+                const reaperturaMeta = buildReaperturaMeta(row);
+                const currentEstado = String(row.estado ?? '').toUpperCase();
 
                 return (
-                  <tr key={row.id} className="hover:bg-slate-50/70">
-                    <td className="px-3 py-2 text-[11px] text-slate-500">
-                      {numero}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {fechaStr}
-                    </td>
-                    {/* 🔹 Secretaría */}
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {secretaria || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {documento}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {docenteNombre}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${estadoClasses}`}
-                      >
-                        {estadoLabel}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700">
-                      {medicoNombre}
-                    </td>
-                    <td className="px-3 py-2 text-center">
+                  <TableRow key={row.id} className={getRowClassName(row)}>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-500">{index + 1}</TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {formatFecha(row.fechaDictamen)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.secretaria || 'Sin secretaria'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.docenteDocumento || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.docenteNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top">
+                      <div className="max-w-[240px] space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEstadoStyles(row.estado)}`}
+                          >
+                            {getEstadoLabel(row.estado)}
+                          </span>
+                          {hasReaperturaContext && currentEstado !== 'REABIERTO' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">
+                              <RotateCcw className="h-3 w-3" />
+                              Con reapertura
+                            </span>
+                          ) : null}
+                        </div>
+                        {hasReaperturaContext ? (
+                          <div className="space-y-0.5 text-[10px] leading-4 text-slate-500">
+                            {reaperturaMeta ? <p>{reaperturaMeta}</p> : null}
+                            {row.motivoReapertura ? (
+                              <p className="break-words text-slate-600">Motivo: {row.motivoReapertura}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {row.medicoNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-center">
                       <div className="inline-flex items-center justify-center gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="icon"
+                          title="Ver dictamen"
+                          className="h-8 w-8 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                           onClick={() => onOpenDictamen(row.id)}
-                          title="Ver"
-                          aria-label="Ver"
-                          className="inline-flex items-center justify-center w-8 h-8 text-blue-700 transition-colors bg-white border border-blue-200 rounded-full hover:bg-blue-50 active:bg-blue-100"
                         >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         {renderActions ? renderActions(row) : null}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
-              })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+              })
+            : null}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

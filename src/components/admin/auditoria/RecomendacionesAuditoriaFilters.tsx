@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 type Props = {
   initialQ?: string;
   initialTipo?: string;
+  initialModulo?: string;
   initialFechaDesde?: string;
   initialFechaHasta?: string;
   debounceMs?: number;
@@ -16,6 +17,7 @@ type Props = {
 export default function RecomendacionesAuditoriaFilters({
   initialQ = '',
   initialTipo = 'all',
+  initialModulo = 'RECOMENDACIONES',
   initialFechaDesde = '',
   initialFechaHasta = '',
   debounceMs = 350,
@@ -26,12 +28,14 @@ export default function RecomendacionesAuditoriaFilters({
 
   const [q, setQ] = useState(initialQ);
   const [tipo, setTipo] = useState(initialTipo);
+  const [modulo, setModulo] = useState(initialModulo);
   const [fechaDesde, setFechaDesde] = useState(initialFechaDesde);
   const [fechaHasta, setFechaHasta] = useState(initialFechaHasta);
 
   const replaceQuery = (next: {
     q?: string;
     tipo?: string;
+    modulo?: string;
     fechaDesde?: string;
     fechaHasta?: string;
   }) => {
@@ -44,6 +48,10 @@ export default function RecomendacionesAuditoriaFilters({
     const nextTipo = next.tipo ?? 'all';
     if (nextTipo !== 'all') params.set('tipo', nextTipo);
     else params.delete('tipo');
+
+    const nextModulo = (next.modulo ?? 'RECOMENDACIONES').trim().toUpperCase();
+    if (nextModulo && nextModulo !== 'RECOMENDACIONES') params.set('modulo', nextModulo);
+    else params.delete('modulo');
 
     const nextFechaDesde = (next.fechaDesde ?? '').trim();
     if (nextFechaDesde) params.set('fechaDesde', nextFechaDesde);
@@ -61,7 +69,7 @@ export default function RecomendacionesAuditoriaFilters({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      replaceQuery({ q, tipo, fechaDesde, fechaHasta });
+      replaceQuery({ q, tipo, modulo, fechaDesde, fechaHasta });
     }, debounceMs);
 
     return () => window.clearTimeout(timer);
@@ -69,13 +77,14 @@ export default function RecomendacionesAuditoriaFilters({
   }, [q]);
 
   useEffect(() => {
-    replaceQuery({ q, tipo, fechaDesde, fechaHasta });
+    replaceQuery({ q, tipo, modulo, fechaDesde, fechaHasta });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, fechaDesde, fechaHasta]);
+  }, [tipo, modulo, fechaDesde, fechaHasta]);
 
   const clearFilters = () => {
     setQ('');
     setTipo('all');
+    setModulo('RECOMENDACIONES');
     setFechaDesde('');
     setFechaHasta('');
     router.replace(pathname, { scroll: false });
@@ -83,14 +92,26 @@ export default function RecomendacionesAuditoriaFilters({
 
   return (
     <div className="grid grid-cols-12 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="col-span-12 md:col-span-6">
+      <div className="col-span-12 md:col-span-4">
         <label className="block text-[11px] font-medium text-slate-600">Buscar</label>
         <Input
           value={q}
           onChange={(event) => setQ(event.target.value)}
-          placeholder="Docente, documento, actor, motivo o N.° de referencia…"
+          placeholder="Docente, documento, actor, motivo o numero..."
           className="mt-1 text-[11px]"
         />
+      </div>
+
+      <div className="col-span-12 md:col-span-2">
+        <label className="block text-[11px] font-medium text-slate-600">Modulo</label>
+        <select
+          value={modulo}
+          onChange={(event) => setModulo(event.target.value)}
+          className="mt-1 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          <option value="RECOMENDACIONES">Recomendaciones</option>
+          <option value="DICTAMENES">Dictamenes</option>
+        </select>
       </div>
 
       <div className="col-span-12 md:col-span-2">

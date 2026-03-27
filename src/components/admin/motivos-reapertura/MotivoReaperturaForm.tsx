@@ -193,7 +193,7 @@ export default function MotivoReaperturaForm({
             Motivo activo
           </Label>
           <p className="text-[11px] leading-5 text-slate-500">
-            Los motivos activos quedan disponibles para reabrir recomendaciones cerradas.
+            Los motivos activos quedan disponibles para reabrir recomendaciones y dictámenes cerrados.
           </p>
         </div>
       </div>
@@ -206,3 +206,4 @@ export default function MotivoReaperturaForm({
     </form>
   );
 }
+

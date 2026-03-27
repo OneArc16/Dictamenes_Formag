@@ -1,66 +1,16 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
 import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
-
 import DictamenLeftPanel from '@/components/dictamen/DictamenLeftPanel';
 import DictamenCenterPanel from '@/components/dictamen/DictamenCenterPanel';
 import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
-
-// ✅ ADD: Provider para que NO explote useMedicoAccess en tabs (Cap.2)
 import MedicoAccessProvider from '@/components/medico/MedicoAccessProvider';
 import type { AuthUser } from '@/lib/auth/guards';
-
-/* =====================
-   Tipos
-   ===================== */
-
-type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
-
-type DictamenDiagnosticoDTO = {
-  cie10Codigo: string;
-  tipo: 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
-  cie10Label?: string | null;
-};
-
-type DictamenDetalle = {
-  id: number;
-  numeroDictamen: string | null;
-  fechaDictamen: string | null;
-  procedimientoPcl: 'A' | 'B';
-  estado: DictamenEstado;
-
-  locked?: boolean;
-
-  antecedentesClinicos: string | null;
-  condicionSalud: string | null;
-  descripcionHallazgos: string | null;
-  diagnosticos: DictamenDiagnosticoDTO[];
-
-  docente: {
-    id: number;
-    documento: string;
-    tipoDocumento: string;
-    nombreCompleto: string;
-    edad: number | null;
-    sexo: string;
-    secretaria: string | null;
-    institucion: string | null;
-    tipoDictamen?: string | null;
-  };
-
-  medico: {
-    id: number;
-    nombreCompleto: string;
-  } | null;
-};
-
-/* =====================
-   Helper número dictamen
-   ===================== */
+import type { DictamenDetalle } from '@/components/dictamen/types';
 
 function buildNumeroDictamen(id: number, fecha: string | null) {
   if (!fecha) return '';
@@ -76,10 +26,6 @@ const ADMISIONES_USER = {
   name: 'ADMISIONES',
 } as unknown as AuthUser;
 
-/* =====================
-   Página principal
-   ===================== */
-
 export default function AdmisionesVerHistoriaClinicaPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
@@ -88,19 +34,16 @@ export default function AdmisionesVerHistoriaClinicaPage() {
   const backTo = '/admisiones';
 
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
-
+  const [serverVersion, setServerVersion] = useState('');
   const [readOnly, setReadOnly] = useState(false);
   const [locked, setLocked] = useState(false);
-
   const [procedimientoPcl, setProcedimientoPcl] = useState<'A' | 'B'>('A');
   const [fechaDictamen, setFechaDictamen] = useState<string>('');
   const [numeroDictamen, setNumeroDictamen] = useState<string>('');
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dictamenLoaded, setDictamenLoaded] = useState(false);
 
-  const fetchDictamen = async (silent: boolean = false) => {
+  const fetchDictamen = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
 
@@ -112,33 +55,32 @@ export default function AdmisionesVerHistoriaClinicaPage() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setError(data?.error ?? 'Error cargando información del dictamen');
+        setError(data?.error ?? 'Error cargando informacion del dictamen');
         return;
       }
 
-      const d = data.dictamen as DictamenDetalle;
-      setDictamen(d);
+      const detail = data.dictamen as DictamenDetalle;
+      setDictamen(detail);
+      setServerVersion(String(data?.serverVersion ?? ''));
 
-      const lockedNow = d.estado === 'CERRADO' || Boolean((d as any)?.locked);
+      const lockedNow = detail.estado === 'CERRADO' || Boolean(detail.locked);
       setLocked(lockedNow);
-
       setReadOnly(Boolean(data?.readOnly) || lockedNow);
 
-      const proc = d.procedimientoPcl ?? 'A';
+      const proc = detail.procedimientoPcl ?? 'A';
       setProcedimientoPcl(proc);
 
-      const rawFecha = d.fechaDictamen;
+      const rawFecha = detail.fechaDictamen;
       const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
-      const num = d.numeroDictamen ?? buildNumeroDictamen(d.id, uiFecha || null);
-      setNumeroDictamen(num);
+      const numero = detail.numeroDictamen ?? buildNumeroDictamen(detail.id, uiFecha || null);
+      setNumeroDictamen(numero);
 
       setError(null);
-      setDictamenLoaded(true);
-    } catch (err) {
-      console.error('Error cargando dictamen:', err);
-      setError('Error cargando información del dictamen.');
+    } catch (fetchError) {
+      console.error('Error cargando dictamen:', fetchError);
+      setError('Error cargando informacion del dictamen.');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -146,7 +88,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
 
   useEffect(() => {
     if (!dictamenId || Number.isNaN(dictamenId)) {
-      setError('ID de dictamen inválido.');
+      setError('ID de dictamen invalido.');
       setLoading(false);
       return;
     }
@@ -181,7 +123,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
             ← Volver al listado
           </button>
 
-          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">
+          <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-slate-500">
             Cargando dictamen…
           </div>
         </main>
@@ -202,8 +144,8 @@ export default function AdmisionesVerHistoriaClinicaPage() {
             ← Volver al listado
           </button>
 
-          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">
-            {error ?? 'No se encontró el dictamen.'}
+          <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-red-600">
+            {error ?? 'No se encontro el dictamen.'}
           </div>
         </main>
       </div>
@@ -211,7 +153,6 @@ export default function AdmisionesVerHistoriaClinicaPage() {
   }
 
   return (
-    // ✅ ADD: envolver para que useMedicoAccess NO falle en tabs (Cap.2)
     <MedicoAccessProvider user={ADMISIONES_USER} readOnly={true}>
       <div className="min-h-screen bg-slate-50">
         <AppNav />
@@ -223,7 +164,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
               onClick={() => router.push(backTo)}
               className="text-xs text-blue-600 hover:underline"
             >
-              ← Volver al listado de dictámenes
+              ← Volver al listado de dictamenes
             </button>
 
             <button
@@ -236,6 +177,14 @@ export default function AdmisionesVerHistoriaClinicaPage() {
               Imprimir PDF
             </button>
           </div>
+
+          {readOnly && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+              {locked
+                ? 'Dictamen CERRADO. No se permite editar.'
+                : 'Estas en modo solo lectura. No puedes editar.'}
+            </div>
+          )}
 
           <div className="mt-4">
             <DictamenFormLayout
@@ -262,13 +211,25 @@ export default function AdmisionesVerHistoriaClinicaPage() {
                     condicionSalud: dictamen.condicionSalud ?? '',
                     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
                     diagnosticos: dictamen.diagnosticos ?? [],
+                    fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
+                    tipoEvento: dictamen.tipoEvento ?? null,
+                    origenEvento: dictamen.origenEvento ?? null,
+                    historial: dictamen.historial ?? [],
                   }}
                   procedimientoPcl={procedimientoPcl}
                   fechaDictamen={fechaDictamen}
+                  serverVersion={serverVersion}
                   readOnly={true}
                 />
               }
-              right={<DictamenRightPanel dictamenId={dictamen.id} procedimientoPcl={procedimientoPcl} />}
+              right={
+                <DictamenRightPanel
+                  dictamenId={dictamen.id}
+                  procedimientoPcl={procedimientoPcl}
+                  readOnly={readOnly}
+                  ultimaReapertura={dictamen.ultimaReapertura}
+                />
+              }
             />
           </div>
         </main>
@@ -276,3 +237,4 @@ export default function AdmisionesVerHistoriaClinicaPage() {
     </MedicoAccessProvider>
   );
 }
+

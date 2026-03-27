@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,10 @@ type DictamenApiRow = {
   secretaria: string | null;
   estado: string | null;
   medicoNombre: string | null;
+  fueReabierto: boolean;
+  reabiertaEn: string | null;
+  reabiertaPorNombre: string | null;
+  motivoReapertura: string | null;
 };
 
 function formatFechaExport(value: unknown): string {
@@ -29,7 +33,6 @@ function formatFechaExport(value: unknown): string {
   const formatted = String(value);
   return formatted.includes('T') ? formatted.split('T')[0] : formatted;
 }
-
 
 export default function MedicoPage() {
   const router = useRouter();
@@ -46,13 +49,13 @@ export default function MedicoPage() {
   useEffect(() => {
     async function loadMedicos() {
       try {
-        const res = await fetch('/api/medicos/options', {
+        const response = await fetch('/api/medicos/options', {
           method: 'GET',
           credentials: 'include',
         });
 
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
           console.error(data.error || 'Error cargando medicos');
           setMedicos([]);
           setMedicoIds([]);
@@ -76,7 +79,7 @@ export default function MedicoPage() {
       }
     }
 
-    loadMedicos();
+    void loadMedicos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,10 +88,7 @@ export default function MedicoPage() {
     isLoading: loadingDictamenes,
     refetch: refetchDictamenes,
   } = useQuery<DictamenRow[]>({
-    queryKey: [
-      'dictamenes-medico',
-      { medicoIds, estado, fechaDesde, fechaHasta, documento },
-    ],
+    queryKey: ['dictamenes-medico', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
     enabled: medicoIds.length > 0,
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -99,13 +99,13 @@ export default function MedicoPage() {
       if (fechaDesde) params.set('fechaDesde', fechaDesde);
       if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
-      const res = await fetch(`/api/dictamenes/medico?${params.toString()}`, {
+      const response = await fetch(`/api/dictamenes/medico?${params.toString()}`, {
         method: 'GET',
         credentials: 'include',
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
         console.error(data.error || 'Error en la consulta');
         throw new Error(data.error || 'Error en la consulta');
       }
@@ -117,8 +117,12 @@ export default function MedicoPage() {
         docenteDocumento: dictamen.docenteDocumento,
         docenteNombre: dictamen.docenteNombre,
         secretaria: dictamen.secretaria,
-        estado: dictamen.estado,
+        estado: dictamen.estado ?? undefined,
         medicoNombre: dictamen.medicoNombre,
+        fueReabierto: dictamen.fueReabierto,
+        reabiertaEn: dictamen.reabiertaEn,
+        reabiertaPorNombre: dictamen.reabiertaPorNombre,
+        motivoReapertura: dictamen.motivoReapertura,
       }));
     },
   });
@@ -139,13 +143,12 @@ export default function MedicoPage() {
     [rows],
   );
 
-
   const handleOpenDictamen = (id: number) => {
     router.push(`/medico/dictamen/${id}`);
   };
 
   const handleDictamenCreated = () => {
-    refetchDictamenes();
+    void refetchDictamenes();
   };
 
   return (
@@ -154,12 +157,7 @@ export default function MedicoPage() {
       title="Dictamenes del medico"
       description="Consulta tus dictamenes pendientes, reabiertos y cerrados con una navegacion lateral separada del formulario clinico."
       compactHero
-      actions={
-        <DictamenExportButton
-          rows={exportRows}
-          filename="dictamenes_medico.csv"
-        />
-      }
+      actions={<DictamenExportButton rows={exportRows} filename="dictamenes_medico.csv" />}
     >
       <ReadOnlyBanner />
 
@@ -179,11 +177,7 @@ export default function MedicoPage() {
         onRegistrar={readOnly ? undefined : () => setShowRegistrarModal(true)}
       />
 
-      <DictamenTable
-        rows={rows}
-        loading={loading}
-        onOpenDictamen={handleOpenDictamen}
-      />
+      <DictamenTable rows={rows} loading={loading} onOpenDictamen={handleOpenDictamen} />
 
       <RegistrarDocenteModal
         open={showRegistrarModal}

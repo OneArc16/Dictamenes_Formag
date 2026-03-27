@@ -33,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    const current = await prisma.motivoReaperturaRecomendacion.findUnique({
+    const current = await prisma.motivoReapertura.findUnique({
       where: { id: motivoId },
       select: { id: true },
     });
@@ -42,7 +42,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: 'Motivo no encontrado' }, { status: 404 });
     }
 
-    const updated = await prisma.motivoReaperturaRecomendacion.update({
+    const updated = await prisma.motivoReapertura.update({
       where: { id: motivoId },
       data: {
         estado: parsed.data.estado,
@@ -63,3 +63,4 @@ export async function PATCH(
     );
   }
 }
+

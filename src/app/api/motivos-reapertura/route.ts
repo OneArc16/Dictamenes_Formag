@@ -56,17 +56,14 @@ export async function GET() {
 
     return NextResponse.json({ ok: true, options });
   } catch (error) {
-    console.error('ERROR GET /api/recomendaciones/motivos-reapertura:', error);
+    console.error('ERROR GET /api/motivos-reapertura:', error);
     return NextResponse.json(
       {
         ok: false,
         error:
-          error instanceof Error
-            ? error.message
-            : 'Error consultando motivos de reapertura',
+          error instanceof Error ? error.message : 'Error consultando motivos de reapertura',
       },
       { status: 500 },
     );
   }
 }
-

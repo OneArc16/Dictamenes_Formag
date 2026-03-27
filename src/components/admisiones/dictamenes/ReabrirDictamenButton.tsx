@@ -1,28 +1,19 @@
 ﻿'use client';
 
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useAdmisionesAccess } from '@/components/admisiones/AdmisionesAccessProvider';
-import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ReabrirConMotivoDialog } from '@/components/reapertura/ReabrirConMotivoDialog';
+import { type MotivoReaperturaOption } from '@/lib/reapertura/types';
 
 type Props = {
   dictamenId: number;
   estado?: string | boolean | null;
+  motivosReapertura: MotivoReaperturaOption[];
+  disabled?: boolean;
   onReopened?: () => void;
 };
 
@@ -38,20 +29,21 @@ function isDictamenOpen(estado?: string | boolean | null) {
 export default function ReabrirDictamenButton({
   dictamenId,
   estado,
+  motivosReapertura,
+  disabled = false,
   onReopened,
 }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { canReabrirDictamen } = useAdmisionesAccess();
 
-  const [open, setOpen] = useState(false);
-  const isAlreadyOpen = isDictamenOpen(estado);
-
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (motivoReaperturaId: number) => {
       const response = await fetch(`/api/admisiones/dictamenes/${dictamenId}/reabrir`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ motivoReaperturaId }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -61,80 +53,42 @@ export default function ReabrirDictamenButton({
 
       return data;
     },
-    onSuccess: async () => {
-      toast.success('Dictamen reabierto correctamente.');
-      setOpen(false);
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['dictamenes-admisiones'] }),
-        queryClient.invalidateQueries({ queryKey: ['dictamenes'] }),
-        queryClient.invalidateQueries({ queryKey: ['dictamen', dictamenId] }),
-      ]);
-
-      onReopened?.();
-      router.refresh();
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'No se pudo reabrir el dictamen.');
-    },
   });
 
-  const isBusy = mutation.isPending;
+  const isAlreadyOpen = isDictamenOpen(estado);
 
   if (!canReabrirDictamen || isAlreadyOpen) {
     return null;
   }
 
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (isBusy) return;
-        setOpen(nextOpen);
+    <ReabrirConMotivoDialog
+      motivosReapertura={motivosReapertura}
+      disabled={disabled || mutation.isPending}
+      triggerLabel="Reabrir dictamen"
+      triggerTitle="Reabrir dictamen"
+      triggerVariant="outline"
+      triggerSize="icon"
+      triggerClassName="h-8 w-8 rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800"
+      icon={RotateCcw}
+      iconOnly
+      dialogTitle="Reabrir dictamen"
+      dialogDescription="Selecciona el motivo que justifica la reapertura. El dictamen volvera a estado reabierto y el evento quedara registrado en el historial."
+      confirmLabel="Confirmar reapertura"
+      submittingLabel="Reabriendo..."
+      onConfirm={async (motivoReaperturaId) => {
+        await mutation.mutateAsync(motivoReaperturaId);
+        toast.success('Dictamen reabierto correctamente.');
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['dictamenes-admisiones'] }),
+          queryClient.invalidateQueries({ queryKey: ['dictamenes'] }),
+          queryClient.invalidateQueries({ queryKey: ['dictamen', dictamenId] }),
+        ]);
+
+        onReopened?.();
+        router.refresh();
       }}
-    >
-      <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800"
-          title="Reabrir dictamen"
-          aria-label="Reabrir dictamen"
-          disabled={isBusy}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-      </AlertDialogTrigger>
-
-      <AlertDialogContent className="max-w-lg border-slate-200 bg-white shadow-2xl">
-        <AlertDialogHeader className="space-y-3">
-          <AlertDialogTitle className="text-xl text-slate-900">
-            Reabrir dictamen
-          </AlertDialogTitle>
-          <AlertDialogDescription className="leading-6 text-slate-600">
-            El dictamen volvera a estado reabierto y quedara disponible nuevamente para su gestion.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
-          Esta accion reactiva el dictamen para que el equipo autorizado pueda retomarlo desde el flujo de trabajo.
-        </div>
-
-        <AlertDialogFooter className="gap-2">
-          <AlertDialogCancel disabled={isBusy}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={isBusy}
-            className="text-white hover:text-white disabled:text-white/80"
-            onClick={(event) => {
-              event.preventDefault();
-              mutation.mutate();
-            }}
-          >
-            {isBusy ? 'Reabriendo...' : 'Confirmar reapertura'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    />
   );
 }

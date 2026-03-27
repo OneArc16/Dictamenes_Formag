@@ -1,63 +1,173 @@
-// src/app/api/dictamenes/[id]/cerrar/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+
 import { prisma } from '@/lib/prisma';
+import { verifyJwt } from '@/lib/auth';
+import {
+  buildDictamenHistorySnapshot,
+  resolveDictamenEstadoHistorial,
+} from '@/lib/dictamen/historial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function buildNombreCompleto(e: any) {
-  return `${e.primerNombre ?? ''} ${e.segundoNombre ?? ''} ${e.primerApellido ?? ''} ${e.segundoApellido ?? ''}`
-    .replace(/\s+/g, ' ')
+type JwtPayload = {
+  sub?: string;
+  role?: string;
+  name?: string;
+  [key: string]: unknown;
+};
+
+type AuthCtx = {
+  empleadoId: number;
+  role: string;
+};
+
+type EmpleadoJuntaSnapshot = {
+  id: number;
+  primerNombre: string | null;
+  segundoNombre: string | null;
+  primerApellido: string | null;
+  segundoApellido: string | null;
+  registroMedico: string | null;
+  licencia: string | null;
+  firma: Uint8Array | null;
+};
+
+function buildNombreCompleto(empleado: EmpleadoJuntaSnapshot) {
+  return [
+    empleado.primerNombre,
+    empleado.segundoNombre,
+    empleado.primerApellido,
+    empleado.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(' ')
     .trim();
 }
 
-// Detecta MIME básico desde bytes (PNG/JPG). Si no reconoce, asume PNG.
 function detectFirmaMime(bytes: Buffer | null | undefined): string | null {
   if (!bytes || bytes.length < 4) return null;
 
-  // PNG: 89 50 4E 47
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
-  // JPG: FF D8
   if (bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg';
 
   return 'image/png';
 }
 
+function normalizeRole(role: unknown): string {
+  const normalized = String(role ?? '').trim().toUpperCase();
+
+  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
+  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
+
+  return normalized;
+}
+
+async function getAuthFromToken(): Promise<AuthCtx | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth')?.value;
+  if (!token) return null;
+
+  const payload = (await verifyJwt(token)) as JwtPayload | null;
+  if (!payload?.sub) return null;
+
+  const empleadoId = Number(payload.sub);
+  if (!Number.isFinite(empleadoId) || empleadoId <= 0) return null;
+
+  return {
+    empleadoId,
+    role: normalizeRole(payload.role),
+  };
+}
+
+function canCloseDictamen(dictamen: { empleadoId: number | null }, auth: AuthCtx) {
+  if (auth.role !== 'MEDICO') {
+    return {
+      ok: false as const,
+      status: 403,
+      error: 'No autorizado para cerrar este dictamen.',
+    };
+  }
+
+  if (dictamen.empleadoId != null && dictamen.empleadoId !== auth.empleadoId) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: 'No tiene permiso sobre este dictamen.',
+    };
+  }
+
+  return { ok: true as const };
+}
+
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await getAuthFromToken();
+    if (!auth) {
+      return NextResponse.json({ ok: false, message: 'No autenticado' }, { status: 401 });
+    }
+
     const { id } = await context.params;
     const dictamenId = Number(id);
 
     if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
-      return NextResponse.json({ ok: false, message: 'id inválido' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: 'id invalido' }, { status: 400 });
     }
 
     const current = await prisma.dictamen.findUnique({
       where: { id: dictamenId },
-      select: { id: true, estado: true, reabierto: true },
+      select: {
+        id: true,
+        empleadoId: true,
+        estado: true,
+        reabierto: true,
+        numeroDictamen: true,
+        fechaDictamen: true,
+        procedimientoPcl: true,
+        tipoDictamen: true,
+        antecedentesClinicos: true,
+        condicionSalud: true,
+        descripcionHallazgos: true,
+        sustentacionObservaciones: true,
+        fechaEstructuracionInvalidez: true,
+        tipoEvento: true,
+        origenEvento: true,
+        aplicaAnalisisOcupacional: true,
+      },
     });
 
     if (!current) {
       return NextResponse.json({ ok: false, message: 'Dictamen no encontrado' }, { status: 404 });
     }
 
-    // ✅ Si ya está cerrado, respondemos OK idempotente (NO tocamos snapshots)
-    if (current.estado === false) {
-      return NextResponse.json({ ok: true, dictamenId, message: 'El dictamen ya está cerrado.' });
+    const permission = canCloseDictamen(current, auth);
+    if (!permission.ok) {
+      return NextResponse.json({ ok: false, message: permission.error }, { status: permission.status });
     }
 
-    await prisma.$transaction(async (tx) => {
-      // 1) Verificar si ya existen snapshots de junta para este dictamen
-      const existing = await tx.dictamenJunta.count({ where: { dictamenId } });
+    if (current.estado === false) {
+      return NextResponse.json({
+        ok: true,
+        dictamenId,
+        estado: 'CERRADO',
+        message: 'El dictamen ya esta cerrado.',
+      });
+    }
 
-      // 2) Si NO existen, crearlos desde empleados activos de junta (con firma congelada)
-      if (existing === 0) {
+    const snapshot = buildDictamenHistorySnapshot(current);
+    const estadoAnterior = resolveDictamenEstadoHistorial(current);
+
+    await prisma.$transaction(async (tx) => {
+      const existingJuntaSnapshots = await tx.dictamenJunta.count({ where: { dictamenId } });
+
+      if (existingJuntaSnapshots === 0) {
         const junta = await tx.empleado.findMany({
           where: {
             activo: true,
-            esMiembroJunta: true, // ✅ este campo debe existir en Empleado
+            esMiembroJunta: true,
           },
-          orderBy: [{ id: 'asc' }], // (si luego agregas ordenJunta, lo cambiamos a eso)
+          orderBy: [{ id: 'asc' }],
           select: {
             id: true,
             primerNombre: true,
@@ -66,58 +176,73 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
             segundoApellido: true,
             registroMedico: true,
             licencia: true,
-            firma: true, // Bytes?
+            firma: true,
           },
         });
 
         if (junta.length > 0) {
           await tx.dictamenJunta.createMany({
-            data: junta.map((e, idx) => {
-              const firmaBuf = e.firma ? Buffer.from(e.firma as any) : null;
+            data: junta.map((empleado, index) => {
+              const firmaBuffer = empleado.firma ? Buffer.from(empleado.firma) : null;
 
               return {
                 dictamenId,
-                empleadoId: e.id,
-                orden: idx + 1,
-
-                // snapshot congelado
-                nombreCompleto: buildNombreCompleto(e),
-                registroMedico: e.registroMedico ?? null,
-                licencia: e.licencia ?? null,
-                firma: e.firma ?? null,
-                firmaMime: detectFirmaMime(firmaBuf),
+                empleadoId: empleado.id,
+                orden: index + 1,
+                nombreCompleto: buildNombreCompleto(empleado),
+                registroMedico: empleado.registroMedico ?? null,
+                licencia: empleado.licencia ?? null,
+                firma: empleado.firma ?? null,
+                firmaMime: detectFirmaMime(firmaBuffer),
               };
             }),
-            // Si llega a pasar una doble llamada simultánea, evita reventar por unique(dictamenId, orden)
             skipDuplicates: true,
           });
         }
       }
 
-      // 3) Cerrar dictamen
       await tx.dictamen.update({
         where: { id: dictamenId },
         data: {
           estado: false,
           reabierto: false,
-          // cerradoEn: new Date(), // si luego lo agregas
+        },
+      });
+
+      await tx.dictamenHistorial.create({
+        data: {
+          dictamenId,
+          empleadoId: auth.empleadoId,
+          tipo: 'CIERRE',
+          estadoAnterior,
+          estadoNuevo: 'CERRADO',
+          formularioAnterior: snapshot,
+          formularioNuevo: snapshot,
         },
       });
     });
 
-    return NextResponse.json({ ok: true, dictamenId, message: 'Dictamen cerrado correctamente.' });
-  } catch (err: any) {
-    console.error('❌ Error POST /api/dictamenes/[id]/cerrar:', err);
-    return NextResponse.json({ ok: false, message: err?.message ?? 'Error cerrando dictamen' }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      dictamenId,
+      estado: 'CERRADO',
+      message: 'Dictamen cerrado correctamente.',
+    });
+  } catch (error: unknown) {
+    console.error('ERROR POST /api/dictamenes/[id]/cerrar:', error);
+    const message = error instanceof Error ? error.message : 'Error cerrando dictamen';
+    return NextResponse.json({ ok: false, message }, { status: 500 });
   }
 }
 
 export function GET() {
   return NextResponse.json({ ok: false, message: 'Method Not Allowed' }, { status: 405 });
 }
+
 export function PUT() {
   return NextResponse.json({ ok: false, message: 'Method Not Allowed' }, { status: 405 });
 }
+
 export function DELETE() {
   return NextResponse.json({ ok: false, message: 'Method Not Allowed' }, { status: 405 });
 }

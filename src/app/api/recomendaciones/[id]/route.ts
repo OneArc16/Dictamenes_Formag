@@ -675,7 +675,7 @@ export async function POST(req: Request, context: RouteContext) {
       );
     }
 
-    const motivoReapertura = await prisma.motivoReaperturaRecomendacion.findFirst({
+    const motivoReapertura = await prisma.motivoReapertura.findFirst({
       where: {
         id: body.motivoReaperturaId,
         estado: true,
@@ -754,4 +754,5 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
+
 

@@ -91,7 +91,7 @@ export default function RecomendacionesPage() {
     queryKey: ['motivos-reapertura-recomendaciones'],
     enabled: Boolean(me),
     queryFn: async () => {
-      const response = await fetch('/api/recomendaciones/motivos-reapertura', {
+      const response = await fetch('/api/motivos-reapertura', {
         method: 'GET',
         credentials: 'include',
       });
@@ -281,3 +281,4 @@ export default function RecomendacionesPage() {
     </ModuleSidebarShell>
   );
 }
+

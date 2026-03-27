@@ -11,7 +11,7 @@ export default async function NuevoMotivoReaperturaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-900">Nuevo motivo de reapertura</h1>
-          <p className="text-[11px] text-slate-500">Crea un motivo para reabrir recomendaciones cerradas</p>
+          <p className="text-[11px] text-slate-500">Crea un motivo para reabrir recomendaciones y dictámenes cerrados</p>
         </div>
 
         <Link
@@ -34,3 +34,4 @@ export default async function NuevoMotivoReaperturaPage() {
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ import { DictamenFiltersBar, type MedicoOption } from '@/components/dictamen/Dic
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
 import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictamen/types';
 import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
+import { type MotivoReaperturaOption } from '@/lib/reapertura/types';
 
 type DictamenApiRow = {
   id: number;
@@ -21,6 +22,14 @@ type DictamenApiRow = {
   secretaria: string | null;
   estado: string | null;
   medicoNombre: string | null;
+  fueReabierto: boolean;
+  reabiertaEn: string | null;
+  reabiertaPorNombre: string | null;
+  motivoReapertura: string | null;
+};
+
+type MotivosReaperturaResponse = {
+  options: MotivoReaperturaOption[];
 };
 
 function formatFechaExport(value: unknown): string {
@@ -29,7 +38,6 @@ function formatFechaExport(value: unknown): string {
   const formatted = String(value);
   return formatted.includes('T') ? formatted.split('T')[0] : formatted;
 }
-
 
 export default function AdmisionesPage() {
   const router = useRouter();
@@ -43,24 +51,43 @@ export default function AdmisionesPage() {
   const medicosQuery = useQuery({
     queryKey: ['medicos-options'],
     queryFn: async () => {
-      const res = await fetch('/api/medicos/options', {
+      const response = await fetch('/api/medicos/options', {
         method: 'GET',
         credentials: 'include',
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
         throw new Error(data?.error ?? 'Error cargando medicos');
       }
+
       return (data.options ?? []) as MedicoOption[];
     },
     staleTime: 5 * 60 * 1000,
   });
 
+  const motivosReaperturaQuery = useQuery<MotivosReaperturaResponse>({
+    queryKey: ['motivos-reapertura-shared'],
+    queryFn: async () => {
+      const response = await fetch('/api/motivos-reapertura', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'Error cargando motivos de reapertura');
+      }
+
+      return {
+        options: (data.options ?? []) as MotivoReaperturaOption[],
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const dictamenesQuery = useQuery({
-    queryKey: [
-      'dictamenes-admisiones',
-      { medicoIds, estado, fechaDesde, fechaHasta, documento },
-    ],
+    queryKey: ['dictamenes-admisiones', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
     queryFn: async () => {
       const params = new URLSearchParams();
 
@@ -70,13 +97,13 @@ export default function AdmisionesPage() {
       if (fechaDesde) params.set('fechaDesde', fechaDesde);
       if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
-      const res = await fetch(`/api/dictamenes/admisiones?${params.toString()}`, {
+      const response = await fetch(`/api/dictamenes/admisiones?${params.toString()}`, {
         method: 'GET',
         credentials: 'include',
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
         throw new Error(data?.error ?? 'Error consultando dictamenes');
       }
 
@@ -87,18 +114,23 @@ export default function AdmisionesPage() {
         docenteDocumento: dictamen.docenteDocumento,
         docenteNombre: dictamen.docenteNombre,
         secretaria: dictamen.secretaria,
-        estado: dictamen.estado,
+        estado: dictamen.estado ?? undefined,
         medicoNombre: dictamen.medicoNombre,
+        fueReabierto: dictamen.fueReabierto,
+        reabiertaEn: dictamen.reabiertaEn,
+        reabiertaPorNombre: dictamen.reabiertaPorNombre,
+        motivoReapertura: dictamen.motivoReapertura,
       })) as DictamenRow[];
     },
     placeholderData: (previous) => previous,
   });
 
-  const rows = useMemo(
-    () => dictamenesQuery.data ?? [],
-    [dictamenesQuery.data],
-  );
+  const rows = useMemo(() => dictamenesQuery.data ?? [], [dictamenesQuery.data]);
   const loading = dictamenesQuery.isFetching;
+  const motivosReapertura = useMemo(
+    () => motivosReaperturaQuery.data?.options ?? [],
+    [motivosReaperturaQuery.data],
+  );
 
   const exportRows: DictamenExportRow[] = useMemo(
     () =>
@@ -113,11 +145,6 @@ export default function AdmisionesPage() {
     [rows],
   );
 
-
-  const handleRegistrar = () => {
-    router.push('/medico/dictamenes/nuevo');
-  };
-
   const handleOpenDictamen = (id: number) => {
     router.push(`/admisiones/dictamenes/${id}`);
   };
@@ -128,12 +155,7 @@ export default function AdmisionesPage() {
       title="Control de dictamenes en admisiones"
       description="Consulta transversal de docentes, filtros por medico y acceso operativo para impresion o reapertura cuando aplique."
       compactHero
-      actions={
-        <DictamenExportButton
-          rows={exportRows}
-          filename="dictamenes_admisiones.csv"
-        />
-      }
+      actions={<DictamenExportButton rows={exportRows} filename="dictamenes_admisiones.csv" />}
     >
       <AdmisionesBanner />
 
@@ -150,7 +172,6 @@ export default function AdmisionesPage() {
         medicoIds={medicoIds}
         onMedicoChange={setMedicoIds}
         showMedicoSelect={true}
-        onRegistrar={handleRegistrar}
       />
 
       <DictamenTable
@@ -163,14 +184,13 @@ export default function AdmisionesPage() {
 
           return (
             <div className="flex items-center gap-2">
-              <ImprimirDictamenButton
-                dictamenId={row.id}
-                isCerrado={isCerrado}
-              />
-              {isCerrado ? (
+              <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
+              {isCerrado && motivosReapertura.length > 0 ? (
                 <ReabrirDictamenButton
                   dictamenId={row.id}
                   estado={row.estado}
+                  motivosReapertura={motivosReapertura}
+                  disabled={motivosReaperturaQuery.isFetching || loading}
                   onReopened={() => {
                     void dictamenesQuery.refetch();
                   }}

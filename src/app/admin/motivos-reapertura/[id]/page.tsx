@@ -23,7 +23,7 @@ export default async function EditarMotivoReaperturaPage({
     );
   }
 
-  const motivo = await prisma.motivoReaperturaRecomendacion.findUnique({
+  const motivo = await prisma.motivoReapertura.findUnique({
     where: { id: motivoId },
     select: {
       id: true,
@@ -85,3 +85,4 @@ export default async function EditarMotivoReaperturaPage({
     </div>
   );
 }
+

@@ -219,6 +219,19 @@ enum DictamenOrigenEvento {
   COMUN
 }
 
+enum TipoHistorialDictamen {
+  REAPERTURA
+  EDICION
+  CIERRE
+}
+
+enum EstadoHistorialDictamen {
+  PENDIENTE
+  REABIERTO
+  CERRADO
+}
+
+
 // =====================================
 // NUEVO: CARGOS DOCENTES (Usuario)
 // =====================================
@@ -648,8 +661,10 @@ model Empleado {
 
   especialidades EmpleadoEspecialidad[]
 
-  dictamenes Dictamen[]
-  dictamenJunta DictamenJunta[]
+  dictamenes          Dictamen[]         @relation("EmpleadoDictamenesResponsable")
+  dictamenesReabiertos Dictamen[]        @relation("EmpleadoReaberturasDictamenes")
+  historialDictamenes DictamenHistorial[] @relation("EmpleadoHistorialDictamenes")
+  dictamenJunta       DictamenJunta[]
 
   recomendacionesLaborales   RecomendacionLaboral[]      @relation("EmpleadoRecomendacionesLaborales")
   recomendacionLaboralFirmas RecomendacionLaboralFirma[] @relation("EmpleadoFirmasRecomendacionLaboral")
@@ -808,11 +823,17 @@ model Dictamen {
 
   aplicaAnalisisOcupacional Boolean @default(false)
   estado                    Boolean @default(true)
+  reabierto                 Boolean @default(false)
 
-  reabierto Boolean @default(false)
+  reabiertoEn       DateTime? @map("reabierto_en")
+  reabiertoPorId    Int?      @map("reabierto_por_id")
+  motivoReaperturaId Int?     @map("motivo_reapertura_id")
 
   empleadoId Int?
-  empleado   Empleado? @relation(fields: [empleadoId], references: [id])
+  empleado   Empleado? @relation("EmpleadoDictamenesResponsable", fields: [empleadoId], references: [id])
+
+  reabiertoPor Empleado?        @relation("EmpleadoReaberturasDictamenes", fields: [reabiertoPorId], references: [id])
+  motivoReapertura MotivoReapertura? @relation("MotivoReaperturaActualDictamen", fields: [motivoReaperturaId], references: [id])
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
@@ -821,14 +842,18 @@ model Dictamen {
   limitacionesAvdAivd DictamenLimitacionesAvdAivd[]
   analisisOcupacional DictamenAnalisisOcupacional[]
 
-  junta DictamenJunta[]
+  junta     DictamenJunta[]
+  historial DictamenHistorial[]
 
   @@index([usuarioId])
   @@index([empleadoId])
+  @@index([reabiertoPorId])
+  @@index([motivoReaperturaId])
   @@index([tipoDictamen])
   @@index([estado, reabierto, fechaDictamen])
   @@map("dictamenes")
 }
+
 
 // =====================================
 // Snapshots de junta por dictamen
@@ -872,16 +897,16 @@ model RecomendacionLaboral {
   tallaM Decimal? @db.Decimal(4, 2) @map("talla_m")
   imc    Decimal? @db.Decimal(5, 2)
 
-  examenesRealizados                      String? @db.Text @map("examenes_realizados")
-  motivo                                  String? @db.Text
-  recomendacionesObservacionesRestricciones String? @db.Text @map("recomendaciones_observaciones_restricciones")
+  examenesRealizados                         String? @db.Text @map("examenes_realizados")
+  motivo                                     String? @db.Text
+  recomendacionesObservacionesRestricciones  String? @db.Text @map("recomendaciones_observaciones_restricciones")
 
   estado EstadoRecomendacionLaboral @default(BORRADOR)
 
-  cerradaEn   DateTime? @map("cerrada_en")
-  reabiertaEn DateTime? @map("reabierta_en")
+  cerradaEn    DateTime? @map("cerrada_en")
+  reabiertaEn  DateTime? @map("reabierta_en")
 
-  reabiertaPorId    Int? @map("reabierta_por_id")
+  reabiertaPorId     Int? @map("reabierta_por_id")
   motivoReaperturaId Int? @map("motivo_reapertura_id")
 
   creadoEn  DateTime @default(now()) @map("creado_en")
@@ -890,8 +915,8 @@ model RecomendacionLaboral {
   usuario  Usuario   @relation("UsuarioRecomendacionesLaborales", fields: [usuarioId], references: [id])
   empleado Empleado? @relation("EmpleadoRecomendacionesLaborales", fields: [empleadoId], references: [id])
 
-  reabiertaPor    Empleado?                    @relation("EmpleadoReaberturasRecomendacionesLaborales", fields: [reabiertaPorId], references: [id])
-  motivoReapertura MotivoReaperturaRecomendacion? @relation("MotivoReaperturaActualRecomendacionLaboral", fields: [motivoReaperturaId], references: [id])
+  reabiertaPor     Empleado?         @relation("EmpleadoReaberturasRecomendacionesLaborales", fields: [reabiertaPorId], references: [id])
+  motivoReapertura MotivoReapertura? @relation("MotivoReaperturaActualRecomendacionLaboral", fields: [motivoReaperturaId], references: [id])
 
   firmas    RecomendacionLaboralFirma[]
   historial RecomendacionLaboralHistorial[]
@@ -904,10 +929,11 @@ model RecomendacionLaboral {
   @@map("recomendaciones_laborales")
 }
 
+
 model RecomendacionLaboralHistorial {
   id Int @id @default(autoincrement())
 
-  recomendacionLaboralId Int @map("recomendacion_laboral_id")
+  recomendacionLaboralId Int  @map("recomendacion_laboral_id")
   empleadoId             Int? @map("empleado_id")
   motivoReaperturaId     Int? @map("motivo_reapertura_id")
 
@@ -921,9 +947,9 @@ model RecomendacionLaboralHistorial {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  recomendacionLaboral RecomendacionLaboral          @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
-  empleado             Empleado?                     @relation("EmpleadoHistorialRecomendacionesLaborales", fields: [empleadoId], references: [id], onDelete: SetNull)
-  motivoReapertura     MotivoReaperturaRecomendacion? @relation("MotivoReaperturaHistorialRecomendacionLaboral", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
+  recomendacionLaboral RecomendacionLaboral @relation(fields: [recomendacionLaboralId], references: [id], onDelete: Cascade)
+  empleado             Empleado?            @relation("EmpleadoHistorialRecomendacionesLaborales", fields: [empleadoId], references: [id], onDelete: SetNull)
+  motivoReapertura     MotivoReapertura?    @relation("MotivoReaperturaHistorialRecomendacionLaboral", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
 
   @@index([recomendacionLaboralId])
   @@index([empleadoId])
@@ -931,6 +957,7 @@ model RecomendacionLaboralHistorial {
   @@index([tipo, createdAt])
   @@map("recomendaciones_laborales_historial")
 }
+
 
 
 model RecomendacionLaboralFirma {
@@ -957,7 +984,7 @@ model RecomendacionLaboralFirma {
   @@map("recomendacion_laboral_firmas")
 }
 
-model MotivoReaperturaRecomendacion {
+model MotivoReapertura {
   id          Int     @id @default(autoincrement())
   codigo      String? @db.VarChar(20)
   nombre      String  @db.VarChar(150)
@@ -971,7 +998,10 @@ model MotivoReaperturaRecomendacion {
   updatedBy String?  @db.VarChar(100)
 
   recomendacionesReabiertas RecomendacionLaboral[]          @relation("MotivoReaperturaActualRecomendacionLaboral")
-  historial                 RecomendacionLaboralHistorial[] @relation("MotivoReaperturaHistorialRecomendacionLaboral")
+  historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("MotivoReaperturaHistorialRecomendacionLaboral")
+
+  dictamenesReabiertos Dictamen[]           @relation("MotivoReaperturaActualDictamen")
+  historialDictamenes  DictamenHistorial[]  @relation("MotivoReaperturaHistorialDictamen")
 
   @@unique([nombre])
   @@index([codigo])
@@ -979,6 +1009,33 @@ model MotivoReaperturaRecomendacion {
   @@map("motivos_reapertura_recomendacion")
 }
 
+model DictamenHistorial {
+  id Int @id @default(autoincrement())
+
+  dictamenId           Int  @map("dictamen_id")
+  empleadoId           Int? @map("empleado_id")
+  motivoReaperturaId   Int? @map("motivo_reapertura_id")
+
+  tipo TipoHistorialDictamen
+
+  estadoAnterior EstadoHistorialDictamen? @map("estado_anterior")
+  estadoNuevo    EstadoHistorialDictamen? @map("estado_nuevo")
+
+  formularioAnterior Json? @map("formulario_anterior")
+  formularioNuevo    Json? @map("formulario_nuevo")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  dictamen         Dictamen           @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
+  empleado         Empleado?          @relation("EmpleadoHistorialDictamenes", fields: [empleadoId], references: [id], onDelete: SetNull)
+  motivoReapertura MotivoReapertura?  @relation("MotivoReaperturaHistorialDictamen", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
+
+  @@index([dictamenId])
+  @@index([empleadoId])
+  @@index([motivoReaperturaId])
+  @@index([tipo, createdAt])
+  @@map("dictamenes_historial")
+}
 
 model DictamenDiagnostico {
   id         Int             @id @default(autoincrement())

@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    const existing = await prisma.motivoReaperturaRecomendacion.findFirst({
+    const existing = await prisma.motivoReapertura.findFirst({
       where: {
         nombre: {
           equals: parsed.data.nombre,
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
     const actor = getAuditActor(auth.payload);
 
-    const created = await prisma.motivoReaperturaRecomendacion.create({
+    const created = await prisma.motivoReapertura.create({
       data: {
         ...parsed.data,
         createdBy: actor,
@@ -64,3 +64,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

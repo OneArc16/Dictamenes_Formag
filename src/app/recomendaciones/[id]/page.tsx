@@ -106,7 +106,7 @@ export default async function RecomendacionDetallePage({
       },
     }),
     getSession(),
-    prisma.motivoReaperturaRecomendacion.findMany({
+    prisma.motivoReapertura.findMany({
       where: { estado: true },
       orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
       select: {
@@ -264,3 +264,4 @@ export default async function RecomendacionDetallePage({
     </div>
   );
 }
+

@@ -24,7 +24,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
   const q = (sp.q ?? '').trim();
   const estado = sp.estado ?? 'all';
 
-  const where: Prisma.MotivoReaperturaRecomendacionWhereInput = {};
+  const where: Prisma.MotivoReaperturaWhereInput = {};
 
   if (q) {
     where.OR = [
@@ -37,7 +37,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
   if (estado === '1') where.estado = true;
   if (estado === '0') where.estado = false;
 
-  const motivos = await prisma.motivoReaperturaRecomendacion.findMany({
+  const motivos = await prisma.motivoReapertura.findMany({
     where,
     orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
     take: 100,
@@ -57,7 +57,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-900">Motivos de reapertura</h1>
-          <p className="text-[11px] text-slate-500">Catálogo para reabrir recomendaciones laborales</p>
+          <p className="text-[11px] text-slate-500">Catálogo compartido para reabrir recomendaciones y dictámenes</p>
         </div>
 
         <Link
@@ -140,3 +140,4 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
     </div>
   );
 }
+

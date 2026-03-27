@@ -1,10 +1,10 @@
-// app/api/dictamenes/medico/route.ts
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { ProcedimientoPcl, Prisma, TipoDictamen } from '@prisma/client';
+import { z } from 'zod';
+
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
-import { z } from 'zod';
-import { ProcedimientoPcl, TipoDictamen } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -14,8 +14,10 @@ type JwtPayload = {
   sub: string;
   role?: string;
   name?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
+
+type DictamenCreatePayload = z.infer<typeof CreateDictamenSchema>;
 
 async function getMedicoIdFromToken() {
   const cookieStore = await cookies();
@@ -31,54 +33,67 @@ async function getMedicoIdFromToken() {
   return medicoId;
 }
 
-/* =============== GET: listar dictámenes ================= */
+function normalizeDateStart(value: string) {
+  return new Date(`${value}T00:00:00.000-05:00`);
+}
+
+function normalizeDateEnd(value: string) {
+  return new Date(`${value}T23:59:59.999-05:00`);
+}
+
+function buildNombreCompleto(persona: {
+  primerNombre: string | null;
+  segundoNombre: string | null;
+  primerApellido: string | null;
+  segundoApellido: string | null;
+} | null) {
+  if (!persona) return null;
+
+  return [
+    persona.primerNombre,
+    persona.segundoNombre,
+    persona.primerApellido,
+    persona.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export async function GET(req: Request) {
   try {
     const medicoId = await getMedicoIdFromToken();
     if (!medicoId) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
 
     const documento = (searchParams.get('documento') ?? '').trim();
-    const fechaDesde = searchParams.get('fechaDesde'); // YYYY-MM-DD
-    const fechaHasta = searchParams.get('fechaHasta'); // YYYY-MM-DD
+    const fechaDesde = searchParams.get('fechaDesde');
+    const fechaHasta = searchParams.get('fechaHasta');
 
-    // Estados múltiples: "PENDIENTES,REABIERTOS"
-    const estadoParam = (searchParams.get('estado') ?? 'PENDIENTES').trim();
-    const estadosFiltro = (estadoParam
-      ? estadoParam.split(',')
-      : ['PENDIENTES']
-    )
-      .map((s) => s.trim().toUpperCase())
+    const estadosFiltro = ((searchParams.get('estado') ?? 'PENDIENTES').trim() || 'PENDIENTES')
+      .split(',')
+      .map((state) => state.trim().toUpperCase())
       .filter(Boolean) as EstadoFiltro[];
 
-    // Médicos múltiples: "3,5,7"
-    const medicoIdsParam = (searchParams.get('medicoIds') ?? '').trim();
-    let medicoIds: number[] = [];
-    if (medicoIdsParam) {
-      medicoIds = medicoIdsParam
-        .split(',')
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n));
-    }
+    const medicoIds = (searchParams.get('medicoIds') ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
 
-    const whereAnd: any[] = [];
+    const whereAnd: Prisma.DictamenWhereInput[] = [];
 
-    // Si se enviaron médicos en el filtro, usamos esos;
-    // si no, por defecto solo el médico logueado.
     if (medicoIds.length > 0) {
       whereAnd.push({ empleadoId: { in: medicoIds } });
     } else {
       whereAnd.push({ empleadoId: medicoId });
     }
 
-    // Documento del docente
     if (documento) {
       whereAnd.push({
         usuario: {
@@ -87,21 +102,15 @@ export async function GET(req: Request) {
       });
     }
 
-    // Rango de fechas
     if (fechaDesde || fechaHasta) {
-      const rango: any = {};
-      if (fechaDesde) {
-        rango.gte = new Date(`${fechaDesde}T00:00:00`);
-      }
-      if (fechaHasta) {
-        rango.lte = new Date(`${fechaHasta}T23:59:59`);
-      }
+      const rango: Prisma.DateTimeFilter = {};
+      if (fechaDesde) rango.gte = normalizeDateStart(fechaDesde);
+      if (fechaHasta) rango.lte = normalizeDateEnd(fechaHasta);
       whereAnd.push({ fechaDictamen: rango });
     }
 
-    // Filtro de estados
     if (!estadosFiltro.includes('TODOS')) {
-      const orEstados: any[] = [];
+      const orEstados: Prisma.DictamenWhereInput[] = [];
 
       if (estadosFiltro.includes('PENDIENTES')) {
         orEstados.push({ estado: true, reabierto: false });
@@ -118,63 +127,66 @@ export async function GET(req: Request) {
       }
     }
 
-    const where = whereAnd.length ? { AND: whereAnd } : {};
-
     const dictamenes = await prisma.dictamen.findMany({
-      where,
+      where: whereAnd.length > 0 ? { AND: whereAnd } : undefined,
       include: {
         usuario: {
           include: {
-            secretariaRef: true, // 👈 aquí traemos la secretaria
+            secretariaRef: true,
           },
-        }, // Docente
-        empleado: true, // Médico que creó el dictamen
+        },
+        empleado: {
+          select: {
+            primerNombre: true,
+            segundoNombre: true,
+            primerApellido: true,
+            segundoApellido: true,
+          },
+        },
+        reabiertoPor: {
+          select: {
+            primerNombre: true,
+            segundoNombre: true,
+            primerApellido: true,
+            segundoApellido: true,
+          },
+        },
+        motivoReapertura: {
+          select: {
+            nombre: true,
+          },
+        },
       },
-      // 🔥 Orden: primero los más recientes
-      orderBy: [
-        { fechaDictamen: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
       take: 100,
     });
 
-    const rows = dictamenes.map((d) => ({
-      id: d.id,
-      tipoDictamen: d.tipoDictamen,
-      fechaDictamen: d.fechaDictamen
-        ? d.fechaDictamen.toISOString()
-        : null,
-      docenteDocumento: d.usuario.identificacion,
-      docenteNombre: `${d.usuario.primerNombre} ${d.usuario.primerApellido}`,
-      // 👇 usamos el nombre de la secretaria relacionada
-      secretaria: d.usuario.secretariaRef?.nombre ?? null,
-      estado: d.reabierto
-        ? 'REABIERTO'
-        : d.estado
-        ? 'PENDIENTE'
-        : 'CERRADO',
-      medicoNombre: d.empleado
-        ? `${d.empleado.primerNombre} ${d.empleado.primerApellido}`
-        : null,
+    const rows = dictamenes.map((dictamen) => ({
+      id: dictamen.id,
+      tipoDictamen: dictamen.tipoDictamen,
+      fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString() : null,
+      docenteDocumento: dictamen.usuario.identificacion,
+      docenteNombre: buildNombreCompleto(dictamen.usuario),
+      secretaria: dictamen.usuario.secretariaRef?.nombre ?? null,
+      estado: dictamen.reabierto ? 'REABIERTO' : dictamen.estado ? 'PENDIENTE' : 'CERRADO',
+      medicoNombre: buildNombreCompleto(dictamen.empleado),
+      fueReabierto: Boolean(dictamen.reabiertoEn || dictamen.motivoReapertura || dictamen.reabiertoPor),
+      reabiertaEn: dictamen.reabiertoEn ? dictamen.reabiertoEn.toISOString() : null,
+      reabiertaPorNombre: buildNombreCompleto(dictamen.reabiertoPor),
+      motivoReapertura: dictamen.motivoReapertura?.nombre ?? null,
     }));
 
     return NextResponse.json({ ok: true, rows });
-  } catch (err: any) {
-    console.error('ERROR GET /api/dictamenes/medico:', err);
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error consultando dictámenes' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('ERROR GET /api/dictamenes/medico:', error);
+    const message = error instanceof Error ? error.message : 'Error consultando dictamenes';
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
 
-/* =============== POST: crear dictamen ================= */
-
 const CreateDictamenSchema = z.object({
   usuarioId: z.number().int().positive(),
-  fechaDictamen: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)'),
+  fechaDictamen: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha invalida (YYYY-MM-DD)'),
   procedimientoPcl: z.enum(['A', 'B']),
   tipoDictamen: z.enum(['CALIFICACION', 'RECALIFICACION']).optional(),
   antecedentesClinicos: z.string().optional(),
@@ -186,52 +198,45 @@ export async function POST(req: Request) {
   try {
     const medicoId = await getMedicoIdFromToken();
     if (!medicoId) {
-      return NextResponse.json(
-        { ok: false, error: 'No autenticado' },
-        { status: 401 },
-      );
+      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
     }
 
     const json = await req.json();
-    const data = CreateDictamenSchema.parse(json);
+    const data = CreateDictamenSchema.parse(json) as DictamenCreatePayload;
 
     const fecha = new Date(`${data.fechaDictamen}T00:00:00`);
 
-    // 🔹 Ahora, si vienen vacíos, quedan en null (NO se escribe "PENDIENTE POR DILIGENCIAR")
-    const antecedentesClinicos: string | null =
-      (data.antecedentesClinicos ?? '').trim() || null;
-    const condicionSalud: string | null =
-      (data.condicionSalud ?? '').trim() || null;
-    const descripcionHallazgos: string | null =
-      (data.descripcionHallazgos ?? '').trim() || null;
+    const antecedentesClinicos = (data.antecedentesClinicos ?? '').trim() || null;
+    const condicionSalud = (data.condicionSalud ?? '').trim() || null;
+    const descripcionHallazgos = (data.descripcionHallazgos ?? '').trim() || null;
 
     const dictamen = await prisma.dictamen.create({
       data: {
         usuarioId: data.usuarioId,
         fechaDictamen: fecha,
         procedimientoPcl: data.procedimientoPcl as ProcedimientoPcl,
-        tipoDictamen: data.tipoDictamen
-          ? (data.tipoDictamen as TipoDictamen)
-          : undefined,
+        tipoDictamen: data.tipoDictamen ? (data.tipoDictamen as TipoDictamen) : undefined,
         antecedentesClinicos,
         condicionSalud,
         descripcionHallazgos,
         empleadoId: medicoId,
-        // estado: true y reabierto: false ya quedan así por DEFAULT
       },
       select: {
         id: true,
       },
     });
 
-    return NextResponse.json({
-      ok: true,
-      dictamen,
-    });
-  } catch (err: any) {
-    console.error('ERROR POST /api/dictamenes/medico:', err);
-    const msg =
-      err?.issues?.[0]?.message || err?.message || 'Error creando dictamen';
-    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+    return NextResponse.json({ ok: true, dictamen });
+  } catch (error: unknown) {
+    console.error('ERROR POST /api/dictamenes/medico:', error);
+
+    const message =
+      error instanceof z.ZodError
+        ? error.issues[0]?.message ?? 'Datos invalidos.'
+        : error instanceof Error
+          ? error.message
+          : 'Error creando dictamen';
+
+    return NextResponse.json({ ok: false, error: message }, { status: error instanceof z.ZodError ? 400 : 500 });
   }
 }
