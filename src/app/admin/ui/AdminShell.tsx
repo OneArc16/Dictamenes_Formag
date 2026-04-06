@@ -7,9 +7,7 @@ import type { AdminMode } from '@/lib/rbac';
 import {
   ClipboardList,
   ClipboardPlus,
-  FileText,
   IdCard,
-  LayoutDashboard,
   LogOut,
   Menu,
   RotateCcw,
@@ -17,7 +15,6 @@ import {
   Stethoscope,
   User2,
   UserRoundCog,
-  Users,
   UserSquare2,
   X,
 } from 'lucide-react';
@@ -54,11 +51,6 @@ const moduleIconMap: Record<ModuleKey, typeof ShieldCheck> = {
   recomendaciones: ClipboardPlus,
 };
 
-const operationItems: SidebarItem[] = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/dictamenes', label: 'Dictamenes', icon: FileText },
-  { href: '/admin/pacientes', label: 'Pacientes', icon: Users },
-];
 
 const administrationItems: SidebarItem[] = [
   { href: '/admin/empleados', label: 'Empleados', icon: IdCard },
@@ -169,7 +161,7 @@ function AdminSidebarContent({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <CardHeader className="space-y-3 border-b border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(241,245,249,0.95))] px-4 pb-3 pt-4 text-slate-950">
         <div className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-sky-100 bg-white shadow-sm shadow-sky-100/60">
           <ShieldCheck className="h-4 w-4 text-sky-700" />
@@ -184,7 +176,7 @@ function AdminSidebarContent({
         </div>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-3 text-slate-800">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 text-slate-800">
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-3 shadow-sm shadow-slate-200/60">
             <div className="flex items-center gap-2.5">
@@ -199,7 +191,6 @@ function AdminSidebarContent({
           </div>
 
           <SidebarSection title="Modulos" items={moduleItems} onNavigate={onNavigate} />
-          <SidebarSection title="Operacion" items={operationItems} onNavigate={onNavigate} />
           {showAdminSection ? (
             <SidebarSection
               title="Administracion"
@@ -241,7 +232,7 @@ export default function AdminShell({ children, empleado, mode }: Props) {
       <div className="flex min-h-screen gap-3 px-4 py-3 lg:gap-4 lg:py-4 lg:pl-3 lg:pr-4">
         <aside className="hidden w-[236px] shrink-0 lg:block xl:w-[244px]">
           <div className="sticky top-3">
-            <Card className="max-h-[min(calc(100vh-1.5rem),840px)] overflow-hidden rounded-[26px] border-slate-200/90 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(239,246,255,0.94))] shadow-[0_18px_45px_rgba(148,163,184,0.16)]">
+            <Card className="h-[min(calc(100vh-1.5rem),840px)] min-h-0 overflow-hidden rounded-[26px] border-slate-200/90 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(239,246,255,0.94))] shadow-[0_18px_45px_rgba(148,163,184,0.16)]">
               <AdminSidebarContent empleado={empleado} mode={mode} />
             </Card>
           </div>
