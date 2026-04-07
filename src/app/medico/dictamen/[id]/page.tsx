@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
@@ -202,11 +202,11 @@ export default function DictamenDetallePage() {
             onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
-            â† Volver al listado
+            Ã¢â€ Â Volver al listado
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-slate-500">
-            Cargando dictamenâ€¦
+            Cargando dictamenÃ¢â‚¬Â¦
           </div>
         </main>
       </div>
@@ -223,7 +223,7 @@ export default function DictamenDetallePage() {
             onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
-            â† Volver al listado
+            Ã¢â€ Â Volver al listado
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-red-600">
@@ -253,7 +253,7 @@ export default function DictamenDetallePage() {
           onClick={() => router.push(backTo)}
           className="text-xs text-blue-600 hover:underline"
         >
-          â† Volver al listado de dictamenes
+          Ã¢â€ Â Volver al listado de dictamenes
         </button>
 
         {readOnly && (
@@ -292,6 +292,7 @@ export default function DictamenDetallePage() {
                   antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
                   condicionSalud: dictamen.condicionSalud ?? '',
                   descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                  sustentacionObservaciones: dictamen.sustentacionObservaciones ?? '',
                   diagnosticos: dictamen.diagnosticos ?? [],
                   fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
                   tipoEvento: dictamen.tipoEvento ?? null,
@@ -308,8 +309,7 @@ export default function DictamenDetallePage() {
               <DictamenRightPanel
                 dictamenId={dictamen.id}
                 procedimientoPcl={procedimientoPcl}
-                readOnly={readOnly}
-                ultimaReapertura={dictamen.ultimaReapertura}
+                readOnly={readOnly}
               />
             }
           />
@@ -318,5 +318,7 @@ export default function DictamenDetallePage() {
     </div>
   );
 }
+
+
 
 

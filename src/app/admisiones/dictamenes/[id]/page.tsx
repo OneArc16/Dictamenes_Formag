@@ -249,6 +249,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
                     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
                     condicionSalud: dictamen.condicionSalud ?? '',
                     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                    sustentacionObservaciones: dictamen.sustentacionObservaciones ?? '',
                     diagnosticos: dictamen.diagnosticos ?? [],
                     fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
                     tipoEvento: dictamen.tipoEvento ?? null,
@@ -266,7 +267,6 @@ export default function AdmisionesVerHistoriaClinicaPage() {
                   dictamenId={dictamen.id}
                   procedimientoPcl={procedimientoPcl}
                   readOnly={readOnly}
-                  ultimaReapertura={dictamen.ultimaReapertura}
                 />
               }
             />
@@ -276,4 +276,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
     </MedicoAccessProvider>
   );
 }
+
+
+
 

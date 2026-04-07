@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ type OrigenEvento = 'LABORAL' | 'COMUN';
 type Props = {
   dictamenId: number;
   readOnly?: boolean;
+  initialText?: string | null;
   initialMeta?: {
     fechaEstructuracionInvalidez: string | null; // YYYY-MM-DD
     tipoEvento: TipoEvento | null;
@@ -28,7 +29,7 @@ async function safeJson(res: Response) {
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     const text = await res.text().catch(() => '');
-    throw new Error(`API no devolvió JSON (${res.status}). Ej: ${text.slice(0, 120)}...`);
+    throw new Error(`API no devolviÃ³ JSON (${res.status}). Ej: ${text.slice(0, 120)}...`);
   }
   return res.json();
 }
@@ -54,7 +55,7 @@ async function putMeta(dictamenId: number, body: {
   return data;
 }
 
-export default function TabSustentacion({ dictamenId, readOnly = false, initialMeta }: Props) {
+export default function TabSustentacion({ dictamenId, readOnly = false, initialText = '', initialMeta }: Props) {
   const sustentacion = useDictamenSustentacion(dictamenId);
 
   // defaults (por si aún no llega initialMeta)
@@ -62,19 +63,19 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
   const initialTipo = initialMeta?.tipoEvento ?? null;
   const initialOrigen = initialMeta?.origenEvento ?? null;
 
-  // ✅ base inicial desde servidor (texto) + meta inicial desde props
+  // âœ… base inicial desde servidor (texto) + meta inicial desde props
   const initialData = useMemo(
     () => ({
-      sustentacionObservaciones: sustentacion.data?.sustentacionObservaciones ?? '',
+      sustentacionObservaciones: sustentacion.data?.sustentacionObservaciones ?? initialText ?? '',
       fechaEstructuracionInvalidez: initialFecha ?? '',
       tipoEvento: initialTipo as TipoEvento | null,
       origenEvento: initialOrigen as OrigenEvento | null,
     }),
     // ojo: se recalcula cuando llega el GET de sustentación
-    [sustentacion.data?.sustentacionObservaciones, initialFecha, initialTipo, initialOrigen],
+    [sustentacion.data?.sustentacionObservaciones, initialText, initialFecha, initialTipo, initialOrigen],
   );
 
-  // ✅ Dexie draft
+  // âœ… Dexie draft
   const draftHook = useDictamenDraft({
     dictamenId,
     initialData,
@@ -94,7 +95,7 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
     }) => putMeta(dictamenId, payload),
   });
 
-  // ✅ botón Guardar: guarda 1) texto sustentación 2) meta estructuración/origen
+  // âœ… botÃ³n Guardar: guarda 1) texto sustentación 2) meta estructuración/origen
   const onSave = async () => {
     if (readOnly) return;
 
@@ -170,7 +171,7 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
                 'opacity-60 cursor-not-allowed',
             )}
           >
-            {sustentacion.isSaving || saveMetaMutation.isPending ? 'Guardando…' : 'Guardar'}
+            {sustentacion.isSaving || saveMetaMutation.isPending ? 'Guardando...' : 'Guardar'}
           </button>
         )}
       </div>
@@ -178,7 +179,7 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
       {/* Body */}
       <div className="p-4 space-y-4">
         {isBooting ? (
-          <div className="text-sm text-slate-500">Cargando…</div>
+          <div className="text-sm text-slate-500">Cargandoâ€¦</div>
         ) : (
           <>
             {/* Textarea */}
@@ -199,24 +200,24 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
                   'focus:ring-2 focus:ring-blue-100 focus:border-blue-300',
                   readOnly && 'bg-slate-50',
                 )}
-                placeholder="Escribe aquí la sustentación…"
+                placeholder="Escribe aquí la sustentación..."
               />
 
               <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
                 <span>
-                  {draftHook.saving ? 'Guardando borrador local…' : 'Borrador local actualizado.'}
+                  {draftHook.saving ? 'Guardando borrador local...' : 'Borrador local actualizado.'}
                 </span>
                 <span>{(draft.sustentacionObservaciones ?? '').length} caracteres</span>
               </div>
             </div>
 
-            {/* ✅ NUEVOS CAMPOS ABAJO */}
+            {/* âœ… NUEVOS CAMPOS ABAJO */}
             <div className="pt-4 border-t border-slate-200">
               <div className="text-sm font-semibold text-slate-900">
                 Fecha de estructuración y calificación del origen
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Estos datos corresponden al recuadro “Fecha de estructuración de la invalidez” y “Calificaciones del origen”.
+                Estos datos corresponden al recuadro "Fecha de estructuración de la invalidez" y "Calificaciones del origen".
               </div>
 
               <div className="grid grid-cols-1 gap-4 mt-4 lg:grid-cols-3">
@@ -352,3 +353,6 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialM
     </div>
   );
 }
+
+
+

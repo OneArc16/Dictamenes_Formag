@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, DictamenDraft } from '@/lib/dexieClient';
 
 type UseDictamenDraftOptions<T> = {
-  /** ID del dictamen. Si es nuevo, podemos usar 0 o un id temporal único */
+  /** ID del dictamen. Si es nuevo, podemos usar 0 o un id temporal Ãºnico */
   dictamenId: number | null;
   /** Estado inicial del formulario/bloque */
   initialData: T;
@@ -20,7 +20,10 @@ export function useDictamenDraft<T>({
   const [draft, setDraft] = useState<T>(initialData);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [hasLocalDraft, setHasLocalDraft] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serializedInitialData = useMemo(() => JSON.stringify(initialData ?? null), [initialData]);
+  const serializedDraft = useMemo(() => JSON.stringify(draft ?? null), [draft]);
 
   // 1) Cargar desde Dexie al montar
   useEffect(() => {
@@ -31,12 +34,16 @@ export function useDictamenDraft<T>({
     (async () => {
       try {
         const row = await db.dictamenDrafts.get(dictamenId);
-        if (!cancelled && row?.data) {
-          // Mezclar borrador con initialData por si hay nuevos campos
-          setDraft((prev) => ({
-            ...prev,
-            ...row.data,
-          }));
+        if (!cancelled) {
+          setHasLocalDraft(Boolean(row?.data));
+
+          if (row?.data) {
+            // Mezclar borrador con initialData por si hay nuevos campos
+            setDraft((prev) => ({
+              ...prev,
+              ...row.data,
+            }));
+          }
         }
       } catch (err) {
         console.error('Error cargando borrador de dictamen desde Dexie:', err);
@@ -52,10 +59,23 @@ export function useDictamenDraft<T>({
     };
   }, [dictamenId]);
 
+  // 1.1) Si no existe borrador local, hidratar desde initialData cuando llegue del servidor
+  useEffect(() => {
+    if (!loaded) return;
+    if (!dictamenId) return;
+    if (hasLocalDraft) return;
+
+    setDraft(initialData);
+  }, [initialData, loaded, dictamenId, hasLocalDraft]);
+
   // 2) Autosave a Dexie cada vez que cambia draft (con debounce)
   useEffect(() => {
     if (!loaded) return;
     if (!dictamenId) return;
+
+    if (!hasLocalDraft && serializedDraft === serializedInitialData) {
+      return;
+    }
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -70,6 +90,7 @@ export function useDictamenDraft<T>({
           updatedAt: Date.now(),
         };
         await db.dictamenDrafts.put(payload);
+        setHasLocalDraft(true);
       } catch (err) {
         console.error('Error guardando borrador de dictamen en Dexie:', err);
       } finally {
@@ -82,7 +103,7 @@ export function useDictamenDraft<T>({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [draft, loaded, dictamenId, debounceMs]);
+  }, [draft, loaded, dictamenId, debounceMs, hasLocalDraft, serializedDraft, serializedInitialData]);
 
   // Helper para actualizar un campo concreto
   const updateField = <K extends keyof T>(field: K, value: T[K]) => {
@@ -97,6 +118,7 @@ export function useDictamenDraft<T>({
     if (!dictamenId) return;
     try {
       await db.dictamenDrafts.delete(dictamenId);
+      setHasLocalDraft(false);
     } catch (err) {
       console.error('Error eliminando borrador de dictamen de Dexie:', err);
     }
@@ -111,3 +133,6 @@ export function useDictamenDraft<T>({
     clearDraft,
   };
 }
+
+
+

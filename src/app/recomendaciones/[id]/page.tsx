@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { type Prisma } from '@prisma/client';
 import { notFound } from 'next/navigation';
 
@@ -225,7 +225,6 @@ export default async function RecomendacionDetallePage({
     }),
   };
 
-  const ultimaReapertura = detalle.historial.find((item) => item.tipo === 'REAPERTURA') ?? null;
 
   const motivos: RecomendacionMotivoReaperturaOption[] = motivosReapertura.map((item) => ({
     id: item.id,
@@ -258,15 +257,6 @@ export default async function RecomendacionDetallePage({
                 canReopen={canReopen}
                 canPrint={canPrint}
                 motivosReapertura={motivos}
-                ultimaReapertura={
-                  ultimaReapertura
-                    ? {
-                        fecha: ultimaReapertura.fecha,
-                        actorNombre: ultimaReapertura.actorNombre,
-                        motivoReapertura: ultimaReapertura.motivoReapertura,
-                      }
-                    : null
-                }
               />
             }
           />

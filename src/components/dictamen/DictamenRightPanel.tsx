@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,13 +13,11 @@ import {
 } from '@/hooks/useDictamenDeficienciasPanel';
 import { useCerrarDictamen } from '@/hooks/useCerrarDictamen';
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import type { DictamenUltimaReapertura } from '@/components/dictamen/types';
 
 type Props = {
   dictamenId?: number;
   procedimientoPcl?: 'A' | 'B';
   readOnly?: boolean;
-  ultimaReapertura?: DictamenUltimaReapertura | null;
 };
 
 type DictamenCacheShape = {
@@ -128,7 +126,6 @@ export default function DictamenRightPanel({
   dictamenId,
   procedimientoPcl,
   readOnly = false,
-  ultimaReapertura = null,
 }: Props) {
   const params = useParams<{ id?: string; Id?: string }>();
   const router = useRouter();
@@ -378,21 +375,6 @@ export default function DictamenRightPanel({
                 </div>
               </div>
             </div>
-
-            {ultimaReapertura ? (
-              <div className="rounded-md border border-sky-100 bg-sky-50 px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                  Ultima reapertura
-                </p>
-                <p className="mt-1 text-sm font-semibold text-sky-900">{ultimaReapertura.actorNombre}</p>
-                <p className="mt-1 text-[11px] text-sky-700">{formatDateTime(ultimaReapertura.createdAt)}</p>
-                {ultimaReapertura.motivoReapertura ? (
-                  <p className="mt-2 text-xs leading-5 text-sky-900">
-                    Motivo: {ultimaReapertura.motivoReapertura}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
 
             <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-3">
               <p className="text-[11px] font-semibold text-red-800">Acciones</p>

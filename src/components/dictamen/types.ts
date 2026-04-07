@@ -47,6 +47,7 @@ export type DictamenDetalle = {
   antecedentesClinicos: string | null;
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
+  sustentacionObservaciones: string | null;
   diagnosticos: DictamenDiagnosticoDTO[];
   fechaEstructuracionInvalidez?: string | null;
   tipoEvento?: 'ENFERMEDAD' | 'ACCIDENTE' | null;
@@ -83,3 +84,6 @@ export interface DictamenRow {
   reabiertaPorNombre?: string | null;
   motivoReapertura?: string | null;
 }
+
+
+

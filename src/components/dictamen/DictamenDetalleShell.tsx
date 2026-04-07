@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -36,6 +36,7 @@ type DictamenDetalle = {
   antecedentesClinicos: string | null;
   condicionSalud: string | null;
   descripcionHallazgos: string | null;
+  sustentacionObservaciones?: string | null;
 
   fechaEstructuracionInvalidez?: string | null;
   tipoEvento?: TipoEvento | null;
@@ -124,7 +125,7 @@ export default function DictamenDetalleShell({
 
   const dictamen = data?.dictamen ?? null;
 
-  // ✅ Estado UI inmediato
+  // âœ… Estado UI inmediato
   const [uiClosed, setUiClosed] = useState(false);
 
   useEffect(() => {
@@ -132,7 +133,7 @@ export default function DictamenDetalleShell({
     setUiClosed(dictamen.estado === 'CERRADO');
   }, [dictamen?.id, dictamen?.estado]);
 
-  // ✅ escucha eventos (los 2, para no fallar por nombres)
+  // âœ… escucha eventos (los 2, para no fallar por nombres)
   useEffect(() => {
     function handler(ev: Event) {
       const e = ev as CustomEvent<{ dictamenId?: number }>;
@@ -153,7 +154,7 @@ export default function DictamenDetalleShell({
     };
   }, [dictamenId]);
 
-  // ✅ cerrado => solo lectura
+  // âœ… cerrado => solo lectura
   const readOnly = useMemo(() => {
     if (forceReadOnly != null) return forceReadOnly;
 
@@ -170,7 +171,7 @@ export default function DictamenDetalleShell({
 
   const [draftResetKey, setDraftResetKey] = useState(0);
 
-  // ✅ invalidación Dexie por serverVersion
+  // âœ… invalidaciÃ³n Dexie por serverVersion
   useEffect(() => {
     if (!dictamen || !data?.serverVersion) return;
 
@@ -263,9 +264,9 @@ export default function DictamenDetalleShell({
         <AppNav title={title} canSwitchModules={true} />
         <main className="px-4 py-4 lg:px-8">
           <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
-            ← Volver al listado
+            â† Volver al listado
           </button>
-          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">ID de dictamen inválido.</div>
+          <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">ID de dictamen invÃ¡lido.</div>
         </main>
       </div>
     );
@@ -277,9 +278,9 @@ export default function DictamenDetalleShell({
         <AppNav title={title} canSwitchModules={true} />
         <main className="px-4 py-4 lg:px-8">
           <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
-            ← Volver al listado
+            â† Volver al listado
           </button>
-          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">Cargando dictamen…</div>
+          <div className="px-4 py-6 mt-4 text-sm bg-white border rounded-xl text-slate-500">Cargando dictamenâ€¦</div>
         </main>
       </div>
     );
@@ -291,7 +292,7 @@ export default function DictamenDetalleShell({
         <AppNav title={title} canSwitchModules={true} />
         <main className="px-4 py-4 lg:px-8">
           <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
-            ← Volver al listado
+            â† Volver al listado
           </button>
           <div className="px-4 py-6 mt-4 text-sm text-red-600 bg-white border rounded-xl">
             {(error as any)?.message ?? 'Dictamen no encontrado.'}
@@ -330,7 +331,7 @@ export default function DictamenDetalleShell({
 
       <main className="px-4 py-4 lg:px-8">
         <button type="button" onClick={() => router.push(backHref)} className="text-xs text-blue-600 hover:underline">
-          ← Volver al listado de dictámenes
+          â† Volver al listado de dictÃ¡menes
         </button>
 
         {readOnly && (
@@ -367,6 +368,7 @@ export default function DictamenDetalleShell({
                     antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
                     condicionSalud: dictamen.condicionSalud ?? '',
                     descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
+                    sustentacionObservaciones: dictamen.sustentacionObservaciones ?? '',
                     diagnosticos: dictamen.diagnosticos ?? [],
                     fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
                     tipoEvento: dictamen.tipoEvento ?? null,
@@ -390,3 +392,4 @@ export default function DictamenDetalleShell({
     </div>
   );
 }
+

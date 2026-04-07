@@ -36,6 +36,7 @@ type DictamenCenterPanelProps = {
     antecedentesClinicos: string | null;
     condicionSalud: string | null;
     descripcionHallazgos: string | null;
+    sustentacionObservaciones?: string | null;
     claseLimitacionLaboral?: 'I' | 'II' | 'III' | 'IV' | null;
     totalCap2?: number | null;
     diagnosticos?: {
@@ -215,6 +216,7 @@ export default function DictamenCenterPanel({
               <TabSustentacion
                 dictamenId={dictamen.id}
                 readOnly={effectiveReadOnly}
+                initialText={dictamen.sustentacionObservaciones ?? ''}
                 initialMeta={{
                   fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez ?? null,
                   tipoEvento: dictamen.tipoEvento ?? null,
@@ -228,3 +230,6 @@ export default function DictamenCenterPanel({
     </div>
   );
 }
+
+
+

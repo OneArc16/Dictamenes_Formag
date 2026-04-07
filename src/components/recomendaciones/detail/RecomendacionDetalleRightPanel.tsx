@@ -31,7 +31,6 @@ export function RecomendacionDetalleRightPanel({
   canReopen,
   canPrint,
   motivosReapertura,
-  ultimaReapertura,
 }: {
   recomendacionId: number;
   estado: RecomendacionEstado;
@@ -39,11 +38,6 @@ export function RecomendacionDetalleRightPanel({
   canReopen: boolean;
   canPrint: boolean;
   motivosReapertura: RecomendacionMotivoReaperturaOption[];
-  ultimaReapertura?: {
-    fecha: string;
-    actorNombre: string;
-    motivoReapertura: string | null;
-  } | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -191,26 +185,6 @@ export function RecomendacionDetalleRightPanel({
           </AlertDialogContent>
         </AlertDialog>
       </div>
-
-      {ultimaReapertura ? (
-        <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-            Ultima reapertura
-          </p>
-          <p className="mt-1 text-xs font-medium text-slate-700">
-            {ultimaReapertura.fecha}
-          </p>
-          <p className="mt-1 text-[11px] leading-5 text-slate-600">
-            Por: {ultimaReapertura.actorNombre}
-          </p>
-          {ultimaReapertura.motivoReapertura ? (
-            <p className="mt-1 text-[11px] leading-5 text-slate-600">
-              Motivo: {ultimaReapertura.motivoReapertura}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       <p className="mt-4 text-[11px] leading-5 text-slate-500">
         {canClose
           ? 'Solo los formularios en borrador o reabiertos pueden cerrarse.'
