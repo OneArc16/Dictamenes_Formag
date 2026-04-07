@@ -1,12 +1,13 @@
-'use client';
-
-import { useQuery } from '@tanstack/react-query';
+﻿import { useQuery } from '@tanstack/react-query';
 import type { AppRole } from '@/lib/module-navigation';
 
 export type AuthMeUser = {
   id: string;
   name: string;
   role: AppRole;
+  perfilId: number | null;
+  perfilNombre: string | null;
+  permissions: string[];
 };
 
 async function fetchAuthMe(): Promise<AuthMeUser | null> {
@@ -26,6 +27,13 @@ async function fetchAuthMe(): Promise<AuthMeUser | null> {
       id: String(data.user.id ?? ''),
       name: String(data.user.name ?? 'Usuario'),
       role: String(data.user.role ?? '') as AppRole,
+      perfilId:
+        typeof data.user.perfilId === 'number' ? data.user.perfilId : null,
+      perfilNombre:
+        typeof data.user.perfilNombre === 'string' ? data.user.perfilNombre : null,
+      permissions: Array.isArray(data.user.permissions)
+        ? data.user.permissions.map((permission: unknown) => String(permission))
+        : [],
     };
   } catch {
     return null;

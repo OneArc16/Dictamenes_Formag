@@ -1,8 +1,10 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
 import { Input } from '@/components/ui/input';
 import { RecomendacionStatusBadge } from '@/components/recomendaciones/detail/RecomendacionStatusBadge';
 import { type RecomendacionDetalleViewModel } from '@/components/recomendaciones/detail/types';
@@ -154,8 +156,10 @@ export function RecomendacionDetalleLeftPanel({
   detalle: RecomendacionDetalleViewModel;
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const docente = detalle.docente;
   const isEditable = canEdit && (detalle.estado === 'BORRADOR' || detalle.estado === 'REABIERTO');
+  const [showEditDocente, setShowEditDocente] = useState(false);
   const [tallaInput, setTallaInput] = useState(detalle.datosAtencion.talla ?? '');
   const [pesoInput, setPesoInput] = useState(detalle.datosAtencion.peso ?? '');
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -239,6 +243,18 @@ export function RecomendacionDetalleLeftPanel({
 
   return (
     <>
+      {isEditable ? (
+        <ActualizarDocenteModal
+          open={showEditDocente}
+          onClose={() => setShowEditDocente(false)}
+          numeroDocumento={docente.numeroDocumento}
+          onUpdate={() => {
+            setShowEditDocente(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -273,6 +289,16 @@ export function RecomendacionDetalleLeftPanel({
               {docente.institucion || 'Sin institucion registrada'}
             </p>
           </div>
+
+          {isEditable ? (
+            <button
+              type="button"
+              onClick={() => setShowEditDocente(true)}
+              className="px-3 py-1 text-xs font-semibold border rounded-full border-sky-600 text-sky-700 hover:bg-sky-50"
+            >
+              Editar
+            </button>
+          ) : null}
         </div>
       </div>
 

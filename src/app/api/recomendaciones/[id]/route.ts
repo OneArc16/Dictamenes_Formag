@@ -1,24 +1,14 @@
 ﻿import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { z } from 'zod';
 
+import { requireRecomendacionesApi } from '@/lib/auth/api-guards';
+import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
-type JwtPayload = {
-  sub: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-type AuthCtx = {
-  empleadoId: number;
-  role: string;
-};
+type AuthCtx = AuthorizationContext;
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -70,32 +60,6 @@ const RecomendacionActionSchema = z.discriminatedUnion('action', [
     motivoReaperturaId: z.coerce.number().int().positive(),
   }),
 ]);
-
-function normalizeRole(role: unknown): string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-
-  return normalized;
-}
-
-async function requireAuth(): Promise<AuthCtx | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const empleadoId = Number(payload.sub);
-  if (!Number.isFinite(empleadoId) || empleadoId <= 0) return null;
-
-  return {
-    empleadoId,
-    role: normalizeRole(payload.role),
-  };
-}
 
 function sanitizeDecimalValue(
   value: string | null | undefined,
@@ -211,6 +175,14 @@ function canEditRecomendacion(
   recomendacion: ManagedRecomendacion,
   auth: AuthCtx,
 ): PermissionResult {
+  if (!hasAbility(auth, 'recomendacion.edit')) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No autorizado para editar esta recomendacion.',
+    };
+  }
+
   if (auth.role !== 'MEDICO') {
     return {
       ok: false,
@@ -237,6 +209,14 @@ function canReopenRecomendacion(
   recomendacion: ManagedRecomendacion,
   auth: AuthCtx,
 ): PermissionResult {
+  if (!hasAbility(auth, 'recomendacion.reopen')) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No autorizado para reabrir esta recomendacion.',
+    };
+  }
+
   if (auth.role === 'MEDICO') {
     if (
       recomendacion.empleadoId == null ||
@@ -394,10 +374,12 @@ function serializeRecomendacionResponse(
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
-    const auth = await requireAuth();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireRecomendacionesApi();
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
+
+    const auth = authResult.auth;
 
     const { id: idParam } = await context.params;
     const recomendacionId = Number(idParam);
@@ -575,10 +557,12 @@ export async function PUT(req: Request, context: RouteContext) {
 
 export async function POST(req: Request, context: RouteContext) {
   try {
-    const auth = await requireAuth();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireRecomendacionesApi();
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
+
+    const auth = authResult.auth;
 
     const { id: idParam } = await context.params;
     const recomendacionId = Number(idParam);

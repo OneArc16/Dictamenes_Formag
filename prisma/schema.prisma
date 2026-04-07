@@ -492,6 +492,8 @@ model Perfil {
   updatedBy String?  @db.VarChar(100)
 
   empleados Empleado[]
+  permisos PerfilPermiso[]
+
 
   @@map("perfiles")
 }
@@ -929,7 +931,6 @@ model RecomendacionLaboral {
   @@map("recomendaciones_laborales")
 }
 
-
 model RecomendacionLaboralHistorial {
   id Int @id @default(autoincrement())
 
@@ -957,8 +958,6 @@ model RecomendacionLaboralHistorial {
   @@index([tipo, createdAt])
   @@map("recomendaciones_laborales_historial")
 }
-
-
 
 model RecomendacionLaboralFirma {
   id Int @id @default(autoincrement())
@@ -1124,4 +1123,46 @@ model DictamenAnalisisOcupacional {
   @@unique([dictamenId, factor])
   @@index([dictamenId])
   @@map("dictamen_analisis_ocupacional")
+}
+
+model Permiso {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(100)
+  nombre      String  @db.VarChar(150)
+  descripcion String? @db.Text
+  modulo      String? @db.VarChar(50)
+
+  estado Int @default(1) @db.SmallInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  perfiles PerfilPermiso[]
+
+  @@index([modulo])
+  @@index([estado])
+  @@map("permisos")
+}
+
+model PerfilPermiso {
+  id        Int @id @default(autoincrement())
+  perfilId  Int
+  permisoId Int
+
+  permitido Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  perfil  Perfil  @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([perfilId, permisoId])
+  @@index([perfilId])
+  @@index([permisoId])
+  @@map("perfil_permisos")
 }

@@ -11,6 +11,7 @@ import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictam
 import { RegistrarDocenteModal } from '@/components/RegistrarDocenteModal';
 import ReadOnlyBanner from '@/components/medico/ReadOnlyBanner';
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
+import { useCan } from '@/hooks/useCan';
 import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
 
 type DictamenApiRow = {
@@ -37,6 +38,8 @@ function formatFechaExport(value: unknown): string {
 export default function MedicoPage() {
   const router = useRouter();
   const { readOnly } = useMedicoAccess();
+  const { can: canCreateDictamen } = useCan('dictamen.create');
+  const { can: canExportDictamen } = useCan('dictamen.export');
 
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
@@ -157,7 +160,11 @@ export default function MedicoPage() {
       title="Dictamenes del medico"
       description="Consulta tus dictamenes pendientes, reabiertos y cerrados con una navegacion lateral separada del formulario clinico."
       compactHero
-      actions={<DictamenExportButton rows={exportRows} filename="dictamenes_medico.csv" />}
+      actions={
+        canExportDictamen ? (
+          <DictamenExportButton rows={exportRows} filename="dictamenes_medico.csv" />
+        ) : undefined
+      }
     >
       <ReadOnlyBanner />
 
@@ -174,7 +181,9 @@ export default function MedicoPage() {
         medicoIds={medicoIds}
         onMedicoChange={setMedicoIds}
         showMedicoSelect={true}
-        onRegistrar={readOnly ? undefined : () => setShowRegistrarModal(true)}
+        onRegistrar={
+          readOnly || !canCreateDictamen ? undefined : () => setShowRegistrarModal(true)
+        }
       />
 
       <DictamenTable rows={rows} loading={loading} onOpenDictamen={handleOpenDictamen} />

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import type { AdminMode } from '@/lib/rbac';
 import {
   ClipboardList,
   ClipboardPlus,
@@ -19,7 +18,9 @@ import {
   X,
 } from 'lucide-react';
 
-import { getRoleLabel, getVisibleModules, type ModuleKey } from '@/lib/module-navigation';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { hasAbility, type AbilityCode } from '@/lib/auth/ability-utils';
+import { getRoleLabel, getVisibleModules, type AppRole, type ModuleKey } from '@/lib/module-navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,8 +34,8 @@ import { Separator } from '@/components/ui/separator';
 
 type Props = {
   children: ReactNode;
-  empleado: { nombre: string; perfil: string };
-  mode: AdminMode;
+  empleado: { nombre: string; perfil: string; role: AppRole };
+  permissions: string[];
 };
 
 type SidebarItem = {
@@ -42,6 +43,7 @@ type SidebarItem = {
   label: string;
   icon: React.ElementType;
   description?: string;
+  requiredAbility?: AbilityCode;
 };
 
 const moduleIconMap: Record<ModuleKey, typeof ShieldCheck> = {
@@ -51,12 +53,16 @@ const moduleIconMap: Record<ModuleKey, typeof ShieldCheck> = {
   recomendaciones: ClipboardPlus,
 };
 
-
 const administrationItems: SidebarItem[] = [
-  { href: '/admin/empleados', label: 'Empleados', icon: IdCard },
-  { href: '/admin/perfiles', label: 'Perfiles', icon: UserRoundCog },
-  { href: '/admin/motivos-reapertura', label: 'Motivos de reapertura', icon: RotateCcw },
-  { href: '/admin/auditoria', label: 'Auditoria', icon: ClipboardList },
+  { href: '/admin/empleados', label: 'Empleados', icon: IdCard, requiredAbility: 'admin.empleados.read' },
+  { href: '/admin/perfiles', label: 'Perfiles', icon: UserRoundCog, requiredAbility: 'admin.perfiles.read' },
+  {
+    href: '/admin/motivos-reapertura',
+    label: 'Motivos de reapertura',
+    icon: RotateCcw,
+    requiredAbility: 'admin.motivos_reapertura.read',
+  },
+  { href: '/admin/auditoria', label: 'Auditoria', icon: ClipboardList, requiredAbility: 'admin.auditoria.read' },
 ];
 
 function SidebarLink({
@@ -112,6 +118,8 @@ function SidebarSection({
   items: SidebarItem[];
   onNavigate?: () => void;
 }) {
+  if (items.length === 0) return null;
+
   return (
     <div className="space-y-2">
       <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -128,16 +136,26 @@ function SidebarSection({
 
 function AdminSidebarContent({
   empleado,
-  mode,
+  permissions,
   onNavigate,
 }: {
   empleado: Props['empleado'];
-  mode: AdminMode;
+  permissions: string[];
   onNavigate?: () => void;
 }) {
   const router = useRouter();
-  const visibleModules = useMemo(() => getVisibleModules('ADMIN'), []);
-  const showAdminSection = mode === 'ADMIN';
+  const { data: user } = useAuthMe();
+  const effectivePermissions = user?.permissions ?? permissions;
+  const effectiveRole = user?.role ?? empleado.role;
+
+  const visibleModules = useMemo(
+    () =>
+      getVisibleModules({
+        role: effectiveRole,
+        permissions: effectivePermissions,
+      }),
+    [effectivePermissions, effectiveRole],
+  );
 
   const moduleItems: SidebarItem[] = visibleModules.map((moduleItem) => ({
     href: moduleItem.href,
@@ -145,6 +163,11 @@ function AdminSidebarContent({
     icon: moduleIconMap[moduleItem.key],
     description: moduleItem.description,
   }));
+
+  const administrationSectionItems = useMemo(
+    () => administrationItems.filter((item) => !item.requiredAbility || hasAbility(effectivePermissions, item.requiredAbility)),
+    [effectivePermissions],
+  );
 
   const handleLogout = async () => {
     try {
@@ -185,19 +208,13 @@ function AdminSidebarContent({
               </div>
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-slate-900">{empleado.nombre}</div>
-                <div className="text-[11px] text-slate-500">{getRoleLabel(empleado.perfil)}</div>
+                <div className="text-[11px] text-slate-500">{getRoleLabel(effectiveRole)}</div>
               </div>
             </div>
           </div>
 
           <SidebarSection title="Modulos" items={moduleItems} onNavigate={onNavigate} />
-          {showAdminSection ? (
-            <SidebarSection
-              title="Administracion"
-              items={administrationItems}
-              onNavigate={onNavigate}
-            />
-          ) : null}
+          <SidebarSection title="Administracion" items={administrationSectionItems} onNavigate={onNavigate} />
         </div>
 
         <div className="space-y-3 pt-3">
@@ -217,7 +234,7 @@ function AdminSidebarContent({
   );
 }
 
-export default function AdminShell({ children, empleado, mode }: Props) {
+export default function AdminShell({ children, empleado, permissions }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -233,7 +250,7 @@ export default function AdminShell({ children, empleado, mode }: Props) {
         <aside className="hidden w-[236px] shrink-0 lg:block xl:w-[244px]">
           <div className="sticky top-3">
             <Card className="h-[min(calc(100vh-1.5rem),840px)] min-h-0 overflow-hidden rounded-[26px] border-slate-200/90 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(239,246,255,0.94))] shadow-[0_18px_45px_rgba(148,163,184,0.16)]">
-              <AdminSidebarContent empleado={empleado} mode={mode} />
+              <AdminSidebarContent empleado={empleado} permissions={permissions} />
             </Card>
           </div>
         </aside>
@@ -258,7 +275,7 @@ export default function AdminShell({ children, empleado, mode }: Props) {
             </div>
             <AdminSidebarContent
               empleado={empleado}
-              mode={mode}
+              permissions={permissions}
               onNavigate={() => setMobileOpen(false)}
             />
           </Card>

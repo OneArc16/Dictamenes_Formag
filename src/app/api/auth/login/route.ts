@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { signJwt } from '@/lib/auth';
-import { getDefaultPathForRole } from '@/lib/module-navigation';
+import {
+  inferAppRoleFromPermissionCodes,
+  normalizeAppRole,
+} from '@/lib/auth/authorization';
+import { getDefaultPathForUser } from '@/lib/module-navigation';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -11,18 +15,6 @@ const LoginSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(1),
 });
-
-function perfilToRole(perfilId?: number | null, perfilNombre?: string | null) {
-  if (perfilId === 2) return 'ADMIN';
-  if (perfilId === 1) return 'ADMISIONISTA';
-  if (perfilId === 3) return 'MEDICO';
-
-  if (perfilNombre?.toUpperCase() === 'ADMIN') return 'ADMIN';
-  if (perfilNombre?.toUpperCase() === 'ADMISIONISTA') return 'ADMISIONISTA';
-  if (perfilNombre?.toUpperCase() === 'MEDICO') return 'MEDICO';
-
-  return null;
-}
 
 export async function POST(req: Request) {
   try {
@@ -38,7 +30,21 @@ export async function POST(req: Request) {
         OR: [{ numeroIdentidad: login }, { email: login }],
       },
       include: {
-        perfil: true,
+        perfil: {
+          include: {
+            permisos: {
+              where: {
+                permitido: true,
+                permiso: { estado: 1 },
+              },
+              include: {
+                permiso: {
+                  select: { codigo: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -57,9 +63,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const role = perfilToRole(
-      empleado.perfilId ?? null,
-      empleado.perfil?.nombre ?? null,
+    const permissionCodes = Array.from(
+      new Set(
+        (empleado.perfil?.permisos ?? [])
+          .map((perfilPermiso) => perfilPermiso.permiso.codigo)
+          .filter((codigo): codigo is string => Boolean(codigo)),
+      ),
+    );
+
+    const role = inferAppRoleFromPermissionCodes(
+      permissionCodes,
+      normalizeAppRole(empleado.perfil?.nombre ?? null),
     );
 
     if (!role) {
@@ -75,11 +89,14 @@ export async function POST(req: Request) {
       sub: String(empleado.id),
       role,
       name: nombreCompleto || 'Usuario',
+      perfilId: empleado.perfilId ?? null,
+      perfilNombre: empleado.perfil?.nombre ?? null,
+      permissions: permissionCodes,
     });
 
     const res = NextResponse.json({
       ok: true,
-      redirect: getDefaultPathForRole(role),
+      redirect: getDefaultPathForUser({ role, permissions: permissionCodes }),
     });
 
     res.cookies.set('auth', token, {

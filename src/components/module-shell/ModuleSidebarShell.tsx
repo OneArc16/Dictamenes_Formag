@@ -68,12 +68,15 @@ function SidebarContent({
 
   const currentModule = getModuleByKey(moduleKey);
   const visibleModules = useMemo(() => {
-    const modules = getVisibleModules(user?.role ?? null);
+    const modules = getVisibleModules({
+      role: user?.role ?? null,
+      permissions: user?.permissions ?? [],
+    });
     if (!currentModule) return modules;
     return modules.some((moduleItem) => moduleItem.key === currentModule.key)
       ? modules
       : [...modules, currentModule];
-  }, [currentModule, user?.role]);
+  }, [currentModule, user?.permissions, user?.role]);
 
   const handleLogout = async () => {
     try {

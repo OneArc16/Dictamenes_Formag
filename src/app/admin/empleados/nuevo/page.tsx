@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth/guards';
 import EmpleadoForm from '@/components/admin/empleados/EmpleadoForm';
 
 export default async function NuevoEmpleadoPage() {
-  await requireAdmin();
+  await requireAdmin('admin.empleados.manage');
 
   const perfiles = await prisma.perfil.findMany({
     where: { estado: 1 },

@@ -1,82 +1,82 @@
-﻿import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
-import { verifyJwt } from '@/lib/auth';
-import type { AppRole } from '@/lib/module-navigation';
+import type { AppRole, ModuleKey } from '@/lib/module-navigation';
+import {
+  hasAbility,
+  hasModuleAbility,
+  requireAuthorizationContext,
+  type AbilityCode,
+  type AuthorizationContext,
+} from '@/lib/auth/authorization';
 
 export type AuthUser = {
   id: string;
   name: string;
   role: AppRole;
+  perfilId: number | null;
+  perfilNombre: string | null;
+  permissions: string[];
 };
 
-async function getAuthUser(): Promise<AuthUser | null> {
-  try {
-    const store = await cookies();
-    const token = store.get('auth')?.value;
-    if (!token) return null;
-
-    const payload = await verifyJwt(token);
-    if (!payload) return null;
-
-    const data = payload as {
-      sub?: string;
-      name?: string;
-      role?: AppRole;
-    };
-
-    return {
-      id: String(data.sub ?? ''),
-      name: String(data.name ?? ''),
-      role: String(data.role ?? '') as AppRole,
-    };
-  } catch {
-    return null;
-  }
+function toAuthUser(context: AuthorizationContext): AuthUser {
+  return {
+    id: String(context.empleadoId),
+    name: context.name,
+    role: context.role,
+    perfilId: context.perfilId,
+    perfilNombre: context.perfilNombre,
+    permissions: context.permissions,
+  };
 }
 
-export async function requireAdmin() {
-  const user = await getAuthUser();
-  if (!user) redirect('/login');
-  if (user.role !== 'ADMIN') redirect('/login');
-  return user;
+async function requireModuleAccess(moduleKey: ModuleKey) {
+  const context = await requireAuthorizationContext();
+  if (!hasModuleAbility(context, moduleKey)) redirect('/login');
+  return context;
+}
+
+export async function requireAbility(ability: AbilityCode) {
+  const context = await requireAuthorizationContext();
+  if (!hasAbility(context, ability)) redirect('/login');
+  return context;
+}
+
+export async function requireAdmin(requiredAbility?: AbilityCode) {
+  const context = await requireModuleAccess('admin');
+  if (requiredAbility && !hasAbility(context, requiredAbility)) redirect('/login');
+  return toAuthUser(context);
 }
 
 export async function requireMedicoModule() {
-  const user = await getAuthUser();
-  if (!user) redirect('/login');
-
-  const allowed: AppRole[] = ['MEDICO', 'ADMIN'];
-  if (!allowed.includes(user.role)) redirect('/login');
+  const context = await requireModuleAccess('medico');
 
   return {
-    user,
-    readOnly: user.role === 'ADMIN',
+    user: toAuthUser(context),
+    readOnly: context.role !== 'MEDICO' || !hasAbility(context, 'dictamen.edit'),
+    canCreateDictamen: hasAbility(context, 'dictamen.create'),
+    canCloseDictamen: hasAbility(context, 'dictamen.close'),
+    canReopenDictamen: hasAbility(context, 'dictamen.reopen'),
   };
 }
 
 export async function requireAdmisionesModule() {
-  const user = await getAuthUser();
-  if (!user) redirect('/login');
-
-  const allowed: AppRole[] = ['ADMISIONISTA', 'ADMIN'];
-  if (!allowed.includes(user.role)) redirect('/login');
+  const context = await requireModuleAccess('admisiones');
 
   return {
-    user,
-    canReabrirDictamen: true,
+    user: toAuthUser(context),
+    canReabrirDictamen: hasAbility(context, 'dictamen.reopen'),
   };
 }
 
 export async function requireRecomendacionesModule() {
-  const user = await getAuthUser();
-  if (!user) redirect('/login');
-
-  const allowed: AppRole[] = ['MEDICO', 'ADMISIONISTA', 'ADMIN'];
-  if (!allowed.includes(user.role)) redirect('/login');
+  const context = await requireModuleAccess('recomendaciones');
 
   return {
-    user,
-    readOnly: user.role !== 'MEDICO',
+    user: toAuthUser(context),
+    readOnly:
+      context.role !== 'MEDICO' || !hasAbility(context, 'recomendacion.edit'),
+    canCreateRecomendacion: hasAbility(context, 'recomendacion.create'),
+    canCloseRecomendacion: hasAbility(context, 'recomendacion.close'),
+    canReopenRecomendacion: hasAbility(context, 'recomendacion.reopen'),
   };
 }

@@ -13,7 +13,7 @@ function getAuditActor(payload: { name?: string; sub?: string }): string | null 
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAdminApi();
+    const auth = await requireAdminApi('admin.motivos_reapertura.manage');
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }

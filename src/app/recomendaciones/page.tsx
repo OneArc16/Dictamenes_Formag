@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -22,7 +22,8 @@ import {
   type RecomendacionRow,
 } from '@/components/recomendaciones/types';
 import { type RecomendacionMotivoReaperturaOption } from '@/components/recomendaciones/detail/types';
-import { useMe } from '@/hooks/useMe';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { useCan } from '@/hooks/useCan';
 
 type RecomendacionApiRow = {
   id: number;
@@ -56,7 +57,10 @@ function formatFechaExport(value: unknown): string {
 
 export default function RecomendacionesPage() {
   const router = useRouter();
-  const { me } = useMe();
+  const { data: me } = useAuthMe();
+  const { can: canRegister } = useCan('recomendacion.create');
+  const { can: canUseReopenAction } = useCan('recomendacion.reopen');
+  const { can: canExport } = useCan('recomendacion.export');
 
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
@@ -89,7 +93,7 @@ export default function RecomendacionesPage() {
 
   const motivosReaperturaQuery = useQuery<MotivosReaperturaResponse>({
     queryKey: ['motivos-reapertura-recomendaciones'],
-    enabled: Boolean(me),
+    enabled: Boolean(me) && canUseReopenAction,
     queryFn: async () => {
       const response = await fetch('/api/motivos-reapertura', {
         method: 'GET',
@@ -125,9 +129,6 @@ export default function RecomendacionesPage() {
   }, [medicosQuery.data, me?.role]);
 
   const effectiveMedicoId = medicoId === undefined ? defaultMedicoId : medicoId;
-  const canRegister = me?.role === 'MEDICO';
-  const canUseReopenAction =
-    me?.role === 'MEDICO' || me?.role === 'ADMISIONISTA' || me?.role === 'ADMIN';
   const motivosReapertura = motivosReaperturaQuery.data?.options ?? [];
 
   const recomendacionesQuery = useQuery<RecomendacionRow[]>({
@@ -215,10 +216,12 @@ export default function RecomendacionesPage() {
       description="Consulta recomendaciones, filtra por medico y registra docentes desde un flujo operativo uniforme."
       compactHero
       actions={
-        <DictamenExportButton
-          rows={exportRows}
-          filename="recomendaciones_laborales.csv"
-        />
+        canExport ? (
+          <DictamenExportButton
+            rows={exportRows}
+            filename="recomendaciones_laborales.csv"
+          />
+        ) : undefined
       }
     >
       <RecomendacionesFiltersBar
@@ -281,4 +284,3 @@ export default function RecomendacionesPage() {
     </ModuleSidebarShell>
   );
 }
-

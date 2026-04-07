@@ -18,7 +18,7 @@ function formatDateTime(value: Date): string {
 }
 
 export default async function MotivosReaperturaPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requireAdmin('admin.motivos_reapertura.read');
 
   const sp = (await searchParams) ?? {};
   const q = (sp.q ?? '').trim();

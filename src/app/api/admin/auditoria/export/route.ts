@@ -43,7 +43,7 @@ type ExportRow = Array<string | number | null | undefined>;
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireAdminApi();
+    const auth = await requireAdminApi('admin.auditoria.export');
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }

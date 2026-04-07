@@ -1,22 +1,27 @@
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
+﻿import type { AppRole } from '@/lib/module-navigation';
+import { getAuthorizationContext } from '@/lib/auth/authorization';
 
 export type Session =
-  | { sub: string; name: string; role: 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' }
+  | {
+      sub: string;
+      name: string;
+      role: AppRole;
+      perfilId: number | null;
+      perfilNombre: string | null;
+      permissions: string[];
+    }
   | null;
 
 export async function getSession(): Promise<Session> {
-  try {
-    const store = await cookies();                 // seguro con Next 14/15
-    const token = store.get('auth')?.value;
-    if (!token) return null;
-    const payload = await verifyJwt(token);
-    return {
-      sub: String(payload.sub),
-      name: String(payload.name ?? ''),
-      role: payload.role as any,
-    };
-  } catch {
-    return null;
-  }
+  const auth = await getAuthorizationContext();
+  if (!auth) return null;
+
+  return {
+    sub: String(auth.empleadoId),
+    name: auth.name,
+    role: auth.role,
+    perfilId: auth.perfilId,
+    perfilNombre: auth.perfilNombre,
+    permissions: auth.permissions,
+  };
 }

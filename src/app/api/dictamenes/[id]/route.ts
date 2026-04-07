@@ -1,33 +1,20 @@
 ﻿import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { Prisma, ProcedimientoPcl } from '@prisma/client';
-import crypto from 'crypto';
 import { z } from 'zod';
 
-import { verifyJwt } from '@/lib/auth';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
 import {
   buildDictamenHistoryChanges,
   buildDictamenHistorySnapshot,
   parseDictamenHistorySnapshot,
   resolveDictamenEstadoHistorial,
 } from '@/lib/dictamen/historial';
+import { canEditDictamen } from '@/lib/dictamen/permissions';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type JwtPayload = {
-  sub: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-type AuthCtx = {
-  userId: number;
-  role: 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string;
-  name?: string;
-};
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -213,118 +200,35 @@ function getNombreCompleto(persona: DictamenPersona | null | undefined) {
     .trim();
 }
 
-function normalizeRole(role: unknown): 'ADMIN' | 'ADMISIONISTA' | 'MEDICO' | string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-  return normalized;
-}
-
-function canReadDictamen(role: string) {
-  return role === 'MEDICO' || role === 'ADMIN' || role === 'ADMISIONISTA';
-}
-
-function isReadOnlyByRole(role: string) {
-  return role === 'ADMIN' || role === 'ADMISIONISTA';
-}
-
-function canEditDictamen(dictamen: Pick<DictamenDetailRecord, 'empleadoId'>, auth: AuthCtx) {
-  if (auth.role !== 'MEDICO') {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No autorizado para editar este dictamen.',
-    };
-  }
-
-  if (dictamen.empleadoId != null && dictamen.empleadoId !== auth.userId) {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No tiene permiso sobre este dictamen.',
-    };
-  }
-
-  return { ok: true as const };
-}
-
-function buildNumeroDictamen(documento: string, fechaYYYYMMDD: string) {
-  const [yyyy, mm, dd] = fechaYYYYMMDD.split('-');
-  const datePart = `${String(dd ?? '').padStart(2, '0')}${String(mm ?? '').padStart(2, '0')}${String(
-    yyyy ?? '',
-  )}`;
-  const docPart = String(documento ?? '').replace(/\D/g, '');
-  return `${datePart}${docPart}`;
-}
-
-function toColombiaMidnightUTC(fechaYYYYMMDD: string) {
-  return new Date(`${fechaYYYYMMDD}T05:00:00.000Z`);
+function computeServerVersion(dictamen: Pick<DictamenDetailRecord, 'updatedAt' | 'estado' | 'reabierto'>) {
+  return [
+    dictamen.updatedAt?.toISOString?.() ?? '',
+    dictamen.estado ? 'PENDIENTE' : 'CERRADO',
+    dictamen.reabierto ? 'REABIERTO' : 'NORMAL',
+  ].join(':');
 }
 
 function resolveTipoDictamen(dictamen: Pick<DictamenSummaryRecord, 'tipoDictamen'>) {
-  return dictamen.tipoDictamen != null ? String(dictamen.tipoDictamen) : null;
+  const tipo = String(dictamen.tipoDictamen ?? '').trim().toUpperCase();
+
+  if (tipo === 'RECALIFICACION') return 'RECALIFICACION';
+  if (tipo === 'CALIFICACION') return 'CALIFICACION';
+
+  return dictamen.tipoDictamen ? String(dictamen.tipoDictamen) : null;
 }
 
-function computeServerVersion(dictamen: DictamenDetailRecord) {
-  const payload = {
-    id: dictamen.id,
-    numeroDictamen: dictamen.numeroDictamen ?? null,
-    fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString().slice(0, 10) : null,
-    procedimientoPcl: dictamen.procedimientoPcl ?? null,
-    tipoDictamen: resolveTipoDictamen(dictamen),
-    antecedentesClinicos: dictamen.antecedentesClinicos ?? '',
-    condicionSalud: dictamen.condicionSalud ?? '',
-    descripcionHallazgos: dictamen.descripcionHallazgos ?? '',
-    fechaEstructuracionInvalidez: dictamen.fechaEstructuracionInvalidez
-      ? dictamen.fechaEstructuracionInvalidez.toISOString().slice(0, 10)
-      : null,
-    tipoEvento: dictamen.tipoEvento ?? null,
-    origenEvento: dictamen.origenEvento ?? null,
-    estado: dictamen.estado,
-    reabierto: dictamen.reabierto,
-    docente: dictamen.usuario
-      ? {
-          id: dictamen.usuario.id,
-          identificacion: dictamen.usuario.identificacion,
-          tipoIdentificacion: dictamen.usuario.tipoIdentificacion,
-          primerNombre: dictamen.usuario.primerNombre,
-          segundoNombre: dictamen.usuario.segundoNombre ?? null,
-          primerApellido: dictamen.usuario.primerApellido,
-          segundoApellido: dictamen.usuario.segundoApellido ?? null,
-          edad: dictamen.usuario.edad ?? null,
-          sexo: dictamen.usuario.sexo ?? null,
-          secretariaId: dictamen.usuario.secretariaId ?? null,
-          institucionEducativaId: dictamen.usuario.institucionEducativaId ?? null,
-          secretariaNombre: dictamen.usuario.secretariaRef?.nombre ?? null,
-          institucionNombre: dictamen.usuario.institucionEducativaRef?.nombre ?? null,
-        }
-      : null,
-    diagnosticos: dictamen.diagnosticos.map((diagnostico) => ({
-      id: diagnostico.id,
-      cie10Codigo: diagnostico.cie10Codigo,
-      tipo: diagnostico.tipo,
-    })),
-  };
+function toColombiaMidnightUTC(value: string) {
+  const [year, month, day] = value.split('-').map((part) => Number(part));
 
-  return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex');
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, 5, 0, 0, 0));
 }
 
-async function getAuthFromToken(): Promise<AuthCtx | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
+function buildNumeroDictamen(documentoDocente: string, fechaIso: string) {
+  const [year, month, day] = fechaIso.split('-');
+  const datePart = `${day ?? ''}${month ?? ''}${year ?? ''}`;
+  const documento = String(documentoDocente ?? '').replace(/\D/g, '');
 
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const userId = Number(payload.sub);
-  if (!Number.isFinite(userId) || userId <= 0) return null;
-
-  return {
-    userId,
-    role: normalizeRole(payload.role) as AuthCtx['role'],
-    name: payload.name,
-  };
+  return `${datePart}${documento}`;
 }
 
 function serializeDictamenResponse(dictamen: DictamenSummaryRecord) {
@@ -461,14 +365,12 @@ function buildUpdateData(body: UpdatePayload, documentoDocente: string): UpdateD
 
 export async function GET(_req: Request, context: RouteContext) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.read');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
-    if (!canReadDictamen(auth.role)) {
-      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = authResult.auth;
 
     const { id: idParam } = await context.params;
     const id = Number(idParam);
@@ -479,7 +381,7 @@ export async function GET(_req: Request, context: RouteContext) {
 
     const where: Prisma.DictamenWhereInput = { id };
     if (auth.role === 'MEDICO') {
-      where.empleadoId = auth.userId;
+      where.empleadoId = auth.empleadoId;
     }
 
     const dictamen = await prisma.dictamen.findFirst({
@@ -493,7 +395,10 @@ export async function GET(_req: Request, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      readOnly: isReadOnlyByRole(auth.role) || resolveDictamenEstadoHistorial(dictamen) === 'CERRADO',
+      readOnly:
+        auth.role !== 'MEDICO' ||
+        !auth.permissions.includes('dictamen.edit') ||
+        resolveDictamenEstadoHistorial(dictamen) === 'CERRADO',
       serverVersion: computeServerVersion(dictamen),
       dictamen: serializeDictamenDetail(dictamen),
     });
@@ -506,10 +411,12 @@ export async function GET(_req: Request, context: RouteContext) {
 
 export async function PUT(req: Request, context: RouteContext) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.edit');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
+
+    const auth = authResult.auth;
 
     const { id: idParam } = await context.params;
     const id = Number(idParam);
@@ -632,7 +539,7 @@ export async function PUT(req: Request, context: RouteContext) {
       await tx.dictamenHistorial.create({
         data: {
           dictamenId: id,
-          empleadoId: auth.userId,
+          empleadoId: auth.empleadoId,
           tipo: 'EDICION',
           estadoAnterior: estadoActual,
           estadoNuevo: estadoActual,
@@ -661,3 +568,5 @@ export async function PUT(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: message }, { status: error instanceof z.ZodError ? 400 : 500 });
   }
 }
+
+

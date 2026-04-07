@@ -13,6 +13,7 @@ import { DictamenTable } from '@/components/dictamen/DictamenTable';
 import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictamen/types';
 import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
 import { type MotivoReaperturaOption } from '@/lib/reapertura/types';
+import { useCan } from '@/hooks/useCan';
 
 type DictamenApiRow = {
   id: number;
@@ -41,6 +42,8 @@ function formatFechaExport(value: unknown): string {
 
 export default function AdmisionesPage() {
   const router = useRouter();
+  const { can: canReopenDictamen } = useCan('dictamen.reopen');
+  const { can: canExportDictamen } = useCan('dictamen.export');
 
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
@@ -68,6 +71,7 @@ export default function AdmisionesPage() {
 
   const motivosReaperturaQuery = useQuery<MotivosReaperturaResponse>({
     queryKey: ['motivos-reapertura-shared'],
+    enabled: canReopenDictamen,
     queryFn: async () => {
       const response = await fetch('/api/motivos-reapertura', {
         method: 'GET',
@@ -155,7 +159,11 @@ export default function AdmisionesPage() {
       title="Control de dictamenes en admisiones"
       description="Consulta transversal de docentes, filtros por medico y acceso operativo para impresion o reapertura cuando aplique."
       compactHero
-      actions={<DictamenExportButton rows={exportRows} filename="dictamenes_admisiones.csv" />}
+      actions={
+        canExportDictamen ? (
+          <DictamenExportButton rows={exportRows} filename="dictamenes_admisiones.csv" />
+        ) : undefined
+      }
     >
       <AdmisionesBanner />
 
@@ -185,7 +193,7 @@ export default function AdmisionesPage() {
           return (
             <div className="flex items-center gap-2">
               <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
-              {isCerrado && motivosReapertura.length > 0 ? (
+              {canReopenDictamen && isCerrado && motivosReapertura.length > 0 ? (
                 <ReabrirDictamenButton
                   dictamenId={row.id}
                   estado={row.estado}

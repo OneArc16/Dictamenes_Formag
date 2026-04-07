@@ -1,11 +1,12 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { Printer } from 'lucide-react';
 
+import { useCan } from '@/hooks/useCan';
+
 type Props = {
   dictamenId: number;
-  /** pásale true cuando el dictamen esté CERRADO */
   isCerrado: boolean;
   disabled?: boolean;
   className?: string;
@@ -17,8 +18,9 @@ export default function ImprimirDictamenButton({
   disabled = false,
   className = '',
 }: Props) {
-  // ✅ Solo mostrar si está CERRADO
-  if (!isCerrado) return null;
+  const { can: canPrintDictamen } = useCan('dictamen.print');
+
+  if (!isCerrado || !canPrintDictamen) return null;
 
   return (
     <button
@@ -36,11 +38,11 @@ export default function ImprimirDictamenButton({
         'h-8 w-8',
         'text-blue-700 hover:bg-blue-50 active:bg-blue-100',
         'transition',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       ].join(' ')}
     >
-      <Printer className="w-4 h-4" aria-hidden="true" />
+      <Printer className="h-4 w-4" aria-hidden="true" />
     </button>
   );
 }

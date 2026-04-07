@@ -6,7 +6,7 @@ import ResetPasswordButton from '@/components/admin/empleados/ResetPasswordButto
 import DeleteEmpleadoButton from '@/components/admin/empleados/DeleteEmpleadoButton';
 
 export default async function EditarEmpleadoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin('admin.empleados.manage');
 
   const { id } = await params;
   const empleadoId = Number(id);

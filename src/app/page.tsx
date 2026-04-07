@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { verifyJwt } from '@/lib/auth';
-import { getDefaultPathForRole } from '@/lib/module-navigation';
+import { getDefaultPathForUser } from '@/lib/module-navigation';
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -14,7 +14,12 @@ export default async function Home() {
 
   try {
     const payload = await verifyJwt(token);
-    redirect(getDefaultPathForRole(payload.role));
+    redirect(
+      getDefaultPathForUser({
+        role: payload.role,
+        permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+      }),
+    );
   } catch {
     redirect('/login');
   }

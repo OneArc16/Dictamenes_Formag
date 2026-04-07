@@ -1,42 +1,30 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+﻿import { NextResponse } from 'next/server';
+
+import { requireAbilityApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
-function isAdmin(role: unknown) {
-  return String(role) === 'ADMIN';
-}
-
-const upper = (v: any) => String(v ?? '').trim().toUpperCase();
+const upper = (value: unknown) => String(value ?? '').trim().toUpperCase();
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth')?.value;
-
-    if (!token) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload || !isAdmin((payload as any).role)) {
-      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+    const authResult = await requireAbilityApi('admin.perfiles.manage');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
     const { id } = await params;
     const perfilId = Number(id);
 
     if (!Number.isFinite(perfilId)) {
-      return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'ID invalido' }, { status: 400 });
     }
 
-    const body = await req.json();
-
+    const body = await req.json().catch(() => ({}));
     const nombre = upper(body?.nombre);
     const estado = Number(body?.estado) === 0 ? 0 : 1;
 
@@ -48,6 +36,7 @@ export async function PATCH(
       where: { id: perfilId },
       select: { id: true },
     });
+
     if (!current) {
       return NextResponse.json({ ok: false, error: 'Perfil no encontrado' }, { status: 404 });
     }
@@ -56,27 +45,29 @@ export async function PATCH(
       where: { nombre, NOT: { id: perfilId } },
       select: { id: true },
     });
+
     if (existing) {
       return NextResponse.json(
         { ok: false, error: `Ya existe otro perfil con ese nombre (ID ${existing.id})` },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     const updated = await prisma.perfil.update({
       where: { id: perfilId },
-      data: { nombre, estado },
+      data: {
+        nombre,
+        estado,
+        updatedBy: authResult.auth.name,
+      },
       select: { id: true },
     });
 
     return NextResponse.json({ ok: true, id: updated.id });
-  } catch (err: any) {
-    if (err?.code === 'P2002') {
-      return NextResponse.json({ ok: false, error: 'Conflicto de unicidad' }, { status: 409 });
-    }
+  } catch (error) {
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error actualizando perfil' },
-      { status: 500 }
+      { ok: false, error: error instanceof Error ? error.message : 'Error actualizando perfil' },
+      { status: 500 },
     );
   }
 }

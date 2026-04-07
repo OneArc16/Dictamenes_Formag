@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '@/components/forms/SearchableSelect';
 
@@ -34,11 +35,11 @@ type DocenteForm = {
   nivelEscalafon: string;
   institucionLabora: string;
 
-  // ✅ NUEVOS
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS
   cargoDocenteId: string; // guardamos el ID como string para el form (en BD es Int)
   escolaridad: string;
 
-  // ✅ NUEVOS (agregados)
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS (agregados)
   fechaVinculacion: string; // YYYY-MM-DD
   tipoDictamen: string; // CALIFICACION | RECALIFICACION
 };
@@ -69,11 +70,11 @@ const emptyForm: DocenteForm = {
   nivelEscalafon: '',
   institucionLabora: '',
 
-  // ✅ NUEVOS
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS
   cargoDocenteId: '',
   escolaridad: '',
 
-  // ✅ NUEVOS (agregados)
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS (agregados)
   fechaVinculacion: '',
   tipoDictamen: 'CALIFICACION',
 };
@@ -112,14 +113,14 @@ function Toast({ open, type, message, onClose }: ToastProps) {
       <div
         className={`flex items-center gap-3 rounded-xl ${bgClass} px-4 py-3 text-sm text-white shadow-2xl`}
       >
-        <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full bg-white/10">
-          {type === 'success' ? '✓' : type === 'error' ? '!' : 'i'}
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-bold">
+          {type === 'success' ? 'OK' : type === 'error' ? '!' : 'i'}
         </span>
         <span>{message}</span>
         <button
           type="button"
           onClick={onClose}
-          className="ml-3 text-xs text-white/80 hover:text-white"
+          className="ml-3 text-xs text-white/80 transition hover:text-white"
         >
           Cerrar
         </button>
@@ -152,7 +153,7 @@ type InstitucionOption = {
   idSecretaria: number | null;
 };
 
-// ✅ NUEVO: Cargo docente
+// ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVO: Cargo docente
 type CargoDocenteOption = { id: number; codigo?: string | null; nombre: string };
 
 export function ActualizarDocenteModal({
@@ -181,7 +182,7 @@ export function ActualizarDocenteModal({
   const [selectedSecretariaId, setSelectedSecretariaId] = useState<string>('');
   const [loadingInstituciones, setLoadingInstituciones] = useState(false);
 
-  // ✅ NUEVO: estados cargo docente
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVO: estados cargo docente
   const [cargosDocentes, setCargosDocentes] = useState<CargoDocenteOption[]>([]);
   const [loadingCargos, setLoadingCargos] = useState(false);
 
@@ -194,6 +195,7 @@ export function ActualizarDocenteModal({
   } | null>(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const showToast = (type: ToastType, message: string) => {
     setToast({ type, message });
@@ -206,6 +208,21 @@ export function ActualizarDocenteModal({
     return () => clearTimeout(id);
   }, [toast]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mounted, open]);
+
   // Cuando cambia numeroDocumento desde afuera y se abre el modal
   useEffect(() => {
     if (!open) return;
@@ -215,7 +232,7 @@ export function ActualizarDocenteModal({
     }));
   }, [open, numeroDocumento]);
 
-  // Calcular edad automáticamente
+  // Calcular edad automÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ticamente
   useEffect(() => {
     if (!form.fechaNacimiento) {
       setForm((prev) => (prev.edad !== '' ? { ...prev, edad: '' } : prev));
@@ -253,7 +270,7 @@ export function ActualizarDocenteModal({
   };
 
   /* ======================================================
-     🔹 Búsqueda async de instituciones (typeahead)
+     ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¹ BÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda async de instituciones (typeahead)
      ====================================================== */
   const searchInstituciones = async (term: string) => {
     const secretariaId = selectedSecretariaId;
@@ -311,7 +328,7 @@ export function ActualizarDocenteModal({
   };
 
   /* ======================================================
-     ✅ NUEVO: Búsqueda async de CARGOS DOCENTES (typeahead)
+     ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVO: BÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda async de CARGOS DOCENTES (typeahead)
      ====================================================== */
   const CARGOS_ENDPOINT = '/api/cargos-docentes/search'; // si cambia tu ruta, cambia SOLO esto
 
@@ -375,7 +392,7 @@ export function ActualizarDocenteModal({
   };
 
   /* ======================================================
-     🔹 React Query: opciones de ubicación (una sola vez)
+     ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¹ React Query: opciones de ubicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n (una sola vez)
      ====================================================== */
 
   const { data: ubicacionData } = useQuery({
@@ -389,7 +406,7 @@ export function ActualizarDocenteModal({
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(data?.error ?? 'Error cargando opciones de ubicación');
+        throw new Error(data?.error ?? 'Error cargando opciones de ubicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n');
       }
 
       return data;
@@ -460,7 +477,7 @@ export function ActualizarDocenteModal({
     const doc = docParam ?? form.numeroDocumento;
 
     if (!doc) {
-      showToast('error', 'Ingresa un número de documento');
+      showToast('error', 'Ingresa un nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero de documento');
       return;
     }
 
@@ -503,7 +520,7 @@ export function ActualizarDocenteModal({
         (d as any).CODIGO_EPS ??
         (d as any).Codigo_Eps;
 
-      // ✅ NUEVOS (tolerante a nombres)
+      // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS (tolerante a nombres)
       const cargoDocenteIdRes =
         (d as any).cargoDocenteId ??
         (d as any).cargo_docente_id ??
@@ -522,11 +539,11 @@ export function ActualizarDocenteModal({
         (d as any).Escolaridad ??
         (d as any).ESCOLARIDAD;
 
-      // ✅ NUEVOS (agregados)
+      // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS (agregados)
       const fechaVinculacionRes =
         (d as any).fechaVinculacion ??
         (d as any).fecha_vinculacion ??
-        (d as any).fechaVinculación ??
+        (d as any)["fechaVinculacion"] ??
         null;
 
       const tipoDictamenRes =
@@ -564,11 +581,11 @@ export function ActualizarDocenteModal({
         nivelEscalafon: d.nivelEscalafon ?? form.nivelEscalafon,
         institucionLabora: d.institucionEducativa ?? form.institucionLabora,
 
-        // ✅ NUEVOS
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS
         cargoDocenteId: cargoDocenteIdRes != null ? String(cargoDocenteIdRes) : form.cargoDocenteId,
         escolaridad: escolaridadRes ?? form.escolaridad,
 
-        // ✅ NUEVOS (agregados)
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NUEVOS (agregados)
         fechaVinculacion: fechaVinculacionRes ? String(fechaVinculacionRes).slice(0, 10) : '',
         tipoDictamen: (tipoDictamenRes ? String(tipoDictamenRes) : form.tipoDictamen) || 'CALIFICACION',
       };
@@ -613,7 +630,7 @@ export function ActualizarDocenteModal({
     }
   };
 
-  // Al abrir el modal y tener documento + combos cargados, buscamos automáticamente
+  // Al abrir el modal y tener documento + combos cargados, buscamos automÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ticamente
   useEffect(() => {
     if (open && numeroDocumento && !docenteLoaded && !searching) {
       handleBuscarDocente(numeroDocumento);
@@ -621,11 +638,11 @@ export function ActualizarDocenteModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, numeroDocumento, docenteLoaded, searching]);
 
-  // Sincronizar combos (país, depto, municipio, secretaría) cuando ya tengo ubicaciones y docente
+  // Sincronizar combos (paÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­s, depto, municipio, secretarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a) cuando ya tengo ubicaciones y docente
   useEffect(() => {
     if (!open || !ubicacionLoaded || !docenteLoaded) return;
 
-    // País
+    // PaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­s
     if (!selectedPaisCodigo && form.pais && paises.length) {
       const p = paises.find((x) => x.nombre === form.pais);
       if (p) setSelectedPaisCodigo(p.codigo);
@@ -643,7 +660,7 @@ export function ActualizarDocenteModal({
       if (muni) setSelectedMunicipio(muni.codigo);
     }
 
-    // Secretaría
+    // SecretarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
     if (!selectedSecretariaId && form.secretariaLabora && secretarias.length) {
       const sec = secretarias.find((s) => s.nombre === form.secretariaLabora);
       if (sec) {
@@ -669,7 +686,7 @@ export function ActualizarDocenteModal({
     selectedSecretariaId,
   ]);
 
-  // Prefetch de la institución actual cuando ya sabemos secretaría
+  // Prefetch de la instituciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n actual cuando ya sabemos secretarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
   useEffect(() => {
     if (!open) return;
     if (!selectedSecretariaId) return;
@@ -684,7 +701,7 @@ export function ActualizarDocenteModal({
 
     const camposObligatorios: { key: keyof DocenteForm; label: string }[] = [
       { key: 'tipoDocumento', label: 'Tipo de documento' },
-      { key: 'numeroDocumento', label: 'Número de documento' },
+      { key: 'numeroDocumento', label: 'NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero de documento' },
       { key: 'primerNombre', label: 'Primer nombre' },
       { key: 'primerApellido', label: 'Primer apellido' },
       { key: 'fechaNacimiento', label: 'Fecha de nacimiento' },
@@ -742,7 +759,7 @@ export function ActualizarDocenteModal({
     }
   };
 
-  if (!open) return null;
+  if (!open || !mounted || typeof document === 'undefined') return null;
 
   const municipiosFiltrados = selectedDepartamento
     ? municipios.filter((m) => m.codigoDepartamento === selectedDepartamento)
@@ -752,38 +769,41 @@ export function ActualizarDocenteModal({
     ? barrios.filter((b) => b.codigoMunicipio === selectedMunicipio)
     : barrios;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-white shadow-xl">
-        {/* Header modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">Actualizar datos del docente</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] overflow-hidden bg-slate-950/78 backdrop-blur-[2px]">
+      <div className="flex min-h-full items-center justify-center overflow-y-auto px-4 py-6 sm:px-8 sm:py-10">
+        <div className="flex max-h-[calc(100vh-5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-7rem)]">
+          {/* Header modal */}
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4">
+            <h2 className="text-lg font-semibold text-slate-900">Actualizar datos del docente</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar modal"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            >
+              X
+            </button>
+          </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleActualizarDatos();
-          }}
-          className="p-6 space-y-6"
-        >
-          {/* Card de datos de identificación y ubicación */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleActualizarDatos();
+            }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            {/* Card de datos de identificacion y ubicacion */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white rounded">🧾</span>
-              <h3 className="text-sm font-semibold">Datos de identificación y ubicación</h3>
+              <span className="rounded bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">ID</span>
+              <h3 className="text-sm font-semibold">Datos de identificacion y ubicacion</h3>
             </header>
 
             <div className="p-4 space-y-4">
               {/* Primera fila */}
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.15fr_1.35fr_1.05fr_0.9fr]">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Tipo de documento
@@ -794,19 +814,19 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
-                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="">Seleccione...</option>
+                    <option value="CC">Cedula de ciudadania (CC)</option>
                     <option value="TI">Tarjeta de identidad (TI)</option>
-                    <option value="CE">Cédula de extranjería (CE)</option>
+                    <option value="CE">Cedula de extranjeria (CE)</option>
                     <option value="PA">Pasaporte (PA)</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Número de documento
+                    Numero de documento
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex min-w-0 gap-2">
                     <input
                       name="numeroDocumento"
                       value={form.numeroDocumento}
@@ -817,15 +837,15 @@ export function ActualizarDocenteModal({
                           handleBuscarDocente();
                         }
                       }}
-                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="min-w-0 flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
                       type="button"
                       onClick={() => handleBuscarDocente()}
                       disabled={searching}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-60"
+                      className="shrink-0 whitespace-nowrap rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
                     >
-                      {searching ? 'Buscando…' : 'Buscar'}
+                      {searching ? 'Buscando...' : 'Buscar'}
                     </button>
                   </div>
                 </div>
@@ -845,7 +865,7 @@ export function ActualizarDocenteModal({
 
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Edad (años)
+                    Edad (anos)
                   </label>
                   <input
                     name="edad"
@@ -857,7 +877,7 @@ export function ActualizarDocenteModal({
               </div>
 
               {/* Nombres + apellidos */}
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.15fr_1.35fr_1.05fr_0.9fr]">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
                     Primer nombre
@@ -904,7 +924,7 @@ export function ActualizarDocenteModal({
                 </div>
               </div>
 
-              {/* Sexo + dirección */}
+              {/* Sexo + direccion */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -916,7 +936,7 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="F">Femenino</option>
                     <option value="M">Masculino</option>
                     <option value="O">Otro</option>
@@ -925,7 +945,7 @@ export function ActualizarDocenteModal({
 
                 <div className="md:col-span-2">
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Dirección
+                    Direccion
                   </label>
                   <input
                     name="direccion"
@@ -948,7 +968,7 @@ export function ActualizarDocenteModal({
                       value: d.codigo,
                       label: d.nombre,
                     }))}
-                    placeholder="Seleccione departamento…"
+                    placeholder="Seleccione departamento..."
                     onChange={(newCodigo) => {
                       setSelectedDepartamento(newCodigo);
                       setSelectedMunicipio('');
@@ -976,7 +996,7 @@ export function ActualizarDocenteModal({
                       value: m.codigo,
                       label: m.nombre,
                     }))}
-                    placeholder="Seleccione municipio…"
+                    placeholder="Seleccione municipio..."
                     onChange={(newCodigo) => {
                       setSelectedMunicipio(newCodigo);
 
@@ -1002,7 +1022,7 @@ export function ActualizarDocenteModal({
                       value: b.nombre,
                       label: b.nombre,
                     }))}
-                    placeholder="Seleccione barrio…"
+                    placeholder="Seleccione barrio..."
                     onChange={(newBarrio) =>
                       setForm((prev) => ({
                         ...prev,
@@ -1013,7 +1033,7 @@ export function ActualizarDocenteModal({
                 </div>
               </div>
 
-              {/* Zona, teléfono, país */}
+              {/* Zona, telefono, pais */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -1025,14 +1045,14 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="URBANA">Urbana</option>
                     <option value="RURAL">Rural</option>
                   </select>
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Teléfono de contacto
+                    Telefono de contacto
                   </label>
                   <input
                     name="telefono"
@@ -1043,7 +1063,7 @@ export function ActualizarDocenteModal({
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    País
+                    Pais
                   </label>
                   <SearchableSelect
                     value={selectedPaisCodigo}
@@ -1051,7 +1071,7 @@ export function ActualizarDocenteModal({
                       value: p.codigo,
                       label: p.nombre,
                     }))}
-                    placeholder="Seleccione país…"
+                    placeholder="Seleccione pais..."
                     onChange={(newCodigo) => {
                       setSelectedPaisCodigo(newCodigo);
 
@@ -1066,7 +1086,7 @@ export function ActualizarDocenteModal({
                 </div>
               </div>
 
-              {/* EPS + categoría */}
+              {/* EPS + categoria */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="md:col-span-2">
                   <label className="block mb-1 text-xs font-medium text-gray-700">
@@ -1084,12 +1104,12 @@ export function ActualizarDocenteModal({
                         codigoEps: value,
                       }))
                     }
-                    placeholder="Seleccione EPS…"
+                    placeholder="Seleccione EPS..."
                   />
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Categoría
+                    Categoria
                   </label>
                   <select
                     name="categoria"
@@ -1097,7 +1117,7 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="CONTRIBUTIVO">Contributivo</option>
                     <option value="ESPECIAL">Especial</option>
                   </select>
@@ -1109,16 +1129,16 @@ export function ActualizarDocenteModal({
           {/* Card de datos laborales */}
           <section className="border rounded-lg">
             <header className="flex items-center gap-2 px-4 py-2 border-b bg-slate-50">
-              <span className="px-2 py-1 text-xs bg-white rounded">🧑‍🏫</span>
+              <span className="rounded bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">LAB</span>
               <h3 className="text-sm font-semibold">Datos laborales del docente</h3>
             </header>
 
             <div className="p-4 space-y-4">
-              {/* Secretaría + Institución */}
+              {/* Secretaria + Institucion */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Secretaría donde labora
+                    Secretaria donde labora
                   </label>
                   <SearchableSelect
                     value={selectedSecretariaId}
@@ -1126,7 +1146,7 @@ export function ActualizarDocenteModal({
                       value: String(s.id),
                       label: s.nombre,
                     }))}
-                    placeholder="Seleccione secretaría…"
+                    placeholder="Seleccione secretaria..."
                     onChange={(newId) => {
                       setSelectedSecretariaId(newId);
 
@@ -1144,7 +1164,7 @@ export function ActualizarDocenteModal({
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Institución donde labora
+                    Institucion donde labora
                   </label>
                   <SearchableSelect
                     value={form.institucionLabora}
@@ -1154,8 +1174,8 @@ export function ActualizarDocenteModal({
                     }))}
                     placeholder={
                       !selectedSecretariaId
-                        ? 'Seleccione primero una secretaría'
-                        : 'Escriba al menos 3 letras para buscar…'
+                        ? 'Seleccione primero una secretaria'
+                        : 'Escriba al menos 3 letras para buscar...'
                     }
                     disabled={!selectedSecretariaId}
                     onSearch={(term) => {
@@ -1175,7 +1195,7 @@ export function ActualizarDocenteModal({
                 </div>
               </div>
 
-              {/* ✅ NUEVO: Cargo docente + Escolaridad */}
+              {/* Cargo docente + Escolaridad */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">Cargo docente</label>
@@ -1185,7 +1205,7 @@ export function ActualizarDocenteModal({
                       value: String(c.id),
                       label: c.codigo ? `${c.nombre} (${c.codigo})` : c.nombre,
                     }))}
-                    placeholder={loadingCargos ? 'Buscando cargos…' : 'Escriba al menos 3 letras para buscar…'}
+                    placeholder={loadingCargos ? 'Buscando cargos...' : 'Escriba al menos 3 letras para buscar...'}
                     onSearch={searchCargosDocentes}
                     minSearchLength={3}
                     isLoading={loadingCargos}
@@ -1208,25 +1228,25 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="PRIMARIA">PRIMARIA</option>
                     <option value="SECUNDARIA">SECUNDARIA</option>
-                    <option value="TÉCNICO">TÉCNICO</option>
-                    <option value="TECNÓLOGO">TECNÓLOGO</option>
+                    <option value="TECNICO">TECNICO</option>
+                    <option value="TECNOLOGO">TECNOLOGO</option>
                     <option value="PROFESIONAL">PROFESIONAL</option>
-                    <option value="ESPECIALIZACIÓN">ESPECIALIZACIÓN</option>
-                    <option value="MAESTRÍA">MAESTRÍA</option>
+                    <option value="ESPECIALIZACION">ESPECIALIZACION</option>
+                    <option value="MAESTRIA">MAESTRIA</option>
                     <option value="DOCTORADO">DOCTORADO</option>
                     <option value="OTRO">OTRO</option>
                   </select>
                 </div>
               </div>
 
-              {/* ✅ NUEVOS (agregados): Fecha vinculación + Tipo dictamen */}
+              {/* Fecha de vinculacion + Tipo dictamen */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Fecha de vinculación
+                    Fecha de vinculacion
                   </label>
                   <input
                     type="date"
@@ -1247,17 +1267,17 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="CALIFICACION">CALIFICACIÓN</option>
-                    <option value="RECALIFICACION">RECALIFICACIÓN</option>
+                    <option value="CALIFICACION">CALIFICACION</option>
+                    <option value="RECALIFICACION">RECALIFICACION</option>
                   </select>
                 </div>
               </div>
 
-              {/* Forma vinculación + estado civil */}
+              {/* Forma de vinculacion + estado civil */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Forma de vinculación
+                    Forma de vinculacion
                   </label>
                   <select
                     name="formaVinculacion"
@@ -1265,7 +1285,7 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="PROPIEDAD">Propiedad</option>
                     <option value="PROVISIONALIDAD">Provisionalidad</option>
                   </select>
@@ -1280,21 +1300,21 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="SOLTERO(A)">Soltero(a)</option>
                     <option value="CASADO(A)">Casado(a)</option>
-                    <option value="UNIÓN LIBRE">Unión libre</option>
+                    <option value="UNION LIBRE">Union libre</option>
                     <option value="SEPARADO(A)">Separado(a)</option>
                     <option value="VIUDO(A)">Viudo(a)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Escalafón */}
+              {/* Escalafon */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Grado de escalafón
+                    Grado de escalafon
                   </label>
                   <input
                     name="gradoEscalafon"
@@ -1306,7 +1326,7 @@ export function ActualizarDocenteModal({
                 </div>
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-700">
-                    Nivel de escalafón
+                    Nivel de escalafon
                   </label>
                   <select
                     name="nivelEscalafon"
@@ -1314,7 +1334,7 @@ export function ActualizarDocenteModal({
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Seleccione…</option>
+                    <option value="">Seleccione...</option>
                     <option value="NO_APLICA">No aplica</option>
                     <option value="A">A</option>
                     <option value="B">B</option>
@@ -1326,21 +1346,23 @@ export function ActualizarDocenteModal({
             </div>
           </section>
 
+          </div>
+
           {/* Botones inferiores */}
-          <div className="flex items-center justify-end pt-2">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 ml-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60"
+              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {saving ? 'Guardando…' : 'Actualizar datos'}
+              {saving ? 'Guardando...' : 'Actualizar datos'}
             </button>
           </div>
         </form>
@@ -1353,5 +1375,8 @@ export function ActualizarDocenteModal({
         />
       </div>
     </div>
+  </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

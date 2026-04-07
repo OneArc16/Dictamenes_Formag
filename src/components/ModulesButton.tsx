@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Check,
@@ -12,9 +12,10 @@ import {
   UserSquare2,
 } from 'lucide-react';
 
+import { useAuthMe } from '@/hooks/useAuthMe';
 import {
-  MODULE_DEFINITIONS,
   getCurrentModule,
+  getVisibleModules,
   type ModuleKey,
 } from '@/lib/module-navigation';
 
@@ -36,6 +37,7 @@ export default function ModulesButton({
   const router = useRouter();
   const pathname = usePathname() || '';
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { data: user } = useAuthMe();
 
   useEffect(() => {
     if (!open) return;
@@ -52,11 +54,22 @@ export default function ModulesButton({
   }, [open]);
 
   const currentModule = getCurrentModule(pathname);
-  const visibleModules = canSwitchModules
-    ? MODULE_DEFINITIONS
-    : currentModule
-      ? [currentModule]
-      : [];
+  const visibleModules = useMemo(() => {
+    if (!canSwitchModules) {
+      return currentModule ? [currentModule] : [];
+    }
+
+    const modules = getVisibleModules({
+      role: user?.role ?? null,
+      permissions: user?.permissions ?? [],
+    });
+
+    if (modules.length > 0) {
+      return modules;
+    }
+
+    return currentModule ? [currentModule] : [];
+  }, [canSwitchModules, currentModule, user?.permissions, user?.role]);
 
   const handleNavigate = (href: string) => {
     setOpen(false);

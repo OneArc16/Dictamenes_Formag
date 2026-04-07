@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth/guards';
 import MotivoReaperturaForm from '@/components/admin/motivos-reapertura/MotivoReaperturaForm';
 
 export default async function NuevoMotivoReaperturaPage() {
-  await requireAdmin();
+  await requireAdmin('admin.motivos_reapertura.manage');
 
   return (
     <div className="space-y-3">

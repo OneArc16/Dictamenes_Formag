@@ -1,12 +1,20 @@
-﻿import { cookies } from 'next/headers';
+import type { AppRole, ModuleKey } from '@/lib/module-navigation';
+import {
+  getAuthorizationContext,
+  hasAbility,
+  hasAnyAbility,
+  hasModuleAbility,
+  type AbilityCode,
+  type AuthorizationContext,
+} from '@/lib/auth/authorization';
 
-import { verifyJwt } from '@/lib/auth';
-
-type ApiJwtPayload = {
-  sub?: string;
-  name?: string;
-  role?: string;
-  [key: string]: unknown;
+type ApiGuardPayload = {
+  sub: string;
+  name: string;
+  role: AppRole;
+  perfilId: number | null;
+  perfilNombre: string | null;
+  permissions: string[];
 };
 
 type ApiGuardFailure = {
@@ -17,48 +25,102 @@ type ApiGuardFailure = {
 
 type ApiGuardSuccess = {
   ok: true;
-  payload: ApiJwtPayload;
+  payload: ApiGuardPayload;
+  auth: AuthorizationContext;
 };
 
-function normalizeRole(role: unknown): string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-
-  return normalized;
+function toPayload(auth: AuthorizationContext): ApiGuardPayload {
+  return {
+    sub: String(auth.empleadoId),
+    name: auth.name,
+    role: auth.role,
+    perfilId: auth.perfilId,
+    perfilNombre: auth.perfilNombre,
+    permissions: auth.permissions,
+  };
 }
 
-async function getApiPayload(): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  const store = await cookies();
-  const token = store.get('auth')?.value;
-  if (!token) return { ok: false, status: 401, error: 'No autenticado' };
+async function requireApiAuth(): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  const auth = await getAuthorizationContext();
+  if (!auth) {
+    return { ok: false, status: 401, error: 'No autenticado' };
+  }
 
-  const payload = (await verifyJwt(token)) as ApiJwtPayload | null;
-  if (!payload) return { ok: false, status: 401, error: 'Token inválido' };
-
-  return { ok: true, payload };
+  return {
+    ok: true,
+    payload: toPayload(auth),
+    auth,
+  };
 }
 
-export async function requireAdminApi(): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  const auth = await getApiPayload();
+export async function requireAuthenticatedApi(): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireApiAuth();
+}
+
+export async function requireModuleApi(
+  moduleKey: ModuleKey,
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  const auth = await requireApiAuth();
   if (!auth.ok) return auth;
 
-  if (normalizeRole(auth.payload.role) !== 'ADMIN') {
+  if (!hasModuleAbility(auth.auth, moduleKey)) {
+    return { ok: false, status: 403, error: 'No autorizado' };
+  }
+
+  if (requiredAbility && !hasAbility(auth.auth, requiredAbility)) {
     return { ok: false, status: 403, error: 'No autorizado' };
   }
 
   return auth;
 }
 
-export async function requireAdmisionesApi(): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  const auth = await getApiPayload();
+export async function requireAbilityApi(
+  ability: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  const auth = await requireApiAuth();
   if (!auth.ok) return auth;
 
-  const role = normalizeRole(auth.payload.role);
-  if (role !== 'ADMIN' && role !== 'ADMISIONISTA') {
+  if (!hasAbility(auth.auth, ability)) {
     return { ok: false, status: 403, error: 'No autorizado' };
   }
 
   return auth;
+}
+
+export async function requireAnyAbilityApi(
+  abilities: AbilityCode[],
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  const auth = await requireApiAuth();
+  if (!auth.ok) return auth;
+
+  if (!hasAnyAbility(auth.auth, abilities)) {
+    return { ok: false, status: 403, error: 'No autorizado' };
+  }
+
+  return auth;
+}
+
+export async function requireAdminApi(
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireModuleApi('admin', requiredAbility);
+}
+
+export async function requireAdmisionesApi(
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireModuleApi('admisiones', requiredAbility);
+}
+
+export async function requireMedicoApi(
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireModuleApi('medico', requiredAbility);
+}
+
+export async function requireRecomendacionesApi(
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireModuleApi('recomendaciones', requiredAbility);
 }

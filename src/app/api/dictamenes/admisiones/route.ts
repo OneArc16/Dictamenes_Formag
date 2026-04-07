@@ -1,42 +1,12 @@
-﻿import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 
+import { requireAdmisionesApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 type EstadoFiltro = 'PENDIENTES' | 'REABIERTOS' | 'CERRADOS' | 'TODOS';
-
-type JwtPayload = {
-  sub: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-function normalizeRole(role: unknown) {
-  const normalized = String(role ?? '').trim().toUpperCase();
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-  return normalized;
-}
-
-async function requireAuth() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  return {
-    empleadoId: Number(payload.sub),
-    role: normalizeRole(payload.role),
-    name: payload.name ?? null,
-  };
-}
 
 function normalizeDateStart(value: string) {
   return new Date(`${value}T00:00:00.000-05:00`);
@@ -68,13 +38,9 @@ function buildNombreCompleto(persona: {
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireAuth();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
-
-    if (auth.role !== 'ADMISIONISTA' && auth.role !== 'ADMIN') {
-      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+    const auth = await requireAdmisionesApi('dictamen.read');
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }
 
     const { searchParams } = new URL(req.url);

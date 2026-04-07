@@ -1,41 +1,11 @@
-﻿import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
+import { requireRecomendacionesApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 type EstadoFiltro = 'PENDIENTES' | 'REABIERTAS' | 'CERRADAS' | 'ANULADAS' | 'TODOS';
-
-type JwtPayload = {
-  sub: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-async function requireAuth() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const normalizedRole = String(payload.role ?? '').trim().toUpperCase();
-  const role =
-    normalizedRole === 'ADMINISTRADOR'
-      ? 'ADMIN'
-      : normalizedRole === 'ADMICIONES' || normalizedRole === 'ADMISIONES'
-        ? 'ADMISIONISTA'
-        : normalizedRole;
-
-  return {
-    empleadoId: Number(payload.sub),
-    role,
-  };
-}
 
 function toNombreCompleto(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
@@ -50,11 +20,12 @@ function mapEstado(estado: string): 'PENDIENTE' | 'REABIERTO' | 'CERRADA' | 'ANU
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireRecomendacionesApi('recomendacion.create');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
+    const auth = authResult.auth;
     const body = await req.json().catch(() => null);
     const usuarioId = Number(body?.usuarioId);
     const empleadoIdBody =
@@ -157,11 +128,12 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireAuth();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireRecomendacionesApi('recomendacion.read');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
+    const auth = authResult.auth;
     const { searchParams } = new URL(req.url);
 
     const documento = (searchParams.get('documento') ?? '').trim();

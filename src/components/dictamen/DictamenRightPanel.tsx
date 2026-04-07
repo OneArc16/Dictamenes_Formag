@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useCan } from '@/hooks/useCan';
+
 import {
   useDictamenDeficienciasPanel,
   type DictamenPanelData,
@@ -149,6 +151,8 @@ export default function DictamenRightPanel({
 
   const panel = useDictamenDeficienciasPanel(resolvedDictamenId, procedimientoPcl ?? null);
   const cerrar = useCerrarDictamen(resolvedDictamenId);
+  const { can: canCloseDictamen } = useCan('dictamen.close');
+  const { can: canPrintDictamen } = useCan('dictamen.print');
 
   const panelDictamen: DictamenPanelData['dictamen'] | undefined = panel.data?.dictamen;
   const proc = procedimientoPcl ?? panelDictamen?.procedimientoPcl ?? 'A';
@@ -240,7 +244,7 @@ export default function DictamenRightPanel({
 
   const basePclLabel = formatPercent(basePcl);
   const pclFinalLabel = formatPercent(pclFinal);
-  const closingDisabled = readOnly || isCerrado || cerrar.isPending;
+  const closingDisabled = readOnly || !canCloseDictamen || isCerrado || cerrar.isPending;
 
   async function confirmClose() {
     try {
@@ -398,7 +402,7 @@ export default function DictamenRightPanel({
                   : 'Al cerrar el dictamen, quedara bloqueado para edicion.'}
               </p>
 
-              {!readOnly && (
+              {!readOnly && canCloseDictamen && (
                 <button
                   type="button"
                   onClick={() => setConfirmOpen(true)}
@@ -413,13 +417,15 @@ export default function DictamenRightPanel({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => onPrintReactPdf(effectiveDictamenId)}
-                className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
-              >
-                Imprimir PDF
-              </button>
+              {canPrintDictamen ? (
+                <button
+                  type="button"
+                  onClick={() => onPrintReactPdf(effectiveDictamenId)}
+                  className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
+                >
+                  Imprimir PDF
+                </button>
+              ) : null}
             </div>
           </div>
         )}

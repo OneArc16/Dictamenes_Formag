@@ -9,7 +9,7 @@ export default async function EditarMotivoReaperturaPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requireAdmin('admin.motivos_reapertura.manage');
 
   const { id } = await params;
   const motivoId = Number(id);

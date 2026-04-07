@@ -1,8 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 import {
   buildDictamenHistorySnapshot,
   resolveDictamenEstadoHistorial,
@@ -11,17 +11,7 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type JwtPayload = {
-  sub?: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-type AuthCtx = {
-  empleadoId: number;
-  role: string;
-};
+type AuthCtx = AuthorizationContext;
 
 type EmpleadoJuntaSnapshot = {
   id: number;
@@ -55,32 +45,6 @@ function detectFirmaMime(bytes: Buffer | null | undefined): string | null {
   return 'image/png';
 }
 
-function normalizeRole(role: unknown): string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-
-  return normalized;
-}
-
-async function getAuthFromToken(): Promise<AuthCtx | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const empleadoId = Number(payload.sub);
-  if (!Number.isFinite(empleadoId) || empleadoId <= 0) return null;
-
-  return {
-    empleadoId,
-    role: normalizeRole(payload.role),
-  };
-}
-
 function canCloseDictamen(dictamen: { empleadoId: number | null }, auth: AuthCtx) {
   if (auth.role !== 'MEDICO') {
     return {
@@ -103,10 +67,12 @@ function canCloseDictamen(dictamen: { empleadoId: number | null }, auth: AuthCtx
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, message: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.close');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, message: authResult.error }, { status: authResult.status });
     }
+
+    const auth = authResult.auth;
 
     const { id } = await context.params;
     const dictamenId = Number(id);

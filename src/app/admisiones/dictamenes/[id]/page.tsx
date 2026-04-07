@@ -11,6 +11,7 @@ import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 import MedicoAccessProvider from '@/components/medico/MedicoAccessProvider';
 import type { AuthUser } from '@/lib/auth/guards';
 import type { DictamenDetalle } from '@/components/dictamen/types';
+import { useCan } from '@/hooks/useCan';
 
 function buildNumeroDictamen(id: number, fecha: string | null) {
   if (!fecha) return '';
@@ -28,6 +29,7 @@ const ADMISIONES_USER = {
 
 export default function AdmisionesVerHistoriaClinicaPage() {
   const router = useRouter();
+  const { can: canPrintDictamen } = useCan('dictamen.print');
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
 
@@ -202,15 +204,17 @@ export default function AdmisionesVerHistoriaClinicaPage() {
               ← Volver al listado de dictamenes
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                window.open(`/api/dictamenes/${dictamen.id}/pdf-react`, '_blank', 'noopener,noreferrer');
-              }}
-              className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
-            >
-              Imprimir PDF
-            </button>
+            {canPrintDictamen ? (
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(`/api/dictamenes/${dictamen.id}/pdf-react`, '_blank', 'noopener,noreferrer');
+                }}
+                className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+              >
+                Imprimir PDF
+              </button>
+            ) : null}
           </div>
 
           {readOnly && (

@@ -1,19 +1,11 @@
-﻿import { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { z } from 'zod';
 
+import { requireAbilityApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
-
-type JwtPayload = {
-  sub?: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
 
 type AuthCtx = {
   empleadoId: number;
@@ -28,34 +20,8 @@ const ReabrirDictamenSchema = z.object({
   motivoReaperturaId: z.coerce.number().int().positive(),
 });
 
-function normalizeRole(role: unknown): string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-
-  return normalized;
-}
-
-async function getAuthFromToken(): Promise<AuthCtx | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const empleadoId = Number(payload.sub);
-  if (!Number.isFinite(empleadoId) || empleadoId <= 0) return null;
-
-  return {
-    empleadoId,
-    role: normalizeRole(payload.role),
-  };
-}
-
-function canReopen(role: string) {
-  return role === 'ADMIN' || role === 'ADMISIONISTA';
+function canReopen(auth: AuthCtx) {
+  return auth.role === 'ADMIN' || auth.role === 'ADMISIONISTA';
 }
 
 async function loadManagedDictamen(dictamenId: number) {
@@ -111,12 +77,13 @@ function buildDictamenSnapshot(dictamen: ManagedDictamen): Prisma.InputJsonObjec
 
 export async function POST(req: Request, context: RouteContext) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.reopen');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
-    if (!canReopen(auth.role)) {
+    const auth = authResult.auth;
+    if (!canReopen(auth)) {
       return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
     }
 
@@ -219,4 +186,3 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
-

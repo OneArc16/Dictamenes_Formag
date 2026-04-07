@@ -1,4 +1,5 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth/guards';
 import PerfilesFilters from '@/components/admin/perfiles/PerfilesFilters';
@@ -9,13 +10,13 @@ type Props = {
 };
 
 export default async function PerfilesPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requireAdmin('admin.perfiles.read');
 
   const sp = (await searchParams) ?? {};
   const q = (sp.q ?? '').trim();
-  const estado = sp.estado ?? 'all'; // all | 1 | 0
+  const estado = sp.estado ?? 'all';
 
-  const where: any = {};
+  const where: Prisma.PerfilWhereInput = {};
 
   if (q) {
     where.nombre = { contains: q, mode: 'insensitive' };
@@ -28,7 +29,18 @@ export default async function PerfilesPage({ searchParams }: Props) {
     where,
     orderBy: { nombre: 'asc' },
     take: 100,
-    select: { id: true, nombre: true, estado: true },
+    select: {
+      id: true,
+      nombre: true,
+      estado: true,
+      _count: {
+        select: {
+          permisos: {
+            where: { permitido: true },
+          },
+        },
+      },
+    },
   });
 
   return (
@@ -49,12 +61,13 @@ export default async function PerfilesPage({ searchParams }: Props) {
 
       <PerfilesFilters initialQ={q} initialEstado={estado} />
 
-      <div className="overflow-hidden bg-white border shadow-sm rounded-xl border-slate-200">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-[11px]">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-3 py-2">Nombre</th>
               <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Permisos</th>
               <th className="px-3 py-2">Acciones</th>
             </tr>
           </thead>
@@ -62,39 +75,50 @@ export default async function PerfilesPage({ searchParams }: Props) {
           <tbody className="divide-y divide-slate-100">
             {perfiles.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={3}>
+                <td className="px-3 py-6 text-slate-500" colSpan={4}>
                   No hay resultados.
                 </td>
               </tr>
             ) : (
-              perfiles.map((p) => (
-                <tr key={p.id} className="text-slate-700">
-                  <td className="px-3 py-2 font-medium text-slate-900">
-                    {p.nombre}
-                  </td>
+              perfiles.map((perfil) => (
+                <tr key={perfil.id} className="text-slate-700">
+                  <td className="px-3 py-2 font-medium text-slate-900">{perfil.nombre}</td>
 
                   <td className="px-3 py-2">
                     <span
                       className={[
                         'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                        p.estado === 1
+                        perfil.estado === 1
                           ? 'bg-emerald-50 text-emerald-700'
                           : 'bg-rose-50 text-rose-700',
                       ].join(' ')}
                     >
-                      {p.estado === 1 ? 'ACTIVO' : 'INACTIVO'}
+                      {perfil.estado === 1 ? 'ACTIVO' : 'INACTIVO'}
                     </span>
                   </td>
 
-                  <td className="flex items-center gap-2 px-3 py-2">
-                    <Link
-                      href={`/admin/perfiles/${p.id}`}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                    >
-                      Editar
-                    </Link>
+                  <td className="px-3 py-2 text-slate-600">
+                    {perfil._count.permisos} asignados
+                  </td>
 
-                    <TogglePerfilButton id={p.id} estado={p.estado} />
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/admin/perfiles/${perfil.id}/permisos`}
+                        className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+                      >
+                        Permisos
+                      </Link>
+
+                      <Link
+                        href={`/admin/perfiles/${perfil.id}`}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                      >
+                        Editar
+                      </Link>
+
+                      <TogglePerfilButton id={perfil.id} estado={perfil.estado} />
+                    </div>
                   </td>
                 </tr>
               ))

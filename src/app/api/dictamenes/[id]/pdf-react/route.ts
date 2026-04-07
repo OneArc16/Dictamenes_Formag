@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { renderToStream } from '@react-pdf/renderer';
 import { DictamenReactPdf } from '@/lib/react-pdf/DictamenReactPdf';
 import { prisma } from '@/lib/prisma';
@@ -66,7 +66,7 @@ async function getLogoDataUrl(req: Request) {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
-// ✅ según tu BD: M = Femenino, H = Masculino
+// âœ… segÃºn tu BD: M = Femenino, H = Masculino
 function normalizeGenero(sexo: any, generoRaw: any) {
   const s1 = String(sexo ?? '').trim().toUpperCase();
   const s2 = String(generoRaw ?? '').trim().toUpperCase();
@@ -112,7 +112,7 @@ function normalizeGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
-  // números 0..4
+  // nÃºmeros 0..4
   if (s0 === '0') return '0';
   if (s0 === '1') return 'I';
   if (s0 === '2') return 'II';
@@ -148,8 +148,8 @@ function normalizeGravedad(v: any): '0' | 'I' | 'II' | 'III' | 'IV' | null {
 }
 
 /**
- * ✅ Truco clave para que NO queden X incompletas:
- * - Por cada fila del análisis, creamos variantes:
+ * âœ… Truco clave para que NO queden X incompletas:
+ * - Por cada fila del anÃ¡lisis, creamos variantes:
  *   1) factor
  *   2) "criterio factor"
  *   3) "factor criterio"
@@ -214,12 +214,39 @@ function fullName(e: any): string {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeSpecialtyName(value: any) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function getOrderedSpecialties(empleado: any) {
+  const items = Array.isArray(empleado?.especialidades) ? empleado.especialidades : [];
+  return [...items].sort((a, b) => Number(Boolean(b?.principal)) - Number(Boolean(a?.principal)));
+}
+
+function getPreferredSpecialty(empleado: any): string | null {
+  const ordered = getOrderedSpecialties(empleado);
+  const medicinaLaboral = ordered
+    .map((item) => item?.especialidad?.nombre)
+    .find((value) => normalizeSpecialtyName(value).includes('MEDICINA LABORAL'));
+
+  if (medicinaLaboral) return String(medicinaLaboral).trim();
+
+  const first = ordered
+    .map((item) => item?.especialidad?.nombre)
+    .find((value) => String(value ?? '').trim().length > 0);
+
+  return first ? String(first).trim() : null;
+}
 export async function GET(req: Request, ctx: RouteCtx) {
   const { id: idStr } = await ctx.params;
   const id = Number(idStr);
 
   if (!Number.isFinite(id)) {
-    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'ID invÃ¡lido' }), { status: 400 });
   }
 
   const dictamen = await prisma.dictamen.findUnique({
@@ -236,7 +263,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
       totalCap2: true,
       totalTitulo3: true,
 
-      // Sustentación / origen
+      // SustentaciÃ³n / origen
       sustentacionObservaciones: true,
       fechaEstructuracionInvalidez: true,
       tipoEvento: true,
@@ -273,7 +300,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
       analisisOcupacional: true,
 
-      // ✅ firmas “congeladas” del cierre (dictamen_junta)
+      // âœ… firmas â€œcongeladasâ€ del cierre (dictamen_junta)
       junta: {
         orderBy: { orden: 'asc' },
         select: {
@@ -284,7 +311,21 @@ export async function GET(req: Request, ctx: RouteCtx) {
           firma: true,
           firmaMime: true,
           empleadoId: true,
-          empleado: { select: { tratamiento: true } },
+          empleado: {
+            select: {
+              tratamiento: true,
+              especialidades: {
+                select: {
+                  principal: true,
+                  especialidad: {
+                    select: {
+                      nombre: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
 
@@ -304,7 +345,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
           sexo: true,
           genero: true,
 
-          // ✅ ESCOLARIDAD (ya la estabas trayendo)
+          // âœ… ESCOLARIDAD (ya la estabas trayendo)
           escolaridad: true,
 
           estadoCivil: true,
@@ -316,7 +357,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
           codigoOcupacion: true,
 
-          // ✅ CARGO DOCENTE (relación)
+          // âœ… CARGO DOCENTE (relaciÃ³n)
           cargoDocenteId: true,
           cargoDocente: { select: { id: true, codigo: true, nombre: true } },
           nivelEscalafon: true,
@@ -366,13 +407,14 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const analisisRaw = Array.isArray((dictamen as any).analisisOcupacional) ? (dictamen as any).analisisOcupacional : [];
   const analisisFix = expandAnalisisOcupacional(analisisRaw);
 
-  // ✅ 1) Si ya existe snapshot en dictamen_junta -> eso manda (PDF “congelado”)
-  // ✅ 2) Si NO existe -> fallback a médicos activos de junta (para dictamen en edición)
+  // âœ… 1) Si ya existe snapshot en dictamen_junta -> eso manda (PDF â€œcongeladoâ€)
+  // âœ… 2) Si NO existe -> fallback a mÃ©dicos activos de junta (para dictamen en ediciÃ³n)
   let juntaPdf: any[] =
     (dictamen as any).junta?.map((j: any) => ({
       orden: j.orden,
       empleadoId: j.empleadoId ?? null,
       nombreCompleto: j.nombreCompleto,
+      especialidad: getPreferredSpecialty(j?.empleado),
       registroMedico: j.registroMedico ?? null,
       licencia: j.licencia ?? null,
       firmaSrc: bytesToDataUrl(j.firma, j.firmaMime),
@@ -393,6 +435,16 @@ export async function GET(req: Request, ctx: RouteCtx) {
         licencia: true,
         firma: true,
         tratamiento: true,
+        especialidades: {
+          select: {
+            principal: true,
+            especialidad: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -400,6 +452,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
       orden: idx + 1,
       empleadoId: e.id,
       nombreCompleto: fullName(e),
+      especialidad: getPreferredSpecialty(e),
       registroMedico: e.registroMedico ?? null,
       licencia: e.licencia ?? null,
       firmaSrc: bytesToDataUrl(e.firma, null),
@@ -407,7 +460,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
     }));
   }
 
-  // ✅ Normalizaciones para CARGO + ESCOLARIDAD
+  // âœ… Normalizaciones para CARGO + ESCOLARIDAD
   const cargoDoc = u?.cargoDocente ?? null;
   const cargoDocenteNombre = cargoDoc?.nombre ? String(cargoDoc.nombre) : null;
   const cargoDocenteCodigo = cargoDoc?.codigo != null ? String(cargoDoc.codigo) : null;
@@ -429,7 +482,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
       },
     },
 
-    // ✅ lo pasamos con 2 nombres por si en el bloque lo llamas distinto
+    // âœ… lo pasamos con 2 nombres por si en el bloque lo llamas distinto
     junta: juntaPdf,
     juntaMedica: juntaPdf,
 
@@ -442,11 +495,11 @@ export async function GET(req: Request, ctx: RouteCtx) {
           numeroDocumento: u.identificacion,
           documento: u.identificacion,
 
-          // ✅ CAMPOS “LISTOS PARA IMPRIMIR” EN EL PDF
+          // âœ… CAMPOS â€œLISTOS PARA IMPRIMIRâ€ EN EL PDF
           escolaridad: escolaridadFix,
           cargo: cargoFallback,
 
-          // ✅ aliases extra (por si tu componente los usa)
+          // âœ… aliases extra (por si tu componente los usa)
           cargoDocenteId,
           cargoDocenteNombre,
           cargoDocenteCodigo,
@@ -475,3 +528,6 @@ export async function GET(req: Request, ctx: RouteCtx) {
     },
   });
 }
+
+
+

@@ -1,14 +1,15 @@
-import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/auth/guards';
+﻿import Link from 'next/link';
+
 import PerfilForm from '@/components/admin/perfiles/PerfilForm';
+import { requireAdmin } from '@/lib/auth/guards';
+import { prisma } from '@/lib/prisma';
 
 export default async function EditarPerfilPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requireAdmin('admin.perfiles.manage');
 
   const { id } = await params;
   const perfilId = Number(id);
@@ -17,7 +18,7 @@ export default async function EditarPerfilPage({
     return (
       <div className="space-y-3">
         <h1 className="text-base font-semibold text-slate-900">Editar perfil</h1>
-        <p className="text-[11px] text-slate-500">ID inválido</p>
+        <p className="text-[11px] text-slate-500">ID invalido</p>
       </div>
     );
   }
@@ -50,22 +51,31 @@ export default async function EditarPerfilPage({
           <p className="text-[11px] text-slate-500">ID {perfil.id}</p>
         </div>
 
-        <Link
-          href="/admin/perfiles"
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          Volver
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/perfiles/${perfil.id}/permisos`}
+            className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-[11px] font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+          >
+            Permisos
+          </Link>
+
+          <Link
+            href="/admin/perfiles"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Volver
+          </Link>
+        </div>
       </div>
 
-      <div className="p-4 bg-white border shadow-sm rounded-xl border-slate-200">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <PerfilForm
           method="PATCH"
           apiUrl={`/api/admin/perfiles/${perfil.id}`}
           submitLabel="Guardar cambios"
           successMessage="Perfil actualizado correctamente"
           onSuccessRedirectTo="/admin/perfiles"
-          initialValues={{ nombre: perfil.nombre ?? '', estado: perfil.estado ?? 1 }}
+          initialNombre={perfil.nombre ?? ''}
         />
       </div>
     </div>

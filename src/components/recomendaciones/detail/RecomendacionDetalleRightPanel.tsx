@@ -29,6 +29,7 @@ export function RecomendacionDetalleRightPanel({
   estado,
   canClose,
   canReopen,
+  canPrint,
   motivosReapertura,
   ultimaReapertura,
 }: {
@@ -36,6 +37,7 @@ export function RecomendacionDetalleRightPanel({
   estado: RecomendacionEstado;
   canClose: boolean;
   canReopen: boolean;
+  canPrint: boolean;
   motivosReapertura: RecomendacionMotivoReaperturaOption[];
   ultimaReapertura?: {
     fecha: string;
@@ -110,16 +112,18 @@ export function RecomendacionDetalleRightPanel({
       </div>
 
       <div className="mt-4 space-y-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-start"
-          onClick={handlePrint}
-          disabled={isBusy}
-        >
-          <Printer className="h-4 w-4" />
-          Imprimir PDF
-        </Button>
+        {canPrint ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start"
+            onClick={handlePrint}
+            disabled={isBusy}
+          >
+            <Printer className="h-4 w-4" />
+            Imprimir PDF
+          </Button>
+        ) : null}
 
         {canReopen && hasMotivosReapertura ? (
           <ReabrirRecomendacionDialog

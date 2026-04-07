@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 
 import {
   canAccessModulePath,
-  getDefaultPathForRole,
+  getDefaultPathForUser,
 } from '@/lib/module-navigation';
 
 const PUBLIC_PREFIXES = ['/api/auth/login', '/favicon', '/_next', '/assets'];
@@ -31,13 +31,16 @@ export async function middleware(req: NextRequest) {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
     const role = payload.role as string | undefined;
-    const defaultPath = getDefaultPathForRole(role ?? null);
+    const permissions = Array.isArray(payload.permissions)
+      ? payload.permissions.map((permission) => String(permission))
+      : [];
+    const defaultPath = getDefaultPathForUser({ role: role ?? null, permissions });
 
     if (pathname === '/login' || pathname === '/' || pathname === '/inicio') {
       return NextResponse.redirect(new URL(defaultPath, req.url));
     }
 
-    if (!canAccessModulePath(role ?? null, pathname)) {
+    if (!canAccessModulePath({ role: role ?? null, permissions }, pathname)) {
       return NextResponse.redirect(new URL(defaultPath, req.url));
     }
 

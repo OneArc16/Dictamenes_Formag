@@ -17,6 +17,7 @@ import {
 } from '@/lib/recomendaciones/historial';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { hasAbility } from '@/lib/auth/ability-utils';
 
 function formatDate(value: Date | null) {
   if (!value) return 'Sin fecha';
@@ -132,17 +133,23 @@ export default async function RecomendacionDetallePage({
 
   const canEdit =
     sessionRole === 'MEDICO' &&
+    hasAbility(session, 'recomendacion.edit') &&
     (recomendacion.empleadoId == null || ownsRecomendacion);
 
   const canClose =
-    canEdit &&
+    sessionRole === 'MEDICO' &&
+    hasAbility(session, 'recomendacion.close') &&
+    (recomendacion.empleadoId == null || ownsRecomendacion) &&
     (recomendacion.estado === 'BORRADOR' || recomendacion.estado === 'REABIERTO');
 
   const canReopen =
     recomendacion.estado === 'CERRADA' &&
+    hasAbility(session, 'recomendacion.reopen') &&
     (sessionRole === 'ADMIN' ||
       sessionRole === 'ADMISIONISTA' ||
       (sessionRole === 'MEDICO' && ownsRecomendacion));
+
+  const canPrint = hasAbility(session, 'recomendacion.print');
 
   const detalle: RecomendacionDetalleViewModel = {
     id: recomendacion.id,
@@ -231,7 +238,10 @@ export default async function RecomendacionDetallePage({
       <AppNav title="Recomendaciones Laborales" showModulesButton={false} />
 
       <main className="px-4 py-4 lg:px-8">
-        <Link href="/recomendaciones" className="text-xs text-blue-600 hover:underline">
+        <Link
+          href="/recomendaciones"
+          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+        >
           Volver al listado de recomendaciones
         </Link>
 
@@ -246,6 +256,7 @@ export default async function RecomendacionDetallePage({
                 estado={detalle.estado}
                 canClose={canClose}
                 canReopen={canReopen}
+                canPrint={canPrint}
                 motivosReapertura={motivos}
                 ultimaReapertura={
                   ultimaReapertura
@@ -264,4 +275,5 @@ export default async function RecomendacionDetallePage({
     </div>
   );
 }
+
 

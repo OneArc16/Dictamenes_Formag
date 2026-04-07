@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth/guards';
 import EmpleadosFilters from '@/components/admin/empleados/EmpleadosFilters';
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export default async function EmpleadosPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requireAdmin('admin.empleados.read');
 
   const sp = (await searchParams) ?? {};
   const q = (sp.q ?? '').trim();
@@ -32,7 +33,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
     select: { id: true, nombre: true },
   });
 
-  const where: any = {};
+  const where: Prisma.EmpleadoWhereInput = {};
 
   if (q) {
     where.OR = [

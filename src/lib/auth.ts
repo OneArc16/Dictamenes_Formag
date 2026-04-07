@@ -4,9 +4,12 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 const ALG = 'HS256';
 
 export type JwtPayload = {
-  sub: string;      // user id
+  sub: string;
   role: 'ADMIN' | 'ADMISIONISTA' | 'MEDICO';
   name: string;
+  perfilId?: number | null;
+  perfilNombre?: string | null;
+  permissions?: string[];
 };
 
 export async function signJwt(payload: JwtPayload, expiresIn = '8h') {

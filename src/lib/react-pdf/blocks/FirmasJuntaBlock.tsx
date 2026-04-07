@@ -6,6 +6,7 @@ type JuntaMember = {
   nombreCompleto?: string | null;
   tratamiento?: string | null;
   firmaSrc?: string | null;
+  especialidad?: string | null;
   registroMedico?: string | null;
   licencia?: string | null;
 };
@@ -82,6 +83,8 @@ export default function FirmasJuntaBlock({ dictamen }: Props) {
 
                     <Text style={styles.name}>{formatNombreConTratamiento(it)}</Text>
 
+                    {it?.especialidad ? <Text style={styles.specialty}>{it.especialidad}</Text> : null}
+
                     <Text style={styles.meta}>
                       {it?.registroMedico ? `RM: ${it.registroMedico}` : ''}
                       {it?.registroMedico && it?.licencia ? '  ' : ''}
@@ -154,12 +157,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  specialty: {
+    marginTop: 2,
+    fontSize: 7.2,
+    textAlign: 'center',
+    fontWeight: 600,
+  },
+
   meta: {
     marginTop: 2,
     fontSize: 7,
     textAlign: 'center',
   },
 });
+
+
 
 
 

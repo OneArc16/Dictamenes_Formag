@@ -1,31 +1,30 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
+﻿import { NextResponse } from 'next/server';
+import { getAuthorizationContext } from '@/lib/auth/authorization';
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth')?.value;
+    const auth = await getAuthorizationContext();
 
-    if (!token) {
+    if (!auth) {
       return NextResponse.json({ ok: false, user: null }, { status: 401 });
     }
-
-    const payload = await verifyJwt(token);
-    if (!payload) {
-      return NextResponse.json({ ok: false, user: null }, { status: 401 });
-    }
-
-    const { sub, name, role } = payload as any;
 
     return NextResponse.json({
       ok: true,
-      user: { id: sub, name, role },
+      user: {
+        id: String(auth.empleadoId),
+        name: auth.name,
+        role: auth.role,
+        perfilId: auth.perfilId,
+        perfilNombre: auth.perfilNombre,
+        permissions: auth.permissions,
+      },
     });
-  } catch (err: any) {
+  } catch (error) {
+    const err = error as { message?: string };
     return NextResponse.json(
       { ok: false, user: null, error: err?.message ?? 'Error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

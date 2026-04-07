@@ -1,36 +1,25 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+﻿import { NextResponse } from 'next/server';
+
+import { requireAbilityApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
-function isAdmin(role: unknown) {
-  return String(role) === 'ADMIN';
-}
-
 export async function PATCH(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth')?.value;
-
-    if (!token) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload || !isAdmin((payload as any).role)) {
-      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+    const authResult = await requireAbilityApi('admin.perfiles.manage');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
     }
 
     const { id } = await params;
     const perfilId = Number(id);
 
     if (!Number.isFinite(perfilId)) {
-      return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'ID invalido' }, { status: 400 });
     }
 
     const current = await prisma.perfil.findUnique({
@@ -51,10 +40,10 @@ export async function PATCH(
     });
 
     return NextResponse.json({ ok: true, id: updated.id, estado: updated.estado });
-  } catch (err: any) {
+  } catch (error) {
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'Error actualizando perfil' },
-      { status: 500 }
+      { ok: false, error: error instanceof Error ? error.message : 'Error actualizando perfil' },
+      { status: 500 },
     );
   }
 }

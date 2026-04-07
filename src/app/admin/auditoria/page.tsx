@@ -183,7 +183,7 @@ function ExportButtons({
 }
 
 export default async function AuditoriaPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requireAdmin('admin.auditoria.read');
 
   const sp = (await searchParams) ?? {};
   const q = (sp.q ?? '').trim();

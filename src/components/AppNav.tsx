@@ -1,9 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User2 } from 'lucide-react';
 
 import { useAuthMe } from '@/hooks/useAuthMe';
+import { getVisibleModules } from '@/lib/module-navigation';
 import ModulesButton from './ModulesButton';
 
 type AppNavProps = {
@@ -21,7 +23,15 @@ export default function AppNav({
   const { data: user } = useAuthMe();
 
   const userName = user?.name ?? 'Usuario';
-  const effectiveCanSwitch = canSwitchModules ?? user?.role === 'ADMIN';
+  const visibleModules = useMemo(
+    () =>
+      getVisibleModules({
+        role: user?.role ?? null,
+        permissions: user?.permissions ?? [],
+      }),
+    [user?.permissions, user?.role],
+  );
+  const effectiveCanSwitch = canSwitchModules ?? visibleModules.length > 1;
 
   const handleLogout = async () => {
     try {

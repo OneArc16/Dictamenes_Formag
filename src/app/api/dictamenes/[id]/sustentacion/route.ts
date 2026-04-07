@@ -1,84 +1,23 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { type Prisma } from '@prisma/client';
 
+import { requireAbilityApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 import {
   buildDictamenHistoryChanges,
   buildDictamenHistorySnapshot,
   parseDictamenHistorySnapshot,
   resolveDictamenEstadoHistorial,
 } from '@/lib/dictamen/historial';
+import { canEditDictamen } from '@/lib/dictamen/permissions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type JwtPayload = {
-  sub?: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
-type AuthCtx = {
-  empleadoId: number;
-  role: string;
-};
 
 type SustentacionBody = {
   sustentacionObservaciones?: unknown;
 };
-
-function normalizeRole(role: unknown): string {
-  const normalized = String(role ?? '').trim().toUpperCase();
-
-  if (normalized === 'ADMINISTRADOR') return 'ADMIN';
-  if (normalized === 'ADMICIONES' || normalized === 'ADMISIONES') return 'ADMISIONISTA';
-
-  return normalized;
-}
-
-function canReadDictamen(role: string) {
-  return role === 'MEDICO' || role === 'ADMIN' || role === 'ADMISIONISTA';
-}
-
-function canEditDictamen(dictamen: { empleadoId: number | null }, auth: AuthCtx) {
-  if (auth.role !== 'MEDICO') {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No autorizado para editar este dictamen.',
-    };
-  }
-
-  if (dictamen.empleadoId != null && dictamen.empleadoId !== auth.empleadoId) {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No tiene permiso sobre este dictamen.',
-    };
-  }
-
-  return { ok: true as const };
-}
-
-async function getAuthFromToken(): Promise<AuthCtx | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const empleadoId = Number(payload.sub);
-  if (!Number.isFinite(empleadoId) || empleadoId <= 0) return null;
-
-  return {
-    empleadoId,
-    role: normalizeRole(payload.role),
-  };
-}
 
 async function readBody(request: NextRequest): Promise<SustentacionBody | null> {
   try {
@@ -90,14 +29,12 @@ async function readBody(request: NextRequest): Promise<SustentacionBody | null> 
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, message: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.read');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, message: authResult.error }, { status: authResult.status });
     }
 
-    if (!canReadDictamen(auth.role)) {
-      return NextResponse.json({ ok: false, message: 'No autorizado' }, { status: 403 });
-    }
+    const auth = authResult.auth;
 
     const { id } = await context.params;
     const dictamenId = Number(id);
@@ -139,10 +76,12 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
 export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await getAuthFromToken();
-    if (!auth) {
-      return NextResponse.json({ ok: false, message: 'No autenticado' }, { status: 401 });
+    const authResult = await requireAbilityApi('dictamen.edit');
+    if (!authResult.ok) {
+      return NextResponse.json({ ok: false, message: authResult.error }, { status: authResult.status });
     }
+
+    const auth = authResult.auth;
 
     const { id } = await context.params;
     const dictamenId = Number(id);

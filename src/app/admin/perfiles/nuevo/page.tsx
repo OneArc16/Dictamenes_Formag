@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/auth/guards';
 import PerfilForm from '@/components/admin/perfiles/PerfilForm';
 
 export default async function NuevoPerfilPage() {
-  await requireAdmin();
+  await requireAdmin('admin.perfiles.manage');
 
   return (
     <div className="space-y-3">

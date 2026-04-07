@@ -1,37 +1,15 @@
-﻿import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { ProcedimientoPcl, Prisma, TipoDictamen } from '@prisma/client';
 import { z } from 'zod';
 
+import { requireMedicoApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 type EstadoFiltro = 'PENDIENTES' | 'REABIERTOS' | 'CERRADOS' | 'TODOS';
 
-type JwtPayload = {
-  sub: string;
-  role?: string;
-  name?: string;
-  [key: string]: unknown;
-};
-
 type DictamenCreatePayload = z.infer<typeof CreateDictamenSchema>;
-
-async function getMedicoIdFromToken() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth')?.value;
-  if (!token) return null;
-
-  const payload = (await verifyJwt(token)) as JwtPayload | null;
-  if (!payload?.sub) return null;
-
-  const medicoId = Number(payload.sub);
-  if (!medicoId || Number.isNaN(medicoId)) return null;
-
-  return medicoId;
-}
 
 function normalizeDateStart(value: string) {
   return new Date(`${value}T00:00:00.000-05:00`);
@@ -63,11 +41,12 @@ function buildNombreCompleto(persona: {
 
 export async function GET(req: Request) {
   try {
-    const medicoId = await getMedicoIdFromToken();
-    if (!medicoId) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const auth = await requireMedicoApi('dictamen.read');
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }
 
+    const medicoId = auth.auth.empleadoId;
     const { searchParams } = new URL(req.url);
 
     const documento = (searchParams.get('documento') ?? '').trim();
@@ -196,11 +175,12 @@ const CreateDictamenSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const medicoId = await getMedicoIdFromToken();
-    if (!medicoId) {
-      return NextResponse.json({ ok: false, error: 'No autenticado' }, { status: 401 });
+    const auth = await requireMedicoApi('dictamen.create');
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }
 
+    const medicoId = auth.auth.empleadoId;
     const json = await req.json();
     const data = CreateDictamenSchema.parse(json) as DictamenCreatePayload;
 
