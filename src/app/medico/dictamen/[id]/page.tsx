@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
@@ -188,10 +189,10 @@ export default function DictamenDetallePage() {
   };
 
   const handleDocenteUpdated = async () => {
+  const handleDocenteUpdated = async () => {
+    toast.success('Datos del docente actualizados correctamente.');
     await fetchDictamen(true);
   };
-
-  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
         <AppNav />
@@ -201,11 +202,11 @@ export default function DictamenDetallePage() {
             onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
-            ← Volver al listado
+            â† Volver al listado
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-slate-500">
-            Cargando dictamen…
+            Cargando dictamenâ€¦
           </div>
         </main>
       </div>
@@ -222,7 +223,7 @@ export default function DictamenDetallePage() {
             onClick={() => router.push(backTo)}
             className="text-xs text-blue-600 hover:underline"
           >
-            ← Volver al listado
+            â† Volver al listado
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-red-600">
@@ -252,7 +253,7 @@ export default function DictamenDetallePage() {
           onClick={() => router.push(backTo)}
           className="text-xs text-blue-600 hover:underline"
         >
-          ← Volver al listado de dictamenes
+          â† Volver al listado de dictamenes
         </button>
 
         {readOnly && (

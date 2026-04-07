@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -157,6 +157,7 @@ export function RecomendacionDetalleLeftPanel({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const docente = detalle.docente;
   const isEditable = canEdit && (detalle.estado === 'BORRADOR' || detalle.estado === 'REABIERTO');
   const [showEditDocente, setShowEditDocente] = useState(false);
@@ -248,9 +249,14 @@ export function RecomendacionDetalleLeftPanel({
           open={showEditDocente}
           onClose={() => setShowEditDocente(false)}
           numeroDocumento={docente.numeroDocumento}
-          onUpdate={() => {
+          onUpdate={async () => {
+            toast.success('Datos del docente actualizados correctamente.');
             setShowEditDocente(false);
-            router.refresh();
+            window.setTimeout(() => {
+              startTransition(() => {
+                router.refresh();
+              });
+            }, 150);
           }}
         />
       ) : null}

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 
 import AppNav from '@/components/AppNav';
 import { DictamenFormLayout } from '@/components/dictamen/DictamenFormLayout';
@@ -252,6 +253,7 @@ export default function DictamenDetalleShell({
   };
 
   const handleDocenteUpdated = async () => {
+    toast.success('Datos del docente actualizados correctamente.');
     await refetch();
   };
 

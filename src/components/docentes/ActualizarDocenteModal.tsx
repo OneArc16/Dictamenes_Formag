@@ -83,7 +83,7 @@ type UpdateDocenteModalProps = {
   open: boolean;
   onClose: () => void;
   numeroDocumento: string;
-  onUpdate?: () => void;
+  onUpdate?: () => void | Promise<void>;
 };
 
 // =====================
@@ -211,6 +211,12 @@ export function ActualizarDocenteModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setToast(null);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!mounted || !open) return;
@@ -621,7 +627,7 @@ export function ActualizarDocenteModal({
       }
 
       setDocenteLoaded(true);
-      showToast('success', 'Docente cargado correctamente');
+      setToast(null);
     } catch (err) {
       console.error('Error buscando docente:', err);
       showToast('error', 'Error buscando docente');
@@ -745,12 +751,13 @@ export function ActualizarDocenteModal({
         return;
       }
 
-      showToast('success', 'Datos del docente actualizados correctamente');
-      if (onUpdate) onUpdate();
+      setToast(null);
 
-      setTimeout(() => {
-        onClose();
-      }, 1200);
+      if (onUpdate) {
+        await onUpdate();
+      }
+
+      onClose();
     } catch (err) {
       console.error('Error actualizando datos del docente:', err);
       showToast('error', 'Error actualizando datos del docente');
