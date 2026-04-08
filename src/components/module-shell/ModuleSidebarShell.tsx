@@ -93,29 +93,26 @@ function SidebarContent({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col h-full">
       <CardHeader className="space-y-3 border-b border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(241,245,249,0.95))] px-4 pb-3 pt-4 text-slate-950">
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-sky-100 bg-white shadow-sm shadow-sky-100/60">
-          <LayoutDashboard className="h-4 w-4 text-sky-700" />
+        <div className="inline-flex items-center justify-center bg-white border shadow-sm h-9 w-9 rounded-2xl border-sky-100 shadow-sky-100/60">
+          <LayoutDashboard className="w-4 h-4 text-sky-700" />
         </div>
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight text-slate-950">
-            Dictamy
+            DICTAMY
           </CardTitle>
-          <CardDescription className="text-xs leading-5 text-slate-600">
-            Navegacion lateral para trabajar por modulo sin recargar la vista principal.
-          </CardDescription>
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-3 px-3 pb-3 pt-3 text-slate-800">
-        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-3 shadow-sm shadow-slate-200/60">
+      <CardContent className="flex flex-col flex-1 gap-3 px-3 pt-3 pb-3 text-slate-800">
+        <div className="p-3 border shadow-sm rounded-3xl border-slate-200/80 bg-white/95 shadow-slate-200/60">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-              <User2 className="h-4 w-4" />
+            <div className="flex items-center justify-center h-9 w-9 rounded-2xl bg-slate-100 text-slate-700">
+              <User2 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-900">
+              <div className="text-sm font-semibold truncate text-slate-900">
                 {user?.name ?? 'Usuario'}
               </div>
               <div className="text-[11px] text-slate-500">
@@ -155,10 +152,10 @@ function SidebarContent({
                         : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-700',
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="w-4 h-4" />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium truncate">
                       {moduleItem.label}
                     </span>
                     <span className="mt-0.5 block text-[11px] leading-5 text-slate-500">
@@ -171,15 +168,15 @@ function SidebarContent({
           </nav>
         </div>
 
-        <div className="mt-auto space-y-3 pt-1">
+        <div className="pt-1 mt-auto space-y-3">
           <Separator className="bg-slate-200" />
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full justify-center rounded-2xl border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900"
+            className="justify-center w-full h-10 bg-white shadow-sm rounded-2xl border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="w-4 h-4" />
             Cerrar sesion
           </Button>
         </div>
@@ -226,7 +223,7 @@ export default function ModuleSidebarShell({
           )}
         >
           <Card className="flex h-full flex-col overflow-hidden rounded-[26px] border-slate-200/90 bg-[linear-gradient(180deg,_rgba(248,250,252,0.99),_rgba(239,246,255,0.96))] shadow-2xl">
-            <div className="flex items-center justify-end border-b border-slate-200 px-3 py-3">
+            <div className="flex items-center justify-end px-3 py-3 border-b border-slate-200">
               <Button
                 type="button"
                 size="icon"
@@ -234,7 +231,7 @@ export default function ModuleSidebarShell({
                 className="rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 onClick={() => setMobileOpen(false)}
               >
-                <X className="h-4 w-4" />
+                <X className="w-4 h-4" />
               </Button>
             </div>
             <SidebarContent
@@ -244,7 +241,7 @@ export default function ModuleSidebarShell({
           </Card>
         </aside>
 
-        <main className="min-w-0 flex-1 space-y-3 pb-5">
+        <main className="flex-1 min-w-0 pb-5 space-y-3">
           <Card className="overflow-hidden border-slate-200/80 bg-white/90 shadow-[0_24px_60px_rgba(148,163,184,0.16)] backdrop-blur">
             <CardHeader
               className={cn(
@@ -291,7 +288,7 @@ export default function ModuleSidebarShell({
                     className="rounded-full border-slate-200 lg:hidden"
                     onClick={() => setMobileOpen(true)}
                   >
-                    <Menu className="h-4 w-4" />
+                    <Menu className="w-4 h-4" />
                     Menu
                   </Button>
                   {actions}
@@ -304,7 +301,7 @@ export default function ModuleSidebarShell({
                 {stats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 shadow-sm"
+                    className="px-4 py-3 border shadow-sm rounded-2xl border-slate-200 bg-slate-50/90"
                   >
                     <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       {stat.label}
