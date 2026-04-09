@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 
 import { signJwt } from '@/lib/auth';
 import {
@@ -56,7 +57,12 @@ export async function POST(req: Request) {
     }
 
     const claveDB = (empleado.contrasena ?? '').trim();
-    if (!claveDB || claveDB !== pass) {
+    const isBcryptHash = /^\$2[aby]\$\d{2}\$/.test(claveDB);
+    const passwordMatches = isBcryptHash
+      ? await bcrypt.compare(pass, claveDB)
+      : claveDB === pass;
+
+    if (!claveDB || !passwordMatches) {
       return NextResponse.json(
         { ok: false, error: 'Usuario o contrasena invalidos' },
         { status: 401 },

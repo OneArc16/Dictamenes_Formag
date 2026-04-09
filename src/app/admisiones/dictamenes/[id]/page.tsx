@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -155,13 +155,13 @@ export default function AdmisionesVerHistoriaClinicaPage() {
           <button
             type="button"
             onClick={() => router.push(backTo)}
-            className="text-xs text-blue-600 hover:underline"
+            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
           >
-            ← Volver al listado
+            {'<- Volver al listado'}
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-slate-500">
-            Cargando dictamen…
+            Cargando dictamen...
           </div>
         </main>
       </div>
@@ -176,9 +176,9 @@ export default function AdmisionesVerHistoriaClinicaPage() {
           <button
             type="button"
             onClick={() => router.push(backTo)}
-            className="text-xs text-blue-600 hover:underline"
+            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
           >
-            ← Volver al listado
+            {'<- Volver al listado'}
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-red-600">
@@ -199,9 +199,9 @@ export default function AdmisionesVerHistoriaClinicaPage() {
             <button
               type="button"
               onClick={() => router.push(backTo)}
-              className="text-xs text-blue-600 hover:underline"
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
             >
-              ← Volver al listado de dictamenes
+              {'<- Volver al listado de dictamenes'}
             </button>
 
             {canPrintDictamen ? (
@@ -276,6 +276,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
     </MedicoAccessProvider>
   );
 }
+
 
 
 

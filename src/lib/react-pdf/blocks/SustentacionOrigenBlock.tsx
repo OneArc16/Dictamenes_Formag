@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { GridBand, GridCell, GridRow } from '../components/Grid';
 import { KeepTogether } from '../components/KeepTogether';
@@ -94,7 +94,7 @@ export function SustentacionTablaOrigenPart({ dictamen }: Props) {
         </GridCell>
       </GridRow>
 
-      <GridBand backgroundColor={COLOR.blue} joinTop joinBottom>
+      <GridBand backgroundColor={COLOR.blue} joinTop>
         CALIFICACIONES DEL ORIGEN
       </GridBand>
 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
@@ -189,10 +189,11 @@ export default function DictamenDetallePage() {
   };
 
   const handleDocenteUpdated = async () => {
-  const handleDocenteUpdated = async () => {
     toast.success('Datos del docente actualizados correctamente.');
     await fetchDictamen(true);
   };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
         <AppNav />
@@ -200,13 +201,13 @@ export default function DictamenDetallePage() {
           <button
             type="button"
             onClick={() => router.push(backTo)}
-            className="text-xs text-blue-600 hover:underline"
+            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
           >
-            Ã¢â€ Â Volver al listado
+            {'<- Volver al listado'}
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-slate-500">
-            Cargando dictamenÃ¢â‚¬Â¦
+            Cargando dictamen...
           </div>
         </main>
       </div>
@@ -221,9 +222,9 @@ export default function DictamenDetallePage() {
           <button
             type="button"
             onClick={() => router.push(backTo)}
-            className="text-xs text-blue-600 hover:underline"
+            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
           >
-            Ã¢â€ Â Volver al listado
+            {'<- Volver al listado'}
           </button>
 
           <div className="mt-4 rounded-xl border bg-white px-4 py-6 text-sm text-red-600">
@@ -251,9 +252,9 @@ export default function DictamenDetallePage() {
         <button
           type="button"
           onClick={() => router.push(backTo)}
-          className="text-xs text-blue-600 hover:underline"
+          className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
         >
-          Ã¢â€ Â Volver al listado de dictamenes
+          {'<- Volver al listado de dictamenes'}
         </button>
 
         {readOnly && (
@@ -318,6 +319,7 @@ export default function DictamenDetallePage() {
     </div>
   );
 }
+
 
 
 

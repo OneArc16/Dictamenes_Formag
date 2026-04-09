@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 
 type Props = {
@@ -182,14 +182,22 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
       ? asText(u?.cargo)
       : asText(u?.codigoOcupacion);
 
-  const nivelEscalafon = asText(u?.nivelEscalafon);
+  const nivelEscalafonRaw = asText(u?.nivelEscalafon);
   const gradoEscalafon = asText(u?.gradoEscalafon);
+  const emptyText = asText(null);
+  const nivelEscalafonKey = nivelEscalafonRaw.trim().toUpperCase();
+  const nivelEscalafonNormalizado =
+    nivelEscalafonRaw === emptyText ||
+    nivelEscalafonKey === '?' ||
+    nivelEscalafonKey === '0' ||
+    nivelEscalafonKey === 'NO APLICA' ||
+    nivelEscalafonKey === 'NO APLICA (0)'
+      ? ''
+      : nivelEscalafonRaw;
   const escalafon =
-    gradoEscalafon === '?'
-      ? '?'
-      : nivelEscalafon === '?'
-      ? gradoEscalafon
-      : `${gradoEscalafon}${nivelEscalafon}`;
+    gradoEscalafon === emptyText || gradoEscalafon === '?'
+      ? emptyText
+      : gradoEscalafon + nivelEscalafonNormalizado;
   const formaVinculacion = asText(u?.formaVinculacion);
 
   return (
