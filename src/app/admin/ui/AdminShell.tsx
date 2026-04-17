@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -26,7 +26,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -99,11 +98,6 @@ function SidebarLink({
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{label}</span>
-        {description ? (
-          <span className="mt-0.5 block text-[11px] leading-5 text-slate-500">
-            {description}
-          </span>
-        ) : null}
       </span>
     </Link>
   );
@@ -193,9 +187,6 @@ function AdminSidebarContent({
           <CardTitle className="text-base font-semibold tracking-tight text-slate-950">
             Dictamy
           </CardTitle>
-          <CardDescription className="text-xs leading-5 text-slate-600">
-            Navegacion lateral para administrar el sistema con la misma experiencia de los otros modulos.
-          </CardDescription>
         </div>
       </CardHeader>
 
@@ -285,9 +276,6 @@ export default function AdminShell({ children, empleado, permissions }: Props) {
           <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
             <div className="space-y-0.5">
               <div className="text-sm font-semibold text-slate-950">Administrador</div>
-              <div className="text-[11px] text-slate-500">
-                Configuracion, empleados y gestion del sistema.
-              </div>
             </div>
             <Button
               type="button"

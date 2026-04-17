@@ -31,7 +31,7 @@ export function DictamenFormLayout({
         {/* Panel izquierdo */}
         <aside className={`space-y-4 lg:sticky ${stickyTopClassName} self-start`}>
           {/* Si el panel es más alto que la pantalla, que tenga scroll propio */}
-          <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1">
+          <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1 space-y-5">
             {left}
           </div>
         </aside>
@@ -42,7 +42,7 @@ export function DictamenFormLayout({
         {/* Panel derecho */}
         {right && (
           <aside className={`hidden lg:block lg:sticky ${stickyTopClassName} self-start`}>
-            <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1">
+            <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1 space-y-5">
               {right}
             </div>
           </aside>

@@ -1,4 +1,4 @@
-﻿/* eslint-disable jsx-a11y/alt-text */
+/* eslint-disable jsx-a11y/alt-text */
 import React from 'react';
 import { Document, Image, StyleSheet, Text, View } from '@react-pdf/renderer';
 
@@ -293,6 +293,46 @@ function showValue(value: string | null | undefined, fallback = '—') {
   return normalized.length > 0 ? normalized : fallback;
 }
 
+function isListLine(line: string) {
+  const trimmed = line.trim();
+  return /^[-*•]/.test(trimmed) || /^\d+[.)-]\s*/.test(trimmed);
+}
+
+function normalizeFlowingText(value: string | null | undefined, fallback = '—') {
+  const normalized = String(value ?? '').replace(/\r\n/g, '\n').trim();
+  if (!normalized) return [{ text: fallback, kind: 'paragraph' as const }];
+
+  const blocks = normalized
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const items: Array<{ text: string; kind: 'paragraph' | 'list' }> = [];
+
+  for (const block of blocks) {
+    const lines = block
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) continue;
+
+    if (lines.every(isListLine)) {
+      for (const line of lines) {
+        items.push({ text: line.replace(/\s+/g, ' ').trim(), kind: 'list' });
+      }
+      continue;
+    }
+
+    items.push({
+      text: lines.join(' ').replace(/\s+/g, ' ').trim(),
+      kind: 'paragraph',
+    });
+  }
+
+  return items.length > 0 ? items : [{ text: fallback, kind: 'paragraph' as const }];
+}
+
 function SectionTitle({
   children,
   centered = false,
@@ -359,6 +399,28 @@ function SignatureCard({ firma }: { firma: FirmaPdf }) {
   );
 }
 
+function FlowingText({
+  value,
+  style,
+  fallback = '—',
+}: {
+  value: string | null | undefined;
+  style: object;
+  fallback?: string;
+}) {
+  const items = normalizeFlowingText(value, fallback);
+
+  return (
+    <View style={styles.sectionBlock}>
+      {items.map((item, index) => (
+        <Text key={[item.kind, index].join('-')} style={style}>
+          {item.text}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 export function RecomendacionLaboralReactPdf({ recomendacion, logoSrc }: Props) {
   const firmas = recomendacion.firmas.length > 0 ? recomendacion.firmas : [];
 
@@ -411,7 +473,7 @@ export function RecomendacionLaboralReactPdf({ recomendacion, logoSrc }: Props) 
               <InfoItem label="Talla:" value={recomendacion.docente.talla} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Peso:" value={recomendacion.docente.peso} labelStyle={styles.infoLabelRight} />
               <InfoItem label="IMC:" value={recomendacion.docente.imc} labelStyle={styles.infoLabelRight} />
-              <InfoItem label="Edad:" value={recomendacion.docente.edad} labelStyle={styles.infoLabelRight} />
+              <InfoItem label="Edad:" value={recomendacion.docente.edad ? `${recomendacion.docente.edad} AÑOS` : recomendacion.docente.edad} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Direccion:" value={recomendacion.docente.direccion} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Telefono:" value={recomendacion.docente.telefono} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Secretaria:" value={recomendacion.docente.secretaria} labelStyle={styles.infoLabelRight} />
@@ -419,13 +481,13 @@ export function RecomendacionLaboralReactPdf({ recomendacion, logoSrc }: Props) 
           </View>
 
           <SectionTitle>2. Examenes Realizados.</SectionTitle>
-          <Text style={styles.bodyText}>{showValue(recomendacion.examenesRealizados, 'Sin registro')}</Text>
+          <FlowingText value={recomendacion.examenesRealizados} style={styles.bodyText} fallback="Sin registro" />
 
           <SectionTitle>3. Motivo.</SectionTitle>
-          <Text style={styles.bodyText}>{showValue(recomendacion.motivo, 'Sin registro')}</Text>
+          <FlowingText value={recomendacion.motivo} style={styles.bodyText} fallback="Sin registro" />
 
           <SectionTitle>4. Recomendaciones, Observaciones y Restricciones.</SectionTitle>
-          <Text style={styles.compactText}>{showValue(recomendacion.recomendaciones, 'Sin registro')}</Text>
+          <FlowingText value={recomendacion.recomendaciones} style={styles.compactText} fallback="Sin registro" />
 
           <SectionTitle>5. Junta Medica de Profesionales:</SectionTitle>
           <View style={styles.signatureGrid}>

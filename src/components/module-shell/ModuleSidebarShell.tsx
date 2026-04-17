@@ -27,7 +27,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -158,9 +157,7 @@ function SidebarContent({
                     <span className="block text-sm font-medium truncate">
                       {moduleItem.label}
                     </span>
-                    <span className="mt-0.5 block text-[11px] leading-5 text-slate-500">
-                      {moduleItem.description}
-                    </span>
+
                   </span>
                 </Link>
               );
@@ -259,24 +256,6 @@ export default function ModuleSidebarShell({
                   <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-700">
                     <ModuleIcon className="h-3.5 w-3.5" />
                     <span>{currentModule?.label ?? 'Modulo'}</span>
-                  </div>
-                  <div className={cn(compactHero ? 'space-y-1' : 'space-y-2')}>
-                    <CardTitle
-                      className={cn(
-                        'font-semibold tracking-tight text-slate-950',
-                        compactHero ? 'text-[1.7rem] lg:text-[1.85rem]' : 'text-[2rem] lg:text-[2.15rem]',
-                      )}
-                    >
-                      {title}
-                    </CardTitle>
-                    <CardDescription
-                      className={cn(
-                        'max-w-3xl text-slate-600',
-                        compactHero ? 'text-[12px] leading-5' : 'text-[13px] leading-6',
-                      )}
-                    >
-                      {description}
-                    </CardDescription>
                   </div>
                 </div>
 
