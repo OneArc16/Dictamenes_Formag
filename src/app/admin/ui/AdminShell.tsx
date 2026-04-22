@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  BellRing,
   ClipboardList,
   ClipboardPlus,
   IdCard,
@@ -61,6 +62,12 @@ const administrationItems: SidebarItem[] = [
     icon: RotateCcw,
     requiredAbility: 'admin.motivos_reapertura.read',
   },
+  {
+    href: '/admin/notificadores-pcl',
+    label: 'Notificadores PCL',
+    icon: BellRing,
+    requiredAbility: 'admin.notificadores_pcl.read',
+  },
   { href: '/admin/auditoria', label: 'Auditoria', icon: ClipboardList, requiredAbility: 'admin.auditoria.read' },
 ];
 
@@ -68,7 +75,6 @@ function SidebarLink({
   href,
   label,
   icon: Icon,
-  description,
   onNavigate,
 }: SidebarItem & { onNavigate?: () => void }) {
   const pathname = usePathname() || '';

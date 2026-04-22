@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
-import { KeepTogether } from '../components/KeepTogether';
+import { HeaderWithFirstRow } from '../components/Pagination';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -512,126 +512,129 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     label: g.label,
     chunks: chunkRows(g.rows), // �o. usa first/other
   }));
+  const firstChunk = groupsChunked[0]?.chunks?.[0] ?? null;
 
   return (
     <View>
-      <View>
+      <HeaderWithFirstRow minPresenceAhead={24}>
         <View style={styles.barRow} wrap={false}>
           <Text style={styles.barText}>TITULO III</Text>
         </View>
 
         <View style={styles.tableBox}>
-          <KeepTogether minPresenceAhead={28}>
-            <View style={styles.topDescRow} wrap={false}>
-              <View style={[styles.descCell, flexW(TOTAL - COL.g * 2)]}>
-                <Text style={{ fontSize: 7.6, lineHeight: 1.15 }}>
-                  TITULO III: HERRAMIENTA PARA LA EVALUACIÓN DEL PUESTO DE TRABAJO, PERFIL DE DISCAPACIDAD, COMPETENCIA Y RESTRICCIONES
-                  PARA LA ACTIVIDAD COMO EDUCADOR
-                </Text>
-              </View>
-
-                <View style={[styles.procCol, flexW(COL.g)]} wrap={false}>
-                <View style={styles.procTop}>
-                    <Text style={styles.headText}>A</Text>
-                </View>
-                <View style={styles.procBottom}>
-                    <Text style={styles.xText}>{cellA}</Text>
-                </View>
-                </View>
+          <View style={styles.topDescRow} wrap={false}>
+            <View style={[styles.descCell, flexW(TOTAL - COL.g * 2)]}>
+              <Text style={{ fontSize: 7.6, lineHeight: 1.15 }}>
+                TITULO III: HERRAMIENTA PARA LA EVALUACIÓN DEL PUESTO DE TRABAJO, PERFIL DE DISCAPACIDAD, COMPETENCIA Y RESTRICCIONES
+                PARA LA ACTIVIDAD COMO EDUCADOR
+              </Text>
+            </View>
 
             <View style={[styles.procCol, flexW(COL.g)]} wrap={false}>
-            <View style={styles.procTop}>
+              <View style={styles.procTop}>
+                <Text style={styles.headText}>A</Text>
+              </View>
+              <View style={styles.procBottom}>
+                <Text style={styles.xText}>{cellA}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.procCol, flexW(COL.g)]} wrap={false}>
+              <View style={styles.procTop}>
                 <Text style={styles.headText}>B</Text>
-            </View>
-            <View style={styles.procBottom}>
+              </View>
+              <View style={styles.procBottom}>
                 <Text style={styles.xText}>{cellB}</Text>
-            </View>
-            </View>
-            </View>
-
-            <View style={[styles.row, styles.cellB]} wrap={false}>
-              <View style={[styles.cell, styles.headBg, flexW(COL.criterio + COL.factor)]}>
-                <Text style={styles.headText}>ANÁLISIS OCUPACIONAL DEL{'\n'}USUARIO</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g * G_COLS)]}>
-                <Text style={styles.headText}>GRAVEDAD</Text>
               </View>
             </View>
+          </View>
 
-            <View style={[styles.row, styles.cellB]} wrap={false}>
-              <View style={[styles.cell, styles.headBg, flexW(COL.criterio)]}>
-                <Text style={styles.headText}>CRITERIOS</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.factor)]}>
-                <Text style={styles.headText}>FACTORES</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-                <Text style={styles.headText}>0</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-                <Text style={styles.headText}>I</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-                <Text style={styles.headText}>II</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-                <Text style={styles.headText}>III</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-                <Text style={styles.headText}>IV</Text>
-              </View>
+          <View style={[styles.row, styles.cellB]} wrap={false}>
+            <View style={[styles.cell, styles.headBg, flexW(COL.criterio + COL.factor)]}>
+              <Text style={styles.headText}>ANÁLISIS OCUPACIONAL DEL{'\n'}USUARIO</Text>
             </View>
-          </KeepTogether>
-
-          {groupsChunked[0]?.chunks?.[0]
-            ? renderChunk(groupsChunked[0].label, groupsChunked[0].chunks[0], true, groupsChunked[0].chunks.length === 1)
-            : null}
-
-          {groupsChunked.map((g, gi) =>
-            g.chunks.map((chunk, ci) => {
-              if (gi === 0 && ci === 0) return null;
-              return renderChunk(g.label, chunk, ci === 0, ci === g.chunks.length - 1);
-            }),
-          )}
-
-          <View style={styles.row} wrap={false}>
-            {/* Columna CRITERIOS (vacía) */}
-            <View style={[styles.criterioMerged, styles.headBg, styles.cellB, flexW(COL.criterio), { height: RH.sm }]}>
-              <Text style={styles.sumText}>{' '}</Text>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g * G_COLS)]}>
+              <Text style={styles.headText}>GRAVEDAD</Text>
             </View>
+          </View>
 
-            {/* Bloque derecho: FACTORES + 0..IV */}
-            <View style={[flexW(TOTAL - COL.criterio)]}>
-              <View style={styles.row} wrap={false}>
+          <View style={[styles.row, styles.cellB]} wrap={false}>
+            <View style={[styles.cell, styles.headBg, flexW(COL.criterio)]}>
+              <Text style={styles.headText}>CRITERIOS</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.factor)]}>
+              <Text style={styles.headText}>FACTORES</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
+              <Text style={styles.headText}>0</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
+              <Text style={styles.headText}>I</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
+              <Text style={styles.headText}>II</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
+              <Text style={styles.headText}>III</Text>
+            </View>
+            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
+              <Text style={styles.headText}>IV</Text>
+            </View>
+          </View>
+
+          {firstChunk ? renderChunk(groupsChunked[0].label, firstChunk, true, groupsChunked[0].chunks.length === 1) : null}
+        </View>
+      </HeaderWithFirstRow>
+
+      <View style={styles.tableBox}>
+        {groupsChunked.map((g, gi) =>
+          g.chunks.map((chunk, ci) => {
+            if (gi === 0 && ci === 0) return null;
+            return (
+              <React.Fragment key={`${g.label}-${ci}`}>
+                {renderChunk(g.label, chunk, ci === 0, ci === g.chunks.length - 1)}
+              </React.Fragment>
+            );
+          }),
+        )}
+
+        <View style={styles.row} wrap={false}>
+          {/* Columna CRITERIOS (vacía) */}
+          <View style={[styles.criterioMerged, styles.headBg, styles.cellB, flexW(COL.criterio), { height: RH.sm }]}>
+            <Text style={styles.sumText}>{' '}</Text>
+          </View>
+
+          {/* Bloque derecho: FACTORES + 0..IV */}
+          <View style={[flexW(TOTAL - COL.criterio)]}>
+            <View style={styles.row} wrap={false}>
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellL,
+                  styles.headBg,
+                  styles.cellB,
+                  flexW(COL.factor),
+                  { height: RH.sm, alignItems: 'center' },
+                ]}
+              >
+                <Text style={styles.sumText}>SUMATORIA</Text>
+              </View>
+
+              {(['0', 'I', 'II', 'III', 'IV'] as const).map((k) => (
                 <View
+                  key={k}
                   style={[
                     styles.cell,
                     styles.cellL,
-                    styles.headBg,
+                    styles.whiteBg,
                     styles.cellB,
-                    flexW(COL.factor),
+                    flexW(COL.g),
                     { height: RH.sm, alignItems: 'center' },
                   ]}
                 >
-                  <Text style={styles.sumText}>SUMATORIA</Text>
+                  <Text style={styles.smallText}>{sumMutable[k] ? String(sumMutable[k]) : ''}</Text>
                 </View>
-
-                {(['0', 'I', 'II', 'III', 'IV'] as const).map((k) => (
-                  <View
-                    key={k}
-                    style={[
-                      styles.cell,
-                      styles.cellL,
-                      styles.whiteBg,
-                      styles.cellB,
-                      flexW(COL.g),
-                      { height: RH.sm, alignItems: 'center' },
-                    ]}
-                  >
-                    <Text style={styles.smallText}>{sumMutable[k] ? String(sumMutable[k]) : ''}</Text>
-                  </View>
-                ))}
-              </View>
+              ))}
             </View>
           </View>
         </View>

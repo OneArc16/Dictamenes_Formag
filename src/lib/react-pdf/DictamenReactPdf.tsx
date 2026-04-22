@@ -20,6 +20,7 @@ import {
   SustentacionTablaOrigenPart,
 } from './blocks/SustentacionOrigenBlock';
 import FirmasJuntaBlock from '@/lib/react-pdf/blocks/FirmasJuntaBlock';
+import { NotificacionPclPage } from './blocks/NotificacionPclPage';
 
 type DictamenPdfData = {
   id?: number | string | null;
@@ -41,10 +42,19 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
   const condicion = String(dictamen?.condicionSalud ?? '').trim();
   const hallazgos = String(dictamen?.descripcionHallazgos ?? '').trim();
   const finalLogoSrc = (logoSrc ?? dictamen?.logoSrc ?? null) as string | null;
+  const showNotificacionPcl = Boolean(dictamen?.estaCerrado && dictamen?.notificacionPcl);
 
   return (
     <Document>
-      <PageFrame>
+      {showNotificacionPcl ? (
+        <NotificacionPclPage dictamen={dictamen} logoSrc={finalLogoSrc} />
+      ) : null}
+      <PageFrame
+        safeBottom={34}
+        pageNumberBottom={20}
+        pageNumberOffset={showNotificacionPcl ? 1 : 0}
+        totalPagesOffset={showNotificacionPcl ? 1 : 0}
+      >
         <HeaderBlock
           logoSrc={finalLogoSrc}
           numeroDictamen={dictamen?.numeroDictamen ?? String(dictamen?.id ?? '')}
@@ -63,15 +73,15 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
           <AntecedentesClinicosBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox minPresenceAhead={8}>
+        <SectionBox minPresenceAhead={24} style={{ borderBottomWidth: 0 }}>
           <DiagnosticosMotivoBlock dictamen={dictamen} />
         </SectionBox>
 
-        <SectionBox minPresenceAhead={0} joinBottom>
+        <SectionBox minPresenceAhead={16} joinBottom>
           <CondicionSaludBlock condicion={condicion} />
         </SectionBox>
 
-        <SectionBox minPresenceAhead={0} joinTop>
+        <SectionBox minPresenceAhead={16} joinTop>
           <HallazgosClinicosBlock hallazgos={hallazgos} />
         </SectionBox>
 

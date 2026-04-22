@@ -1,10 +1,11 @@
-﻿import { requireAdmin } from '@/lib/auth/guards';
+import { requireAdmin } from '@/lib/auth/guards';
 import { hasAbility } from '@/lib/auth/ability-utils';
 
 const dashboardChecks = [
   { label: 'Gestionar empleados', ability: 'admin.empleados.manage' },
   { label: 'Gestionar perfiles', ability: 'admin.perfiles.manage' },
   { label: 'Gestionar motivos de reapertura', ability: 'admin.motivos_reapertura.manage' },
+  { label: 'Gestionar notificadores PCL', ability: 'admin.notificadores_pcl.manage' },
   { label: 'Ver auditoria', ability: 'admin.auditoria.read' },
   { label: 'Exportar auditoria', ability: 'admin.auditoria.export' },
   { label: 'Reabrir dictamenes', ability: 'dictamen.reopen' },

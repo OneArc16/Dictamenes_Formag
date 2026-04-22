@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { GridBand, GridCell, GridRow } from '../components/Grid';
 import { KeepTogether } from '../components/KeepTogether';
+import { HeaderWithFirstRow } from '../components/Pagination';
 import { pdfTheme } from '../theme';
 
 type UnknownRecord = Record<string, unknown>;
@@ -85,12 +86,29 @@ function extractRows(dictamen: DictamenLike): DeficienciaRow[] {
 export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props) {
   const rows = extractRows(dictamen);
   const printableRows = rows.length ? rows : [null];
-  const procedimiento = String(dictamen?.procedimientoPcl ?? '').toUpperCase();
-  const ponderacionMax = procedimiento === 'B' ? 50 : 75;
+  const renderBodyRow = (row: DeficienciaRow | null, index: number) => (
+    <GridRow key={`titulo-i-${index}`} style={styles.bodyRow}>
+      <GridCell width={COL.num} backgroundColor={COLOR.body}>
+        <Text style={styles.indexText}>{index + 1}.</Text>
+      </GridCell>
+      <GridCell width={COL.desc} backgroundColor={COLOR.body}>
+        <Text style={styles.descriptionText}>{row?.descripcion ?? '—'}</Text>
+      </GridCell>
+      <GridCell width={COL.cap} backgroundColor={COLOR.body}>
+        <Text style={styles.valueText}>{row?.capitulo ?? '—'}</Text>
+      </GridCell>
+      <GridCell width={COL.tabla} backgroundColor={COLOR.body}>
+        <Text style={styles.valueText}>{row?.tabla ?? '—'}</Text>
+      </GridCell>
+      <GridCell width={COL.valor} backgroundColor={COLOR.body} isLast>
+        <Text style={styles.valueText}>{formatPercent(row?.valorDeficiencia)}</Text>
+      </GridCell>
+    </GridRow>
+  );
 
   return (
     <View>
-      <KeepTogether minPresenceAhead={24}>
+      <HeaderWithFirstRow minPresenceAhead={24}>
         <GridBand
           backgroundColor={COLOR.title}
           style={styles.titleBand}
@@ -123,27 +141,10 @@ export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props
             <Text style={styles.headText}>Valor de la deficiencia (%)</Text>
           </GridCell>
         </GridRow>
-      </KeepTogether>
+        {renderBodyRow(printableRows[0], 0)}
+      </HeaderWithFirstRow>
 
-      {printableRows.map((row, index) => (
-        <GridRow key={`titulo-i-${index}`} style={styles.bodyRow}>
-          <GridCell width={COL.num} backgroundColor={COLOR.body}>
-            <Text style={styles.indexText}>{index + 1}.</Text>
-          </GridCell>
-          <GridCell width={COL.desc} backgroundColor={COLOR.body}>
-            <Text style={styles.descriptionText}>{row?.descripcion ?? '—'}</Text>
-          </GridCell>
-          <GridCell width={COL.cap} backgroundColor={COLOR.body}>
-            <Text style={styles.valueText}>{row?.capitulo ?? '—'}</Text>
-          </GridCell>
-          <GridCell width={COL.tabla} backgroundColor={COLOR.body}>
-            <Text style={styles.valueText}>{row?.tabla ?? '—'}</Text>
-          </GridCell>
-          <GridCell width={COL.valor} backgroundColor={COLOR.body} isLast>
-            <Text style={styles.valueText}>{formatPercent(row?.valorDeficiencia)}</Text>
-          </GridCell>
-        </GridRow>
-      ))}
+      {printableRows.slice(1).map((row, index) => renderBodyRow(row, index + 1))}
 
       <KeepTogether minPresenceAhead={18}>
           <GridRow style={styles.summaryRow}>
@@ -224,7 +225,5 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
 });
-
-
 
 

@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { GridBand, GridCell, GridRow } from '../components/Grid';
 import { KeepTogether } from '../components/KeepTogether';
+import { HeaderWithFirstRow } from '../components/Pagination';
 import { pdfTheme } from '../theme';
 
 type UnknownRecord = Record<string, unknown>;
@@ -100,10 +101,31 @@ export function TituloIICapitulo2Block({ dictamen }: Props) {
   const procedimiento = String(dictamen?.procedimientoPcl ?? 'A').toUpperCase() === 'B' ? 'B' : 'A';
   const claseSeleccionada = getClaseSeleccionada(dictamen);
   const total = getTotal(dictamen);
+  const renderClaseRow = (clase: (typeof CLASES)[number]) => {
+    const marcaA = procedimiento === 'A' && claseSeleccionada === clase.key ? 'X' : '';
+    const marcaB = procedimiento === 'B' && claseSeleccionada === clase.key ? 'X' : '';
+
+    return (
+      <GridRow key={clase.key} style={styles.bodyRow}>
+        <GridCell width={COL.clase} backgroundColor={COLOR.left}>
+          <Text style={styles.claseText}>{clase.label}</Text>
+        </GridCell>
+        <GridCell width={COL.criterio} backgroundColor={COLOR.white}>
+          <Text style={styles.descripcionText}>{clase.descripcion}</Text>
+        </GridCell>
+        <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
+          <Text style={styles.xText}>{marcaA}</Text>
+        </GridCell>
+        <GridCell width={COL.valorB} backgroundColor={COLOR.white} isLast>
+          <Text style={styles.xText}>{marcaB}</Text>
+        </GridCell>
+      </GridRow>
+    );
+  };
 
   return (
     <View>
-      <KeepTogether minPresenceAhead={22}>
+      <HeaderWithFirstRow minPresenceAhead={22}>
         <GridBand backgroundColor={COLOR.bar} textColor={pdfTheme.colors.white}>
           Titulo II - Capitulo 2
         </GridBand>
@@ -134,29 +156,10 @@ export function TituloIICapitulo2Block({ dictamen }: Props) {
             <Text style={styles.headText}>B</Text>
           </GridCell>
         </GridRow>
-      </KeepTogether>
+        {renderClaseRow(CLASES[0])}
+      </HeaderWithFirstRow>
 
-      {CLASES.map((clase) => {
-        const marcaA = procedimiento === 'A' && claseSeleccionada === clase.key ? 'X' : '';
-        const marcaB = procedimiento === 'B' && claseSeleccionada === clase.key ? 'X' : '';
-
-        return (
-          <GridRow key={clase.key} style={styles.bodyRow}>
-            <GridCell width={COL.clase} backgroundColor={COLOR.left}>
-              <Text style={styles.claseText}>{clase.label}</Text>
-            </GridCell>
-            <GridCell width={COL.criterio} backgroundColor={COLOR.white}>
-              <Text style={styles.descripcionText}>{clase.descripcion}</Text>
-            </GridCell>
-            <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
-              <Text style={styles.xText}>{marcaA}</Text>
-            </GridCell>
-            <GridCell width={COL.valorB} backgroundColor={COLOR.white} isLast>
-              <Text style={styles.xText}>{marcaB}</Text>
-            </GridCell>
-          </GridRow>
-        );
-      })}
+      {CLASES.slice(1).map(renderClaseRow)}
 
       <KeepTogether minPresenceAhead={14}>
         <GridRow style={styles.totalRow}>

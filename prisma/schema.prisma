@@ -432,10 +432,40 @@ model Sede {
   departamento Departamento? @relation("DepartamentoSedes", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioSedes", fields: [codigoMunicipio], references: [codigo])
 
+  usuarios       Usuario[]           @relation("SedeUsuarios")
+  empleados      Empleado[]          @relation("SedeEmpleados")
+  dictamenes     Dictamen[]          @relation("SedeDictamenes")
+  notificadores  SedeNotificador[]
+
   @@index([centroMedicoId])
   @@index([codigoDepartamento])
   @@index([codigoMunicipio])
   @@map("sedes")
+}
+
+model SedeNotificador {
+  id         Int     @id @default(autoincrement())
+  sedeId     Int
+  empleadoId Int
+
+  estado       Boolean   @default(true)
+  vigenteDesde DateTime? @db.Date @map("vigente_desde")
+  vigenteHasta DateTime? @db.Date @map("vigente_hasta")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.VarChar(100)
+  updatedBy String?  @db.VarChar(100)
+
+  sede     Sede     @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  empleado Empleado @relation("EmpleadoNotificadoresSede", fields: [empleadoId], references: [id], onDelete: Cascade)
+
+  @@unique([sedeId, empleadoId])
+  @@index([sedeId])
+  @@index([empleadoId])
+  @@index([estado])
+  @@index([vigenteDesde, vigenteHasta])
+  @@map("sede_notificadores")
 }
 
 // =====================================
@@ -598,6 +628,7 @@ model Usuario {
   codigoPais         String  @default("057") @db.Char(3)
 
   idSede Int?
+  sede   Sede? @relation("SedeUsuarios", fields: [idSede], references: [id])
 
   gradoEscalafon   String @db.VarChar(2)
   nivelEscalafon   String @db.VarChar(1)
@@ -621,6 +652,7 @@ model Usuario {
   @@index([codigoMunicipio])
   @@index([email])
   @@index([cargoDocenteId])
+  @@index([idSede])
   @@map("usuarios")
 }
 
@@ -660,8 +692,10 @@ model Empleado {
 
   email  String? @db.VarChar(50)
   idSede Int?
+  sede   Sede? @relation("SedeEmpleados", fields: [idSede], references: [id])
 
   especialidades EmpleadoEspecialidad[]
+  sedesNotificador SedeNotificador[] @relation("EmpleadoNotificadoresSede")
 
   dictamenes          Dictamen[]         @relation("EmpleadoDictamenesResponsable")
   dictamenesReabiertos Dictamen[]        @relation("EmpleadoReaberturasDictamenes")
@@ -678,7 +712,7 @@ model Empleado {
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([email])
   @@index([esMiembroJunta])
-
+  @@index([idSede])
   @@map("empleados")
 }
 
@@ -834,6 +868,9 @@ model Dictamen {
   empleadoId Int?
   empleado   Empleado? @relation("EmpleadoDictamenesResponsable", fields: [empleadoId], references: [id])
 
+  sedeId Int?
+  sede   Sede? @relation("SedeDictamenes", fields: [sedeId], references: [id])
+
   reabiertoPor Empleado?        @relation("EmpleadoReaberturasDictamenes", fields: [reabiertoPorId], references: [id])
   motivoReapertura MotivoReapertura? @relation("MotivoReaperturaActualDictamen", fields: [motivoReaperturaId], references: [id])
 
@@ -849,6 +886,7 @@ model Dictamen {
 
   @@index([usuarioId])
   @@index([empleadoId])
+  @@index([sedeId])
   @@index([reabiertoPorId])
   @@index([motivoReaperturaId])
   @@index([tipoDictamen])

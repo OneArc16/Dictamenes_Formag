@@ -1,9 +1,12 @@
 ﻿import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { FlowTextBlock } from '../components/Pagination';
 import { pdfTheme } from '../theme';
 
 type Props = {
-  dictamen: any;
+  dictamen: {
+    antecedentesClinicos?: unknown;
+  };
 };
 
 const COLOR = {
@@ -44,16 +47,13 @@ export function AntecedentesClinicosBlock({ dictamen }: Props) {
 
   return (
     <View>
-      <View style={styles.titleRow}>
+      <View style={styles.titleRow} wrap={false} minPresenceAhead={36}>
         <Text style={styles.titleText}>3. ANTECEDENTES CLÍNICOS (EPICRISIS Y ESTADO ACTUAL)</Text>
       </View>
 
-      <View style={styles.body}>
+      <FlowTextBlock style={styles.body} minPresenceAhead={12}>
         <Text style={styles.bodyText}>{texto}</Text>
-      </View>
-
-      {/* âœ… Fuerza salto para que la siguiente secciÃ³n NO quede pegada abajo */}
-      <View break style={{ height: 0 }} />
+      </FlowTextBlock>
     </View>
   );
 }

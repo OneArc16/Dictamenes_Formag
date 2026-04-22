@@ -1,6 +1,7 @@
 ﻿import React from 'react';
-import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Text, StyleSheet } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
+import { FlowTextBlock } from '../components/Pagination';
 
 const BW = Number(pdfTheme?.sizes?.borderWidth ?? 1.2);
 const PAD = Number(pdfTheme?.sizes?.rowPadding ?? 6);
@@ -8,7 +9,7 @@ const PAD = Number(pdfTheme?.sizes?.rowPadding ?? 6);
 // âœ… azul claro
 const LIGHT_BLUE = '#DAE9F7';
 
-function safeText(v: any) {
+function safeText(v: unknown) {
   const s = String(v ?? '').replace(/\r/g, '').trim();
   return s ? s : '—';
 }
@@ -41,12 +42,12 @@ export function CondicionSaludBlock({ condicion }: { condicion: string }) {
   const condicionTxt = safeText(condicion);
 
   return (
-    <View style={styles.row}>
+    <FlowTextBlock style={styles.row} minPresenceAhead={10}>
       <Text style={styles.paragraph}>
         <Text style={styles.label}>Condición de salud (signos y síntomas): </Text>
         {condicionTxt}
       </Text>
-    </View>
+    </FlowTextBlock>
   );
 }
 
@@ -54,14 +55,14 @@ export function HallazgosClinicosBlock({ hallazgos }: { hallazgos: string }) {
   const hallazgosTxt = safeText(hallazgos);
 
   return (
-    <View style={[styles.row, styles.rowBlue, styles.rowLast]}>
+    <FlowTextBlock style={[styles.row, styles.rowBlue, styles.rowLast]} minPresenceAhead={10}>
       <Text style={styles.paragraph}>
         <Text style={styles.label}>
           Prueba o exámenes paraclínicos (descripción de hallazgos positivos):{' '}
         </Text>
         {hallazgosTxt}
       </Text>
-    </View>
+    </FlowTextBlock>
   );
 }
 

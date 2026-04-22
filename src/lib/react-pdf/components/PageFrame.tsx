@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Page, StyleSheet, Text } from '@react-pdf/renderer';
 
 import { pdfTheme } from '../theme';
@@ -7,6 +7,8 @@ type Props = {
   children: React.ReactNode;
   safeBottom?: number;
   pageNumberBottom?: number;
+  pageNumberOffset?: number;
+  totalPagesOffset?: number;
 };
 
 const PAD = pdfTheme.page.padding;
@@ -28,6 +30,8 @@ export function PageFrame({
   children,
   safeBottom = 12,
   pageNumberBottom = 8,
+  pageNumberOffset = 0,
+  totalPagesOffset = 0,
 }: Props) {
   return (
     <Page
@@ -48,7 +52,12 @@ export function PageFrame({
             bottom: pageNumberBottom,
           },
         ]}
-        render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`}
+        render={({ pageNumber, totalPages }) => {
+          const displayedPage = Math.max(1, pageNumber - pageNumberOffset);
+          const displayedTotal = Math.max(displayedPage, totalPages - totalPagesOffset);
+
+          return `Pagina ${displayedPage} de ${displayedTotal}`;
+        }}
       />
 
       {children}

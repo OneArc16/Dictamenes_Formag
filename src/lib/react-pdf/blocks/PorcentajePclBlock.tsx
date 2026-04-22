@@ -1,7 +1,8 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { GridBand, GridCell, GridRow } from '../components/Grid';
 import { KeepTogether } from '../components/KeepTogether';
+import { HeaderWithFirstRow } from '../components/Pagination';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -117,10 +118,29 @@ export default function PorcentajePclBlock({ dictamen }: Props) {
       bold: true,
     },
   ];
+  const renderRow = (row: { label: string; a: string; b: string; bold?: boolean }) => {
+    const textStyle = row.bold ? styles.bodyTextBold : styles.bodyText;
+    return (
+      <GridRow key={row.label} style={styles.bodyRow}>
+        <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
+          <Text style={textStyle}>{row.label}</Text>
+        </GridCell>
+        <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
+          <Text style={textStyle}>{row.a}</Text>
+        </GridCell>
+        <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
+          <Text style={styles.bodyText}>{' '}</Text>
+        </GridCell>
+        <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
+          <Text style={textStyle}>{row.b}</Text>
+        </GridCell>
+      </GridRow>
+    );
+  };
 
   return (
     <View>
-      <KeepTogether minPresenceAhead={24}>
+      <HeaderWithFirstRow minPresenceAhead={24}>
         <GridBand backgroundColor={COLOR.blue}>Porcentaje de perdida de capacidad laboral</GridBand>
 
         <GridRow style={styles.headerRow}>
@@ -137,27 +157,12 @@ export default function PorcentajePclBlock({ dictamen }: Props) {
             <Text style={styles.headText}>PROCEDIMIENTO B</Text>
           </GridCell>
         </GridRow>
-      </KeepTogether>
+        {renderRow(rows[0])}
+      </HeaderWithFirstRow>
 
-      {rows.map((row, index) => {
-        const isLast = index === rows.length - 1;
-        const textStyle = row.bold ? styles.bodyTextBold : styles.bodyText;
-        const rowNode = (
-          <GridRow key={row.label} style={styles.bodyRow}>
-            <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
-              <Text style={textStyle}>{row.label}</Text>
-            </GridCell>
-            <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
-              <Text style={textStyle}>{row.a}</Text>
-            </GridCell>
-            <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
-              <Text style={styles.bodyText}>{' '}</Text>
-            </GridCell>
-            <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
-              <Text style={textStyle}>{row.b}</Text>
-            </GridCell>
-          </GridRow>
-        );
+      {rows.slice(1).map((row) => {
+        const isLast = Boolean(row.bold);
+        const rowNode = renderRow(row);
 
         return isLast ? (
           <KeepTogether key={row.label} minPresenceAhead={14}>

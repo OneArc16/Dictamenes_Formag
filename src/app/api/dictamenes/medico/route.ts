@@ -3,6 +3,7 @@ import { ProcedimientoPcl, Prisma, TipoDictamen } from '@prisma/client';
 import { z } from 'zod';
 
 import { requireMedicoApi } from '@/lib/auth/api-guards';
+import { resolveSedeIdParaNuevoDictamen } from '@/lib/dictamen/notificacion-pcl';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -189,6 +190,10 @@ export async function POST(req: Request) {
     const antecedentesClinicos = (data.antecedentesClinicos ?? '').trim() || null;
     const condicionSalud = (data.condicionSalud ?? '').trim() || null;
     const descripcionHallazgos = (data.descripcionHallazgos ?? '').trim() || null;
+    const sedeId = await resolveSedeIdParaNuevoDictamen({
+      empleadoId: medicoId,
+      usuarioId: data.usuarioId,
+    });
 
     const dictamen = await prisma.dictamen.create({
       data: {
@@ -200,6 +205,7 @@ export async function POST(req: Request) {
         condicionSalud,
         descripcionHallazgos,
         empleadoId: medicoId,
+        sedeId,
       },
       select: {
         id: true,

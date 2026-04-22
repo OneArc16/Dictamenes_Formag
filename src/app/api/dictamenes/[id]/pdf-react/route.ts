@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { renderToStream } from '@react-pdf/renderer';
 import { DictamenReactPdf } from '@/lib/react-pdf/DictamenReactPdf';
+import { getNotificacionPclParaDictamen } from '@/lib/dictamen/notificacion-pcl';
 import { prisma } from '@/lib/prisma';
 
 import fs from 'node:fs/promises';
@@ -256,6 +257,19 @@ export async function GET(req: Request, ctx: RouteCtx) {
       numeroDictamen: true,
       fechaDictamen: true,
       procedimientoPcl: true,
+      estado: true,
+      sedeId: true,
+      empleado: {
+        select: {
+          idSede: true,
+        },
+      },
+      historial: {
+        where: { tipo: 'CIERRE' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true },
+      },
 
       totalTitulo1: true,
       totalCap1: true,
@@ -364,6 +378,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
           gradoEscalafon: true,
           formaVinculacion: true,
           sector: true,
+          idSede: true,
 
           municipio: { select: { nombre: true } },
           departamento: { select: { nombre: true } },
@@ -470,10 +485,22 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const cargoFallback = cargoDocenteNombre ?? (u?.codigoOcupacion ? String(u.codigoOcupacion) : null);
 
   const escolaridadFix = toText(u?.escolaridad);
+  const fechaNotificacionPcl = (dictamen as any).historial?.[0]?.createdAt ?? dictamen.fechaDictamen ?? null;
+  const notificacionPcl =
+    dictamen.estado === false
+      ? await getNotificacionPclParaDictamen({
+          sedeId: dictamen.sedeId,
+          empleado: dictamen.empleado,
+          usuario: u,
+        })
+      : null;
 
   const dictamenPdf: any = {
     ...dictamen,
     analisisOcupacional: analisisFix,
+    estaCerrado: dictamen.estado === false,
+    fechaNotificacionPcl,
+    notificacionPcl,
 
     tituloII: {
       capitulo2: {

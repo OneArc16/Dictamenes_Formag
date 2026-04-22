@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { GridBand, GridCell, GridRow } from '../components/Grid';
 import { KeepTogether } from '../components/KeepTogether';
+import { HeaderWithFirstRow } from '../components/Pagination';
 import { pdfTheme } from '../theme';
 
 type UnknownRecord = Record<string, unknown>;
@@ -110,10 +111,36 @@ export function TituloIICapitulo1Block({ dictamen }: Props) {
       sumatorias[index] += coeffs[index];
     }
   }
+  const renderActivityRow = (actividad: (typeof ACTIVIDADES)[number]) => {
+    const value = valuesByActivity.get(actividad.key);
+    const selectedIndex =
+      value == null ? -1 : coeffs.findIndex((coef) => almostEqual(value, coef));
+
+    return (
+      <GridRow key={actividad.key} style={styles.activityRow}>
+        <GridCell
+          width={COL.actividad}
+          backgroundColor={COLOR.left}
+          align="flex-start"
+        >
+          <Text style={styles.activityText}>{actividad.label}</Text>
+        </GridCell>
+        <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
+          <Text style={styles.xText}>{selectedIndex === 0 ? 'X' : ' '}</Text>
+        </GridCell>
+        <GridCell width={COL.valorB} backgroundColor={COLOR.white}>
+          <Text style={styles.xText}>{selectedIndex === 1 ? 'X' : ' '}</Text>
+        </GridCell>
+        <GridCell width={COL.valorC} backgroundColor={COLOR.white} isLast>
+          <Text style={styles.xText}>{selectedIndex === 2 ? 'X' : ' '}</Text>
+        </GridCell>
+      </GridRow>
+    );
+  };
 
   return (
     <View>
-      <KeepTogether minPresenceAhead={24}>
+      <HeaderWithFirstRow minPresenceAhead={24}>
         <GridBand
           backgroundColor={COLOR.bar}
           textColor={pdfTheme.colors.white}
@@ -165,34 +192,10 @@ export function TituloIICapitulo1Block({ dictamen }: Props) {
             <Text style={styles.headText}>{formatCoef(coeffs[2])}</Text>
           </GridCell>
         </GridRow>
-      </KeepTogether>
+        {renderActivityRow(ACTIVIDADES[0])}
+      </HeaderWithFirstRow>
 
-      {ACTIVIDADES.map((actividad) => {
-        const value = valuesByActivity.get(actividad.key);
-        const selectedIndex =
-          value == null ? -1 : coeffs.findIndex((coef) => almostEqual(value, coef));
-
-        return (
-          <GridRow key={actividad.key} style={styles.activityRow}>
-            <GridCell
-              width={COL.actividad}
-              backgroundColor={COLOR.left}
-              align="flex-start"
-            >
-              <Text style={styles.activityText}>{actividad.label}</Text>
-            </GridCell>
-            <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
-              <Text style={styles.xText}>{selectedIndex === 0 ? 'X' : ' '}</Text>
-            </GridCell>
-            <GridCell width={COL.valorB} backgroundColor={COLOR.white}>
-              <Text style={styles.xText}>{selectedIndex === 1 ? 'X' : ' '}</Text>
-            </GridCell>
-            <GridCell width={COL.valorC} backgroundColor={COLOR.white} isLast>
-              <Text style={styles.xText}>{selectedIndex === 2 ? 'X' : ' '}</Text>
-            </GridCell>
-          </GridRow>
-        );
-      })}
+      {ACTIVIDADES.slice(1).map(renderActivityRow)}
 
       <KeepTogether minPresenceAhead={16}>
         <GridRow style={styles.sumRow}>

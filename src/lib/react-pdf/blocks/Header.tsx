@@ -121,7 +121,7 @@ export function HeaderBlock(props: Props) {
 
       <View style={styles.metaRow}>
         <View style={styles.cellLeft}>
-          <Text style={styles.label}>DICTAMEN NÃšMERO:</Text>
+          <Text style={styles.label}>DICTAMEN NUMERO:</Text>
         </View>
         <View style={styles.cellRight}>
           <Text style={styles.value}>{numero}</Text>
