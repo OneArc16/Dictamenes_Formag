@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 type LoginFormProps = {
@@ -13,7 +13,7 @@ export default function LoginForm({
   action = '/api/auth/login',
   onSuccessRedirect = '/',
 }: LoginFormProps) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -40,24 +40,24 @@ export default function LoginForm({
         throw new Error(data?.error || 'Usuario o contraseña inválidos');
       }
       toast.success('Bienvenido', { id: t });
-      router.replace(data.redirect ?? onSuccessRedirect);
-    } catch (err: any) {
-      toast.error(err?.message || 'Error de autenticación', { id: t });
+      queryClient.clear();
+      window.location.assign(data.redirect ?? onSuccessRedirect);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error de autenticación', { id: t });
       setLoading(false);
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
-      <Field label="Documento" hint="Número de identificación">
+      <Field label="Usuario" hint="Asignado por el administrador del sistema">
         <input
           id="username"
-          inputMode="numeric"
           autoComplete="username"
           disabled={loading}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Ej: 1082…"
+          placeholder="Ej: jcastano"
           className="w-full px-4 py-3 border rounded-xl border-subtle bg-bg text-text placeholder-muted focus:border-brand-300 focus:ring-2 focus:ring-brand-200"
         />
       </Field>

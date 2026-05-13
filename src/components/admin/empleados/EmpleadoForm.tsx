@@ -13,6 +13,7 @@ type Tratamiento = 'DR' | 'DRA';
 type InitialValues = {
   tipoDocumento?: string;
   numeroIdentidad?: string;
+  usuario?: string;
   primerNombre?: string;
   segundoNombre?: string;
   primerApellido?: string;
@@ -101,6 +102,7 @@ export default function EmpleadoForm({
     () => ({
       tipoDocumento: initialValues?.tipoDocumento ?? '',
       numeroIdentidad: initialValues?.numeroIdentidad ?? '',
+      usuario: initialValues?.usuario ?? '',
       primerNombre: initialValues?.primerNombre ?? '',
       segundoNombre: initialValues?.segundoNombre ?? '',
       primerApellido: initialValues?.primerApellido ?? '',
@@ -123,6 +125,7 @@ export default function EmpleadoForm({
 
   const [tipoDocumento, setTipoDocumento] = useState(initial.tipoDocumento);
   const [numeroIdentidad, setNumeroIdentidad] = useState(initial.numeroIdentidad);
+  const [usuario, setUsuario] = useState(initial.usuario);
   const [primerNombre, setPrimerNombre] = useState(initial.primerNombre);
   const [segundoNombre, setSegundoNombre] = useState(initial.segundoNombre);
   const [primerApellido, setPrimerApellido] = useState(initial.primerApellido);
@@ -149,6 +152,7 @@ export default function EmpleadoForm({
   useEffect(() => {
     setTipoDocumento(initial.tipoDocumento);
     setNumeroIdentidad(initial.numeroIdentidad);
+    setUsuario(initial.usuario);
     setPrimerNombre(initial.primerNombre);
     setSegundoNombre(initial.segundoNombre);
     setPrimerApellido(initial.primerApellido);
@@ -208,6 +212,7 @@ export default function EmpleadoForm({
     const base: any = {
       tipoDocumento: upper(tipoDocumento),
       numeroIdentidad: clean(numeroIdentidad),
+      usuario: lower(usuario),
 
       primerNombre: upper(primerNombre),
       segundoNombre: clean(segundoNombre) ? upper(segundoNombre) : '',
@@ -233,6 +238,14 @@ export default function EmpleadoForm({
 
     if (!base.tipoDocumento || !base.numeroIdentidad) {
       toast.error('Tipo y número de documento son obligatorios');
+      return;
+    }
+    if (!base.usuario || base.usuario.length < 3) {
+      toast.error('El usuario debe tener mínimo 3 caracteres');
+      return;
+    }
+    if (!/^[a-z0-9._-]+$/.test(base.usuario)) {
+      toast.error('El usuario solo puede tener letras, números, punto, guion o guion bajo');
       return;
     }
     if (!base.primerNombre || !base.primerApellido) {
@@ -279,6 +292,7 @@ export default function EmpleadoForm({
 
       fd.append('tipoDocumento', base.tipoDocumento);
       fd.append('numeroIdentidad', base.numeroIdentidad);
+      fd.append('usuario', base.usuario);
       fd.append('primerNombre', base.primerNombre);
       fd.append('primerApellido', base.primerApellido);
       fd.append('email', base.email);
@@ -352,6 +366,17 @@ export default function EmpleadoForm({
             onChange={(e) => setNumeroIdentidad(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:ring-2 focus:ring-blue-500/40"
             placeholder="Ej: 123456789"
+          />
+        </div>
+
+        <div className="col-span-12 md:col-span-3">
+          <label className="block text-[11px] font-medium text-slate-600">Usuario *</label>
+          <input
+            value={usuario}
+            onChange={(e) => setUsuario(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:ring-2 focus:ring-blue-500/40"
+            placeholder="Ej: jcastano"
+            autoComplete="username"
           />
         </div>
 

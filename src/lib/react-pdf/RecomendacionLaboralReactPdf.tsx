@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/alt-text */
 import React from 'react';
 import { Document, Image, StyleSheet, Text, View } from '@react-pdf/renderer';
+import type { Style } from '@react-pdf/types';
 
 import { PageFrame } from '@/lib/react-pdf/components/PageFrame';
 import { pdfTheme } from '@/lib/react-pdf/theme';
@@ -286,6 +287,9 @@ const styles = StyleSheet.create({
   sectionBlock: {
     gap: 4,
   },
+  flowSpacer: {
+    height: 4,
+  },
 });
 
 function showValue(value: string | null | undefined, fallback = '—') {
@@ -298,36 +302,34 @@ function isListLine(line: string) {
   return /^[-*•]/.test(trimmed) || /^\d+[.)-]\s*/.test(trimmed);
 }
 
-function normalizeFlowingText(value: string | null | undefined, fallback = '—') {
+type FlowingTextItem =
+  | { text: string; kind: 'paragraph' | 'list' }
+  | { kind: 'spacer' };
+
+function normalizeFlowingText(value: string | null | undefined, fallback = '—'): FlowingTextItem[] {
   const normalized = String(value ?? '').replace(/\r\n/g, '\n').trim();
   if (!normalized) return [{ text: fallback, kind: 'paragraph' as const }];
 
-  const blocks = normalized
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
+  const items: FlowingTextItem[] = [];
 
-  const items: Array<{ text: string; kind: 'paragraph' | 'list' }> = [];
+  for (const rawLine of normalized.split('\n')) {
+    const text = rawLine.replace(/\s+/g, ' ').trim();
 
-  for (const block of blocks) {
-    const lines = block
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    if (lines.length === 0) continue;
-
-    if (lines.every(isListLine)) {
-      for (const line of lines) {
-        items.push({ text: line.replace(/\s+/g, ' ').trim(), kind: 'list' });
+    if (!text) {
+      if (items.length > 0 && items[items.length - 1]?.kind !== 'spacer') {
+        items.push({ kind: 'spacer' });
       }
       continue;
     }
 
     items.push({
-      text: lines.join(' ').replace(/\s+/g, ' ').trim(),
-      kind: 'paragraph',
+      text,
+      kind: isListLine(text) ? 'list' : 'paragraph',
     });
+  }
+
+  while (items[items.length - 1]?.kind === 'spacer') {
+    items.pop();
   }
 
   return items.length > 0 ? items : [{ text: fallback, kind: 'paragraph' as const }];
@@ -345,7 +347,7 @@ function SectionTitle({
       <Text
         style={[
           styles.sectionTitleText,
-          centered ? styles.sectionTitleTextCentered : null,
+          ...(centered ? [styles.sectionTitleTextCentered] : []),
         ]}
       >
         {children}
@@ -361,11 +363,11 @@ function InfoItem({
 }: {
   label: string;
   value: string | null | undefined;
-  labelStyle?: object;
+  labelStyle?: Style;
 }) {
   return (
     <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, labelStyle]}>{label}</Text>
+      <Text style={[styles.infoLabel, ...(labelStyle ? [labelStyle] : [])]}>{label}</Text>
       <Text style={styles.infoValue}>{showValue(value)}</Text>
     </View>
   );
@@ -405,18 +407,22 @@ function FlowingText({
   fallback = '—',
 }: {
   value: string | null | undefined;
-  style: object;
+  style: Style | Style[];
   fallback?: string;
 }) {
   const items = normalizeFlowingText(value, fallback);
 
   return (
     <View style={styles.sectionBlock}>
-      {items.map((item, index) => (
-        <Text key={[item.kind, index].join('-')} style={style}>
-          {item.text}
-        </Text>
-      ))}
+      {items.map((item, index) =>
+        item.kind === 'spacer' ? (
+          <View key={[item.kind, index].join('-')} style={styles.flowSpacer} />
+        ) : (
+          <Text key={[item.kind, index].join('-')} style={style}>
+            {item.text}
+          </Text>
+        ),
+      )}
     </View>
   );
 }

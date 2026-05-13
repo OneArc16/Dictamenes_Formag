@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { LogOut, User2 } from 'lucide-react';
 
 import { useAuthMe } from '@/hooks/useAuthMe';
+import { useLogout } from '@/hooks/useLogout';
 import { getVisibleModules } from '@/lib/module-navigation';
 import ModulesButton from './ModulesButton';
 
@@ -19,8 +19,8 @@ export default function AppNav({
   showModulesButton = true,
   canSwitchModules,
 }: AppNavProps) {
-  const router = useRouter();
   const { data: user } = useAuthMe();
+  const handleLogout = useLogout();
 
   const userName = user?.name ?? 'Usuario';
   const visibleModules = useMemo(
@@ -32,20 +32,6 @@ export default function AppNav({
     [user?.permissions, user?.role],
   );
   const effectiveCanSwitch = canSwitchModules ?? visibleModules.length > 1;
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Error al cerrar sesion', error);
-    } finally {
-      router.replace('/login');
-      router.refresh();
-    }
-  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">

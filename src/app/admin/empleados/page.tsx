@@ -41,6 +41,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
       { segundoNombre: { contains: q, mode: 'insensitive' } },
       { primerApellido: { contains: q, mode: 'insensitive' } },
       { segundoApellido: { contains: q, mode: 'insensitive' } },
+      { usuario: { contains: q, mode: 'insensitive' } },
       { email: { contains: q, mode: 'insensitive' } },
       { numeroIdentidad: { contains: q, mode: 'insensitive' } },
     ];
@@ -111,6 +112,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-3 py-2">Nombre</th>
+              <th className="px-3 py-2">Usuario</th>
               <th className="px-3 py-2">Documento</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Perfil</th>
@@ -122,7 +124,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
           <tbody className="divide-y divide-slate-100">
             {empleados.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={6}>
+                <td className="px-3 py-6 text-slate-500" colSpan={7}>
                   No hay resultados.
                 </td>
               </tr>
@@ -133,6 +135,8 @@ export default async function EmpleadosPage({ searchParams }: Props) {
                     {e.primerNombre} {e.segundoNombre ?? ''} {e.primerApellido}{' '}
                     {e.segundoApellido ?? ''}
                   </td>
+
+                  <td className="px-3 py-2">{e.usuario ?? '-'}</td>
 
                   <td className="px-3 py-2">
                     {(e.tipoDocumento ?? '').toString()} {e.numeroIdentidad ?? ''}

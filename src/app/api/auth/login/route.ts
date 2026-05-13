@@ -22,13 +22,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { username, password } = LoginSchema.parse(body);
 
-    const login = username.trim();
+    const login = username.trim().toLowerCase();
     const pass = password.trim();
 
     const empleado = await prisma.empleado.findFirst({
       where: {
         activo: true,
-        OR: [{ numeroIdentidad: login }, { email: login }],
+        usuario: login,
       },
       include: {
         perfil: {

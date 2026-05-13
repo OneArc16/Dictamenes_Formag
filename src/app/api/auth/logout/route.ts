@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json(
+    { ok: true },
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
+  );
 
   // Expirar la cookie "auth" para cerrar sesión
   res.cookies.set('auth', '', {

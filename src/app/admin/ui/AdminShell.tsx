@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   BellRing,
   ClipboardList,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { useAuthMe } from '@/hooks/useAuthMe';
+import { useLogout } from '@/hooks/useLogout';
 import { hasAbility, type AbilityCode } from '@/lib/auth/ability-utils';
 import { getRoleLabel, getVisibleModules, type AppRole, type ModuleKey } from '@/lib/module-navigation';
 import { cn } from '@/lib/utils';
@@ -143,8 +144,8 @@ function AdminSidebarContent({
   permissions: string[];
   onNavigate?: () => void;
 }) {
-  const router = useRouter();
   const { data: user } = useAuthMe();
+  const handleLogout = useLogout();
   const effectivePermissions = user?.permissions ?? permissions;
   const effectiveRole = user?.role ?? empleado.role;
 
@@ -169,20 +170,6 @@ function AdminSidebarContent({
     [effectivePermissions],
   );
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Error al cerrar sesion', error);
-    } finally {
-      router.replace('/login');
-      router.refresh();
-    }
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <CardHeader className="space-y-3 border-b border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(241,245,249,0.95))] px-4 pb-3 pt-4 text-slate-950">
@@ -204,7 +191,7 @@ function AdminSidebarContent({
                 <User2 className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-slate-900">{empleado.nombre}</div>
+                <div className="truncate text-sm font-semibold text-slate-900">{user?.name ?? empleado.nombre}</div>
                 <div className="text-[11px] text-slate-500">{getRoleLabel(effectiveRole)}</div>
               </div>
             </div>

@@ -109,6 +109,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
           initialValues={{
             tipoDocumento: empleado.tipoDocumento ?? '',
             numeroIdentidad: empleado.numeroIdentidad ?? '',
+            usuario: empleado.usuario ?? '',
             primerNombre: empleado.primerNombre ?? '',
             segundoNombre: empleado.segundoNombre ?? '',
             primerApellido: empleado.primerApellido ?? '',

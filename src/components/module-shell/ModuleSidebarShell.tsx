@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   ClipboardPlus,
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { useAuthMe } from '@/hooks/useAuthMe';
+import { useLogout } from '@/hooks/useLogout';
 import {
   getModuleByKey,
   getRoleLabel,
@@ -63,7 +64,7 @@ function SidebarContent({
 }) {
   const pathname = usePathname() || '';
   const { data: user } = useAuthMe();
-  const router = useRouter();
+  const handleLogout = useLogout();
 
   const currentModule = getModuleByKey(moduleKey);
   const visibleModules = useMemo(() => {
@@ -76,20 +77,6 @@ function SidebarContent({
       ? modules
       : [...modules, currentModule];
   }, [currentModule, user?.permissions, user?.role]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Error al cerrar sesion', error);
-    } finally {
-      router.replace('/login');
-      router.refresh();
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">

@@ -264,11 +264,12 @@ async function main() {
   // 11.1. KELLY JOHANNA TAMARA SALGADO - admisionista
   await prisma.empleado.upsert({
     where: { id: 1 },
-    update: {},
+    update: { usuario: 'kelly.tamara' },
     create: {
       id: 1,
       tipoDocumento: 'CC',
       numeroIdentidad: '57463398',
+      usuario: 'kelly.tamara',
       primerNombre: 'KELLY',
       segundoNombre: 'JOHANNA',
       primerApellido: 'TAMARA',
@@ -289,11 +290,12 @@ async function main() {
   // 11.2. JONH CAMILO PERTUZ PERTUZ - administrador
   await prisma.empleado.upsert({
     where: { id: 2 },
-    update: {},
+    update: { usuario: 'jonh.pertuz' },
     create: {
       id: 2,
       tipoDocumento: 'CC',
       numeroIdentidad: '1221968097',
+      usuario: 'jonh.pertuz',
       primerNombre: 'JONH',
       segundoNombre: 'CAMILO',
       primerApellido: 'PERTUZ',
@@ -314,11 +316,12 @@ async function main() {
   // 11.3. DANIEL ANDRES CASTAÑO NAVARRO - médico
   const medicoDaniel = await prisma.empleado.upsert({
     where: { id: 3 },
-    update: {},
+    update: { usuario: 'daniel.castano' },
     create: {
       id: 3,
       tipoDocumento: 'CC',
       numeroIdentidad: '1004462425',
+      usuario: 'daniel.castano',
       primerNombre: 'DANIEL',
       segundoNombre: 'ANDRES',
       primerApellido: 'CASTAÑO',

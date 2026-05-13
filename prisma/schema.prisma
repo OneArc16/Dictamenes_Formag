@@ -664,6 +664,7 @@ model Empleado {
 
   tipoDocumento   String? @db.VarChar(3)
   numeroIdentidad String? @db.VarChar(18)
+  usuario         String  @db.VarChar(50)
 
   primerNombre    String  @db.VarChar(40)
   segundoNombre   String? @db.VarChar(40)
@@ -710,6 +711,7 @@ model Empleado {
 
 
   @@unique([tipoDocumento, numeroIdentidad])
+  @@unique([usuario])
   @@unique([email])
   @@index([esMiembroJunta])
   @@index([idSede])

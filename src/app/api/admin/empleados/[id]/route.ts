@@ -57,6 +57,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
       body.tipoDocumento = form.get('tipoDocumento');
       body.numeroIdentidad = form.get('numeroIdentidad');
+      body.usuario = form.get('usuario');
       body.primerNombre = form.get('primerNombre');
       body.segundoNombre = form.get('segundoNombre');
       body.primerApellido = form.get('primerApellido');
@@ -91,6 +92,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // Normalización
     const tipoDocumento = upper(body?.tipoDocumento);
     const numeroIdentidad = upper(body?.numeroIdentidad);
+    const usuario = lower(body?.usuario);
 
     const primerNombre = upper(body?.primerNombre);
     const segundoNombre = upperOrNull(body?.segundoNombre);
@@ -121,6 +123,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // Validaciones
     if (!tipoDocumento || !numeroIdentidad) {
       return NextResponse.json({ ok: false, error: 'Tipo y número de documento son obligatorios' }, { status: 400 });
+    }
+    if (!usuario || usuario.length < 3) {
+      return NextResponse.json({ ok: false, error: 'Usuario es obligatorio y debe tener mínimo 3 caracteres' }, { status: 400 });
+    }
+    if (!/^[a-z0-9._-]+$/.test(usuario)) {
+      return NextResponse.json({ ok: false, error: 'Usuario solo puede tener letras, números, punto, guion o guion bajo' }, { status: 400 });
     }
     if (!primerNombre || !primerApellido) {
       return NextResponse.json({ ok: false, error: 'Primer nombre y primer apellido son obligatorios' }, { status: 400 });
@@ -181,12 +189,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         { status: 409 }
       );
     }
+
+    const existingByUsuario = await prisma.empleado.findFirst({
+      where: { usuario, NOT: { id: empleadoId } },
+      select: { id: true, activo: true },
+    });
+    if (existingByUsuario) {
+      return NextResponse.json(
+        { ok: false, error: `Ya existe otro empleado con ese usuario (ID ${existingByUsuario.id})${existingByUsuario.activo ? '' : ' [INACTIVO]'}` },
+        { status: 409 }
+      );
+    }
     const tratamientoRaw = String(body?.tratamiento ?? '').trim().toUpperCase();
     const tratamiento = tratamientoRaw === 'DRA' ? 'DRA' : 'DR';
 
     const dataToUpdate: any = {
       tipoDocumento,
       numeroIdentidad,
+      usuario,
       primerNombre,
       segundoNombre,
       primerApellido,
@@ -243,7 +263,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       const target = err?.meta?.target;
       const targetStr = Array.isArray(target) ? target.join(', ') : String(target ?? '');
       return NextResponse.json(
-        { ok: false, error: `Conflicto de unicidad: ${targetStr || 'email/documento'}` },
+        { ok: false, error: `Conflicto de unicidad: ${targetStr || 'usuario/email/documento'}` },
         { status: 409 }
       );
     }

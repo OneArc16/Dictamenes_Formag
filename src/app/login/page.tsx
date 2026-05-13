@@ -18,6 +18,7 @@ export default function LoginPage() {
         const res = await fetch('/api/auth/me', {
           method: 'GET',
           credentials: 'include',
+          cache: 'no-store',
         });
 
         if (!res.ok) return;
@@ -51,7 +52,7 @@ export default function LoginPage() {
       </div>
 
       <main className="w-full max-w-md px-4">
-        <AuthCard title="Acceder" subtitle="Ingresa con tu documento y clave">
+        <AuthCard title="Acceder" subtitle="Ingresa con tu usuario y clave">
           <LoginForm />
         </AuthCard>
 
