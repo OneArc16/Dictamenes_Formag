@@ -11,7 +11,7 @@ import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDic
 import { DictamenFiltersBar, type MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
 import { type DictamenRow, type EstadoDictamenFiltro } from '@/components/dictamen/types';
-import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
+import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
 import { type MotivoReaperturaOption } from '@/lib/reapertura/types';
 import { useCan } from '@/hooks/useCan';
 
@@ -154,7 +154,7 @@ export default function AdmisionesPage() {
   };
 
   return (
-    <ModuleSidebarShell
+    <ModulePageLayout
       moduleKey="admisiones"
       title="Control de dictamenes en admisiones"
       description="Consulta transversal de docentes, filtros por medico y acceso operativo para impresion o reapertura cuando aplique."
@@ -208,6 +208,6 @@ export default function AdmisionesPage() {
           );
         }}
       />
-    </ModuleSidebarShell>
+    </ModulePageLayout>
   );
 }

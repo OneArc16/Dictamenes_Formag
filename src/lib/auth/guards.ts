@@ -31,19 +31,21 @@ function toAuthUser(context: AuthorizationContext): AuthUser {
 
 async function requireModuleAccess(moduleKey: ModuleKey) {
   const context = await requireAuthorizationContext();
-  if (!hasModuleAbility(context, moduleKey)) redirect('/login');
+  if (!hasModuleAbility(context, moduleKey)) redirect('/sin-acceso');
   return context;
 }
 
 export async function requireAbility(ability: AbilityCode) {
   const context = await requireAuthorizationContext();
-  if (!hasAbility(context, ability)) redirect('/login');
+  if (!hasAbility(context, ability)) redirect('/sin-acceso');
   return context;
 }
 
 export async function requireAdmin(requiredAbility?: AbilityCode) {
   const context = await requireModuleAccess('admin');
-  if (requiredAbility && !hasAbility(context, requiredAbility)) redirect('/login');
+  if (requiredAbility && !hasAbility(context, requiredAbility)) {
+    redirect('/sin-acceso');
+  }
   return toAuthUser(context);
 }
 

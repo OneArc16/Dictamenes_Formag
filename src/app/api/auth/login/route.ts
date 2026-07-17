@@ -7,7 +7,6 @@ import {
   inferAppRoleFromPermissionCodes,
   normalizeAppRole,
 } from '@/lib/auth/authorization';
-import { getDefaultPathForUser } from '@/lib/module-navigation';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -102,7 +101,7 @@ export async function POST(req: Request) {
 
     const res = NextResponse.json({
       ok: true,
-      redirect: getDefaultPathForUser({ role, permissions: permissionCodes }),
+      redirect: '/inicio',
     });
 
     res.cookies.set('auth', token, {

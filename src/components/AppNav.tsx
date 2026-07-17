@@ -1,12 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
-import { LogOut, User2 } from 'lucide-react';
-
-import { useAuthMe } from '@/hooks/useAuthMe';
-import { useLogout } from '@/hooks/useLogout';
-import { getVisibleModules } from '@/lib/module-navigation';
-import ModulesButton from './ModulesButton';
+import { FileText } from 'lucide-react';
 
 type AppNavProps = {
   title?: string;
@@ -15,58 +9,30 @@ type AppNavProps = {
 };
 
 export default function AppNav({
-  title = 'Modulo',
-  showModulesButton = true,
+  title = 'Módulo',
+  showModulesButton,
   canSwitchModules,
 }: AppNavProps) {
-  const { data: user } = useAuthMe();
-  const handleLogout = useLogout();
-
-  const userName = user?.name ?? 'Usuario';
-  const visibleModules = useMemo(
-    () =>
-      getVisibleModules({
-        role: user?.role ?? null,
-        permissions: user?.permissions ?? [],
-      }),
-    [user?.permissions, user?.role],
-  );
-  const effectiveCanSwitch = canSwitchModules ?? visibleModules.length > 1;
+  // Compatibilidad durante la migración: la navegación global ahora pertenece
+  // al ModuleAppShell y estas opciones ya no alteran el encabezado contextual.
+  void showModulesButton;
+  void canSwitchModules;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
-            D
+    <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="flex min-h-14 items-center px-4 py-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <FileText className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-xs font-semibold text-slate-800">{title}</span>
-            <span className="text-[10px] text-slate-400">
-              Plataforma de dictamenes PCL
+          <div className="min-w-0 leading-tight">
+            <span className="block truncate text-sm font-semibold text-slate-900">
+              {title}
+            </span>
+            <span className="mt-0.5 block text-[11px] text-slate-500">
+              Información del módulo
             </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {showModulesButton ? (
-            <ModulesButton canSwitchModules={effectiveCanSwitch} />
-          ) : null}
-
-          <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 shadow-sm sm:inline-flex">
-            <User2 className="h-3.5 w-3.5 text-slate-500" />
-            <span className="max-w-[170px] truncate">{userName}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-1 focus:ring-offset-white"
-            title="Cerrar sesion"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Cerrar sesion</span>
-          </button>
         </div>
       </div>
     </header>

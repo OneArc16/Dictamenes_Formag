@@ -12,7 +12,7 @@ import { RegistrarDocenteModal } from '@/components/RegistrarDocenteModal';
 import ReadOnlyBanner from '@/components/medico/ReadOnlyBanner';
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
 import { useCan } from '@/hooks/useCan';
-import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
+import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
 
 type DictamenApiRow = {
   id: number;
@@ -155,7 +155,7 @@ export default function MedicoPage() {
   };
 
   return (
-    <ModuleSidebarShell
+    <ModulePageLayout
       moduleKey="medico"
       title="Dictamenes del medico"
       description="Consulta tus dictamenes pendientes, reabiertos y cerrados con una navegacion lateral separada del formulario clinico."
@@ -193,6 +193,6 @@ export default function MedicoPage() {
         onClose={() => setShowRegistrarModal(false)}
         onDictamenCreated={handleDictamenCreated}
       />
-    </ModuleSidebarShell>
+    </ModulePageLayout>
   );
 }

@@ -1,19 +1,12 @@
 ﻿import { requireAdmin } from '@/lib/auth/guards';
-import AdminShell from './ui/AdminShell';
+import ModuleAppShell from '@/components/app-shell/ModuleAppShell';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAdmin();
 
   return (
-    <AdminShell
-      empleado={{
-        nombre: session.name,
-        perfil: session.perfilNombre ?? session.role,
-        role: session.role,
-      }}
-      permissions={session.permissions}
-    >
+    <ModuleAppShell moduleKey="admin" user={session}>
       {children}
-    </AdminShell>
+    </ModuleAppShell>
   );
 }

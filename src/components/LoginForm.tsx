@@ -11,7 +11,7 @@ type LoginFormProps = {
 
 export default function LoginForm({
   action = '/api/auth/login',
-  onSuccessRedirect = '/',
+  onSuccessRedirect = '/inicio',
 }: LoginFormProps) {
   const queryClient = useQueryClient();
   const [username, setUsername] = useState('');

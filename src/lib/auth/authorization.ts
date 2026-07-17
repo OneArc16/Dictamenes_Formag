@@ -1,5 +1,6 @@
 ﻿import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 
 import { verifyJwt } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -67,7 +68,7 @@ export function inferAppRoleFromPermissionCodes(
   return normalizeAppRole(fallbackRole);
 }
 
-export async function getAuthorizationContext(): Promise<AuthorizationContext | null> {
+async function resolveAuthorizationContext(): Promise<AuthorizationContext | null> {
   try {
     const store = await cookies();
     const token = store.get('auth')?.value;
@@ -133,6 +134,8 @@ export async function getAuthorizationContext(): Promise<AuthorizationContext | 
   }
 }
 
+export const getAuthorizationContext = cache(resolveAuthorizationContext);
+
 export async function requireAuthorizationContext(): Promise<AuthorizationContext> {
   const context = await getAuthorizationContext();
   if (!context) redirect('/login');
@@ -140,3 +143,4 @@ export async function requireAuthorizationContext(): Promise<AuthorizationContex
 }
 
 export { hasAbility, hasAllAbilities, hasAnyAbility, hasModuleAbility };
+export type { AbilityCode } from '@/lib/auth/ability-utils';

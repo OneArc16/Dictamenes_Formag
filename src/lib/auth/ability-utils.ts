@@ -20,7 +20,7 @@ function resolvePermissions(
     return source;
   }
 
-  return source?.permissions ?? [];
+  return (source as PermissionCarrier | null | undefined)?.permissions ?? [];
 }
 
 export function hasAbility(

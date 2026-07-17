@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 
 import AuthCard from '@/components/AuthCard';
 import LoginForm from '@/components/LoginForm';
-import { getDefaultPathForUser } from '@/lib/module-navigation';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,14 +25,7 @@ export default function LoginPage() {
         const data = await res.json();
         if (!data?.ok || !data.user || cancelled) return;
 
-        router.replace(
-          getDefaultPathForUser({
-            role: data.user.role as string | undefined,
-            permissions: Array.isArray(data.user.permissions)
-              ? data.user.permissions.map((permission: unknown) => String(permission))
-              : [],
-          }),
-        );
+        router.replace('/inicio');
       } catch {
       }
     };

@@ -10,7 +10,7 @@ import {
   type DictamenExportRow,
 } from '@/components/DictamenExportButton';
 import { RegistrarDocenteModal } from '@/components/RegistrarDocenteModal';
-import ModuleSidebarShell from '@/components/module-shell/ModuleSidebarShell';
+import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
 import { ReabrirRecomendacionDialog } from '@/components/recomendaciones/ReabrirRecomendacionDialog';
 import {
   RecomendacionesFiltersBar,
@@ -210,7 +210,7 @@ export default function RecomendacionesPage() {
   };
 
   return (
-    <ModuleSidebarShell
+    <ModulePageLayout
       moduleKey="recomendaciones"
       title="Control de recomendaciones"
       description="Consulta recomendaciones, filtra por medico y registra docentes desde un flujo operativo uniforme."
@@ -281,6 +281,6 @@ export default function RecomendacionesPage() {
           onDocenteSaved={handleDocenteSaved}
         />
       ) : null}
-    </ModuleSidebarShell>
+    </ModulePageLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { requireMedicoModule } from '@/lib/auth/guards';
+import ModuleAppShell from '@/components/app-shell/ModuleAppShell';
 import MedicoAccessProvider from '@/components/medico/MedicoAccessProvider';
 
 export default async function MedicoLayout({
@@ -8,10 +9,11 @@ export default async function MedicoLayout({
 }) {
   const { user, readOnly } = await requireMedicoModule();
 
-  // ✅ NO AppNav aquí (para no duplicar headers)
   return (
     <MedicoAccessProvider user={user} readOnly={readOnly}>
-      {children}
+      <ModuleAppShell moduleKey="medico" user={user}>
+        {children}
+      </ModuleAppShell>
     </MedicoAccessProvider>
   );
 }

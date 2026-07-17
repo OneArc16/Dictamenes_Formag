@@ -2,11 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-import {
-  canAccessModulePath,
-  getDefaultPathForUser,
-} from '@/lib/module-navigation';
-
 const PUBLIC_PREFIXES = ['/api/auth/login', '/favicon', '/_next', '/assets'];
 
 function isPublic(pathname: string) {
@@ -29,21 +24,14 @@ export async function middleware(req: NextRequest) {
 
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-    const role = payload.role as string | undefined;
-    const permissions = Array.isArray(payload.permissions)
-      ? payload.permissions.map((permission) => String(permission))
-      : [];
-    const defaultPath = getDefaultPathForUser({ role: role ?? null, permissions });
+    await jwtVerify(token, secret);
 
-    if (pathname === '/login' || pathname === '/' || pathname === '/inicio') {
-      return NextResponse.redirect(new URL(defaultPath, req.url));
+    if (pathname === '/login' || pathname === '/') {
+      return NextResponse.redirect(new URL('/inicio', req.url));
     }
 
-    if (!canAccessModulePath({ role: role ?? null, permissions }, pathname)) {
-      return NextResponse.redirect(new URL(defaultPath, req.url));
-    }
-
+    // La autorización por módulo se resuelve en los layouts/guards contra la
+    // base de datos. El middleware solo descarta sesiones ausentes o inválidas.
     return NextResponse.next();
   } catch {
     const res = NextResponse.redirect(new URL('/login', req.url));

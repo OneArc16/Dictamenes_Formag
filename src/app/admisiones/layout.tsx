@@ -1,4 +1,5 @@
 import { requireAdmisionesModule } from '@/lib/auth/guards';
+import ModuleAppShell from '@/components/app-shell/ModuleAppShell';
 import AdmisionesAccessProvider from '@/components/admisiones/AdmisionesAccessProvider';
 
 export default async function AdmisionesLayout({
@@ -8,10 +9,11 @@ export default async function AdmisionesLayout({
 }) {
   const { user, canReabrirDictamen } = await requireAdmisionesModule();
 
-  // ✅ NO AppNav aquí (si ya lo trae tu módulo)
   return (
     <AdmisionesAccessProvider user={user} canReabrirDictamen={canReabrirDictamen}>
-      {children}
+      <ModuleAppShell moduleKey="admisiones" user={user}>
+        {children}
+      </ModuleAppShell>
     </AdmisionesAccessProvider>
   );
 }

@@ -6,123 +6,180 @@ export type ModuleKey =
   | 'admisiones'
   | 'recomendaciones';
 
+export type NavigationIconKey =
+  | ModuleKey
+  | 'dashboard'
+  | 'employees'
+  | 'profiles'
+  | 'reopen'
+  | 'notifications'
+  | 'audit';
+
+export type ModuleNavigationItem = {
+  key: string;
+  label: string;
+  href: string;
+  iconKey: NavigationIconKey;
+  requiredAbility?: string;
+};
+
 export type ModuleDefinition = {
   key: ModuleKey;
   label: string;
   href: string;
   description: string;
-  allowedRoles: AppRole[];
+  iconKey: NavigationIconKey;
   requiredAbility: string;
+  landingAbility?: string;
+  secondaryNavigation: readonly ModuleNavigationItem[];
 };
 
 export type ModuleAccessInput =
-  | {
-      role?: string | null;
-      permissions?: readonly string[] | null;
-    }
-  | string
+  | { permissions?: readonly string[] | null }
   | null
   | undefined;
 
 export const MODULE_DEFINITIONS: readonly ModuleDefinition[] = [
   {
     key: 'medico',
-    label: 'Medico',
+    label: 'Médico',
     href: '/medico',
-    description: 'Gestion clinica y seguimiento de dictamenes.',
-    allowedRoles: ['MEDICO', 'ADMIN'],
+    description: 'Gestión clínica y seguimiento de dictámenes.',
+    iconKey: 'medico',
     requiredAbility: 'module.medico.access',
+    secondaryNavigation: [],
   },
   {
     key: 'admisiones',
     label: 'Admisiones',
     href: '/admisiones',
-    description: 'Consulta operativa, impresion y control de estados.',
-    allowedRoles: ['ADMISIONISTA', 'ADMIN'],
+    description: 'Consulta operativa, impresión y control de estados.',
+    iconKey: 'admisiones',
     requiredAbility: 'module.admisiones.access',
+    secondaryNavigation: [],
   },
   {
     key: 'recomendaciones',
     label: 'Recomendaciones',
     href: '/recomendaciones',
-    description: 'Formulario laboral independiente para docentes y medicos.',
-    allowedRoles: ['MEDICO', 'ADMISIONISTA', 'ADMIN'],
+    description: 'Gestión de recomendaciones laborales para docentes.',
+    iconKey: 'recomendaciones',
     requiredAbility: 'module.recomendaciones.access',
+    secondaryNavigation: [],
   },
   {
     key: 'admin',
-    label: 'Administrador',
+    label: 'Administración',
     href: '/admin',
-    description: 'Configuracion, empleados y gestion del sistema.',
-    allowedRoles: ['ADMIN'],
+    description: 'Configuración, empleados, perfiles y auditoría del sistema.',
+    iconKey: 'admin',
     requiredAbility: 'module.admin.access',
+    landingAbility: 'admin.dashboard.read',
+    secondaryNavigation: [
+      {
+        key: 'dashboard',
+        label: 'Resumen',
+        href: '/admin',
+        iconKey: 'dashboard',
+        requiredAbility: 'admin.dashboard.read',
+      },
+      {
+        key: 'employees',
+        label: 'Empleados',
+        href: '/admin/empleados',
+        iconKey: 'employees',
+        requiredAbility: 'admin.empleados.read',
+      },
+      {
+        key: 'profiles',
+        label: 'Perfiles',
+        href: '/admin/perfiles',
+        iconKey: 'profiles',
+        requiredAbility: 'admin.perfiles.read',
+      },
+      {
+        key: 'reopen-reasons',
+        label: 'Motivos de reapertura',
+        href: '/admin/motivos-reapertura',
+        iconKey: 'reopen',
+        requiredAbility: 'admin.motivos_reapertura.read',
+      },
+      {
+        key: 'pcl-notifiers',
+        label: 'Notificadores PCL',
+        href: '/admin/notificadores-pcl',
+        iconKey: 'notifications',
+        requiredAbility: 'admin.notificadores_pcl.read',
+      },
+      {
+        key: 'audit',
+        label: 'Auditoría',
+        href: '/admin/auditoria',
+        iconKey: 'audit',
+        requiredAbility: 'admin.auditoria.read',
+      },
+    ],
   },
 ] as const;
 
-const DEFAULT_MODULE_BY_ROLE: Record<AppRole, ModuleKey> = {
-  ADMIN: 'admin',
-  MEDICO: 'medico',
-  ADMISIONISTA: 'admisiones',
-};
-
 function normalizeModuleAccessInput(input?: ModuleAccessInput) {
   if (!input) {
-    return { role: null, permissions: [] as string[] };
-  }
-
-  if (typeof input === 'string') {
-    return { role: input, permissions: [] as string[] };
+    return { permissions: [] as string[] };
   }
 
   return {
-    role: input.role ?? null,
     permissions: Array.isArray(input.permissions)
       ? input.permissions.map((permission) => String(permission))
       : [],
   };
 }
 
-function canAccessModule(moduleItem: ModuleDefinition, input?: ModuleAccessInput) {
+export function canAccessModule(
+  moduleItem: ModuleDefinition,
+  input?: ModuleAccessInput,
+) {
   const normalized = normalizeModuleAccessInput(input);
-
-  if (normalized.permissions.includes(moduleItem.requiredAbility)) {
-    return true;
-  }
-
-  return normalized.role
-    ? moduleItem.allowedRoles.includes(normalized.role as AppRole)
-    : false;
-}
-
-export function getDefaultPathForUser(input?: ModuleAccessInput) {
-  const normalized = normalizeModuleAccessInput(input);
-  const normalizedRole = normalized.role as AppRole | null;
-
-  if (normalizedRole) {
-    const defaultKey = DEFAULT_MODULE_BY_ROLE[normalizedRole];
-    const defaultModule = getModuleByKey(defaultKey);
-
-    if (defaultModule && canAccessModule(defaultModule, normalized)) {
-      return defaultModule.href;
-    }
-  }
-
-  return getVisibleModules(normalized)[0]?.href ?? '/login';
-}
-
-export function getDefaultPathForRole(role?: string | null) {
-  return getDefaultPathForUser(role);
+  return normalized.permissions.includes(moduleItem.requiredAbility);
 }
 
 export function getRoleLabel(role?: string | null) {
   if (role === 'ADMIN') return 'Administrador';
-  if (role === 'MEDICO') return 'Medico';
+  if (role === 'MEDICO') return 'Médico';
   if (role === 'ADMISIONISTA') return 'Admisiones';
   return 'Usuario';
 }
 
 export function getVisibleModules(input?: ModuleAccessInput) {
   return MODULE_DEFINITIONS.filter((moduleItem) => canAccessModule(moduleItem, input));
+}
+
+export function getVisibleSecondaryNavigation(
+  moduleItem: ModuleDefinition,
+  input?: ModuleAccessInput,
+) {
+  const normalized = normalizeModuleAccessInput(input);
+
+  return moduleItem.secondaryNavigation.filter(
+    (item) =>
+      !item.requiredAbility ||
+      normalized.permissions.includes(item.requiredAbility),
+  );
+}
+
+export function getModuleEntryPath(
+  moduleItem: ModuleDefinition,
+  input?: ModuleAccessInput,
+) {
+  const normalized = normalizeModuleAccessInput(input);
+
+  if (
+    !moduleItem.landingAbility ||
+    normalized.permissions.includes(moduleItem.landingAbility)
+  ) {
+    return moduleItem.href;
+  }
+
+  return getVisibleSecondaryNavigation(moduleItem, normalized)[0]?.href ?? moduleItem.href;
 }
 
 export function getModuleByKey(key: ModuleKey) {
@@ -136,13 +193,4 @@ export function getCurrentModule(pathname: string) {
         pathname === moduleItem.href || pathname.startsWith(`${moduleItem.href}/`),
     ) ?? null
   );
-}
-
-export function canAccessModulePath(
-  input: ModuleAccessInput,
-  pathname: string,
-) {
-  const currentModule = getCurrentModule(pathname);
-  if (!currentModule) return true;
-  return canAccessModule(currentModule, input);
 }
