@@ -60,30 +60,23 @@ export class AgendaApplicationError extends Error {
   }
 }
 
-function scheduleApplies(schedule: ScheduleRow, date: string) {
-  const from = schedule.vigenteDesde.toISOString().slice(0, 10);
-  const to = schedule.vigenteHasta?.toISOString().slice(0, 10) ?? null;
-  return schedule.activo && from <= date && (!to || to >= date);
-}
-
 function resolveEffectiveSchedule(
   schedules: ScheduleRow[],
   medicoId: number,
-  date: string,
 ): { schedule: ScheduleRow | null; error: string | null } {
   const particular = schedules.filter(
-    (schedule) => schedule.medicoId === medicoId && scheduleApplies(schedule, date),
+    (schedule) => schedule.medicoId === medicoId && schedule.activo,
   );
   if (particular.length > 1) {
-    return { schedule: null, error: `Hay más de un horario particular vigente para ${date}.` };
+    return { schedule: null, error: 'Hay más de un horario particular activo.' };
   }
   if (particular[0]) return { schedule: particular[0], error: null };
 
   const site = schedules.filter(
-    (schedule) => schedule.medicoId === null && scheduleApplies(schedule, date),
+    (schedule) => schedule.medicoId === null && schedule.activo,
   );
   if (site.length > 1) {
-    return { schedule: null, error: `Hay más de un horario de sede vigente para ${date}.` };
+    return { schedule: null, error: 'Hay más de un horario de sede activo.' };
   }
   return { schedule: site[0] ?? null, error: null };
 }
@@ -195,15 +188,10 @@ export async function calculateAgenda(
     where: {
       sedeId: input.sedeId,
       activo: true,
-      vigenteDesde: { lte: parseDateOnly(input.fechaFinal) },
-      OR: [
-        { vigenteHasta: null },
-        { vigenteHasta: { gte: parseDateOnly(input.fechaInicial) } },
-      ],
-      AND: [{ OR: [{ medicoId: null }, { medicoId: { in: input.medicoIds } }] }],
+      OR: [{ medicoId: null }, { medicoId: { in: input.medicoIds } }],
     },
     include: { bloques: { orderBy: [{ diaSemana: 'asc' }, { orden: 'asc' }] } },
-    orderBy: [{ medicoId: 'desc' }, { vigenteDesde: 'asc' }],
+    orderBy: [{ medicoId: 'desc' }, { id: 'asc' }],
   });
 
   const { from, to } = broadUtcRange(input.fechaInicial, input.fechaFinal);
@@ -235,25 +223,26 @@ export async function calculateAgenda(
     const doctorWorkDates = new Set<string>();
     let excludedDates = 0;
 
-    for (const date of dates) {
-      const resolved = resolveEffectiveSchedule(schedules, medicoId, date);
-      if (resolved.error) {
-        doctorErrors.add(resolved.error);
-        continue;
-      }
-      if (!resolved.schedule) {
-        doctorErrors.add('No existe un horario laboral efectivo para todo el periodo.');
-        continue;
-      }
-
-      const schedule = resolved.schedule;
+    const resolved = resolveEffectiveSchedule(schedules, medicoId);
+    if (resolved.error) doctorErrors.add(resolved.error);
+    if (!resolved.schedule) {
+      doctorErrors.add('No existe un horario laboral activo para el médico ni para su sede.');
+    }
+    const schedule = resolved.schedule;
+    const blocks = schedule
+      ? schedule.bloques.map((block) => ({
+          diaSemana: block.diaSemana,
+          horaInicio: timeFromDatabase(block.horaInicio),
+          horaFin: timeFromDatabase(block.horaFin),
+        }))
+      : [];
+    if (schedule) {
       usedSchedules.set(schedule.id, schedule);
       scheduleVersions.add(`${schedule.id}:${schedule.updatedAt.toISOString()}`);
-      const blocks = schedule.bloques.map((block) => ({
-        diaSemana: block.diaSemana,
-        horaInicio: timeFromDatabase(block.horaInicio),
-        horaFin: timeFromDatabase(block.horaFin),
-      }));
+    }
+
+    for (const date of dates) {
+      if (!schedule) continue;
       if (!blocks.some((block) => block.diaSemana === isoDayOfWeek(date))) continue;
       doctorWorkDates.add(date);
       evaluatedWorkDates.add(date);

@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import { parseDateOnly, timeFromDatabase } from '@/features/agenda/domain/date-time';
+import { timeFromDatabase } from '@/features/agenda/domain/date-time';
 import { AgendaApplicationError } from '@/features/agenda/application/agenda-service';
 import { listSchedulableDoctors } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { prisma } from '@/lib/prisma';
@@ -10,8 +10,6 @@ export type WorkScheduleCommand = {
   medicoId?: number | null;
   nombre: string;
   zonaHoraria: string;
-  vigenteDesde: string;
-  vigenteHasta?: string | null;
   bloques: Array<{
     diaSemana: number;
     horaInicio: string;
@@ -39,21 +37,20 @@ async function assertScheduleScope(command: WorkScheduleCommand, excludeId?: num
     }
   }
 
-  const from = parseDateOnly(command.vigenteDesde);
-  const to = command.vigenteHasta ? parseDateOnly(command.vigenteHasta) : null;
-  const overlap = await prisma.horarioLaboral.findFirst({
+  const activeSchedule = await prisma.horarioLaboral.findFirst({
     where: {
       id: excludeId ? { not: excludeId } : undefined,
       activo: true,
       sedeId: command.sedeId,
       medicoId: command.medicoId ?? null,
-      vigenteDesde: { lte: to ?? new Date('9999-12-31T00:00:00.000Z') },
-      OR: [{ vigenteHasta: null }, { vigenteHasta: { gte: from } }],
     },
     select: { id: true, nombre: true },
   });
-  if (overlap) {
-    throw new AgendaApplicationError(`La vigencia se superpone con “${overlap.nombre}”.`, 409);
+  if (activeSchedule) {
+    throw new AgendaApplicationError(
+      `Ya existe un horario activo para este alcance: “${activeSchedule.nombre}”. Edítalo o desactívalo.`,
+      409,
+    );
   }
 }
 
@@ -63,8 +60,6 @@ function scheduleData(command: WorkScheduleCommand, actor: string) {
     medicoId: command.medicoId ?? null,
     nombre: command.nombre,
     zonaHoraria: command.zonaHoraria,
-    vigenteDesde: parseDateOnly(command.vigenteDesde),
-    vigenteHasta: command.vigenteHasta ? parseDateOnly(command.vigenteHasta) : null,
     updatedBy: actor,
   };
 }
@@ -142,7 +137,7 @@ export async function listWorkSchedules(filters: { sedeId: number; medicoId?: nu
       bloques: { orderBy: [{ diaSemana: 'asc' }, { orden: 'asc' }] },
       _count: { select: { generaciones: true } },
     },
-    orderBy: [{ activo: 'desc' }, { vigenteDesde: 'desc' }, { id: 'desc' }],
+    orderBy: [{ activo: 'desc' }, { updatedAt: 'desc' }, { id: 'desc' }],
   });
 
   return rows.map((row) => ({
@@ -158,8 +153,6 @@ export async function listWorkSchedules(filters: { sedeId: number; medicoId?: nu
     alcance: row.medicoId ? 'PARTICULAR' : 'SEDE',
     nombre: row.nombre,
     zonaHoraria: row.zonaHoraria,
-    vigenteDesde: row.vigenteDesde.toISOString().slice(0, 10),
-    vigenteHasta: row.vigenteHasta?.toISOString().slice(0, 10) ?? null,
     activo: row.activo,
     utilizado: row._count.generaciones > 0,
     bloques: row.bloques.map((block) => ({

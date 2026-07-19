@@ -45,7 +45,6 @@ before(async () => {
       sedeId: site.id,
       nombre: 'Jornada partida',
       zonaHoraria: 'America/Bogota',
-      vigenteDesde: '2030-01-01',
       bloques: [
         { diaSemana: 1, horaInicio: '08:00', horaFin: '12:00' },
         { diaSemana: 1, horaInicio: '13:00', horaFin: '17:00' },
@@ -121,7 +120,6 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
       medicoId: doctor.id,
       nombre: 'Horario particular corto',
       zonaHoraria: 'America/Bogota',
-      vigenteDesde: '2030-01-01',
       bloques: [{ diaSemana: 1, horaInicio: '09:00', horaFin: '11:00' }],
     },
     'integration-test',

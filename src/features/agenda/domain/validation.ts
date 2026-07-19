@@ -71,15 +71,9 @@ export const workScheduleSchema = z
     medicoId: z.number().int().positive().nullable().optional(),
     nombre: z.string().trim().min(3).max(120),
     zonaHoraria: z.string().trim().min(3).max(80).default('America/Bogota'),
-    vigenteDesde: dateOnlySchema,
-    vigenteHasta: dateOnlySchema.nullable().optional(),
     bloques: z.array(workScheduleBlockSchema).min(1).max(35),
   })
   .superRefine((value, context) => {
-    if (value.vigenteHasta && value.vigenteHasta < value.vigenteDesde) {
-      context.addIssue({ code: 'custom', path: ['vigenteHasta'], message: 'La vigencia final es inválida.' });
-    }
-
     try {
       new Intl.DateTimeFormat('es-CO', { timeZone: value.zonaHoraria }).format();
     } catch {

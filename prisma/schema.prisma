@@ -740,26 +740,24 @@ model Empleado {
 // AGENDA MEDICA
 // =====================================
 model HorarioLaboral {
-  id           Int       @id @default(autoincrement())
-  sedeId       Int
-  medicoId     Int?
-  nombre       String    @db.VarChar(120)
-  zonaHoraria  String    @default("America/Bogota") @db.VarChar(80)
-  vigenteDesde DateTime  @db.Date
-  vigenteHasta DateTime? @db.Date
-  activo       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String    @db.VarChar(100)
-  updatedBy    String    @db.VarChar(100)
+  id          Int      @id @default(autoincrement())
+  sedeId      Int
+  medicoId    Int?
+  nombre      String   @db.VarChar(120)
+  zonaHoraria String   @default("America/Bogota") @db.VarChar(80)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   @db.VarChar(100)
+  updatedBy   String   @db.VarChar(100)
 
   sede         Sede                     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   medico       Empleado?                @relation("HorarioLaboralMedico", fields: [medicoId], references: [id], onDelete: Restrict)
   bloques      HorarioLaboralBloque[]
   generaciones GeneracionAgendaMedico[]
 
-  @@index([sedeId, activo, vigenteDesde, vigenteHasta])
-  @@index([medicoId, activo, vigenteDesde, vigenteHasta])
+  @@index([sedeId, activo])
+  @@index([medicoId, activo])
   @@map("horarios_laborales")
 }
 
