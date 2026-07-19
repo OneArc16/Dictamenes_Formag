@@ -82,3 +82,15 @@ export async function requireRecomendacionesModule() {
     canReopenRecomendacion: hasAbility(context, 'recomendacion.reopen'),
   };
 }
+
+export async function requireAgendaModule() {
+  const context = await requireModuleAccess('agenda');
+
+  return {
+    user: toAuthUser(context),
+    canRead: hasAbility(context, 'agenda.read') || hasAbility(context, 'agenda.read.own'),
+    canCreate: hasAbility(context, 'agenda.create'),
+    canManageSchedules: hasAbility(context, 'agenda.schedule.manage'),
+    canCancelSlots: hasAbility(context, 'agenda.slots.cancel'),
+  };
+}

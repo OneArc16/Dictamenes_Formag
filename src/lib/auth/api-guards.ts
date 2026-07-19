@@ -124,3 +124,9 @@ export async function requireRecomendacionesApi(
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
   return requireModuleApi('recomendaciones', requiredAbility);
 }
+
+export async function requireAgendaApi(
+  requiredAbility?: AbilityCode,
+): Promise<ApiGuardFailure | ApiGuardSuccess> {
+  return requireModuleApi('agenda', requiredAbility);
+}

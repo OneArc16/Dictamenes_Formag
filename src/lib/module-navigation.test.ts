@@ -66,3 +66,27 @@ test('mantiene la ruta canónica cuando el landing está autorizado', () => {
     '/admin',
   );
 });
+
+test('Agenda Médica usa permisos explícitos para módulo y accesos secundarios', () => {
+  const agenda = getModuleByKey('agenda');
+  assert.ok(agenda);
+
+  assert.deepEqual(
+    getVisibleModules({ permissions: ['module.agenda.access'] }).map((item) => item.key),
+    ['agenda'],
+  );
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(agenda, {
+      permissions: ['agenda.read', 'agenda.schedule.manage'],
+    }).map((item) => item.key),
+    ['agenda-list', 'agenda-schedule'],
+  );
+  assert.equal(
+    getModuleEntryPath(agenda, { permissions: ['agenda.create'] }),
+    '/agenda/crear',
+  );
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(agenda, { permissions: ['agenda.read.own'] }).map((item) => item.key),
+    ['agenda-list'],
+  );
+});

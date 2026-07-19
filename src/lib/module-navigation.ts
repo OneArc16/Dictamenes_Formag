@@ -4,6 +4,7 @@ export type ModuleKey =
   | 'admin'
   | 'medico'
   | 'admisiones'
+  | 'agenda'
   | 'recomendaciones';
 
 export type NavigationIconKey =
@@ -13,7 +14,10 @@ export type NavigationIconKey =
   | 'profiles'
   | 'reopen'
   | 'notifications'
-  | 'audit';
+  | 'audit'
+  | 'agenda-list'
+  | 'agenda-create'
+  | 'agenda-schedule';
 
 export type ModuleNavigationItem = {
   key: string;
@@ -21,6 +25,7 @@ export type ModuleNavigationItem = {
   href: string;
   iconKey: NavigationIconKey;
   requiredAbility?: string;
+  requiredAnyAbilities?: readonly string[];
 };
 
 export type ModuleDefinition = {
@@ -66,6 +71,38 @@ export const MODULE_DEFINITIONS: readonly ModuleDefinition[] = [
     iconKey: 'recomendaciones',
     requiredAbility: 'module.recomendaciones.access',
     secondaryNavigation: [],
+  },
+  {
+    key: 'agenda',
+    label: 'Agenda Médica',
+    href: '/agenda',
+    description: 'Horarios laborales, creación y control de cupos médicos.',
+    iconKey: 'agenda',
+    requiredAbility: 'module.agenda.access',
+    landingAbility: 'agenda.read',
+    secondaryNavigation: [
+      {
+        key: 'agenda-list',
+        label: 'Agendas creadas',
+        href: '/agenda',
+        iconKey: 'agenda-list',
+        requiredAnyAbilities: ['agenda.read', 'agenda.read.own'],
+      },
+      {
+        key: 'agenda-create',
+        label: 'Crear agenda',
+        href: '/agenda/crear',
+        iconKey: 'agenda-create',
+        requiredAbility: 'agenda.create',
+      },
+      {
+        key: 'agenda-schedule',
+        label: 'Horario laboral',
+        href: '/agenda/horarios',
+        iconKey: 'agenda-schedule',
+        requiredAbility: 'agenda.schedule.manage',
+      },
+    ],
   },
   {
     key: 'admin',
@@ -161,8 +198,9 @@ export function getVisibleSecondaryNavigation(
 
   return moduleItem.secondaryNavigation.filter(
     (item) =>
-      !item.requiredAbility ||
-      normalized.permissions.includes(item.requiredAbility),
+      (!item.requiredAbility || normalized.permissions.includes(item.requiredAbility)) &&
+      (!item.requiredAnyAbilities ||
+        item.requiredAnyAbilities.some((ability) => normalized.permissions.includes(ability))),
   );
 }
 

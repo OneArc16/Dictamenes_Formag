@@ -41,6 +41,7 @@ function resolveModuloKey(permiso: PermisoOption) {
   if (permiso.codigo.startsWith('module.')) return 'module';
   if (permiso.codigo.startsWith('dictamen.')) return 'dictamen';
   if (permiso.codigo.startsWith('recomendacion.')) return 'recomendacion';
+  if (permiso.codigo.startsWith('agenda.')) return 'agenda';
   if (permiso.codigo.startsWith('admin.')) return 'admin';
 
   return 'otros';

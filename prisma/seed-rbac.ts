@@ -8,6 +8,13 @@ const permissions = [
   { codigo: 'module.medico.access', nombre: 'Acceso al modulo Medico', modulo: 'module' },
   { codigo: 'module.admisiones.access', nombre: 'Acceso al modulo Admisiones', modulo: 'module' },
   { codigo: 'module.recomendaciones.access', nombre: 'Acceso al modulo Recomendaciones', modulo: 'module' },
+  { codigo: 'module.agenda.access', nombre: 'Acceso al modulo Agenda Medica', modulo: 'module' },
+
+  { codigo: 'agenda.read', nombre: 'Consultar agendas y cupos', modulo: 'agenda' },
+  { codigo: 'agenda.read.own', nombre: 'Consultar agenda medica propia', modulo: 'agenda' },
+  { codigo: 'agenda.create', nombre: 'Crear agendas medicas', modulo: 'agenda' },
+  { codigo: 'agenda.schedule.manage', nombre: 'Gestionar horarios laborales', modulo: 'agenda' },
+  { codigo: 'agenda.slots.cancel', nombre: 'Cancelar cupos disponibles', modulo: 'agenda' },
 
   { codigo: 'admin.dashboard.read', nombre: 'Ver dashboard administrativo', modulo: 'admin' },
   { codigo: 'admin.empleados.read', nombre: 'Ver empleados', modulo: 'admin' },
@@ -50,6 +57,8 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
   ADMISIONISTA: [
     'module.admisiones.access',
     'module.recomendaciones.access',
+    'module.agenda.access',
+    'agenda.read',
 
     'dictamen.read',
     'dictamen.reopen',
@@ -65,6 +74,8 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
   MEDICO: [
     'module.medico.access',
     'module.recomendaciones.access',
+    'module.agenda.access',
+    'agenda.read.own',
 
     'dictamen.read',
     'dictamen.create',

@@ -8,7 +8,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test:navigation": "tsx --test src/lib/module-navigation.test.ts"
+    "test:navigation": "tsx --test src/lib/module-navigation.test.ts",
+    "test:agenda": "node --import tsx --test src/features/agenda/domain/slot-engine.test.ts src/lib/module-navigation.test.ts",
+    "test:agenda:integration": "node --import tsx --test src/features/agenda/application/agenda-service.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

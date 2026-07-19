@@ -10,6 +10,7 @@ const MODULE_ABILITY_BY_KEY: Record<ModuleKey, AbilityCode> = {
   admin: 'module.admin.access',
   medico: 'module.medico.access',
   admisiones: 'module.admisiones.access',
+  agenda: 'module.agenda.access',
   recomendaciones: 'module.recomendaciones.access',
 };
 

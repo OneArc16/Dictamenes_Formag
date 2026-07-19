@@ -52,7 +52,6 @@ enum TipoHistorialRecomendacionLaboral {
   CIERRE
 }
 
-
 // Modo de valoración para MOVIMIENTO
 enum MovimientoModo {
   RESTRICCION
@@ -231,6 +230,20 @@ enum EstadoHistorialDictamen {
   CERRADO
 }
 
+enum EstadoGeneracionAgenda {
+  PROCESANDO
+  COMPLETADA
+  COMPLETADA_CON_OMISIONES
+  FALLIDA
+  CANCELADA
+}
+
+enum EstadoCupoMedico {
+  DISPONIBLE
+  RESERVADO
+  ASIGNADO
+  CANCELADO
+}
 
 // =====================================
 // NUEVO: CARGOS DOCENTES (Usuario)
@@ -320,12 +333,12 @@ model Municipio {
 
   departamento Departamento @relation("DepartamentoMunicipios", fields: [codigoDepartamento], references: [codigo])
 
-  usuarios      Usuario[]              @relation("MunicipioUsuarios")
-  eps           Eps[]                  @relation("MunicipioEps")
-  barrios       Barrio[]               @relation("MunicipioBarrios")
-  centrosMedicos CentroMedico[]        @relation("MunicipioCentroMedico")
-  sedes         Sede[]                 @relation("MunicipioSedes")
-  instituciones InstitucionEducativa[] @relation("MunicipioInstituciones")
+  usuarios       Usuario[]              @relation("MunicipioUsuarios")
+  eps            Eps[]                  @relation("MunicipioEps")
+  barrios        Barrio[]               @relation("MunicipioBarrios")
+  centrosMedicos CentroMedico[]         @relation("MunicipioCentroMedico")
+  sedes          Sede[]                 @relation("MunicipioSedes")
+  instituciones  InstitucionEducativa[] @relation("MunicipioInstituciones")
 
   @@index([codigoDepartamento])
   @@map("municipios")
@@ -432,10 +445,13 @@ model Sede {
   departamento Departamento? @relation("DepartamentoSedes", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioSedes", fields: [codigoMunicipio], references: [codigo])
 
-  usuarios       Usuario[]           @relation("SedeUsuarios")
-  empleados      Empleado[]          @relation("SedeEmpleados")
-  dictamenes     Dictamen[]          @relation("SedeDictamenes")
-  notificadores  SedeNotificador[]
+  usuarios           Usuario[]          @relation("SedeUsuarios")
+  empleados          Empleado[]         @relation("SedeEmpleados")
+  dictamenes         Dictamen[]         @relation("SedeDictamenes")
+  notificadores      SedeNotificador[]
+  horariosLaborales  HorarioLaboral[]
+  generacionesAgenda GeneracionAgenda[]
+  cuposMedicos       CupoMedico[]
 
   @@index([centroMedicoId])
   @@index([codigoDepartamento])
@@ -444,13 +460,13 @@ model Sede {
 }
 
 model SedeNotificador {
-  id         Int     @id @default(autoincrement())
+  id         Int @id @default(autoincrement())
   sedeId     Int
   empleadoId Int
 
   estado       Boolean   @default(true)
-  vigenteDesde DateTime? @db.Date @map("vigente_desde")
-  vigenteHasta DateTime? @db.Date @map("vigente_hasta")
+  vigenteDesde DateTime? @map("vigente_desde") @db.Date
+  vigenteHasta DateTime? @map("vigente_hasta") @db.Date
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -488,11 +504,11 @@ model InstitucionEducativa {
   id     Int    @id @default(autoincrement())
   nombre String @db.VarChar(150)
 
-  idDepartamento String? @db.Char(2) @map("id_departamento")
-  idMunicipio    String? @db.Char(5) @map("id_municipio")
+  idDepartamento String? @map("id_departamento") @db.Char(2)
+  idMunicipio    String? @map("id_municipio") @db.Char(5)
   idSecretaria   Int?    @map("id_secretaria")
 
-  codigoIed String? @db.VarChar(20) @map("codigo_ied")
+  codigoIed String? @map("codigo_ied") @db.VarChar(20)
 
   direccion String? @db.VarChar(255)
 
@@ -522,8 +538,7 @@ model Perfil {
   updatedBy String?  @db.VarChar(100)
 
   empleados Empleado[]
-  permisos PerfilPermiso[]
-
+  permisos  PerfilPermiso[]
 
   @@map("perfiles")
 }
@@ -588,7 +603,7 @@ model Usuario {
   nroHijos    Int     @default(0) @db.SmallInt
   escolaridad String? @db.Text
 
-  fechaVinculacion DateTime? @db.Date @map("fecha_vinculacion")
+  fechaVinculacion DateTime? @map("fecha_vinculacion") @db.Date
   fechaAfiliacion  DateTime  @default(now())
 
   celular            String? @db.VarChar(15)
@@ -687,21 +702,25 @@ model Empleado {
   perfil   Perfil? @relation(fields: [perfilId], references: [id])
 
   firma     Bytes?
-  firmaMime String? @db.VarChar(50) @map("firma_mime")
+  firmaMime String? @map("firma_mime") @db.VarChar(50)
 
   esMiembroJunta Boolean @default(false) @map("es_miembro_junta")
 
   email  String? @db.VarChar(50)
   idSede Int?
-  sede   Sede? @relation("SedeEmpleados", fields: [idSede], references: [id])
+  sede   Sede?   @relation("SedeEmpleados", fields: [idSede], references: [id])
 
-  especialidades EmpleadoEspecialidad[]
-  sedesNotificador SedeNotificador[] @relation("EmpleadoNotificadoresSede")
+  especialidades     EmpleadoEspecialidad[]
+  sedesNotificador   SedeNotificador[]               @relation("EmpleadoNotificadoresSede")
+  horariosLaborales  HorarioLaboral[]                @relation("HorarioLaboralMedico")
+  generacionesAgenda GeneracionAgendaMedico[]        @relation("GeneracionAgendaMedicoEmpleado")
+  exclusionesAgenda  GeneracionAgendaFechaExcluida[] @relation("GeneracionAgendaExclusionMedico")
+  cuposMedicos       CupoMedico[]                    @relation("CupoMedicoEmpleado")
 
-  dictamenes          Dictamen[]         @relation("EmpleadoDictamenesResponsable")
-  dictamenesReabiertos Dictamen[]        @relation("EmpleadoReaberturasDictamenes")
-  historialDictamenes DictamenHistorial[] @relation("EmpleadoHistorialDictamenes")
-  dictamenJunta       DictamenJunta[]
+  dictamenes           Dictamen[]          @relation("EmpleadoDictamenesResponsable")
+  dictamenesReabiertos Dictamen[]          @relation("EmpleadoReaberturasDictamenes")
+  historialDictamenes  DictamenHistorial[] @relation("EmpleadoHistorialDictamenes")
+  dictamenJunta        DictamenJunta[]
 
   recomendacionesLaborales   RecomendacionLaboral[]      @relation("EmpleadoRecomendacionesLaborales")
   recomendacionLaboralFirmas RecomendacionLaboralFirma[] @relation("EmpleadoFirmasRecomendacionLaboral")
@@ -709,13 +728,144 @@ model Empleado {
   recomendacionesReabiertas RecomendacionLaboral[]          @relation("EmpleadoReaberturasRecomendacionesLaborales")
   historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("EmpleadoHistorialRecomendacionesLaborales")
 
-
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([usuario])
   @@unique([email])
   @@index([esMiembroJunta])
   @@index([idSede])
   @@map("empleados")
+}
+
+// =====================================
+// AGENDA MEDICA
+// =====================================
+model HorarioLaboral {
+  id           Int       @id @default(autoincrement())
+  sedeId       Int
+  medicoId     Int?
+  nombre       String    @db.VarChar(120)
+  zonaHoraria  String    @default("America/Bogota") @db.VarChar(80)
+  vigenteDesde DateTime  @db.Date
+  vigenteHasta DateTime? @db.Date
+  activo       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdBy    String    @db.VarChar(100)
+  updatedBy    String    @db.VarChar(100)
+
+  sede         Sede                     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  medico       Empleado?                @relation("HorarioLaboralMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+  bloques      HorarioLaboralBloque[]
+  generaciones GeneracionAgendaMedico[]
+
+  @@index([sedeId, activo, vigenteDesde, vigenteHasta])
+  @@index([medicoId, activo, vigenteDesde, vigenteHasta])
+  @@map("horarios_laborales")
+}
+
+model HorarioLaboralBloque {
+  id               Int      @id @default(autoincrement())
+  horarioLaboralId Int
+  diaSemana        Int      @db.SmallInt
+  horaInicio       DateTime @db.Time(0)
+  horaFin          DateTime @db.Time(0)
+  orden            Int      @default(1) @db.SmallInt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  horarioLaboral HorarioLaboral @relation(fields: [horarioLaboralId], references: [id], onDelete: Cascade)
+
+  @@index([horarioLaboralId, diaSemana, orden])
+  @@map("horarios_laborales_bloques")
+}
+
+model GeneracionAgenda {
+  id              Int                    @id @default(autoincrement())
+  sedeId          Int
+  fechaInicial    DateTime               @db.Date
+  fechaFinal      DateTime               @db.Date
+  duracionMinutos Int                    @db.SmallInt
+  zonaHoraria     String                 @default("America/Bogota") @db.VarChar(80)
+  estado          EstadoGeneracionAgenda @default(PROCESANDO)
+  idempotencyKey  String                 @unique @db.Uuid
+  totalMedicos    Int                    @default(0)
+  totalCandidatos Int                    @default(0)
+  totalCreados    Int                    @default(0)
+  totalOmitidos   Int                    @default(0)
+  totalConflictos Int                    @default(0)
+  errorResumen    String?                @db.Text
+  createdAt       DateTime               @default(now())
+  completedAt     DateTime?
+  createdBy       String                 @db.VarChar(100)
+
+  sede            Sede                            @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  medicos         GeneracionAgendaMedico[]
+  fechasExcluidas GeneracionAgendaFechaExcluida[]
+  cupos           CupoMedico[]
+
+  @@index([sedeId, createdAt])
+  @@map("generaciones_agenda")
+}
+
+model GeneracionAgendaMedico {
+  id                 Int @id @default(autoincrement())
+  generacionAgendaId Int
+  medicoId           Int
+  horarioLaboralId   Int
+  totalCandidatos    Int @default(0)
+  totalCreados       Int @default(0)
+  totalOmitidos      Int @default(0)
+  totalConflictos    Int @default(0)
+
+  generacionAgenda GeneracionAgenda @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
+  medico           Empleado         @relation("GeneracionAgendaMedicoEmpleado", fields: [medicoId], references: [id], onDelete: Restrict)
+  horarioLaboral   HorarioLaboral   @relation(fields: [horarioLaboralId], references: [id], onDelete: Restrict)
+
+  @@unique([generacionAgendaId, medicoId])
+  @@index([medicoId])
+  @@index([horarioLaboralId])
+  @@map("generaciones_agenda_medicos")
+}
+
+model GeneracionAgendaFechaExcluida {
+  id                 Int      @id @default(autoincrement())
+  generacionAgendaId Int
+  medicoId           Int?
+  fecha              DateTime @db.Date
+  motivo             String?  @db.VarChar(255)
+
+  generacionAgenda GeneracionAgenda @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
+  medico           Empleado?        @relation("GeneracionAgendaExclusionMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+
+  @@index([generacionAgendaId])
+  @@index([medicoId, fecha])
+  @@map("generaciones_agenda_fechas_excluidas")
+}
+
+model CupoMedico {
+  id                 Int              @id @default(autoincrement())
+  generacionAgendaId Int
+  medicoId           Int
+  sedeId             Int
+  inicio             DateTime         @db.Timestamptz(3)
+  fin                DateTime         @db.Timestamptz(3)
+  duracionMinutos    Int              @db.SmallInt
+  estado             EstadoCupoMedico @default(DISPONIBLE)
+  canceladoAt        DateTime?        @db.Timestamptz(3)
+  canceladoBy        String?          @db.VarChar(100)
+  motivoCancelacion  String?          @db.VarChar(500)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  createdBy          String           @db.VarChar(100)
+
+  generacionAgenda GeneracionAgenda @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
+  medico           Empleado         @relation("CupoMedicoEmpleado", fields: [medicoId], references: [id], onDelete: Restrict)
+  sede             Sede             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+
+  @@index([medicoId, inicio])
+  @@index([sedeId, inicio, estado])
+  @@index([generacionAgendaId])
+  @@map("cupos_medicos")
 }
 
 // =====================================
@@ -727,7 +877,7 @@ model Deficiencia {
   nombre    String  @db.VarChar(255)
   capitulo  String? @db.VarChar(20)
   decreto   String? @db.VarChar(50)
-  tipoTabla String? @db.VarChar(50) @map("tipo_tabla")
+  tipoTabla String? @map("tipo_tabla") @db.VarChar(50)
 
   nervios     DeficienciaNervio[]
   clases      DeficienciaClase[]
@@ -745,12 +895,12 @@ model DeficienciaNervio {
   deficienciaId Int
   nombre        String @db.VarChar(255)
 
-  motorA     Decimal? @db.Decimal(6, 2) @map("motor_a")
-  sensitivoA Decimal? @db.Decimal(6, 2) @map("sensitivo_a")
-  mixtoA     Decimal? @db.Decimal(6, 2) @map("mixto_a")
-  motorB     Decimal? @db.Decimal(6, 2) @map("motor_b")
-  sensitivoB Decimal? @db.Decimal(6, 2) @map("sensitivo_b")
-  mixtoB     Decimal? @db.Decimal(6, 2) @map("mixto_b")
+  motorA     Decimal? @map("motor_a") @db.Decimal(6, 2)
+  sensitivoA Decimal? @map("sensitivo_a") @db.Decimal(6, 2)
+  mixtoA     Decimal? @map("mixto_a") @db.Decimal(6, 2)
+  motorB     Decimal? @map("motor_b") @db.Decimal(6, 2)
+  sensitivoB Decimal? @map("sensitivo_b") @db.Decimal(6, 2)
+  mixtoB     Decimal? @map("mixto_b") @db.Decimal(6, 2)
   orden      Int      @default(1)
 
   deficiencia Deficiencia @relation(fields: [deficienciaId], references: [id])
@@ -767,11 +917,11 @@ model DeficienciaClase {
   deficienciaId Int
   nombre        String @db.VarChar(255)
 
-  procedimientoA Decimal? @db.Decimal(6, 2) @map("procedimiento_a")
-  procedimientoB Decimal? @db.Decimal(6, 2) @map("procedimiento_b")
+  procedimientoA Decimal? @map("procedimiento_a") @db.Decimal(6, 2)
+  procedimientoB Decimal? @map("procedimiento_b") @db.Decimal(6, 2)
   orden          Int      @default(1)
 
-  deficiencia          Deficiencia         @relation(fields: [deficienciaId], references: [id])
+  deficiencia          Deficiencia           @relation(fields: [deficienciaId], references: [id])
   dictamenDeficiencias DictamenDeficiencia[]
 
   @@index([deficienciaId])
@@ -783,14 +933,14 @@ model DeficienciaMovimiento {
   id            Int @id @default(autoincrement())
   deficienciaId Int
 
-  tipoMovimiento String   @db.VarChar(255) @map("tipo_movimiento")
-  rangoInicial   Decimal? @db.Decimal(6, 2) @map("rango_inicial")
-  rangoFinal     Decimal? @db.Decimal(6, 2) @map("rango_final")
+  tipoMovimiento String   @map("tipo_movimiento") @db.VarChar(255)
+  rangoInicial   Decimal? @map("rango_inicial") @db.Decimal(6, 2)
+  rangoFinal     Decimal? @map("rango_final") @db.Decimal(6, 2)
 
-  restriccionA Decimal? @db.Decimal(6, 2) @map("restriccion_a")
-  restriccionB Decimal? @db.Decimal(6, 2) @map("restriccion_b")
-  anquilosisA  Decimal? @db.Decimal(6, 2) @map("anquilosis_a")
-  anquilosisB  Decimal? @db.Decimal(6, 2) @map("anquilosis_b")
+  restriccionA Decimal? @map("restriccion_a") @db.Decimal(6, 2)
+  restriccionB Decimal? @map("restriccion_b") @db.Decimal(6, 2)
+  anquilosisA  Decimal? @map("anquilosis_a") @db.Decimal(6, 2)
+  anquilosisB  Decimal? @map("anquilosis_b") @db.Decimal(6, 2)
 
   grupo String? @db.VarChar(100)
   orden Int     @default(1)
@@ -863,9 +1013,9 @@ model Dictamen {
   estado                    Boolean @default(true)
   reabierto                 Boolean @default(false)
 
-  reabiertoEn       DateTime? @map("reabierto_en")
-  reabiertoPorId    Int?      @map("reabierto_por_id")
-  motivoReaperturaId Int?     @map("motivo_reapertura_id")
+  reabiertoEn        DateTime? @map("reabierto_en")
+  reabiertoPorId     Int?      @map("reabierto_por_id")
+  motivoReaperturaId Int?      @map("motivo_reapertura_id")
 
   empleadoId Int?
   empleado   Empleado? @relation("EmpleadoDictamenesResponsable", fields: [empleadoId], references: [id])
@@ -873,7 +1023,7 @@ model Dictamen {
   sedeId Int?
   sede   Sede? @relation("SedeDictamenes", fields: [sedeId], references: [id])
 
-  reabiertoPor Empleado?        @relation("EmpleadoReaberturasDictamenes", fields: [reabiertoPorId], references: [id])
+  reabiertoPor     Empleado?         @relation("EmpleadoReaberturasDictamenes", fields: [reabiertoPorId], references: [id])
   motivoReapertura MotivoReapertura? @relation("MotivoReaperturaActualDictamen", fields: [motivoReaperturaId], references: [id])
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
@@ -896,7 +1046,6 @@ model Dictamen {
   @@map("dictamenes")
 }
 
-
 // =====================================
 // Snapshots de junta por dictamen
 // =====================================
@@ -905,11 +1054,11 @@ model DictamenJunta {
   dictamenId Int  @map("dictamen_id")
   empleadoId Int? @map("empleado_id")
 
-  nombreCompleto String  @db.VarChar(150) @map("nombre_completo")
-  registroMedico String? @db.VarChar(25) @map("registro_medico")
-  licencia       String? @db.VarChar(30) @map("licencia")
+  nombreCompleto String  @map("nombre_completo") @db.VarChar(150)
+  registroMedico String? @map("registro_medico") @db.VarChar(25)
+  licencia       String? @map("licencia") @db.VarChar(30)
   firma          Bytes?  @map("firma")
-  firmaMime      String? @db.VarChar(50) @map("firma_mime")
+  firmaMime      String? @map("firma_mime") @db.VarChar(50)
 
   orden     Int      @default(1)
   cerradoEn DateTime @default(now()) @map("cerrado_en")
@@ -935,18 +1084,18 @@ model RecomendacionLaboral {
   numeroRecomendacion String?  @db.VarChar(30)
   fechaRecomendacion  DateTime @db.Date
 
-  pesoKg Decimal? @db.Decimal(5, 2) @map("peso_kg")
-  tallaM Decimal? @db.Decimal(4, 2) @map("talla_m")
+  pesoKg Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  tallaM Decimal? @map("talla_m") @db.Decimal(4, 2)
   imc    Decimal? @db.Decimal(5, 2)
 
-  examenesRealizados                         String? @db.Text @map("examenes_realizados")
-  motivo                                     String? @db.Text
-  recomendacionesObservacionesRestricciones  String? @db.Text @map("recomendaciones_observaciones_restricciones")
+  examenesRealizados                        String? @map("examenes_realizados") @db.Text
+  motivo                                    String? @db.Text
+  recomendacionesObservacionesRestricciones String? @map("recomendaciones_observaciones_restricciones") @db.Text
 
   estado EstadoRecomendacionLaboral @default(BORRADOR)
 
-  cerradaEn    DateTime? @map("cerrada_en")
-  reabiertaEn  DateTime? @map("reabierta_en")
+  cerradaEn   DateTime? @map("cerrada_en")
+  reabiertaEn DateTime? @map("reabierta_en")
 
   reabiertaPorId     Int? @map("reabierta_por_id")
   motivoReaperturaId Int? @map("motivo_reapertura_id")
@@ -1005,11 +1154,11 @@ model RecomendacionLaboralFirma {
   recomendacionLaboralId Int  @map("recomendacion_laboral_id")
   empleadoId             Int? @map("empleado_id")
 
-  nombreCompleto String  @db.VarChar(150) @map("nombre_completo")
-  registroMedico String? @db.VarChar(25) @map("registro_medico")
+  nombreCompleto String  @map("nombre_completo") @db.VarChar(150)
+  registroMedico String? @map("registro_medico") @db.VarChar(25)
   licencia       String? @db.VarChar(30)
   firma          Bytes?
-  firmaMime      String? @db.VarChar(50) @map("firma_mime")
+  firmaMime      String? @map("firma_mime") @db.VarChar(50)
 
   orden     Int      @default(1)
   cerradoEn DateTime @default(now()) @map("cerrado_en")
@@ -1039,8 +1188,8 @@ model MotivoReapertura {
   recomendacionesReabiertas RecomendacionLaboral[]          @relation("MotivoReaperturaActualRecomendacionLaboral")
   historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("MotivoReaperturaHistorialRecomendacionLaboral")
 
-  dictamenesReabiertos Dictamen[]           @relation("MotivoReaperturaActualDictamen")
-  historialDictamenes  DictamenHistorial[]  @relation("MotivoReaperturaHistorialDictamen")
+  dictamenesReabiertos Dictamen[]          @relation("MotivoReaperturaActualDictamen")
+  historialDictamenes  DictamenHistorial[] @relation("MotivoReaperturaHistorialDictamen")
 
   @@unique([nombre])
   @@index([codigo])
@@ -1051,9 +1200,9 @@ model MotivoReapertura {
 model DictamenHistorial {
   id Int @id @default(autoincrement())
 
-  dictamenId           Int  @map("dictamen_id")
-  empleadoId           Int? @map("empleado_id")
-  motivoReaperturaId   Int? @map("motivo_reapertura_id")
+  dictamenId         Int  @map("dictamen_id")
+  empleadoId         Int? @map("empleado_id")
+  motivoReaperturaId Int? @map("motivo_reapertura_id")
 
   tipo TipoHistorialDictamen
 
@@ -1065,9 +1214,9 @@ model DictamenHistorial {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  dictamen         Dictamen           @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
-  empleado         Empleado?          @relation("EmpleadoHistorialDictamenes", fields: [empleadoId], references: [id], onDelete: SetNull)
-  motivoReapertura MotivoReapertura?  @relation("MotivoReaperturaHistorialDictamen", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
+  dictamen         Dictamen          @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
+  empleado         Empleado?         @relation("EmpleadoHistorialDictamenes", fields: [empleadoId], references: [id], onDelete: SetNull)
+  motivoReapertura MotivoReapertura? @relation("MotivoReaperturaHistorialDictamen", fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
 
   @@index([dictamenId])
   @@index([empleadoId])
@@ -1077,10 +1226,10 @@ model DictamenHistorial {
 }
 
 model DictamenDiagnostico {
-  id         Int             @id @default(autoincrement())
-  dictamenId Int
-  cie10Codigo String         @db.VarChar(10)
-  tipo       TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
+  id          Int             @id @default(autoincrement())
+  dictamenId  Int
+  cie10Codigo String          @db.VarChar(10)
+  tipo        TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
   cie10    Cie10    @relation(fields: [cie10Codigo], references: [codigo])
@@ -1091,7 +1240,7 @@ model DictamenDiagnostico {
 }
 
 model DictamenDeficiencia {
-  id            Int @id @default(autoincrement())
+  id            Int  @id @default(autoincrement())
   dictamenId    Int
   deficienciaId Int
   claseId       Int? @map("id_clase")
@@ -1120,10 +1269,10 @@ model DictamenDeficienciaMovimiento {
   dictamenDeficienciaId Int @map("dictamen_deficiencia_id")
   movimientoId          Int @map("movimiento_id")
 
-  tipoMovimiento String @db.VarChar(255) @map("tipo_movimiento")
+  tipoMovimiento String @map("tipo_movimiento") @db.VarChar(255)
 
   modo  MovimientoModo
-  valor Decimal? @db.Decimal(6, 2)
+  valor Decimal?       @db.Decimal(6, 2)
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
@@ -1138,10 +1287,10 @@ model DictamenDeficienciaMovimiento {
 
 // TÍTULO II – Cap. 1
 model DictamenLimitacionesAvdAivd {
-  id         Int             @id @default(autoincrement())
+  id         Int              @id @default(autoincrement())
   dictamenId Int
   actividad  ActividadAvdAivd
-  valor      Decimal         @db.Decimal(3, 1)
+  valor      Decimal          @db.Decimal(3, 1)
 
   dictamen Dictamen @relation(fields: [dictamenId], references: [id])
 
@@ -1152,7 +1301,7 @@ model DictamenLimitacionesAvdAivd {
 
 // TÍTULO III – Análisis ocupacional
 model DictamenAnalisisOcupacional {
-  id         Int @id @default(autoincrement())
+  id         Int                       @id @default(autoincrement())
   dictamenId Int
   factor     FactorAnalisisOcupacional
   gravedad   GravedadAnalisis
