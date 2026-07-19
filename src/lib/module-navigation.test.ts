@@ -7,6 +7,7 @@ import {
   getModuleEntryPath,
   getVisibleModules,
   getVisibleSecondaryNavigation,
+  isSecondaryNavigationActive,
 } from './module-navigation';
 
 test('los roles no conceden módulos sin permisos explícitos', () => {
@@ -88,5 +89,44 @@ test('Agenda Médica usa permisos explícitos para módulo y accesos secundarios
   assert.deepEqual(
     getVisibleSecondaryNavigation(agenda, { permissions: ['agenda.read.own'] }).map((item) => item.key),
     ['agenda-list'],
+  );
+});
+
+test('solo marca Agendas creadas dentro de su propia ruta', () => {
+  const agenda = getModuleByKey('agenda');
+  assert.ok(agenda);
+
+  const agendasCreadas = agenda.secondaryNavigation.find(
+    (item) => item.key === 'agenda-list',
+  );
+  const crearAgenda = agenda.secondaryNavigation.find(
+    (item) => item.key === 'agenda-create',
+  );
+  const horarioLaboral = agenda.secondaryNavigation.find(
+    (item) => item.key === 'agenda-schedule',
+  );
+  assert.ok(agendasCreadas);
+  assert.ok(crearAgenda);
+  assert.ok(horarioLaboral);
+
+  assert.equal(
+    isSecondaryNavigationActive('/agenda', agendasCreadas, agenda),
+    true,
+  );
+  assert.equal(
+    isSecondaryNavigationActive('/agenda/crear', agendasCreadas, agenda),
+    false,
+  );
+  assert.equal(
+    isSecondaryNavigationActive('/agenda/horarios', agendasCreadas, agenda),
+    false,
+  );
+  assert.equal(
+    isSecondaryNavigationActive('/agenda/crear', crearAgenda, agenda),
+    true,
+  );
+  assert.equal(
+    isSecondaryNavigationActive('/agenda/horarios', horarioLaboral, agenda),
+    true,
   );
 });

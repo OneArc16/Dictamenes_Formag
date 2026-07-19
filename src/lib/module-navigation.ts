@@ -220,6 +220,18 @@ export function getModuleEntryPath(
   return getVisibleSecondaryNavigation(moduleItem, normalized)[0]?.href ?? moduleItem.href;
 }
 
+export function isSecondaryNavigationActive(
+  pathname: string,
+  item: ModuleNavigationItem,
+  moduleItem: ModuleDefinition,
+) {
+  if (item.href === moduleItem.href) {
+    return pathname === item.href;
+  }
+
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
 export function getModuleByKey(key: ModuleKey) {
   return MODULE_DEFINITIONS.find((moduleItem) => moduleItem.key === key) ?? null;
 }

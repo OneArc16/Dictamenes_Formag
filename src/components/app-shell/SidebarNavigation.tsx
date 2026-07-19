@@ -16,6 +16,7 @@ import type { AuthUser } from '@/lib/auth/guards';
 import {
   getModuleEntryPath,
   getRoleLabel,
+  isSecondaryNavigationActive,
   type ModuleDefinition,
   type ModuleNavigationItem,
 } from '@/lib/module-navigation';
@@ -38,11 +39,6 @@ function isModuleActive(pathname: string, moduleItem: ModuleDefinition) {
     pathname === moduleItem.href ||
     pathname.startsWith(`${moduleItem.href}/`)
   );
-}
-
-function isSecondaryActive(pathname: string, item: ModuleNavigationItem) {
-  if (item.href === '/admin') return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
 function NavigationLink({
@@ -237,7 +233,11 @@ export default function SidebarNavigation({
                   return (
                     <NavigationLink
                       key={item.key}
-                      active={isSecondaryActive(pathname, item)}
+                      active={isSecondaryNavigationActive(
+                        pathname,
+                        item,
+                        currentModule,
+                      )}
                       expanded={expanded}
                       href={item.href}
                       icon={Icon}
