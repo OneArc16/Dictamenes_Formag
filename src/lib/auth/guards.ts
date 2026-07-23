@@ -1,13 +1,13 @@
 ﻿import { redirect } from 'next/navigation';
 
-import type { AppRole, ModuleKey } from '@/lib/module-navigation';
 import {
   hasAbility,
-  hasModuleAbility,
+  hasProtectedAreaAbility,
   requireAuthorizationContext,
   type AbilityCode,
   type AuthorizationContext,
 } from '@/lib/auth/authorization';
+import type { AppRole, ProtectedAreaKey } from '@/lib/auth/types';
 
 export type AuthUser = {
   id: string;
@@ -29,9 +29,9 @@ function toAuthUser(context: AuthorizationContext): AuthUser {
   };
 }
 
-async function requireModuleAccess(moduleKey: ModuleKey) {
+async function requireProtectedAreaAccess(areaKey: ProtectedAreaKey) {
   const context = await requireAuthorizationContext();
-  if (!hasModuleAbility(context, moduleKey)) redirect('/sin-acceso');
+  if (!hasProtectedAreaAbility(context, areaKey)) redirect('/sin-acceso');
   return context;
 }
 
@@ -42,7 +42,7 @@ export async function requireAbility(ability: AbilityCode) {
 }
 
 export async function requireAdmin(requiredAbility?: AbilityCode) {
-  const context = await requireModuleAccess('admin');
+  const context = await requireProtectedAreaAccess('admin');
   if (requiredAbility && !hasAbility(context, requiredAbility)) {
     redirect('/sin-acceso');
   }
@@ -50,7 +50,7 @@ export async function requireAdmin(requiredAbility?: AbilityCode) {
 }
 
 export async function requireMedicoModule() {
-  const context = await requireModuleAccess('medico');
+  const context = await requireProtectedAreaAccess('medico');
 
   return {
     user: toAuthUser(context),
@@ -62,7 +62,7 @@ export async function requireMedicoModule() {
 }
 
 export async function requireAdmisionesModule() {
-  const context = await requireModuleAccess('admisiones');
+  const context = await requireProtectedAreaAccess('admisiones');
 
   return {
     user: toAuthUser(context),
@@ -71,7 +71,7 @@ export async function requireAdmisionesModule() {
 }
 
 export async function requireRecomendacionesModule() {
-  const context = await requireModuleAccess('recomendaciones');
+  const context = await requireProtectedAreaAccess('recomendaciones');
 
   return {
     user: toAuthUser(context),
@@ -84,7 +84,7 @@ export async function requireRecomendacionesModule() {
 }
 
 export async function requireAgendaModule() {
-  const context = await requireModuleAccess('agenda');
+  const context = await requireProtectedAreaAccess('agenda');
 
   return {
     user: toAuthUser(context),

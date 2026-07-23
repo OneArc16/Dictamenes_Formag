@@ -16,6 +16,7 @@ import type { AuthUser } from '@/lib/auth/guards';
 import {
   getModuleEntryPath,
   getRoleLabel,
+  isModuleNavigationActive,
   isSecondaryNavigationActive,
   type ModuleDefinition,
   type ModuleNavigationItem,
@@ -33,13 +34,6 @@ type SidebarNavigationProps = {
   secondaryNavigation: readonly ModuleNavigationItem[];
   user: AuthUser;
 };
-
-function isModuleActive(pathname: string, moduleItem: ModuleDefinition) {
-  return (
-    pathname === moduleItem.href ||
-    pathname.startsWith(`${moduleItem.href}/`)
-  );
-}
 
 function NavigationLink({
   active,
@@ -202,7 +196,7 @@ export default function SidebarNavigation({
               return (
                 <NavigationLink
                   key={moduleItem.key}
-                  active={isModuleActive(pathname, moduleItem)}
+                  active={isModuleNavigationActive(pathname, moduleItem)}
                   expanded={expanded}
                   href={getModuleEntryPath(moduleItem, access)}
                   icon={Icon}

@@ -1,5 +1,5 @@
 ﻿import { useQuery } from '@tanstack/react-query';
-import type { AppRole } from '@/lib/module-navigation';
+import type { AppRole } from '@/lib/auth/types';
 
 export type AuthMeUser = {
   id: string;

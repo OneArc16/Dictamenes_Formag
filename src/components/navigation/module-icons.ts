@@ -1,16 +1,17 @@
 import {
   BellRing,
+  BriefcaseMedical,
   CalendarDays,
   CalendarPlus2,
   CalendarRange,
   Clock3,
+  ClipboardCheck,
   ClipboardList,
   ClipboardPlus,
   IdCard,
   LayoutDashboard,
   RotateCcw,
   ShieldCheck,
-  Stethoscope,
   UserRoundCog,
   UserSquare2,
   type LucideIcon,
@@ -20,7 +21,8 @@ import type { NavigationIconKey } from '@/lib/module-navigation';
 
 export const navigationIconMap: Record<NavigationIconKey, LucideIcon> = {
   admin: ShieldCheck,
-  medico: Stethoscope,
+  'medicina-laboral': BriefcaseMedical,
+  dictamenes: ClipboardCheck,
   admisiones: UserSquare2,
   recomendaciones: ClipboardPlus,
   agenda: CalendarDays,

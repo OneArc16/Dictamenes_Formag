@@ -4,7 +4,10 @@ import type { ReactNode } from 'react';
 
 import { navigationIconMap } from '@/components/navigation/module-icons';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { getModuleByKey, type ModuleKey } from '@/lib/module-navigation';
+import {
+  getModuleByKey,
+  type NavigationModuleKey,
+} from '@/lib/module-navigation';
 import { cn } from '@/lib/utils';
 
 type ModuleStat = {
@@ -17,7 +20,7 @@ type ModulePageLayoutProps = {
   children: ReactNode;
   compactHero?: boolean;
   description: string;
-  moduleKey: ModuleKey;
+  moduleKey: NavigationModuleKey;
   stats?: ModuleStat[];
   title: string;
 };

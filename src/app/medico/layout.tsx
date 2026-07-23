@@ -11,7 +11,7 @@ export default async function MedicoLayout({
 
   return (
     <MedicoAccessProvider user={user} readOnly={readOnly}>
-      <ModuleAppShell moduleKey="medico" user={user}>
+      <ModuleAppShell moduleKey="medicina-laboral" user={user}>
         {children}
       </ModuleAppShell>
     </MedicoAccessProvider>

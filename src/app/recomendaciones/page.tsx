@@ -211,9 +211,9 @@ export default function RecomendacionesPage() {
 
   return (
     <ModulePageLayout
-      moduleKey="recomendaciones"
-      title="Control de recomendaciones"
-      description="Consulta recomendaciones, filtra por medico y registra docentes desde un flujo operativo uniforme."
+      moduleKey="medicina-laboral"
+      title="Recomendaciones laborales"
+      description="Consulta recomendaciones laborales, filtra por médico y registra docentes desde un flujo operativo uniforme."
       compactHero
       actions={
         canExport ? (

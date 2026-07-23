@@ -9,7 +9,7 @@ export default async function RecomendacionesLayout({
   const { user } = await requireRecomendacionesModule();
 
   return (
-    <ModuleAppShell moduleKey="recomendaciones" user={user}>
+    <ModuleAppShell moduleKey="medicina-laboral" user={user}>
       {children}
     </ModuleAppShell>
   );

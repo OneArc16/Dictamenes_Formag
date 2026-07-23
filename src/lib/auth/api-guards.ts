@@ -1,12 +1,12 @@
-import type { AppRole, ModuleKey } from '@/lib/module-navigation';
 import {
   getAuthorizationContext,
   hasAbility,
   hasAnyAbility,
-  hasModuleAbility,
+  hasProtectedAreaAbility,
   type AbilityCode,
   type AuthorizationContext,
 } from '@/lib/auth/authorization';
+import type { AppRole, ProtectedAreaKey } from '@/lib/auth/types';
 
 type ApiGuardPayload = {
   sub: string;
@@ -57,14 +57,14 @@ export async function requireAuthenticatedApi(): Promise<ApiGuardFailure | ApiGu
   return requireApiAuth();
 }
 
-export async function requireModuleApi(
-  moduleKey: ModuleKey,
+export async function requireProtectedAreaApi(
+  areaKey: ProtectedAreaKey,
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
   const auth = await requireApiAuth();
   if (!auth.ok) return auth;
 
-  if (!hasModuleAbility(auth.auth, moduleKey)) {
+  if (!hasProtectedAreaAbility(auth.auth, areaKey)) {
     return { ok: false, status: 403, error: 'No autorizado' };
   }
 
@@ -104,29 +104,29 @@ export async function requireAnyAbilityApi(
 export async function requireAdminApi(
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  return requireModuleApi('admin', requiredAbility);
+  return requireProtectedAreaApi('admin', requiredAbility);
 }
 
 export async function requireAdmisionesApi(
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  return requireModuleApi('admisiones', requiredAbility);
+  return requireProtectedAreaApi('admisiones', requiredAbility);
 }
 
 export async function requireMedicoApi(
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  return requireModuleApi('medico', requiredAbility);
+  return requireProtectedAreaApi('medico', requiredAbility);
 }
 
 export async function requireRecomendacionesApi(
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  return requireModuleApi('recomendaciones', requiredAbility);
+  return requireProtectedAreaApi('recomendaciones', requiredAbility);
 }
 
 export async function requireAgendaApi(
   requiredAbility?: AbilityCode,
 ): Promise<ApiGuardFailure | ApiGuardSuccess> {
-  return requireModuleApi('agenda', requiredAbility);
+  return requireProtectedAreaApi('agenda', requiredAbility);
 }

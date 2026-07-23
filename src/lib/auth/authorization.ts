@@ -8,10 +8,10 @@ import {
   hasAbility,
   hasAllAbilities,
   hasAnyAbility,
-  hasModuleAbility,
+  hasProtectedAreaAbility,
   type AbilityCode,
 } from '@/lib/auth/ability-utils';
-import type { AppRole } from '@/lib/module-navigation';
+import type { AppRole } from '@/lib/auth/types';
 
 export type AuthorizationContext = {
   empleadoId: number;
@@ -142,5 +142,5 @@ export async function requireAuthorizationContext(): Promise<AuthorizationContex
   return context;
 }
 
-export { hasAbility, hasAllAbilities, hasAnyAbility, hasModuleAbility };
+export { hasAbility, hasAllAbilities, hasAnyAbility, hasProtectedAreaAbility };
 export type { AbilityCode } from '@/lib/auth/ability-utils';

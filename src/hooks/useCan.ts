@@ -1,13 +1,13 @@
 ﻿import { useMemo } from 'react';
 
-import type { ModuleKey } from '@/lib/module-navigation';
 import {
   hasAbility,
   hasAllAbilities,
   hasAnyAbility,
-  hasModuleAbility,
+  hasProtectedAreaAbility,
   type AbilityCode,
 } from '@/lib/auth/ability-utils';
+import type { ProtectedAreaKey } from '@/lib/auth/types';
 import { useAuthMe } from '@/hooks/useAuthMe';
 
 export function useCan(ability: AbilityCode) {
@@ -37,11 +37,14 @@ export function useCanAll(abilities: readonly AbilityCode[]) {
   };
 }
 
-export function useCanAccessModule(moduleKey: ModuleKey) {
+export function useCanAccessArea(areaKey: ProtectedAreaKey) {
   const auth = useAuthMe();
 
   return {
     ...auth,
-    can: useMemo(() => hasModuleAbility(auth.data, moduleKey), [auth.data, moduleKey]),
+    can: useMemo(
+      () => hasProtectedAreaAbility(auth.data, areaKey),
+      [auth.data, areaKey],
+    ),
   };
 }

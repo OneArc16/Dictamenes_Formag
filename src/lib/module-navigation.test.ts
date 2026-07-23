@@ -2,19 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  MODULE_DEFINITIONS,
   getCurrentModule,
   getModuleByKey,
   getModuleEntryPath,
   getVisibleModules,
   getVisibleSecondaryNavigation,
+  isModuleNavigationActive,
   isSecondaryNavigationActive,
 } from './module-navigation';
+import { hasProtectedAreaAbility } from './auth/ability-utils';
 
 test('los roles no conceden módulos sin permisos explícitos', () => {
   assert.deepEqual(getVisibleModules({ permissions: [] }), []);
 });
 
-test('muestra únicamente módulos con permiso vigente', () => {
+test('agrupa Dictámenes y Recomendaciones en un único módulo visible', () => {
   const modules = getVisibleModules({
     permissions: [
       'module.medico.access',
@@ -24,14 +27,166 @@ test('muestra únicamente módulos con permiso vigente', () => {
 
   assert.deepEqual(
     modules.map((moduleItem) => moduleItem.key),
-    ['medico', 'recomendaciones'],
+    ['medicina-laboral'],
   );
 });
 
-test('resuelve el módulo activo para rutas profundas', () => {
-  assert.equal(getCurrentModule('/medico/dictamen/42')?.key, 'medico');
+test('muestra Medicina Laboral con cualquiera de sus permisos hijos', () => {
+  assert.deepEqual(
+    getVisibleModules({ permissions: ['module.medico.access'] }).map(
+      (moduleItem) => moduleItem.key,
+    ),
+    ['medicina-laboral'],
+  );
+  assert.deepEqual(
+    getVisibleModules({
+      permissions: ['module.recomendaciones.access'],
+    }).map((moduleItem) => moduleItem.key),
+    ['medicina-laboral'],
+  );
+});
+
+test('filtra los submódulos de Medicina Laboral por permiso', () => {
+  const medicinaLaboral = getModuleByKey('medicina-laboral');
+  assert.ok(medicinaLaboral);
+
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(medicinaLaboral, {
+      permissions: ['module.medico.access'],
+    }).map((item) => item.key),
+    ['dictamenes'],
+  );
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(medicinaLaboral, {
+      permissions: ['module.recomendaciones.access'],
+    }).map((item) => item.key),
+    ['recomendaciones'],
+  );
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(medicinaLaboral, {
+      permissions: [
+        'module.medico.access',
+        'module.recomendaciones.access',
+      ],
+    }).map((item) => item.key),
+    ['dictamenes', 'recomendaciones'],
+  );
+});
+
+test('elige el primer submódulo autorizado como entrada de Medicina Laboral', () => {
+  const medicinaLaboral = getModuleByKey('medicina-laboral');
+  assert.ok(medicinaLaboral);
+
+  assert.equal(
+    getModuleEntryPath(medicinaLaboral, {
+      permissions: [
+        'module.medico.access',
+        'module.recomendaciones.access',
+      ],
+    }),
+    '/medico',
+  );
+  assert.equal(
+    getModuleEntryPath(medicinaLaboral, {
+      permissions: ['module.recomendaciones.access'],
+    }),
+    '/recomendaciones',
+  );
+});
+
+test('resuelve Medicina Laboral como módulo activo en sus rutas profundas', () => {
+  assert.equal(
+    getCurrentModule('/medico/dictamen/42')?.key,
+    'medicina-laboral',
+  );
+  assert.equal(
+    getCurrentModule('/recomendaciones/42')?.key,
+    'medicina-laboral',
+  );
+  assert.equal(
+    getCurrentModule('/medicina-laboral')?.key,
+    'medicina-laboral',
+  );
   assert.equal(getCurrentModule('/admin/perfiles/7/permisos')?.key, 'admin');
   assert.equal(getCurrentModule('/inicio'), null);
+});
+
+test('compara rutas por segmentos completos', () => {
+  const medicinaLaboral = getModuleByKey('medicina-laboral');
+  assert.ok(medicinaLaboral);
+
+  assert.equal(
+    isModuleNavigationActive('/medico-legado', medicinaLaboral),
+    false,
+  );
+  assert.equal(getCurrentModule('/recomendaciones-archivo'), null);
+});
+
+test('el catálogo no declara prefijos de ruta duplicados', () => {
+  const prefixes = MODULE_DEFINITIONS.flatMap((moduleItem) => [
+    ...moduleItem.routePrefixes,
+  ]);
+  assert.equal(new Set(prefixes).size, prefixes.length);
+
+  for (const [index, prefix] of prefixes.entries()) {
+    for (const otherPrefix of prefixes.slice(index + 1)) {
+      assert.equal(
+        prefix.startsWith(`${otherPrefix}/`) ||
+          otherPrefix.startsWith(`${prefix}/`),
+        false,
+        `Los prefijos ${prefix} y ${otherPrefix} se solapan`,
+      );
+    }
+  }
+});
+
+test('marca únicamente el submódulo activo de Medicina Laboral', () => {
+  const medicinaLaboral = getModuleByKey('medicina-laboral');
+  assert.ok(medicinaLaboral);
+
+  const dictamenes = medicinaLaboral.secondaryNavigation.find(
+    (item) => item.key === 'dictamenes',
+  );
+  const recomendaciones = medicinaLaboral.secondaryNavigation.find(
+    (item) => item.key === 'recomendaciones',
+  );
+  assert.ok(dictamenes);
+  assert.ok(recomendaciones);
+
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/medico/dictamen/42',
+      dictamenes,
+      medicinaLaboral,
+    ),
+    true,
+  );
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/medico/dictamen/42',
+      recomendaciones,
+      medicinaLaboral,
+    ),
+    false,
+  );
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/recomendaciones/42',
+      recomendaciones,
+      medicinaLaboral,
+    ),
+    true,
+  );
+});
+
+test('la autorización de áreas protegidas permanece independiente', () => {
+  const permissions = ['module.recomendaciones.access'];
+
+  assert.equal(
+    hasProtectedAreaAbility(permissions, 'recomendaciones'),
+    true,
+  );
+  assert.equal(hasProtectedAreaAbility(permissions, 'medico'), false);
 });
 
 test('filtra la navegación secundaria con el mismo conjunto de permisos', () => {

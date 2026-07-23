@@ -1,4 +1,4 @@
-﻿import type { ModuleKey } from '@/lib/module-navigation';
+﻿import type { ProtectedAreaKey } from '@/lib/auth/types';
 
 export type AbilityCode = string;
 
@@ -6,7 +6,7 @@ type PermissionCarrier = {
   permissions?: readonly AbilityCode[] | null;
 };
 
-const MODULE_ABILITY_BY_KEY: Record<ModuleKey, AbilityCode> = {
+const AREA_ABILITY_BY_KEY: Record<ProtectedAreaKey, AbilityCode> = {
   admin: 'module.admin.access',
   medico: 'module.medico.access',
   admisiones: 'module.admisiones.access',
@@ -45,9 +45,9 @@ export function hasAllAbilities(
   return abilities.every((ability) => hasAbility(source, ability));
 }
 
-export function hasModuleAbility(
+export function hasProtectedAreaAbility(
   source: readonly AbilityCode[] | PermissionCarrier | null | undefined,
-  moduleKey: ModuleKey,
+  areaKey: ProtectedAreaKey,
 ) {
-  return hasAbility(source, MODULE_ABILITY_BY_KEY[moduleKey]);
+  return hasAbility(source, AREA_ABILITY_BY_KEY[areaKey]);
 }

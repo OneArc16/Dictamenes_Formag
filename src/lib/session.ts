@@ -1,4 +1,4 @@
-﻿import type { AppRole } from '@/lib/module-navigation';
+﻿import type { AppRole } from '@/lib/auth/types';
 import { getAuthorizationContext } from '@/lib/auth/authorization';
 
 export type Session =

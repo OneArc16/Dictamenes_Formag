@@ -20,13 +20,13 @@ import {
   getModuleByKey,
   getVisibleModules,
   getVisibleSecondaryNavigation,
-  type ModuleKey,
+  type NavigationModuleKey,
 } from '@/lib/module-navigation';
 import { cn } from '@/lib/utils';
 
 type ModuleAppShellProps = {
   children: ReactNode;
-  moduleKey: ModuleKey;
+  moduleKey: NavigationModuleKey;
   user: AuthUser;
 };
 
