@@ -6,7 +6,10 @@ import { requireMedicoApi } from '@/lib/auth/api-guards';
 import { hasAnyAbility } from '@/lib/auth/ability-utils';
 import { resolveSedeIdParaNuevoDictamen } from '@/lib/dictamen/notificacion-pcl';
 import { prisma } from '@/lib/prisma';
-import { getVisibleCaseState } from '@/features/formulario-origen/domain/policies';
+import {
+  canAccessPcl,
+  getVisibleCaseState,
+} from '@/features/formulario-origen/domain/policies';
 import { getReopeningTargets } from '@/features/formulario-origen/domain/reopening';
 import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
@@ -195,6 +198,11 @@ export async function GET(req: Request) {
         pclReabierto: dictamen.reabierto,
       });
       const originStage = visible.etapa === 'FORMULARIO_ORIGEN';
+      const pclAccessible = canAccessPcl({
+        flujoVersion: dictamen.flujoVersion,
+        formularioOrigenEstado: dictamen.formularioOrigen?.estado,
+        pclIniciado: Boolean(dictamen.pclIniciadoEn),
+      });
       const reopeningTargets = getReopeningTargets({
         flujoVersion: dictamen.flujoVersion,
         originState: dictamen.formularioOrigen?.estado ?? null,
@@ -218,9 +226,13 @@ export async function GET(req: Request) {
       actionRoute: originStage
         ? `/medico/dictamen/${dictamen.id}/origen`
         : `/medico/dictamen/${dictamen.id}`,
+      pclRoute: `/medico/dictamen/${dictamen.id}`,
+      originRoute: dictamen.formularioOrigen
+        ? `/medico/dictamen/${dictamen.id}/origen`
+        : null,
+      canOpenPcl: pclAccessible || !dictamen.estado,
       pclBloqueado:
-        dictamen.flujoVersion === 'ORIGEN_PREVIO' &&
-        dictamen.formularioOrigen?.estado !== 'FINALIZADO',
+        !pclAccessible,
       canReopen: reopeningTargets.length > 0,
       medicoNombre: buildNombreCompleto(dictamen.empleado),
       fueReabierto: Boolean(dictamen.reabiertoEn || dictamen.motivoReapertura || dictamen.reabiertoPor),

@@ -49,6 +49,7 @@ export async function checkPclAccess(
   const access = canAccessPcl({
     flujoVersion: record.flujoVersion,
     formularioOrigenEstado: record.formularioOrigen?.estado,
+    pclIniciado: record.pclIniciadoEn != null,
   });
   if (!access && !(options.allowHistoricalClosed && record.estado === false)) {
     return {

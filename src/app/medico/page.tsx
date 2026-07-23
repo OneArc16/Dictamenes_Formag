@@ -29,6 +29,9 @@ type DictamenApiRow = {
   motivoReapertura: string | null;
   etapa: string;
   actionRoute: string;
+  pclRoute: string;
+  originRoute: string | null;
+  canOpenPcl: boolean;
   pclBloqueado: boolean;
   canReopen: boolean;
 };
@@ -133,6 +136,9 @@ export default function MedicoPage() {
         motivoReapertura: dictamen.motivoReapertura,
         etapa: dictamen.etapa,
         actionRoute: dictamen.actionRoute,
+        pclRoute: dictamen.pclRoute,
+        originRoute: dictamen.originRoute,
+        canOpenPcl: dictamen.canOpenPcl,
         pclBloqueado: dictamen.pclBloqueado,
         canReopen: dictamen.canReopen,
       }));
@@ -155,7 +161,11 @@ export default function MedicoPage() {
     [rows],
   );
 
-  const handleOpenDictamen = (id: number) => {
+  const handleOpenDictamen = (id: number, route?: string) => {
+    if (route) {
+      router.push(route);
+      return;
+    }
     const row = rows.find((item) => item.id === id);
     router.push(row?.actionRoute || `/medico/dictamen/${id}`);
   };

@@ -132,17 +132,18 @@ export async function createRecomendacion(usuarioId: number, empleadoId: number 
 export async function createDictamenCase(
   form: DocenteForm,
   operacionId: string,
+  documentoInicial: 'PCL' | 'ORIGEN',
 ) {
   const response = await fetch('/api/dictamenes/casos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ form, operacionId }),
+    body: JSON.stringify({ form, operacionId, documentoInicial }),
   });
 
   const data = await readJsonResponse(
     response,
-    'Error registrando el expediente y el Formulario de Origen',
+    'Error registrando el expediente',
   );
   if (typeof data.route !== 'string') {
     throw new Error('El servidor no devolvió la ruta del formulario.');

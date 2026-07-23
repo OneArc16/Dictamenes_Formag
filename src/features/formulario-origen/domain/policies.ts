@@ -10,7 +10,8 @@ export type OriginPolicyInput = {
 export function canAccessPcl(input: OriginPolicyInput): boolean {
   return (
     input.flujoVersion === 'LEGACY' ||
-    input.formularioOrigenEstado === 'FINALIZADO'
+    input.formularioOrigenEstado === 'FINALIZADO' ||
+    (input.formularioOrigenEstado === 'BORRADOR' && Boolean(input.pclIniciado))
   );
 }
 export function canEditPcl(
@@ -37,7 +38,10 @@ export function getVisibleCaseState(input: OriginPolicyInput) {
     };
   }
 
-  if (input.formularioOrigenEstado === 'BORRADOR') {
+  if (
+    input.formularioOrigenEstado === 'BORRADOR' &&
+    !(input.pclIniciado && !input.pclCerrado)
+  ) {
     return { etapa: 'FORMULARIO_ORIGEN' as const, estado: 'BORRADOR' as const };
   }
   if (input.formularioOrigenEstado === 'REABIERTO') {

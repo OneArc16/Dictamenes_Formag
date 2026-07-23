@@ -10,6 +10,7 @@ import { hasCaseScope } from '@/lib/auth/case-scope';
 import {
   diagnosticosOrigenSchema,
   informacionFundamentosOrigenSchema,
+  registrarCasoDictamenSchema,
 } from './schemas';
 
 test('genera el número canónico con fecha y documento normalizado', () => {
@@ -31,6 +32,14 @@ test('protege PCL para el flujo nuevo y conserva LEGACY', () => {
     false,
   );
   assert.equal(
+    canAccessPcl({
+      flujoVersion: 'ORIGEN_PREVIO',
+      formularioOrigenEstado: 'BORRADOR',
+      pclIniciado: true,
+    }),
+    true,
+  );
+  assert.equal(
     canEditPcl(
       {
         flujoVersion: 'ORIGEN_PREVIO',
@@ -43,6 +52,14 @@ test('protege PCL para el flujo nuevo y conserva LEGACY', () => {
   );
 });
 
+test('acepta elegir PCL u Origen como documento inicial', () => {
+  const documentoInicialSchema = registrarCasoDictamenSchema.shape.documentoInicial;
+
+  assert.equal(documentoInicialSchema.parse('PCL'), 'PCL');
+  assert.equal(documentoInicialSchema.parse('ORIGEN'), 'ORIGEN');
+  assert.equal(documentoInicialSchema.parse(undefined), 'ORIGEN');
+});
+
 test('deriva etapa y estado sin persistirlos por duplicado', () => {
   assert.deepEqual(
     getVisibleCaseState({
@@ -51,6 +68,24 @@ test('deriva etapa y estado sin persistirlos por duplicado', () => {
       pclIniciado: false,
     }),
     { etapa: 'DICTAMEN_PCL', estado: 'HABILITADO' },
+  );
+  assert.deepEqual(
+    getVisibleCaseState({
+      flujoVersion: 'ORIGEN_PREVIO',
+      formularioOrigenEstado: 'BORRADOR',
+      pclIniciado: true,
+      pclCerrado: false,
+    }),
+    { etapa: 'DICTAMEN_PCL', estado: 'PENDIENTE' },
+  );
+  assert.deepEqual(
+    getVisibleCaseState({
+      flujoVersion: 'ORIGEN_PREVIO',
+      formularioOrigenEstado: 'BORRADOR',
+      pclIniciado: true,
+      pclCerrado: true,
+    }),
+    { etapa: 'FORMULARIO_ORIGEN', estado: 'BORRADOR' },
   );
 });
 

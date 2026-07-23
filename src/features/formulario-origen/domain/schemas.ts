@@ -128,6 +128,7 @@ export const reaperturaDocumentoSchema = z.object({
 
 export const registrarCasoDictamenSchema = z.object({
   operacionId: z.string().uuid(),
+  documentoInicial: z.enum(['PCL', 'ORIGEN']).default('ORIGEN'),
   form: z
     .object({
       tipoDocumento: z.string().trim().min(1).max(2),

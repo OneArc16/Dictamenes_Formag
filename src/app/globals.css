@@ -1,3 +1,5 @@
+@import "react-day-picker/style.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,6 +40,86 @@ fieldset:disabled select {
 fieldset:disabled button {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.date-range-day-picker {
+  --rdp-accent-color: #2563eb;
+  --rdp-accent-background-color: #dbeafe;
+  --rdp-day-height: 40px;
+  --rdp-day-width: 40px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  --rdp-months-gap: 2.5rem;
+  --rdp-nav_button-height: 2.25rem;
+  --rdp-nav_button-width: 2.25rem;
+  margin-inline: auto;
+  color: #334155;
+}
+
+.date-range-day-picker .rdp-months {
+  justify-content: center;
+  max-width: none;
+}
+
+.date-range-day-picker .rdp-month_caption {
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.date-range-day-picker .rdp-button_previous,
+.date-range-day-picker .rdp-button_next {
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  color: #334155;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.date-range-day-picker .rdp-button_previous:hover,
+.date-range-day-picker .rdp-button_next:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.date-range-day-picker .rdp-chevron {
+  fill: currentColor;
+}
+
+.date-range-day-picker .rdp-weekday {
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.date-range-day-picker .rdp-day_button {
+  font-size: 0.8rem;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.date-range-day-picker .rdp-day_button:hover {
+  background: #eff6ff;
+}
+
+.date-range-day-picker .rdp-selected {
+  font-size: inherit;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .date-range-day-picker {
+    --rdp-day-height: 38px;
+    --rdp-day-width: 38px;
+    --rdp-day_button-height: 34px;
+    --rdp-day_button-width: 34px;
+  }
 }
 
 .module-sidebar-panel {

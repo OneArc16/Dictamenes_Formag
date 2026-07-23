@@ -98,7 +98,7 @@ function DocenteModal({
   const modalTitle = 'Registrar docente';
   const modalDescription = isRecommendationMode
     ? 'Crea o actualiza la informacion base del docente antes de diligenciar su recomendacion laboral.'
-    : 'Crea o actualiza la informacion base del docente antes de abrir su dictamen clinico.';
+    : 'Crea o actualiza la información base del docente y elige si deseas comenzar con el Dictamen PCL o con el Formulario de Origen.';
   const submitLabel = saving
     ? 'Guardando...'
     : isRecommendationMode
@@ -391,6 +391,7 @@ function DocenteModal({
 
   const handleLimpiar = () => {
     setForm(emptyForm);
+    operationIdRef.current = null;
     setSelectedDepartamento('');
     setSelectedMunicipio('');
     setSelectedSecretariaId('');
@@ -535,6 +536,19 @@ function DocenteModal({
     e.preventDefault();
     if (saving || !validateRequiredFields()) return;
 
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const documentoInicial =
+      submitter instanceof HTMLButtonElement ? submitter.value : '';
+
+    if (
+      !isRecommendationMode &&
+      documentoInicial !== 'PCL' &&
+      documentoInicial !== 'ORIGEN'
+    ) {
+      showToast('error', 'Selecciona si deseas iniciar el Dictamen PCL o el Formulario de Origen.');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -550,9 +564,18 @@ function DocenteModal({
       }
 
       operationIdRef.current ??= crypto.randomUUID();
-      const created = await createDictamenCase(form, operationIdRef.current);
+      const created = await createDictamenCase(
+        form,
+        operationIdRef.current,
+        documentoInicial as 'PCL' | 'ORIGEN',
+      );
 
-      showToast('success', 'Expediente y Formulario de Origen creados correctamente');
+      showToast(
+        'success',
+        documentoInicial === 'PCL'
+          ? 'Expediente y Dictamen PCL creados correctamente'
+          : 'Expediente y Formulario de Origen creados correctamente',
+      );
       onDictamenCreated?.();
       handleLimpiar();
       operationIdRef.current = null;
@@ -735,6 +758,7 @@ function DocenteModal({
             <FormActions
               saving={saving}
               submitLabel={submitLabel}
+              showDocumentChoices={!isRecommendationMode}
               onClear={handleLimpiar}
               onCancel={onClose}
               onUpdate={handleActualizarDatos}

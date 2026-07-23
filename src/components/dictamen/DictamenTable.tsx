@@ -1,7 +1,13 @@
 ﻿'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowRight, LockKeyhole, RotateCcw } from 'lucide-react';
+import {
+  ArrowRight,
+  ClipboardPenLine,
+  FileHeart,
+  LockKeyhole,
+  RotateCcw,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -19,7 +25,7 @@ import type { DictamenRow } from './types';
 type DictamenTableProps = {
   rows: DictamenRow[];
   loading: boolean;
-  onOpenDictamen: (id: number) => void;
+  onOpenDictamen: (id: number, route?: string) => void;
   renderActions?: (row: DictamenRow) => ReactNode;
 };
 
@@ -216,22 +222,64 @@ export function DictamenTable({
                       {row.medicoNombre || '-'}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-center">
-                      <div className="inline-flex items-center justify-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          title={
-                            row.etapa === 'FORMULARIO_ORIGEN'
-                              ? 'Abrir Formulario de Origen'
-                              : 'Abrir Dictamen PCL'
-                          }
-                          className="min-h-11 gap-2 rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                          onClick={() => onOpenDictamen(row.id)}
-                        >
-                          Abrir
-                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                        </Button>
+                      <div className="inline-flex items-center justify-center gap-1.5">
+                        {row.pclRoute || row.originRoute ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              title={
+                                row.canOpenPcl === false
+                                  ? 'PCL disponible al finalizar el Formulario de Origen'
+                                  : 'Abrir Dictamen PCL'
+                              }
+                              aria-label={
+                                row.canOpenPcl === false
+                                  ? 'Dictamen PCL bloqueado hasta finalizar Origen'
+                                  : 'Abrir Dictamen PCL'
+                              }
+                              disabled={row.canOpenPcl === false}
+                              className="h-9 w-9 rounded-full border-blue-300 bg-blue-50 text-blue-700 shadow-none hover:bg-blue-100 hover:text-blue-900 disabled:border-blue-100 disabled:bg-blue-50 disabled:text-blue-300"
+                              onClick={() => onOpenDictamen(row.id, row.pclRoute)}
+                            >
+                              <FileHeart className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                            {row.originRoute ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                title="Abrir Formulario de Origen"
+                                aria-label="Abrir Formulario de Origen"
+                                className="h-9 w-9 rounded-full border-emerald-300 bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-900"
+                                onClick={() => onOpenDictamen(row.id, row.originRoute ?? undefined)}
+                              >
+                                <ClipboardPenLine className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            title={
+                              row.etapa === 'FORMULARIO_ORIGEN'
+                                ? 'Abrir Formulario de Origen'
+                                : 'Abrir Dictamen PCL'
+                            }
+                            aria-label={
+                              row.etapa === 'FORMULARIO_ORIGEN'
+                                ? 'Abrir Formulario de Origen'
+                                : 'Abrir Dictamen PCL'
+                            }
+                            className="h-9 w-9 rounded-full border-blue-200 text-blue-700 shadow-none hover:bg-blue-50 hover:text-blue-800"
+                            onClick={() => onOpenDictamen(row.id)}
+                          >
+                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        )}
                         {renderActions ? renderActions(row) : null}
                       </div>
                     </TableCell>

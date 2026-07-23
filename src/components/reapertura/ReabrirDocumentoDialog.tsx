@@ -127,11 +127,12 @@ export function ReabrirDocumentoDialog({
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="min-h-11 gap-2 rounded-lg border-sky-200 text-sky-800 hover:bg-sky-50"
+          size="icon"
+          title="Reabrir documento"
+          aria-label="Reabrir documento"
+          className="h-9 w-9 rounded-full border-sky-200 text-sky-800 shadow-none hover:bg-sky-50 hover:text-sky-900"
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          Reabrir
         </Button>
       </DialogTrigger>
       <DialogContent className="border-slate-200 bg-white sm:max-w-xl">

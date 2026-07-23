@@ -39,7 +39,7 @@ export const motivoReaperturaInputSchema = z.object({
   alcances: z
     .array(z.enum(['ORIGEN', 'PCL', 'RECOMENDACION']))
     .min(1, 'Selecciona al menos un documento')
-    .default(['PCL', 'RECOMENDACION']),
+    .default(['ORIGEN', 'PCL', 'RECOMENDACION']),
 });
 
 export const motivoReaperturaEstadoSchema = z.object({

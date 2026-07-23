@@ -85,6 +85,9 @@ export interface DictamenRow {
   motivoReapertura?: string | null;
   etapa?: 'FORMULARIO_ORIGEN' | 'DICTAMEN_PCL' | 'FLUJO_ANTERIOR' | string;
   actionRoute?: string;
+  pclRoute?: string;
+  originRoute?: string | null;
+  canOpenPcl?: boolean;
   pclBloqueado?: boolean;
   canReopen?: boolean;
 }

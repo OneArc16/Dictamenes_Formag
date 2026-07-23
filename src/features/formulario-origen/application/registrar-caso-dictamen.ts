@@ -11,6 +11,15 @@ import { ApplicationError } from './errors';
 type Input = z.infer<typeof registrarCasoDictamenSchema>;
 type Tx = Prisma.TransactionClient;
 
+function buildInitialRoute(
+  dictamenId: number,
+  documentoInicial: 'PCL' | 'ORIGEN',
+) {
+  return documentoInicial === 'ORIGEN'
+    ? `/medico/dictamen/${dictamenId}/origen`
+    : `/medico/dictamen/${dictamenId}`;
+}
+
 const optional = (value: unknown, max = 255) => {
   const normalized = String(value ?? '').trim();
   return normalized ? normalized.slice(0, max) : null;
@@ -192,12 +201,15 @@ export async function registrarCasoDictamen(
 ) {
   const existingOperation = await prisma.dictamen.findUnique({
     where: { operacionId: input.operacionId },
-    select: { id: true },
+    select: { id: true, pclIniciadoEn: true },
   });
   if (existingOperation) {
     return {
       dictamenId: existingOperation.id,
-      route: `/medico/dictamen/${existingOperation.id}/origen`,
+      route: buildInitialRoute(
+        existingOperation.id,
+        existingOperation.pclIniciadoEn ? 'PCL' : 'ORIGEN',
+      ),
       replayed: true,
     };
   }
@@ -229,6 +241,7 @@ export async function registrarCasoDictamen(
       }).format(new Date());
       const date = parseColombiaDate(today);
       const originNumber = buildNumeroDictamen(today, docente.identificacion);
+      const startsWithPcl = input.documentoInicial === 'PCL';
 
       const dictamen = await tx.dictamen.create({
         data: {
@@ -240,6 +253,12 @@ export async function registrarCasoDictamen(
           tipoDictamen: input.form.tipoDictamen as TipoDictamen,
           flujoVersion: 'ORIGEN_PREVIO',
           operacionId: input.operacionId,
+          ...(startsWithPcl
+            ? {
+                numeroDictamen: originNumber,
+                pclIniciadoEn: new Date(),
+              }
+            : {}),
           formularioOrigen: {
             create: {
               fechaDictamenOrigen: date,
@@ -249,7 +268,10 @@ export async function registrarCasoDictamen(
                   actorId: auth.empleadoId,
                   tipo: 'CREACION',
                   estadoNuevo: 'BORRADOR',
-                  cambios: { operacionId: input.operacionId },
+                  cambios: {
+                    operacionId: input.operacionId,
+                    documentoInicial: input.documentoInicial,
+                  },
                 },
               },
             },
@@ -260,7 +282,7 @@ export async function registrarCasoDictamen(
 
       return {
         dictamenId: dictamen.id,
-        route: `/medico/dictamen/${dictamen.id}/origen`,
+        route: buildInitialRoute(dictamen.id, input.documentoInicial),
         replayed: false,
       };
     }, {
@@ -273,12 +295,12 @@ export async function registrarCasoDictamen(
     ) {
       const replay = await prisma.dictamen.findUnique({
         where: { operacionId: input.operacionId },
-        select: { id: true },
+        select: { id: true, pclIniciadoEn: true },
       });
       if (replay) {
         return {
           dictamenId: replay.id,
-          route: `/medico/dictamen/${replay.id}/origen`,
+          route: buildInitialRoute(replay.id, replay.pclIniciadoEn ? 'PCL' : 'ORIGEN'),
           replayed: true,
         };
       }

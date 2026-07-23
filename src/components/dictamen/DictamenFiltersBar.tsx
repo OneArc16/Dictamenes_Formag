@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import {
-  Calendar,
   Search,
   UserCircle2,
   ChevronDown,
   Check,
   ListFilter,
 } from 'lucide-react';
+import { DateRangePicker } from '@/components/filters/DateRangePicker';
 import { EstadoDictamenFiltro } from './types';
 
 export type MedicoOption = {
@@ -110,7 +110,7 @@ function MedicoMultiSelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center w-full gap-2 px-3 py-2 text-xs bg-white border rounded-md shadow-sm border-slate-300 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+        className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
       >
         <UserCircle2 className="w-4 h-4 text-slate-500" />
         <span className="flex-1 text-left truncate">{label}</span>
@@ -223,7 +223,7 @@ function EstadoMultiSelect({ value, onChange }: EstadoMultiSelectProps) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center w-full gap-2 px-3 py-2 text-xs bg-white border rounded-md shadow-sm border-slate-300 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+        className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
       >
         <ListFilter className="w-4 h-4 text-slate-500" />
         <span className="flex-1 text-left truncate">{label}</span>
@@ -297,38 +297,17 @@ export function DictamenFiltersBar({
     <div className="px-3 py-3 bg-white border shadow-sm rounded-xl border-slate-200">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         {/* Filtros izquierdos */}
-        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Desde */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-slate-600">
-              Desde
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => onFechaDesdeChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-white border rounded-md shadow-sm border-slate-300 text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
-              />
-              <Calendar className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
-
-          {/* Hasta */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-slate-600">
-              Hasta
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => onFechaHastaChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-white border rounded-md shadow-sm border-slate-300 text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
-              />
-              <Calendar className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
+        <div
+          className={`grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 ${
+            showMedicoSelect ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
+          }`}
+        >
+          <DateRangePicker
+            from={fechaDesde}
+            to={fechaHasta}
+            onFromChange={onFechaDesdeChange}
+            onToChange={onFechaHastaChange}
+          />
 
           {/* Documento docente */}
           <div className="flex flex-col gap-1">
@@ -341,7 +320,7 @@ export function DictamenFiltersBar({
                 value={documento}
                 onChange={(e) => onDocumentoChange(e.target.value)}
                 placeholder="Buscar por documento"
-                className="w-full px-3 py-2 text-xs bg-white border rounded-md shadow-sm border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
               />
               <Search className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             </div>
@@ -376,7 +355,7 @@ export function DictamenFiltersBar({
             <button
               type="button"
               onClick={onRegistrar}
-              className="inline-flex items-center px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/70"
+              className="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/70"
             >
               Registrar
             </button>

@@ -1,7 +1,8 @@
 ﻿'use client';
 
-import { CalendarDays, FilePlus2, Search, Stethoscope } from 'lucide-react';
+import { FilePlus2, Search, Stethoscope } from 'lucide-react';
 
+import { DateRangePicker } from '@/components/filters/DateRangePicker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -64,48 +65,34 @@ export function RecomendacionesFiltersBar({
   return (
     <Card className="rounded-xl border-slate-200 bg-white/95 px-3 py-3 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">Desde</Label>
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaDesde}
-                onChange={(event) => onFechaDesdeChange(event.target.value)}
-                className="h-10 rounded-md border-slate-300 bg-white pr-9 text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-blue-500/60"
-              />
-              <CalendarDays className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
+        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <DateRangePicker
+            from={fechaDesde}
+            to={fechaHasta}
+            onFromChange={onFechaDesdeChange}
+            onToChange={onFechaHastaChange}
+            className="min-w-0"
+          />
 
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">Hasta</Label>
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaHasta}
-                onChange={(event) => onFechaHastaChange(event.target.value)}
-                className="h-10 rounded-md border-slate-300 bg-white pr-9 text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-blue-500/60"
-              />
-              <CalendarDays className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">Documento docente</Label>
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label className="block text-[11px] font-medium leading-normal text-slate-600">
+              Documento docente
+            </Label>
             <div className="relative">
               <Input
                 value={documento}
                 onChange={(event) => onDocumentoChange(event.target.value)}
                 placeholder="Buscar por documento"
-                className="h-10 rounded-md border-slate-300 bg-white pr-9 text-xs shadow-sm placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500/60"
+                className="h-10 w-full rounded-md border-slate-300 bg-white pr-9 text-xs shadow-sm placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500/60"
               />
               <Search className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">Medico</Label>
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label className="block text-[11px] font-medium leading-normal text-slate-600">
+              Médico
+            </Label>
             <Select
               value={medicoId === null ? '__all__' : String(medicoId)}
               onValueChange={(value) => {
@@ -129,10 +116,12 @@ export function RecomendacionesFiltersBar({
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">Estado</Label>
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label className="block text-[11px] font-medium leading-normal text-slate-600">
+              Estado
+            </Label>
             <Select value={estado} onValueChange={(value) => onEstadoChange(value as EstadoRecomendacionFiltro)}>
-              <SelectTrigger className="h-10 rounded-md border-slate-300 bg-white text-xs shadow-sm focus:ring-1 focus:ring-blue-500/60">
+              <SelectTrigger className="h-10 w-full rounded-md border-slate-300 bg-white text-xs shadow-sm focus:ring-1 focus:ring-blue-500/60">
                 <SelectValue placeholder="Pendientes" />
               </SelectTrigger>
               <SelectContent>
