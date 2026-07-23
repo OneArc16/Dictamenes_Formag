@@ -2,6 +2,7 @@
 import { type Prisma } from '@prisma/client';
 
 import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 import { prisma } from '@/lib/prisma';
 import {
   buildDictamenHistoryChanges,
@@ -42,14 +43,13 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, message: 'id invalido' }, { status: 400 });
     }
-
-    const where: { id: number; empleadoId?: number } = { id: dictamenId };
-    if (auth.role === 'MEDICO') {
-      where.empleadoId = auth.empleadoId;
-    }
+    const gate = await checkPclAccess(dictamenId, auth, {
+      allowHistoricalClosed: true,
+    });
+    if (!gate.ok) return NextResponse.json({ ok: false, code: gate.code, message: gate.error }, { status: gate.status });
 
     const dictamen = await prisma.dictamen.findFirst({
-      where,
+      where: { id: dictamenId },
       select: {
         id: true,
         sustentacionObservaciones: true,
@@ -89,6 +89,8 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, message: 'id invalido' }, { status: 400 });
     }
+    const gate = await checkPclAccess(dictamenId, auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ ok: false, code: gate.code, message: gate.error }, { status: gate.status });
 
     const rawBody = await readBody(req);
     const text = String(rawBody?.sustentacionObservaciones ?? '');

@@ -1,17 +1,15 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 
 import { requireAbilityApi } from '@/lib/auth/api-guards';
-import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 import {
   buildDictamenHistorySnapshot,
   resolveDictamenEstadoHistorial,
 } from '@/lib/dictamen/historial';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-type AuthCtx = AuthorizationContext;
 
 type EmpleadoJuntaSnapshot = {
   id: number;
@@ -45,26 +43,6 @@ function detectFirmaMime(bytes: Buffer | null | undefined): string | null {
   return 'image/png';
 }
 
-function canCloseDictamen(dictamen: { empleadoId: number | null }, auth: AuthCtx) {
-  if (auth.role !== 'MEDICO') {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No autorizado para cerrar este dictamen.',
-    };
-  }
-
-  if (dictamen.empleadoId != null && dictamen.empleadoId !== auth.empleadoId) {
-    return {
-      ok: false as const,
-      status: 403,
-      error: 'No tiene permiso sobre este dictamen.',
-    };
-  }
-
-  return { ok: true as const };
-}
-
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authResult = await requireAbilityApi('dictamen.close');
@@ -79,6 +57,17 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 
     if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, message: 'id invalido' }, { status: 400 });
+    }
+
+    const pclGate = await checkPclAccess(dictamenId, auth, {
+      edit: true,
+      markStarted: true,
+    });
+    if (!pclGate.ok) {
+      return NextResponse.json(
+        { ok: false, code: pclGate.code, message: pclGate.error },
+        { status: pclGate.status },
+      );
     }
 
     const current = await prisma.dictamen.findUnique({
@@ -105,11 +94,6 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 
     if (!current) {
       return NextResponse.json({ ok: false, message: 'Dictamen no encontrado' }, { status: 404 });
-    }
-
-    const permission = canCloseDictamen(current, auth);
-    if (!permission.ok) {
-      return NextResponse.json({ ok: false, message: permission.error }, { status: permission.status });
     }
 
     if (current.estado === false) {
@@ -172,6 +156,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
         data: {
           estado: false,
           reabierto: false,
+          pclRequiereRevision: false,
+          origenVersionUtilizadaPcl: pclGate.originVersion,
+          lockVersion: { increment: 1 },
         },
       });
 

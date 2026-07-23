@@ -35,6 +35,10 @@ const permissions = [
   { codigo: 'dictamen.reopen', nombre: 'Reabrir dictamenes', modulo: 'dictamen' },
   { codigo: 'dictamen.print', nombre: 'Imprimir dictamenes', modulo: 'dictamen' },
   { codigo: 'dictamen.export', nombre: 'Exportar dictamenes', modulo: 'dictamen' },
+  { codigo: 'formulario_origen.read', nombre: 'Ver formularios de origen', modulo: 'formulario_origen' },
+  { codigo: 'formulario_origen.edit', nombre: 'Editar formularios de origen', modulo: 'formulario_origen' },
+  { codigo: 'formulario_origen.finalize', nombre: 'Finalizar formularios de origen', modulo: 'formulario_origen' },
+  { codigo: 'formulario_origen.reopen', nombre: 'Reabrir formularios de origen', modulo: 'formulario_origen' },
 
   { codigo: 'recomendacion.read', nombre: 'Ver recomendaciones', modulo: 'recomendacion' },
   { codigo: 'recomendacion.create', nombre: 'Crear recomendaciones', modulo: 'recomendacion' },
@@ -64,6 +68,8 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
     'dictamen.reopen',
     'dictamen.print',
     'dictamen.export',
+    'formulario_origen.read',
+    'formulario_origen.reopen',
 
     'recomendacion.read',
     'recomendacion.reopen',
@@ -83,6 +89,10 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
     'dictamen.close',
     'dictamen.print',
     'dictamen.export',
+    'formulario_origen.read',
+    'formulario_origen.edit',
+    'formulario_origen.finalize',
+    'formulario_origen.reopen',
 
     'recomendacion.read',
     'recomendacion.create',

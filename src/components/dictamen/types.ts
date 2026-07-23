@@ -83,6 +83,10 @@ export interface DictamenRow {
   reabiertaEn?: string | Date | null;
   reabiertaPorNombre?: string | null;
   motivoReapertura?: string | null;
+  etapa?: 'FORMULARIO_ORIGEN' | 'DICTAMEN_PCL' | 'FLUJO_ANTERIOR' | string;
+  actionRoute?: string;
+  pclBloqueado?: boolean;
+  canReopen?: boolean;
 }
 
 

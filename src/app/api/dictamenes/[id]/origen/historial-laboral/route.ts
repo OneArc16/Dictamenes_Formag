@@ -1,0 +1,19 @@
+import { NextResponse } from 'next/server';
+
+import { originRouteError, parseDictamenId } from '@/features/formulario-origen/application/http';
+import { saveHistorialLaboralOrigen } from '@/features/formulario-origen/application/origin-service';
+import { historialLaboralOrigenSchema } from '@/features/formulario-origen/domain/schemas';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await requireAbilityApi('formulario_origen.edit');
+    if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+    const { id } = await context.params;
+    const input = historialLaboralOrigenSchema.parse(await req.json());
+    const formulario = await saveHistorialLaboralOrigen(parseDictamenId(id), auth.auth, input);
+    return NextResponse.json({ ok: true, formulario });
+  } catch (error) {
+    return originRouteError(error, 'PUT origen/historial-laboral');
+  }
+}

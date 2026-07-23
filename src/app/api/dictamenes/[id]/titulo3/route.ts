@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 
 import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 import {
@@ -79,14 +80,13 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     if (!Number.isFinite(id)) {
       return NextResponse.json({ message: 'id invalido' }, { status: 400 });
     }
-
-    const where: Prisma.DictamenWhereInput = { id };
-    if (auth.role === 'MEDICO') {
-      where.empleadoId = auth.empleadoId;
-    }
+    const gate = await checkPclAccess(id, auth, {
+      allowHistoricalClosed: true,
+    });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     const dictamen = await prisma.dictamen.findFirst({
-      where,
+      where: { id },
       select: {
         id: true,
         estado: true,
@@ -155,15 +155,14 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     }
 
     const auth: AuthCtx = authResult.auth;
-    if (auth.role !== 'MEDICO') {
-      return NextResponse.json({ message: 'No autorizado' }, { status: 403 });
-    }
 
     const { id: idParam } = await context.params;
     const id = Number(idParam);
     if (!Number.isFinite(id)) {
       return NextResponse.json({ message: 'id invalido' }, { status: 400 });
     }
+    const gate = await checkPclAccess(id, auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     const body = (await req.json()) as PutBody;
     if (!body?.factor) {

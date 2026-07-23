@@ -10,7 +10,9 @@ import {
   resolveDictamenEstadoHistorial,
 } from '@/lib/dictamen/historial';
 import { canEditDictamen } from '@/lib/dictamen/permissions';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 import { prisma } from '@/lib/prisma';
+import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -223,14 +225,6 @@ function toColombiaMidnightUTC(value: string) {
   return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, 5, 0, 0, 0));
 }
 
-function buildNumeroDictamen(documentoDocente: string, fechaIso: string) {
-  const [year, month, day] = fechaIso.split('-');
-  const datePart = `${day ?? ''}${month ?? ''}${year ?? ''}`;
-  const documento = String(documentoDocente ?? '').replace(/\D/g, '');
-
-  return `${datePart}${documento}`;
-}
-
 function serializeDictamenResponse(dictamen: DictamenSummaryRecord) {
   return {
     id: dictamen.id,
@@ -343,7 +337,7 @@ function buildUpdateData(body: UpdatePayload, documentoDocente: string): UpdateD
 
   if ('fechaDictamen' in body && body.fechaDictamen) {
     updateData.fechaDictamen = toColombiaMidnightUTC(body.fechaDictamen);
-    updateData.numeroDictamen = buildNumeroDictamen(documentoDocente, body.fechaDictamen);
+    updateData.numeroDictamen = buildNumeroDictamen(body.fechaDictamen, documentoDocente);
   }
 
   if ('fechaEstructuracionInvalidez' in body) {
@@ -379,14 +373,25 @@ export async function GET(_req: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: 'ID de dictamen invalido.' }, { status: 400 });
     }
 
-    const where: Prisma.DictamenWhereInput = { id };
-    if (auth.role === 'MEDICO') {
-      where.empleadoId = auth.empleadoId;
+    const pclGate = await checkPclAccess(id, auth, {
+      markStarted: auth.permissions.includes('dictamen.edit'),
+      allowHistoricalClosed: true,
+    });
+    if (!pclGate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: pclGate.code,
+          error: pclGate.error,
+          redirectTo: pclGate.redirectTo,
+        },
+        { status: pclGate.status },
+      );
     }
 
     const dictamen = await prisma.dictamen.findFirst({
       ...dictamenDetailArgs,
-      where,
+      where: { id },
     });
 
     if (!dictamen) {
@@ -396,7 +401,6 @@ export async function GET(_req: Request, context: RouteContext) {
     return NextResponse.json({
       ok: true,
       readOnly:
-        auth.role !== 'MEDICO' ||
         !auth.permissions.includes('dictamen.edit') ||
         resolveDictamenEstadoHistorial(dictamen) === 'CERRADO',
       serverVersion: computeServerVersion(dictamen),
@@ -423,6 +427,17 @@ export async function PUT(req: Request, context: RouteContext) {
 
     if (!Number.isFinite(id) || id <= 0) {
       return NextResponse.json({ ok: false, error: 'ID de dictamen invalido.' }, { status: 400 });
+    }
+
+    const pclGate = await checkPclAccess(id, auth, {
+      edit: true,
+      markStarted: true,
+    });
+    if (!pclGate.ok) {
+      return NextResponse.json(
+        { ok: false, code: pclGate.code, error: pclGate.error },
+        { status: pclGate.status },
+      );
     }
 
     const body = UpdateDictamenSchema.parse(await req.json());

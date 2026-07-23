@@ -351,11 +351,12 @@ export async function GET(req: Request, ctx: RouteCtx) {
     firmas,
   };
 
-  const stream = await renderToStream(
-    React.createElement(RecomendacionLaboralReactPdf, {
+  const element = React.createElement(RecomendacionLaboralReactPdf, {
       recomendacion: pdfData,
       logoSrc,
-    }),
+    });
+  const stream = await renderToStream(
+    element as React.ReactElement<import('@react-pdf/renderer').DocumentProps>,
   );
 
   const buffer = await streamToBuffer(stream as PdfStream);

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma, ProcedimientoPcl, ActividadAvdAivd } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 type Valor = "0.6" | "0.3" | "0.0";
 
@@ -46,12 +48,18 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAbilityApi("dictamen.read");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await params;
   const dictamenId = Number(id);
 
   if (!Number.isFinite(dictamenId)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
+  const access = await checkPclAccess(dictamenId, auth.auth, {
+    allowHistoricalClosed: true,
+  });
+  if (!access.ok) return NextResponse.json({ code: access.code, error: access.error }, { status: access.status });
 
   const gate = await assertProcedimientoB(dictamenId);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -74,12 +82,16 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAbilityApi("dictamen.edit");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await params;
   const dictamenId = Number(id);
 
   if (!Number.isFinite(dictamenId)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
+  const access = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+  if (!access.ok) return NextResponse.json({ code: access.code, error: access.error }, { status: access.status });
 
   const gate = await assertProcedimientoB(dictamenId);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -146,12 +158,16 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAbilityApi("dictamen.edit");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await params;
   const dictamenId = Number(id);
 
   if (!Number.isFinite(dictamenId)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
+  const access = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+  if (!access.ok) return NextResponse.json({ code: access.code, error: access.error }, { status: access.status });
 
   const gate = await assertProcedimientoB(dictamenId);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

@@ -60,13 +60,22 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.motivoReapertura.update({
-      where: { id: motivoId },
-      data: {
-        ...parsed.data,
-        updatedBy: getAuditActor(auth.payload),
-      },
-      select: { id: true },
+    const { alcances, ...data } = parsed.data;
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.motivoReaperturaAlcance.deleteMany({
+        where: { motivoReaperturaId: motivoId },
+      });
+      return tx.motivoReapertura.update({
+        where: { id: motivoId },
+        data: {
+          ...data,
+          updatedBy: getAuditActor(auth.payload),
+          alcances: {
+            create: alcances.map((alcance) => ({ alcance })),
+          },
+        },
+        select: { id: true },
+      });
     });
 
     return NextResponse.json({ ok: true, id: updated.id });

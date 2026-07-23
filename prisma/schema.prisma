@@ -245,6 +245,58 @@ enum EstadoCupoMedico {
   CANCELADO
 }
 
+enum FlujoDictamenVersion {
+  LEGACY
+  ORIGEN_PREVIO
+}
+
+enum EstadoFormularioOrigen {
+  BORRADOR
+  FINALIZADO
+  REABIERTO
+}
+
+enum EstadoSoporteOrigen {
+  APORTADO
+  NO_APORTADO
+  NO_APLICA
+}
+
+enum JornadaEvento {
+  NORMAL
+  EXTRA
+  NO_DETERMINADA
+}
+
+enum TipoSoporteOrigen {
+  REPORTE_ACCIDENTE_TRABAJO
+  DESCRIPCION_EVENTO
+  EPICRISIS_RESUMEN_HISTORIA
+  CERTIFICADO_DEFUNCION
+  ANALISIS_PUESTO_TRABAJO
+  EXAMENES_PREOCUPACIONALES
+  INVESTIGACION_ACCIDENTE
+  OTRO
+}
+
+enum TipoHistorialFormularioOrigen {
+  CREACION
+  EDICION
+  FINALIZACION
+  REAPERTURA
+}
+
+enum ObjetivoReapertura {
+  ORIGEN
+  PCL
+}
+
+enum AlcanceMotivoReapertura {
+  ORIGEN
+  PCL
+  RECOMENDACION
+}
+
 // =====================================
 // NUEVO: CARGOS DOCENTES (Usuario)
 // =====================================
@@ -254,7 +306,8 @@ model CargoDocente {
   nombre String  @db.Text
   estado Boolean @default(true)
 
-  usuarios Usuario[]
+  usuarios                   Usuario[]
+  historialesLaboralesOrigen HistorialLaboralOrigen[]
 
   @@unique([nombre])
   @@index([codigo])
@@ -516,7 +569,8 @@ model InstitucionEducativa {
   municipio    Municipio?    @relation("MunicipioInstituciones", fields: [idMunicipio], references: [codigo])
   secretaria   Secretaria?   @relation("SecretariaInstituciones", fields: [idSecretaria], references: [id])
 
-  usuarios Usuario[] @relation("InstitucionUsuarios")
+  usuarios                   Usuario[]                @relation("InstitucionUsuarios")
+  historialesLaboralesOrigen HistorialLaboralOrigen[]
 
   @@index([idDepartamento])
   @@index([idMunicipio])
@@ -658,8 +712,9 @@ model Usuario {
   departamento Departamento? @relation("DepartamentoUsuarios", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
 
-  dictamenes               Dictamen[]
-  recomendacionesLaborales RecomendacionLaboral[] @relation("UsuarioRecomendacionesLaborales")
+  dictamenes                Dictamen[]
+  versionesFormularioOrigen VersionFormularioOrigen[] @relation("UsuarioSnapshotFormularioOrigen")
+  recomendacionesLaborales  RecomendacionLaboral[]    @relation("UsuarioRecomendacionesLaborales")
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -717,10 +772,14 @@ model Empleado {
   exclusionesAgenda  GeneracionAgendaFechaExcluida[] @relation("GeneracionAgendaExclusionMedico")
   cuposMedicos       CupoMedico[]                    @relation("CupoMedicoEmpleado")
 
-  dictamenes           Dictamen[]          @relation("EmpleadoDictamenesResponsable")
-  dictamenesReabiertos Dictamen[]          @relation("EmpleadoReaberturasDictamenes")
-  historialDictamenes  DictamenHistorial[] @relation("EmpleadoHistorialDictamenes")
-  dictamenJunta        DictamenJunta[]
+  dictamenes                   Dictamen[]                  @relation("EmpleadoDictamenesResponsable")
+  dictamenesReabiertos         Dictamen[]                  @relation("EmpleadoReaberturasDictamenes")
+  historialDictamenes          DictamenHistorial[]         @relation("EmpleadoHistorialDictamenes")
+  dictamenJunta                DictamenJunta[]
+  formulariosOrigenFinalizados FormularioOrigen[]          @relation("EmpleadoFinalizacionesFormularioOrigen")
+  formulariosOrigenReabiertos  FormularioOrigen[]          @relation("EmpleadoReaperturasFormularioOrigen")
+  versionesFormularioOrigen    VersionFormularioOrigen[]
+  historialFormularioOrigen    HistorialFormularioOrigen[]
 
   recomendacionesLaborales   RecomendacionLaboral[]      @relation("EmpleadoRecomendacionesLaborales")
   recomendacionLaboralFirmas RecomendacionLaboralFirma[] @relation("EmpleadoFirmasRecomendacionLaboral")
@@ -961,6 +1020,7 @@ model Cie10 {
 
   cie10Deficiencias    Cie10Deficiencia[]
   dictamenDiagnosticos DictamenDiagnostico[]
+  diagnosticosOrigen   DiagnosticoOrigen[]
 
   @@map("cie10")
 }
@@ -981,13 +1041,19 @@ model Cie10Deficiencia {
 // DICTAMEN
 // =====================================
 model Dictamen {
-  id               Int              @id @default(autoincrement())
-  usuarioId        Int
-  numeroDictamen   String?          @db.VarChar(30)
-  fechaDictamen    DateTime         @db.Date
-  creadoEn         DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  procedimientoPcl ProcedimientoPcl
+  id                        Int                  @id @default(autoincrement())
+  usuarioId                 Int
+  numeroDictamen            String?              @db.VarChar(30)
+  fechaDictamen             DateTime             @db.Date
+  creadoEn                  DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  procedimientoPcl          ProcedimientoPcl
+  flujoVersion              FlujoDictamenVersion @default(LEGACY) @map("flujo_version")
+  operacionId               String?              @unique @map("operacion_id") @db.Uuid
+  pclIniciadoEn             DateTime?            @map("pcl_iniciado_en")
+  pclRequiereRevision       Boolean              @default(false) @map("pcl_requiere_revision")
+  origenVersionUtilizadaPcl Int?                 @map("origen_version_utilizada_pcl")
+  lockVersion               Int                  @default(1) @map("lock_version")
 
   tipoDictamen TipoDictamen @default(CALIFICACION) @map("tipo_dictamen")
 
@@ -1031,8 +1097,9 @@ model Dictamen {
   limitacionesAvdAivd DictamenLimitacionesAvdAivd[]
   analisisOcupacional DictamenAnalisisOcupacional[]
 
-  junta     DictamenJunta[]
-  historial DictamenHistorial[]
+  junta            DictamenJunta[]
+  historial        DictamenHistorial[]
+  formularioOrigen FormularioOrigen?
 
   @@index([usuarioId])
   @@index([empleadoId])
@@ -1041,7 +1108,145 @@ model Dictamen {
   @@index([motivoReaperturaId])
   @@index([tipoDictamen])
   @@index([estado, reabierto, fechaDictamen])
+  @@index([flujoVersion])
   @@map("dictamenes")
+}
+
+model FormularioOrigen {
+  id                   Int                    @id @default(autoincrement())
+  dictamenId           Int                    @unique @map("dictamen_id")
+  estado               EstadoFormularioOrigen @default(BORRADOR)
+  formatoVersion       String                 @default("BORRADOR-INSTITUCIONAL-1") @map("formato_version") @db.VarChar(50)
+  versionActual        Int                    @default(1) @map("version_actual")
+  lockVersion          Int                    @default(1) @map("lock_version")
+  fechaDictamenOrigen  DateTime               @map("fecha_dictamen_origen") @db.Date
+  numeroDictamenOrigen String?                @map("numero_dictamen_origen") @db.VarChar(40)
+  descripcion          String?                @db.Text
+  fechaOcurrencia      DateTime?              @map("fecha_ocurrencia") @db.Date
+  horaOcurrencia       DateTime?              @map("hora_ocurrencia") @db.Time(0)
+  jornadaEvento        JornadaEvento?         @map("jornada_evento")
+  tratamiento          String?                @db.Text
+  concepto             String?                @db.Text
+  fundamentosDerecho   String?                @map("fundamentos_derecho") @db.Text
+  tipoEvento           DictamenTipoEvento?    @map("tipo_evento")
+  origenEvento         DictamenOrigenEvento?  @map("origen_evento")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  finalizadoEn         DateTime?              @map("finalizado_en")
+  finalizadoPorId      Int?                   @map("finalizado_por_id")
+  reabiertoEn          DateTime?              @map("reabierto_en")
+  reabiertoPorId       Int?                   @map("reabierto_por_id")
+
+  dictamen         Dictamen                    @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
+  finalizadoPor    Empleado?                   @relation("EmpleadoFinalizacionesFormularioOrigen", fields: [finalizadoPorId], references: [id], onDelete: SetNull)
+  reabiertoPor     Empleado?                   @relation("EmpleadoReaperturasFormularioOrigen", fields: [reabiertoPorId], references: [id], onDelete: SetNull)
+  historialLaboral HistorialLaboralOrigen[]
+  soportes         SoporteFundamentoOrigen[]
+  diagnosticos     DiagnosticoOrigen[]
+  versiones        VersionFormularioOrigen[]
+  historial        HistorialFormularioOrigen[]
+
+  @@index([estado, updatedAt])
+  @@index([finalizadoPorId])
+  @@index([reabiertoPorId])
+  @@map("formularios_origen")
+}
+
+model HistorialLaboralOrigen {
+  id                        Int     @id @default(autoincrement())
+  formularioOrigenId        Int     @map("formulario_origen_id")
+  institucionId             Int?    @map("institucion_id")
+  institucionNombreSnapshot String  @map("institucion_nombre_snapshot") @db.VarChar(200)
+  cargoId                   Int?    @map("cargo_id")
+  cargoNombreSnapshot       String  @map("cargo_nombre_snapshot") @db.VarChar(200)
+  riesgosLaborales          String  @map("riesgos_laborales") @db.Text
+  jornadaLaboral            String  @map("jornada_laboral") @db.VarChar(200)
+  tiempoExposicionAnios     Decimal @map("tiempo_exposicion_anios") @db.Decimal(6, 2)
+  orden                     Int     @default(1)
+
+  formularioOrigen FormularioOrigen      @relation(fields: [formularioOrigenId], references: [id], onDelete: Cascade)
+  institucion      InstitucionEducativa? @relation(fields: [institucionId], references: [id], onDelete: SetNull)
+  cargo            CargoDocente?         @relation(fields: [cargoId], references: [id], onDelete: SetNull)
+
+  @@index([formularioOrigenId, orden])
+  @@index([institucionId])
+  @@index([cargoId])
+  @@map("historial_laboral_origen")
+}
+
+model SoporteFundamentoOrigen {
+  id                 Int                 @id @default(autoincrement())
+  formularioOrigenId Int                 @map("formulario_origen_id")
+  tipo               TipoSoporteOrigen
+  estado             EstadoSoporteOrigen
+  fechaDocumento     DateTime?           @map("fecha_documento") @db.Date
+  seTuvoEnCuenta     String?             @map("se_tuvo_en_cuenta") @db.Text
+  nombreOtro         String?             @map("nombre_otro") @db.VarChar(200)
+  orden              Int                 @default(1)
+
+  formularioOrigen FormularioOrigen @relation(fields: [formularioOrigenId], references: [id], onDelete: Cascade)
+
+  @@unique([formularioOrigenId, tipo, orden])
+  @@index([formularioOrigenId, orden])
+  @@map("soportes_fundamento_origen")
+}
+
+model DiagnosticoOrigen {
+  id                 Int             @id @default(autoincrement())
+  formularioOrigenId Int             @map("formulario_origen_id")
+  cie10Codigo        String          @map("cie10_codigo") @db.VarChar(10)
+  tipo               TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
+  esPrincipal        Boolean         @default(false) @map("es_principal")
+  orden              Int             @default(1)
+
+  formularioOrigen FormularioOrigen @relation(fields: [formularioOrigenId], references: [id], onDelete: Cascade)
+  cie10            Cie10            @relation(fields: [cie10Codigo], references: [codigo], onDelete: Restrict)
+
+  @@unique([formularioOrigenId, cie10Codigo])
+  @@index([formularioOrigenId, orden])
+  @@index([cie10Codigo])
+  @@map("diagnosticos_origen")
+}
+
+model VersionFormularioOrigen {
+  id                 Int      @id @default(autoincrement())
+  formularioOrigenId Int      @map("formulario_origen_id")
+  numeroVersion      Int      @map("numero_version")
+  snapshot           Json
+  motivo             String?  @db.Text
+  actorId            Int?     @map("actor_id")
+  usuarioSnapshotId  Int?     @map("usuario_snapshot_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  formularioOrigen FormularioOrigen @relation(fields: [formularioOrigenId], references: [id], onDelete: Restrict)
+  actor            Empleado?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  usuarioSnapshot  Usuario?         @relation("UsuarioSnapshotFormularioOrigen", fields: [usuarioSnapshotId], references: [id], onDelete: SetNull)
+
+  @@unique([formularioOrigenId, numeroVersion])
+  @@index([actorId])
+  @@map("versiones_formulario_origen")
+}
+
+model HistorialFormularioOrigen {
+  id                 Int                           @id @default(autoincrement())
+  formularioOrigenId Int                           @map("formulario_origen_id")
+  tipo               TipoHistorialFormularioOrigen
+  estadoAnterior     EstadoFormularioOrigen?       @map("estado_anterior")
+  estadoNuevo        EstadoFormularioOrigen?       @map("estado_nuevo")
+  actorId            Int?                          @map("actor_id")
+  motivoReaperturaId Int?                          @map("motivo_reapertura_id")
+  observacion        String?                       @db.Text
+  cambios            Json?
+  createdAt          DateTime                      @default(now()) @map("created_at")
+
+  formularioOrigen FormularioOrigen  @relation(fields: [formularioOrigenId], references: [id], onDelete: Cascade)
+  actor            Empleado?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  motivoReapertura MotivoReapertura? @relation(fields: [motivoReaperturaId], references: [id], onDelete: SetNull)
+
+  @@index([formularioOrigenId, createdAt])
+  @@index([actorId])
+  @@index([motivoReaperturaId])
+  @@map("historial_formulario_origen")
 }
 
 // =====================================
@@ -1171,12 +1376,13 @@ model RecomendacionLaboralFirma {
 }
 
 model MotivoReapertura {
-  id          Int     @id @default(autoincrement())
-  codigo      String? @db.VarChar(20)
-  nombre      String  @db.VarChar(150)
-  descripcion String? @db.Text
-  estado      Boolean @default(true)
-  orden       Int     @default(1)
+  id               Int     @id @default(autoincrement())
+  codigo           String? @db.VarChar(20)
+  nombre           String  @db.VarChar(150)
+  descripcion      String? @db.Text
+  estado           Boolean @default(true)
+  orden            Int     @default(1)
+  exigeObservacion Boolean @default(false) @map("exige_observacion")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1186,13 +1392,26 @@ model MotivoReapertura {
   recomendacionesReabiertas RecomendacionLaboral[]          @relation("MotivoReaperturaActualRecomendacionLaboral")
   historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("MotivoReaperturaHistorialRecomendacionLaboral")
 
-  dictamenesReabiertos Dictamen[]          @relation("MotivoReaperturaActualDictamen")
-  historialDictamenes  DictamenHistorial[] @relation("MotivoReaperturaHistorialDictamen")
+  dictamenesReabiertos      Dictamen[]                  @relation("MotivoReaperturaActualDictamen")
+  historialDictamenes       DictamenHistorial[]         @relation("MotivoReaperturaHistorialDictamen")
+  historialFormularioOrigen HistorialFormularioOrigen[]
+  alcances                  MotivoReaperturaAlcance[]
 
   @@unique([nombre])
   @@index([codigo])
   @@index([estado, orden])
   @@map("motivos_reapertura_recomendacion")
+}
+
+model MotivoReaperturaAlcance {
+  motivoReaperturaId Int                     @map("motivo_reapertura_id")
+  alcance            AlcanceMotivoReapertura
+
+  motivo MotivoReapertura @relation(fields: [motivoReaperturaId], references: [id], onDelete: Cascade)
+
+  @@id([motivoReaperturaId, alcance])
+  @@index([alcance])
+  @@map("motivos_reapertura_alcances")
 }
 
 model DictamenHistorial {

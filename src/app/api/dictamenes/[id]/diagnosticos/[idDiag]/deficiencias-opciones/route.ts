@@ -1,12 +1,16 @@
 // src/app/api/dictamenes/[id]/diagnosticos/[idDiag]/deficiencias-opciones/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 export async function GET(
   req: Request,
   context: { params: Promise<{ id: string; idDiag: string }> }
 ) {
   try {
+    const auth = await requireAbilityApi("dictamen.read");
+    if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const { id, idDiag } = await context.params;
 
     const dictamenId = Number(id);
@@ -18,6 +22,10 @@ export async function GET(
         { status: 400 }
       );
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, {
+      allowHistoricalClosed: true,
+    });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     // ================================
     // 1. Obtener diagnóstico y su CIE10

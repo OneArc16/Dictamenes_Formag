@@ -3,6 +3,8 @@ import { renderToStream } from '@react-pdf/renderer';
 import { DictamenReactPdf } from '@/lib/react-pdf/DictamenReactPdf';
 import { getNotificacionPclParaDictamen } from '@/lib/dictamen/notificacion-pcl';
 import { prisma } from '@/lib/prisma';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -243,11 +245,20 @@ function getPreferredSpecialty(empleado: any): string | null {
   return first ? String(first).trim() : null;
 }
 export async function GET(req: Request, ctx: RouteCtx) {
+  const auth = await requireAbilityApi('dictamen.print');
+  if (!auth.ok) return new Response(JSON.stringify({ error: auth.error }), { status: auth.status });
   const { id: idStr } = await ctx.params;
   const id = Number(idStr);
 
   if (!Number.isFinite(id)) {
     return new Response(JSON.stringify({ error: 'ID invÃ¡lido' }), { status: 400 });
+  }
+  const gate = await checkPclAccess(id, auth.auth, { allowHistoricalClosed: true });
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ code: gate.code, error: gate.error }), {
+      status: gate.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const dictamen = await prisma.dictamen.findUnique({
@@ -542,10 +553,12 @@ export async function GET(req: Request, ctx: RouteCtx) {
   };
 
   const element = React.createElement(DictamenReactPdf, { dictamen: dictamenPdf, logoSrc });
-  const stream = await renderToStream(element);
+  const stream = await renderToStream(
+    element as React.ReactElement<import('@react-pdf/renderer').DocumentProps>,
+  );
   const buffer = await streamToBuffer(stream);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="dictamen-${id}-reactpdf.pdf"`,

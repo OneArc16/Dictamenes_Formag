@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { TipoDiagnostico } from '@prisma/client';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> } // 👈 params puede ser Promise
 ) {
   try {
+    const auth = await requireAbilityApi('dictamen.edit');
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
     // 👇 Desempaquetamos params con await (sirve tanto si es Promise como si no)
     const { id } = await context.params;
 
@@ -17,6 +21,8 @@ export async function PUT(
         { status: 400 }
       );
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, error: gate.error }, { status: gate.status });
 
     const body = await req.json();
     const raw = Array.isArray(body?.diagnosticos) ? body.diagnosticos : [];

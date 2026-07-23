@@ -8,6 +8,8 @@ import {
   DiagnosticoRowDraft,
 } from '@/lib/dexieClient';
 
+export type { DiagnosticoRowDraft } from '@/lib/dexieClient';
+
 export type TipoDiagnosticoLocal =
   | 'CONFIRMADO_NUEVO'
   | 'IMPRESION_DIAGNOSTICA'

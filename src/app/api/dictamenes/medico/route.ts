@@ -3,8 +3,12 @@ import { ProcedimientoPcl, Prisma, TipoDictamen } from '@prisma/client';
 import { z } from 'zod';
 
 import { requireMedicoApi } from '@/lib/auth/api-guards';
+import { hasAnyAbility } from '@/lib/auth/ability-utils';
 import { resolveSedeIdParaNuevoDictamen } from '@/lib/dictamen/notificacion-pcl';
 import { prisma } from '@/lib/prisma';
+import { getVisibleCaseState } from '@/features/formulario-origen/domain/policies';
+import { getReopeningTargets } from '@/features/formulario-origen/domain/reopening';
+import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
 export const runtime = 'nodejs';
 
@@ -68,7 +72,11 @@ export async function GET(req: Request) {
 
     const whereAnd: Prisma.DictamenWhereInput[] = [];
 
-    if (medicoIds.length > 0) {
+    const canBrowseAllCases = hasAnyAbility(auth.auth, [
+      'module.admin.access',
+      'module.admisiones.access',
+    ]);
+    if (medicoIds.length > 0 && canBrowseAllCases) {
       whereAnd.push({ empleadoId: { in: medicoIds } });
     } else {
       whereAnd.push({ empleadoId: medicoId });
@@ -93,13 +101,44 @@ export async function GET(req: Request) {
       const orEstados: Prisma.DictamenWhereInput[] = [];
 
       if (estadosFiltro.includes('PENDIENTES')) {
-        orEstados.push({ estado: true, reabierto: false });
+        orEstados.push(
+          { flujoVersion: 'LEGACY', estado: true, reabierto: false },
+          {
+            flujoVersion: 'ORIGEN_PREVIO',
+            formularioOrigen: { is: { estado: 'BORRADOR' } },
+          },
+          {
+            flujoVersion: 'ORIGEN_PREVIO',
+            estado: true,
+            reabierto: false,
+            formularioOrigen: { is: { estado: 'FINALIZADO' } },
+          },
+        );
       }
       if (estadosFiltro.includes('REABIERTOS')) {
-        orEstados.push({ estado: true, reabierto: true });
+        orEstados.push(
+          { flujoVersion: 'LEGACY', estado: true, reabierto: true },
+          {
+            flujoVersion: 'ORIGEN_PREVIO',
+            formularioOrigen: { is: { estado: 'REABIERTO' } },
+          },
+          {
+            flujoVersion: 'ORIGEN_PREVIO',
+            estado: true,
+            reabierto: true,
+            formularioOrigen: { is: { estado: 'FINALIZADO' } },
+          },
+        );
       }
       if (estadosFiltro.includes('CERRADOS')) {
-        orEstados.push({ estado: false });
+        orEstados.push(
+          { flujoVersion: 'LEGACY', estado: false },
+          {
+            flujoVersion: 'ORIGEN_PREVIO',
+            estado: false,
+            formularioOrigen: { is: { estado: 'FINALIZADO' } },
+          },
+        );
       }
 
       if (orEstados.length > 0) {
@@ -136,25 +175,60 @@ export async function GET(req: Request) {
             nombre: true,
           },
         },
+        formularioOrigen: {
+          select: {
+            estado: true,
+            fechaDictamenOrigen: true,
+          },
+        },
       },
       orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
       take: 100,
     });
 
-    const rows = dictamenes.map((dictamen) => ({
+    const rows = dictamenes.map((dictamen) => {
+      const visible = getVisibleCaseState({
+        flujoVersion: dictamen.flujoVersion,
+        formularioOrigenEstado: dictamen.formularioOrigen?.estado,
+        pclIniciado: Boolean(dictamen.pclIniciadoEn),
+        pclCerrado: !dictamen.estado,
+        pclReabierto: dictamen.reabierto,
+      });
+      const originStage = visible.etapa === 'FORMULARIO_ORIGEN';
+      const reopeningTargets = getReopeningTargets({
+        flujoVersion: dictamen.flujoVersion,
+        originState: dictamen.formularioOrigen?.estado ?? null,
+        pclClosed: !dictamen.estado,
+        canReopenOrigin: auth.auth.permissions.includes('formulario_origen.reopen'),
+        canReopenPcl: auth.auth.permissions.includes('dictamen.reopen'),
+      });
+
+      return {
       id: dictamen.id,
       tipoDictamen: dictamen.tipoDictamen,
-      fechaDictamen: dictamen.fechaDictamen ? dictamen.fechaDictamen.toISOString() : null,
+      fechaDictamen:
+        originStage && dictamen.formularioOrigen?.fechaDictamenOrigen
+          ? dictamen.formularioOrigen.fechaDictamenOrigen.toISOString()
+          : dictamen.fechaDictamen?.toISOString() ?? null,
       docenteDocumento: dictamen.usuario.identificacion,
       docenteNombre: buildNombreCompleto(dictamen.usuario),
       secretaria: dictamen.usuario.secretariaRef?.nombre ?? null,
-      estado: dictamen.reabierto ? 'REABIERTO' : dictamen.estado ? 'PENDIENTE' : 'CERRADO',
+      etapa: visible.etapa,
+      estado: visible.estado,
+      actionRoute: originStage
+        ? `/medico/dictamen/${dictamen.id}/origen`
+        : `/medico/dictamen/${dictamen.id}`,
+      pclBloqueado:
+        dictamen.flujoVersion === 'ORIGEN_PREVIO' &&
+        dictamen.formularioOrigen?.estado !== 'FINALIZADO',
+      canReopen: reopeningTargets.length > 0,
       medicoNombre: buildNombreCompleto(dictamen.empleado),
       fueReabierto: Boolean(dictamen.reabiertoEn || dictamen.motivoReapertura || dictamen.reabiertoPor),
       reabiertaEn: dictamen.reabiertoEn ? dictamen.reabiertoEn.toISOString() : null,
       reabiertaPorNombre: buildNombreCompleto(dictamen.reabiertoPor),
       motivoReapertura: dictamen.motivoReapertura?.nombre ?? null,
-    }));
+      };
+    });
 
     return NextResponse.json({ ok: true, rows });
   } catch (error: unknown) {
@@ -195,6 +269,25 @@ export async function POST(req: Request) {
       usuarioId: data.usuarioId,
     });
 
+    const docente = await prisma.usuario.findUnique({
+      where: { id: data.usuarioId },
+      select: { identificacion: true },
+    });
+    if (!docente) {
+      return NextResponse.json({ ok: false, error: 'Docente no encontrado.' }, { status: 404 });
+    }
+    const active = await prisma.dictamen.findFirst({
+      where: { usuarioId: data.usuarioId, estado: true },
+      select: { id: true },
+    });
+    if (active) {
+      return NextResponse.json(
+        { ok: false, error: `El docente ya tiene un expediente activo (#${active.id}).` },
+        { status: 409 },
+      );
+    }
+    const numeroOrigen = buildNumeroDictamen(data.fechaDictamen, docente.identificacion);
+
     const dictamen = await prisma.dictamen.create({
       data: {
         usuarioId: data.usuarioId,
@@ -206,13 +299,32 @@ export async function POST(req: Request) {
         descripcionHallazgos,
         empleadoId: medicoId,
         sedeId,
+        flujoVersion: 'ORIGEN_PREVIO',
+        formularioOrigen: {
+          create: {
+            fechaDictamenOrigen: fecha,
+            numeroDictamenOrigen: numeroOrigen,
+            historial: {
+              create: {
+                actorId: medicoId,
+                tipo: 'CREACION',
+                estadoNuevo: 'BORRADOR',
+                cambios: { fuente: 'endpoint_compatibilidad' },
+              },
+            },
+          },
+        },
       },
       select: {
         id: true,
       },
     });
 
-    return NextResponse.json({ ok: true, dictamen });
+    return NextResponse.json({
+      ok: true,
+      dictamen,
+      route: `/medico/dictamen/${dictamen.id}/origen`,
+    });
   } catch (error: unknown) {
     console.error('ERROR POST /api/dictamenes/medico:', error);
 

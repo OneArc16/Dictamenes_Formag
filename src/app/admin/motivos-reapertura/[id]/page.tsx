@@ -32,6 +32,8 @@ export default async function EditarMotivoReaperturaPage({
       descripcion: true,
       orden: true,
       estado: true,
+      exigeObservacion: true,
+      alcances: { select: { alcance: true } },
     },
   });
 
@@ -79,6 +81,8 @@ export default async function EditarMotivoReaperturaPage({
             descripcion: motivo.descripcion,
             orden: motivo.orden,
             estado: motivo.estado,
+            exigeObservacion: motivo.exigeObservacion,
+            alcances: motivo.alcances.map((item) => item.alcance),
           }}
         />
       </div>

@@ -49,6 +49,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
       orden: true,
       estado: true,
       updatedAt: true,
+      alcances: { select: { alcance: true } },
     },
   });
 
@@ -77,6 +78,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
               <th className="px-3 py-2">Código</th>
               <th className="px-3 py-2">Nombre</th>
               <th className="px-3 py-2">Descripción</th>
+              <th className="px-3 py-2">Aplica a</th>
               <th className="px-3 py-2">Orden</th>
               <th className="px-3 py-2">Estado</th>
               <th className="px-3 py-2">Actualizado</th>
@@ -87,7 +89,7 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
           <tbody className="divide-y divide-slate-100">
             {motivos.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={7}>
+                <td className="px-3 py-6 text-slate-500" colSpan={8}>
                   No hay motivos de reapertura para los filtros seleccionados.
                 </td>
               </tr>
@@ -100,6 +102,10 @@ export default async function MotivosReaperturaPage({ searchParams }: Props) {
 
                   <td className="px-3 py-2 text-slate-600">
                     <p className="max-w-xl leading-5">{motivo.descripcion ?? '—'}</p>
+                  </td>
+
+                  <td className="px-3 py-2 text-slate-600">
+                    {motivo.alcances.map((item) => item.alcance).join(', ') || '—'}
                   </td>
 
                   <td className="px-3 py-2">{motivo.orden}</td>

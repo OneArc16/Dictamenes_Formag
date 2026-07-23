@@ -5,6 +5,8 @@ import {
   normalizeClaseCap2,
   ProcedimientoPcl,
 } from '@/lib/dictamen/capitulo2';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 
 export const runtime = 'nodejs';
 
@@ -22,12 +24,16 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
+    const auth = await requireAbilityApi('dictamen.edit');
+    if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     const { id } = await ctx.params;
     const dictamenId = Number(id);
 
     if (Number.isNaN(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, error: 'ID inválido' }, { status: 400 });
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ ok: false, code: gate.code, error: gate.error }, { status: gate.status });
 
     const body = await req.json().catch(() => null);
     const claseRaw = body?.claseLimitacionLaboral ?? null;

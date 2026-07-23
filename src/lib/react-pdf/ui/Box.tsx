@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, type Style } from '@react-pdf/renderer';
+import { View } from '@react-pdf/renderer';
+import type { Style } from '@react-pdf/types';
 import { theme } from '../styles/theme';
 
 type Props = {
@@ -9,13 +10,13 @@ type Props = {
 };
 
 export function Box({ children, style, bordered = true }: Props) {
+  const styles: Style[] = [
+    ...(bordered ? [{ borderWidth: theme.border, borderColor: '#000' }] : []),
+    ...(Array.isArray(style) ? style : style ? [style] : []),
+  ];
+
   return (
-    <View
-      style={[
-        bordered && { borderWidth: theme.border, borderColor: '#000' },
-        style,
-      ]}
-    >
+    <View style={styles}>
       {children}
     </View>
   );

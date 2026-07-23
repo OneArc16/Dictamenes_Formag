@@ -1,5 +1,6 @@
 // app/api/ubicacion/paises/route.ts
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') ?? '').trim();
 
-    const where = q
+    const where: Prisma.PaisWhereInput = q
       ? {
           OR: [
             { nombre: { contains: q, mode: 'insensitive' } },

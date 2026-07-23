@@ -35,6 +35,11 @@ export const motivoReaperturaInputSchema = z.object({
     .default(''),
   orden: z.coerce.number().int('El orden debe ser un número entero').min(1, 'El orden mínimo es 1').max(9999, 'El orden es demasiado alto'),
   estado: estadoBooleanLikeSchema.default(true),
+  exigeObservacion: estadoBooleanLikeSchema.default(false),
+  alcances: z
+    .array(z.enum(['ORIGEN', 'PCL', 'RECOMENDACION']))
+    .min(1, 'Selecciona al menos un documento')
+    .default(['PCL', 'RECOMENDACION']),
 });
 
 export const motivoReaperturaEstadoSchema = z.object({
@@ -47,6 +52,8 @@ export type MotivoReaperturaPayload = {
   descripcion: string | null;
   orden: number;
   estado: boolean;
+  exigeObservacion: boolean;
+  alcances: Array<'ORIGEN' | 'PCL' | 'RECOMENDACION'>;
 };
 
 export function parseMotivoReaperturaInput(input: unknown):
@@ -61,7 +68,7 @@ export function parseMotivoReaperturaInput(input: unknown):
     };
   }
 
-  const { codigo, nombre, descripcion, orden, estado } = parsed.data;
+  const { codigo, nombre, descripcion, orden, estado, exigeObservacion, alcances } = parsed.data;
 
   return {
     ok: true,
@@ -71,6 +78,8 @@ export function parseMotivoReaperturaInput(input: unknown):
       descripcion: emptyToNull(descripcion),
       orden,
       estado,
+      exigeObservacion,
+      alcances: [...new Set(alcances)],
     },
   };
 }

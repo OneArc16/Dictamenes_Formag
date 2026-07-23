@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   SearchableOption,
 } from '@/components/forms/SearchableSelect'; // solo para el tipo
@@ -9,24 +9,29 @@ import { useCie10Search } from '@/hooks/useCie10Search';
 type Cie10DiagnosticoSelectProps = {
   value: string; // código CIE10
   onChange: (value: string, option?: SearchableOption) => void;
+  inputId?: string;
   placeholder?: string;
   /** Etiqueta inicial, por ejemplo: "I10X - HIPERTENSIÓN ESENCIAL" */
   initialLabel?: string;
+  disabled?: boolean;
 };
 
 export function Cie10DiagnosticoSelect({
   value,
   onChange,
+  inputId,
   placeholder = 'Buscar por código o nombre CIE10…',
   initialLabel,
+  disabled = false,
 }: Cie10DiagnosticoSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-
-  // Label “estable” que mostramos cuando el input está cerrado
-  const [displayLabel, setDisplayLabel] = useState<string>(
-    initialLabel ?? value ?? ''
-  );
+  const [localSelection, setLocalSelection] =
+    useState<SearchableOption | null>(null);
+  const displayLabel =
+    localSelection?.value === value
+      ? localSelection.label
+      : initialLabel ?? value ?? '';
 
   const {
     options,
@@ -34,22 +39,6 @@ export function Cie10DiagnosticoSelect({
     error,
     search,
   } = useCie10Search();
-
-  // Cuando cambia el value o la initialLabel desde fuera
-  useEffect(() => {
-    if (!value) {
-      setDisplayLabel('');
-      return;
-    }
-    setDisplayLabel(initialLabel ?? value);
-  }, [value, initialLabel]);
-
-  // Cuando se cierra el dropdown, dejamos el label seleccionado en el input
-  useEffect(() => {
-    if (!open) {
-      setQuery(displayLabel ?? '');
-    }
-  }, [open, displayLabel]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value;
@@ -64,7 +53,7 @@ export function Cie10DiagnosticoSelect({
 
   const handleSelect = (opt: SearchableOption) => {
     onChange(opt.value, opt);
-    setDisplayLabel(opt.label ?? opt.value);
+    setLocalSelection(opt);
     setOpen(false);
     setQuery(opt.label ?? opt.value);
   };
@@ -80,18 +69,19 @@ export function Cie10DiagnosticoSelect({
   return (
     <div className="relative">
       <input
+        id={inputId}
         type="text"
         value={open ? query : displayLabel}
         onChange={handleInputChange}
         onFocus={() => {
+          if (disabled) return;
           setOpen(true);
-          if (!query && displayLabel) {
-            setQuery(displayLabel);
-          }
+          setQuery(displayLabel);
         }}
         onBlur={handleBlur}
+        disabled={disabled}
         placeholder={placeholder}
-        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
       />
 
       {/* Mensaje de ayuda cuando escribe menos de 3 caracteres */}

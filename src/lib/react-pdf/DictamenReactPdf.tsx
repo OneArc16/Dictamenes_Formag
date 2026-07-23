@@ -29,6 +29,8 @@ type DictamenPdfData = {
   logoSrc?: string | null;
   condicionSalud?: string | null;
   descripcionHallazgos?: string | null;
+  antecedentesClinicos?: unknown;
+  diagnosticos?: unknown;
   junta?: unknown;
   [key: string]: unknown;
 };

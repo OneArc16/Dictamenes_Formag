@@ -9,6 +9,7 @@ export interface DictamenPanelData {
     numeroDictamen: string | null;
     fechaDictamen: string | null;
     procedimientoPcl: "A" | "B";
+    estado?: string;
 
     totalTitulo1?: number | null;
     totalCap1?: number | null;

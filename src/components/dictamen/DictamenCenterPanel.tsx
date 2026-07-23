@@ -65,7 +65,7 @@ export default function DictamenCenterPanel({
 }: DictamenCenterPanelProps) {
   const [tab, setTab] = useState<TabId>('ANTECEDENTES');
 
-  const { data: cie10Options = [], error: cie10Error } = useCie10Options();
+  const { error: cie10Error } = useCie10Options();
   const panel = useDictamenDeficienciasPanel(dictamen.id, procedimientoPcl);
 
   const totalTitulo1 = panel.data?.dictamen?.totalTitulo1 ?? null;
@@ -184,7 +184,6 @@ export default function DictamenCenterPanel({
               <TabDiagnosticos
                 dictamenId={dictamen.id}
                 procedimientoPcl={procedimientoPcl}
-                cie10Options={cie10Options}
                 initialDiagnosticos={dictamen.diagnosticos ?? []}
                 onGoNext={() => setTab('DEFICIENCIAS')}
               />

@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
 import { Prisma, ProcedimientoPcl, ActividadAvdAivd } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAbilityApi("dictamen.edit");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await params;
   const dictamenId = Number(id);
 
   if (!Number.isFinite(dictamenId)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
+  const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+  if (!gate.ok) return NextResponse.json({ code: gate.code, error: gate.error }, { status: gate.status });
 
   const dictamen = await prisma.dictamen.findUnique({
     where: { id: dictamenId },

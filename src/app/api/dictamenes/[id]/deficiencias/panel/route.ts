@@ -1,6 +1,8 @@
 // src/app/api/dictamenes/[id]/deficiencias/panel/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAbilityApi } from '@/lib/auth/api-guards';
+import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,12 +26,18 @@ function toNumberOrNull(v: unknown): number | null {
 
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAbilityApi('dictamen.read');
+    if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     const { id } = await context.params;
     const dictamenId = Number(id);
 
     if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
       return NextResponse.json({ ok: false, error: 'dictamenId inválido' }, { status: 400 });
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, {
+      allowHistoricalClosed: true,
+    });
+    if (!gate.ok) return NextResponse.json({ ok: false, code: gate.code, error: gate.error }, { status: gate.status });
 
     const dictamen = await prisma.dictamen.findUnique({
       where: { id: dictamenId },

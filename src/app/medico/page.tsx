@@ -13,6 +13,7 @@ import ReadOnlyBanner from '@/components/medico/ReadOnlyBanner';
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
 import { useCan } from '@/hooks/useCan';
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
+import { ReabrirDocumentoDialog } from '@/components/reapertura/ReabrirDocumentoDialog';
 
 type DictamenApiRow = {
   id: number;
@@ -26,6 +27,10 @@ type DictamenApiRow = {
   reabiertaEn: string | null;
   reabiertaPorNombre: string | null;
   motivoReapertura: string | null;
+  etapa: string;
+  actionRoute: string;
+  pclBloqueado: boolean;
+  canReopen: boolean;
 };
 
 function formatFechaExport(value: unknown): string {
@@ -126,6 +131,10 @@ export default function MedicoPage() {
         reabiertaEn: dictamen.reabiertaEn,
         reabiertaPorNombre: dictamen.reabiertaPorNombre,
         motivoReapertura: dictamen.motivoReapertura,
+        etapa: dictamen.etapa,
+        actionRoute: dictamen.actionRoute,
+        pclBloqueado: dictamen.pclBloqueado,
+        canReopen: dictamen.canReopen,
       }));
     },
   });
@@ -147,7 +156,8 @@ export default function MedicoPage() {
   );
 
   const handleOpenDictamen = (id: number) => {
-    router.push(`/medico/dictamen/${id}`);
+    const row = rows.find((item) => item.id === id);
+    router.push(row?.actionRoute || `/medico/dictamen/${id}`);
   };
 
   const handleDictamenCreated = () => {
@@ -156,9 +166,9 @@ export default function MedicoPage() {
 
   return (
     <ModulePageLayout
-      moduleKey="medico"
-      title="Dictamenes del medico"
-      description="Consulta tus dictamenes pendientes, reabiertos y cerrados con una navegacion lateral separada del formulario clinico."
+      moduleKey="medicina-laboral"
+      title="Dictámenes del médico"
+      description="Consulta tus dictámenes pendientes, reabiertos y cerrados, y accede a su información clínica."
       compactHero
       actions={
         canExportDictamen ? (
@@ -186,7 +196,22 @@ export default function MedicoPage() {
         }
       />
 
-      <DictamenTable rows={rows} loading={loading} onOpenDictamen={handleOpenDictamen} />
+      <DictamenTable
+        rows={rows}
+        loading={loading}
+        onOpenDictamen={handleOpenDictamen}
+        renderActions={(row) =>
+          row.canReopen ? (
+            <ReabrirDocumentoDialog
+              dictamenId={row.id}
+              onSuccess={(route) => {
+                void refetchDictamenes();
+                router.push(route);
+              }}
+            />
+          ) : null
+        }
+      />
 
       <RegistrarDocenteModal
         open={showRegistrarModal}

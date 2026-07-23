@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import type { ReactNode } from 'react';
-import { Eye, RotateCcw } from 'lucide-react';
+import { ArrowRight, LockKeyhole, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -66,6 +66,14 @@ function getEstadoStyles(estado: string | undefined) {
     return 'border border-sky-100 bg-sky-50 text-sky-700';
   }
 
+  if (normalized === 'BORRADOR') {
+    return 'border border-amber-200 bg-amber-50 text-amber-800';
+  }
+
+  if (normalized === 'HABILITADO') {
+    return 'border border-sky-200 bg-sky-50 text-sky-800';
+  }
+
   return 'border border-emerald-100 bg-emerald-50 text-emerald-700';
 }
 
@@ -74,7 +82,15 @@ function getEstadoLabel(estado: string | undefined) {
 
   if (normalized === 'PENDIENTE') return 'Pendiente';
   if (normalized === 'REABIERTO') return 'Reabierto';
+  if (normalized === 'BORRADOR') return 'Borrador';
+  if (normalized === 'HABILITADO') return 'Habilitado';
   return 'Cerrado';
+}
+
+function getStageLabel(stage: DictamenRow['etapa']) {
+  if (stage === 'FORMULARIO_ORIGEN') return 'Formulario de Origen';
+  if (stage === 'FLUJO_ANTERIOR') return 'Flujo anterior';
+  return 'Dictamen PCL';
 }
 
 function getRowClassName(row: DictamenRow) {
@@ -115,6 +131,7 @@ export function DictamenTable({
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Secretaria</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Docente</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Etapa</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Estado</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Medico</TableHead>
             <TableHead className="w-24 px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Acciones</TableHead>
@@ -124,7 +141,7 @@ export function DictamenTable({
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={8} className="px-3 py-6 text-center text-xs text-slate-500">
+              <TableCell colSpan={9} className="px-3 py-6 text-center text-xs text-slate-500">
                 Cargando dictamenes...
               </TableCell>
             </TableRow>
@@ -132,7 +149,7 @@ export function DictamenTable({
 
           {!loading && rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="px-3 py-6 text-center text-xs text-slate-500">
+              <TableCell colSpan={9} className="px-3 py-6 text-center text-xs text-slate-500">
                 No hay dictamenes para los filtros seleccionados.
               </TableCell>
             </TableRow>
@@ -160,6 +177,15 @@ export function DictamenTable({
                     </TableCell>
                     <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
                       {row.docenteNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      <span className="font-medium">{getStageLabel(row.etapa)}</span>
+                      {row.pclBloqueado ? (
+                        <p className="mt-1 flex max-w-[220px] items-start gap-1 text-[10px] leading-4 text-slate-500">
+                          <LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                          PCL bloqueado hasta finalizar Origen.
+                        </p>
+                      ) : null}
                     </TableCell>
                     <TableCell className="px-3 py-2 align-top">
                       <div className="max-w-[240px] space-y-1">
@@ -194,12 +220,17 @@ export function DictamenTable({
                         <Button
                           type="button"
                           variant="outline"
-                          size="icon"
-                          title="Ver dictamen"
-                          className="h-8 w-8 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                          size="sm"
+                          title={
+                            row.etapa === 'FORMULARIO_ORIGEN'
+                              ? 'Abrir Formulario de Origen'
+                              : 'Abrir Dictamen PCL'
+                          }
+                          className="min-h-11 gap-2 rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                           onClick={() => onOpenDictamen(row.id)}
                         >
-                          <Eye className="h-4 w-4" />
+                          Abrir
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
                         </Button>
                         {renderActions ? renderActions(row) : null}
                       </div>

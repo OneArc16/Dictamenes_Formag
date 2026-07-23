@@ -12,14 +12,7 @@ import MedicoAccessProvider from '@/components/medico/MedicoAccessProvider';
 import type { AuthUser } from '@/lib/auth/guards';
 import type { DictamenDetalle } from '@/components/dictamen/types';
 import { useCan } from '@/hooks/useCan';
-
-function buildNumeroDictamen(id: number, fecha: string | null) {
-  if (!fecha) return '';
-  const [yyyy, mm, dd] = fecha.split('-');
-  const datePart = `${dd}${mm}${yyyy}`;
-  const consecutivo = String(id).padStart(9, '0');
-  return `${datePart}${consecutivo}`;
-}
+import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
 const ADMISIONES_USER = {
   id: 0,
@@ -76,7 +69,9 @@ export default function AdmisionesVerHistoriaClinicaPage() {
       const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
-      const numero = detail.numeroDictamen ?? buildNumeroDictamen(detail.id, uiFecha || null);
+      const numero =
+        detail.numeroDictamen ??
+        (uiFecha ? buildNumeroDictamen(uiFecha, detail.docente.documento) : '');
       setNumeroDictamen(numero);
 
       setError(null);
@@ -137,14 +132,18 @@ export default function AdmisionesVerHistoriaClinicaPage() {
     if (readOnly) return;
     setFechaDictamen(newFecha);
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
+    if (newFecha && dictamen?.docente.documento) {
+      setNumeroDictamen(buildNumeroDictamen(newFecha, dictamen.docente.documento));
+    }
   };
 
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
     if (readOnly) return;
     setProcedimientoPcl(nuevoProc);
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    setNumeroDictamen(buildNumeroDictamen(dictamenId, fechaDictamen || null));
+    if (fechaDictamen && dictamen?.docente.documento) {
+      setNumeroDictamen(buildNumeroDictamen(fechaDictamen, dictamen.docente.documento));
+    }
   };
 
   if (loading) {

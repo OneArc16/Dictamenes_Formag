@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 type Body = {
   deficienciaId: number;
@@ -19,11 +21,15 @@ function normalizeTipoTabla(tipo: string | null | undefined) {
 
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAbilityApi("dictamen.edit");
+    if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const { id } = await context.params;
     const dictamenId = Number(id);
     if (isNaN(dictamenId)) {
       return NextResponse.json({ message: "dictamenId inválido" }, { status: 400 });
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     const body = (await req.json()) as Body;
 

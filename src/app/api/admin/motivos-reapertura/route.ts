@@ -43,11 +43,15 @@ export async function POST(req: Request) {
 
     const actor = getAuditActor(auth.payload);
 
+    const { alcances, ...data } = parsed.data;
     const created = await prisma.motivoReapertura.create({
       data: {
-        ...parsed.data,
+        ...data,
         createdBy: actor,
         updatedBy: actor,
+        alcances: {
+          create: alcances.map((alcance) => ({ alcance })),
+        },
       },
       select: { id: true },
     });

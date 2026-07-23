@@ -11,16 +11,7 @@ import DictamenLeftPanel from '@/components/dictamen/DictamenLeftPanel';
 import DictamenCenterPanel from '@/components/dictamen/DictamenCenterPanel';
 import DictamenRightPanel from '@/components/dictamen/DictamenRightPanel';
 import type { DictamenDetalle } from '@/components/dictamen/types';
-
-function buildNumeroDictamen(id: number, fecha: string | null) {
-  if (!fecha) return '';
-
-  const [yyyy, mm, dd] = fecha.split('-');
-  const datePart = `${dd}${mm}${yyyy}`;
-  const consecutivo = String(id).padStart(9, '0');
-
-  return `${datePart}${consecutivo}`;
-}
+import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
 export default function DictamenDetallePage() {
   const router = useRouter();
@@ -54,6 +45,10 @@ export default function DictamenDetallePage() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
+        if (data?.code === 'PCL_BLOCKED_BY_ORIGIN' && data?.redirectTo) {
+          router.replace(data.redirectTo);
+          return;
+        }
         setError(data?.error ?? 'Error cargando informacion del dictamen');
         return;
       }
@@ -73,7 +68,9 @@ export default function DictamenDetallePage() {
       const uiFecha = rawFecha && rawFecha.length >= 10 ? rawFecha.substring(0, 10) : '';
       setFechaDictamen(uiFecha);
 
-      const numero = detail.numeroDictamen ?? buildNumeroDictamen(detail.id, uiFecha || null);
+      const numero =
+        detail.numeroDictamen ??
+        (uiFecha ? buildNumeroDictamen(uiFecha, detail.docente.documento) : '');
       setNumeroDictamen(numero);
 
       setError(null);
@@ -84,7 +81,7 @@ export default function DictamenDetallePage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [dictamenId]);
+  }, [dictamenId, router]);
 
   const markClosedLocally = useCallback((serverVersionValue?: string) => {
     setDictamen((prev) =>
@@ -160,7 +157,9 @@ export default function DictamenDetallePage() {
         if (updated?.numeroDictamen) {
           setNumeroDictamen(updated.numeroDictamen);
         } else {
-          setNumeroDictamen(buildNumeroDictamen(dictamenId, fechaDictamen || null));
+          if (fechaDictamen && dictamen?.docente.documento) {
+            setNumeroDictamen(buildNumeroDictamen(fechaDictamen, dictamen.docente.documento));
+          }
         }
       } catch (saveError: unknown) {
         if (saveError instanceof DOMException && saveError.name === 'AbortError') return;
@@ -170,14 +169,16 @@ export default function DictamenDetallePage() {
 
     saveFecha();
     return () => controller.abort();
-  }, [fechaDictamen, dictamenId, dictamenLoaded, readOnly]);
+  }, [fechaDictamen, dictamenId, dictamenLoaded, readOnly, dictamen?.docente.documento]);
 
   const handleChangeFecha = (newFecha: string) => {
     if (readOnly) return;
     setFechaDictamen(newFecha);
 
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    setNumeroDictamen(buildNumeroDictamen(dictamenId, newFecha || null));
+    if (newFecha && dictamen?.docente.documento) {
+      setNumeroDictamen(buildNumeroDictamen(newFecha, dictamen.docente.documento));
+    }
   };
 
   const handleChangeProcedimiento = (nuevoProc: 'A' | 'B') => {
@@ -185,7 +186,9 @@ export default function DictamenDetallePage() {
     setProcedimientoPcl(nuevoProc);
 
     if (!dictamenId || Number.isNaN(dictamenId)) return;
-    setNumeroDictamen(buildNumeroDictamen(dictamenId, fechaDictamen || null));
+    if (fechaDictamen && dictamen?.docente.documento) {
+      setNumeroDictamen(buildNumeroDictamen(fechaDictamen, dictamen.docente.documento));
+    }
   };
 
   const handleDocenteUpdated = async () => {

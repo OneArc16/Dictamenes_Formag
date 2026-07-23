@@ -3,6 +3,7 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
 import { DatosLaboralesSection } from '@/components/registrar-docente/DatosLaboralesSection';
@@ -16,7 +17,7 @@ import {
   readUnknown,
 } from '@/components/registrar-docente/api-adapters';
 import {
-  createDictamen,
+  createDictamenCase,
   createRecomendacion,
   fetchInstituciones as fetchInstitucionesApi,
   fetchUbicacionOptions,
@@ -47,7 +48,6 @@ import {
   normalizeDate,
   resolveMunicipioCodigoFromList,
   resolveMunicipioNombreFromList,
-  todayIsoDate,
 } from '@/components/registrar-docente/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,7 +66,9 @@ function DocenteModal({
   onDictamenCreated,
   onDocenteSaved,
 }: ModalProps) {
+  const router = useRouter();
   const [form, setForm] = useState<DocenteForm>(emptyForm);
+  const operationIdRef = useRef<string | null>(null);
 
   const [paises, setPaises] = useState<PaisOption[]>([]);
   const [departamentos, setDepartamentos] = useState<DepartamentoOption[]>([]);
@@ -536,9 +538,8 @@ function DocenteModal({
     setSaving(true);
 
     try {
-      const usuarioId = await saveDocente(form);
-
       if (isRecommendationMode) {
+        const usuarioId = await saveDocente(form);
         await createRecomendacion(usuarioId, medicoResponsableId);
 
         showToast('success', 'Docente registrado y recomendacion lista en el listado');
@@ -548,17 +549,15 @@ function DocenteModal({
         return;
       }
 
-      await createDictamen({
-        usuarioId,
-        fechaDictamen: todayIsoDate(),
-        tipoDictamen: form.tipoDictamen,
-      });
+      operationIdRef.current ??= crypto.randomUUID();
+      const created = await createDictamenCase(form, operationIdRef.current);
 
-      showToast('success', 'Docente y dictamen registrados correctamente');
+      showToast('success', 'Expediente y Formulario de Origen creados correctamente');
       onDictamenCreated?.();
       handleLimpiar();
-
-      setTimeout(() => onClose(), 1200);
+      operationIdRef.current = null;
+      onClose();
+      router.push(created.route);
     } catch (err) {
       console.error('Error guardando docente / dictamen:', err);
       showToast(

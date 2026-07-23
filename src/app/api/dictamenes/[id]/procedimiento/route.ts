@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 type Body = { procedimientoPcl?: "A" | "B" };
 
@@ -8,12 +10,16 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAbilityApi("dictamen.edit");
+    if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const { id } = await context.params;
     const dictamenId = Number(id);
 
     if (!Number.isFinite(dictamenId)) {
       return NextResponse.json({ message: "id inválido" }, { status: 400 });
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     const body = (await req.json().catch(() => ({}))) as Body;
     const proc = body?.procedimientoPcl;

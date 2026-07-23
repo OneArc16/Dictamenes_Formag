@@ -17,6 +17,8 @@ type InitialValues = {
   descripcion?: string | null;
   orden?: number | null;
   estado?: boolean | null;
+  exigeObservacion?: boolean | null;
+  alcances?: Array<'ORIGEN' | 'PCL' | 'RECOMENDACION'>;
 };
 
 type Props = {
@@ -34,6 +36,8 @@ type Payload = {
   descripcion: string;
   orden: number;
   estado: boolean;
+  exigeObservacion: boolean;
+  alcances: Array<'ORIGEN' | 'PCL' | 'RECOMENDACION'>;
 };
 
 export default function MotivoReaperturaForm({
@@ -53,6 +57,8 @@ export default function MotivoReaperturaForm({
       descripcion: initialValues?.descripcion ?? '',
       orden: String(initialValues?.orden ?? 1),
       estado: initialValues?.estado ?? true,
+      exigeObservacion: initialValues?.exigeObservacion ?? false,
+      alcances: initialValues?.alcances ?? ['ORIGEN', 'PCL', 'RECOMENDACION'],
     }),
     [initialValues],
   );
@@ -62,6 +68,8 @@ export default function MotivoReaperturaForm({
   const [descripcion, setDescripcion] = useState(initial.descripcion);
   const [orden, setOrden] = useState(initial.orden);
   const [estado, setEstado] = useState(initial.estado);
+  const [exigeObservacion, setExigeObservacion] = useState(initial.exigeObservacion);
+  const [alcances, setAlcances] = useState(initial.alcances);
 
   useEffect(() => {
     setCodigo(initial.codigo);
@@ -69,6 +77,8 @@ export default function MotivoReaperturaForm({
     setDescripcion(initial.descripcion);
     setOrden(initial.orden);
     setEstado(initial.estado);
+    setExigeObservacion(initial.exigeObservacion);
+    setAlcances(initial.alcances);
   }, [initial]);
 
   const mutation = useMutation({
@@ -114,6 +124,10 @@ export default function MotivoReaperturaForm({
       toast.error('El orden debe ser un número entero mayor o igual a 1');
       return;
     }
+    if (alcances.length === 0) {
+      toast.error('Selecciona al menos un documento.');
+      return;
+    }
 
     mutation.mutate({
       codigo: codigo.trim().toUpperCase(),
@@ -121,6 +135,8 @@ export default function MotivoReaperturaForm({
       descripcion: descripcion.trim(),
       orden: ordenNormalizado,
       estado,
+      exigeObservacion,
+      alcances,
     });
   };
 
@@ -167,6 +183,49 @@ export default function MotivoReaperturaForm({
           placeholder="Ej: Actualización por información clínica"
           className="text-[12px]"
         />
+      </div>
+
+      <fieldset className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+        <legend className="px-1 text-[12px] font-medium text-slate-700">
+          Documentos en los que aplica *
+        </legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          {([
+            ['ORIGEN', 'Formulario de Origen'],
+            ['PCL', 'Dictamen PCL'],
+            ['RECOMENDACION', 'Recomendación'],
+          ] as const).map(([value, label]) => (
+            <label key={value} className="flex min-h-11 items-center gap-2 text-[12px] text-slate-700">
+              <Checkbox
+                checked={alcances.includes(value)}
+                onCheckedChange={(checked) =>
+                  setAlcances((current) =>
+                    checked === true
+                      ? [...new Set([...current, value])]
+                      : current.filter((item) => item !== value),
+                  )
+                }
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+        <Checkbox
+          id="motivo-observacion"
+          checked={exigeObservacion}
+          onCheckedChange={(checked) => setExigeObservacion(checked === true)}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="motivo-observacion" className="text-[12px] font-medium text-slate-700">
+            Exigir observación adicional
+          </Label>
+          <p className="text-[11px] leading-5 text-slate-500">
+            La reapertura no podrá confirmarse sin una explicación del usuario.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-2">

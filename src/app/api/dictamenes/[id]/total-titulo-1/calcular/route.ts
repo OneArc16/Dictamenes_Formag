@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requireAbilityApi } from "@/lib/auth/api-guards";
+import { checkPclAccess } from "@/lib/dictamen/pcl-access";
 
 function toNumberPercent(value: any): number | null {
   if (value === null || value === undefined) return null;
@@ -52,6 +54,8 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAbilityApi("dictamen.edit");
+    if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const { id } = await context.params;
     const dictamenId = Number(id);
 
@@ -61,6 +65,8 @@ export async function POST(
         { status: 400 }
       );
     }
+    const gate = await checkPclAccess(dictamenId, auth.auth, { edit: true, markStarted: true });
+    if (!gate.ok) return NextResponse.json({ code: gate.code, message: gate.error }, { status: gate.status });
 
     const dictamen = await prisma.dictamen.findUnique({
       where: { id: dictamenId },

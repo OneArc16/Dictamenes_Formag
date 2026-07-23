@@ -129,26 +129,27 @@ export async function createRecomendacion(usuarioId: number, empleadoId: number 
   await readJsonResponse(response, 'Error creando recomendacion laboral');
 }
 
-export async function createDictamen({
-  usuarioId,
-  fechaDictamen,
-  tipoDictamen,
-}: {
-  usuarioId: number;
-  fechaDictamen: string;
-  tipoDictamen: DocenteForm['tipoDictamen'];
-}) {
-  const response = await fetch('/api/dictamenes/medico', {
+export async function createDictamenCase(
+  form: DocenteForm,
+  operacionId: string,
+) {
+  const response = await fetch('/api/dictamenes/casos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({
-      usuarioId,
-      fechaDictamen,
-      procedimientoPcl: 'A',
-      tipoDictamen: tipoDictamen || 'CALIFICACION',
-    }),
+    body: JSON.stringify({ form, operacionId }),
   });
 
-  await readJsonResponse(response, 'Error creando dictamen');
+  const data = await readJsonResponse(
+    response,
+    'Error registrando el expediente y el Formulario de Origen',
+  );
+  if (typeof data.route !== 'string') {
+    throw new Error('El servidor no devolvió la ruta del formulario.');
+  }
+
+  return {
+    dictamenId: Number(data.dictamenId),
+    route: data.route,
+  };
 }

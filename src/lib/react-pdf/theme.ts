@@ -17,6 +17,7 @@
     templateBlueMid: '#A5C9EB',
     templateDarkBlue: '#1F4E78',
     templatePeach: '#FCE4D6',
+    sectionTitleBg: '#FCE4D6',
 
     // Texto
     text: '#000000',

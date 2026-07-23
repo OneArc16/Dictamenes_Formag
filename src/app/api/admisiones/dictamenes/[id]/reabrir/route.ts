@@ -1,188 +1,77 @@
-import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { originRouteError, parseDictamenId } from '@/features/formulario-origen/application/http';
+import {
+  getReopeningOptions,
+  reopenDocument,
+} from '@/features/formulario-origen/application/reopening-service';
+import { hasAnyAbility } from '@/lib/auth/ability-utils';
 import { requireAbilityApi } from '@/lib/auth/api-guards';
-import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
-type AuthCtx = {
-  empleadoId: number;
-  role: string;
-};
-
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
-const ReabrirDictamenSchema = z.object({
+const schema = z.object({
   motivoReaperturaId: z.coerce.number().int().positive(),
 });
 
-function canReopen(auth: AuthCtx) {
-  return auth.role === 'ADMIN' || auth.role === 'ADMISIONISTA';
-}
-
-async function loadManagedDictamen(dictamenId: number) {
-  return prisma.dictamen.findUnique({
-    where: { id: dictamenId },
-    select: {
-      id: true,
-      estado: true,
-      reabierto: true,
-      numeroDictamen: true,
-      fechaDictamen: true,
-      procedimientoPcl: true,
-      tipoDictamen: true,
-      antecedentesClinicos: true,
-      condicionSalud: true,
-      descripcionHallazgos: true,
-      sustentacionObservaciones: true,
-      fechaEstructuracionInvalidez: true,
-      tipoEvento: true,
-      origenEvento: true,
-      aplicaAnalisisOcupacional: true,
-    },
-  });
-}
-
-type ManagedDictamen = NonNullable<Awaited<ReturnType<typeof loadManagedDictamen>>>;
-
-function resolveEstadoHistorial(dictamen: Pick<ManagedDictamen, 'estado' | 'reabierto'>) {
-  if (!dictamen.estado) return 'CERRADO' as const;
-  return dictamen.reabierto ? ('REABIERTO' as const) : ('PENDIENTE' as const);
-}
-
-function toIsoString(value: Date | null | undefined) {
-  return value ? value.toISOString() : null;
-}
-
-function buildDictamenSnapshot(dictamen: ManagedDictamen): Prisma.InputJsonObject {
-  return {
-    numeroDictamen: dictamen.numeroDictamen ?? null,
-    fechaDictamen: toIsoString(dictamen.fechaDictamen),
-    procedimientoPcl: dictamen.procedimientoPcl ?? null,
-    tipoDictamen: dictamen.tipoDictamen ?? null,
-    antecedentesClinicos: dictamen.antecedentesClinicos ?? null,
-    condicionSalud: dictamen.condicionSalud ?? null,
-    descripcionHallazgos: dictamen.descripcionHallazgos ?? null,
-    sustentacionObservaciones: dictamen.sustentacionObservaciones ?? null,
-    fechaEstructuracionInvalidez: toIsoString(dictamen.fechaEstructuracionInvalidez),
-    tipoEvento: dictamen.tipoEvento ?? null,
-    origenEvento: dictamen.origenEvento ?? null,
-    aplicaAnalisisOcupacional: dictamen.aplicaAnalisisOcupacional,
-  } as Prisma.InputJsonObject;
-}
-
-export async function POST(req: Request, context: RouteContext) {
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ id: string }> },
+) {
   try {
-    const authResult = await requireAbilityApi('dictamen.reopen');
-    if (!authResult.ok) {
-      return NextResponse.json({ ok: false, error: authResult.error }, { status: authResult.status });
+    const auth = await requireAbilityApi('dictamen.reopen');
+    if (!auth.ok) {
+      return NextResponse.json(
+        { ok: false, error: auth.error },
+        { status: auth.status },
+      );
+    }
+    if (
+      !hasAnyAbility(auth.auth, [
+        'module.admin.access',
+        'module.admisiones.access',
+      ])
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'No autorizado.' },
+        { status: 403 },
+      );
     }
 
-    const auth = authResult.auth;
-    if (!canReopen(auth)) {
-      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 });
-    }
-
-    const { id: idParam } = await context.params;
-    const dictamenId = Number(idParam);
-
-    if (!Number.isFinite(dictamenId) || dictamenId <= 0) {
-      return NextResponse.json({ ok: false, error: 'ID invalido' }, { status: 400 });
-    }
-
-    const body = ReabrirDictamenSchema.parse(await req.json());
-    const existing = await loadManagedDictamen(dictamenId);
-
-    if (!existing) {
-      return NextResponse.json({ ok: false, error: 'Dictamen no encontrado' }, { status: 404 });
-    }
-
-    if (existing.estado === true) {
+    const { id } = await context.params;
+    const dictamenId = parseDictamenId(id);
+    const input = schema.parse(await req.json());
+    const options = await getReopeningOptions(dictamenId, auth.auth);
+    const expectedVersion = options.versions.PCL;
+    if (!options.targets.includes('PCL') || !expectedVersion) {
       return NextResponse.json(
         {
           ok: false,
-          error: existing.reabierto
-            ? 'El dictamen ya esta reabierto.'
-            : 'El dictamen no esta cerrado, no se puede reabrir.',
+          code: 'REOPEN_NOT_ELIGIBLE',
+          error: 'El Dictamen PCL no es elegible para reapertura.',
         },
         { status: 409 },
       );
     }
 
-    const motivoReapertura = await prisma.motivoReapertura.findFirst({
-      where: {
-        id: body.motivoReaperturaId,
-        estado: true,
-      },
-      select: {
-        id: true,
-        nombre: true,
-      },
-    });
-
-    if (!motivoReapertura) {
-      return NextResponse.json(
-        { ok: false, error: 'El motivo de reapertura no existe o esta inactivo.' },
-        { status: 404 },
-      );
-    }
-
-    const snapshot = buildDictamenSnapshot(existing);
-    const estadoAnterior = resolveEstadoHistorial(existing);
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const next = await tx.dictamen.update({
-        where: { id: dictamenId },
-        data: {
-          estado: true,
-          reabierto: true,
-          reabiertoEn: new Date(),
-          reabiertoPorId: auth.empleadoId,
-          motivoReaperturaId: motivoReapertura.id,
-        },
-        select: {
-          id: true,
-          estado: true,
-          reabierto: true,
-        },
-      });
-
-      await tx.dictamenHistorial.create({
-        data: {
-          dictamenId,
-          empleadoId: auth.empleadoId,
-          motivoReaperturaId: motivoReapertura.id,
-          tipo: 'REAPERTURA',
-          estadoAnterior,
-          estadoNuevo: 'REABIERTO',
-          formularioAnterior: snapshot,
-          formularioNuevo: snapshot,
-        },
-      });
-
-      return next;
+    const result = await reopenDocument(dictamenId, auth.auth, {
+      objetivo: 'PCL',
+      motivoId: input.motivoReaperturaId,
+      observacion: null,
+      expectedVersion,
     });
 
     return NextResponse.json({
       ok: true,
-      dictamen: { id: updated.id, estado: 'REABIERTO' as const },
-      motivoReapertura: motivoReapertura.nombre,
+      dictamen: { id: dictamenId, estado: 'REABIERTO' as const },
+      motivoReapertura: result.motivo,
+      route: result.route,
     });
   } catch (error) {
-    console.error('ERROR POST /api/admisiones/dictamenes/[id]/reabrir:', error);
-
-    const message =
-      error instanceof z.ZodError
-        ? error.issues[0]?.message ?? 'Datos invalidos.'
-        : error instanceof Error
-          ? error.message
-          : 'Error reabriendo dictamen';
-
-    const status = error instanceof z.ZodError ? 400 : 500;
-    return NextResponse.json({ ok: false, error: message }, { status });
+    return originRouteError(
+      error,
+      'POST /api/admisiones/dictamenes/[id]/reabrir',
+    );
   }
 }
