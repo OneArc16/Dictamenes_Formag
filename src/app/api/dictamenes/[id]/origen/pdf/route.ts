@@ -1,8 +1,12 @@
 import { renderToBuffer } from '@react-pdf/renderer';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import React from 'react';
 import { NextResponse } from 'next/server';
 
+import { formatDateOnly } from '@/features/formulario-origen/domain/date';
 import { originRouteError, parseDictamenId } from '@/features/formulario-origen/application/http';
+import { getActiveOriginJuntaSnapshot } from '@/features/formulario-origen/application/origin-junta';
 import {
   FormularioOrigenPdf,
   type FormularioOrigenSnapshot,
@@ -12,6 +16,16 @@ import { hasCaseScope } from '@/lib/auth/case-scope';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
+
+async function getLogoDataUrl() {
+  const logoPath = path.join(process.cwd(), 'public', 'assets', 'logo-sism.png');
+  const bytes = await fs.readFile(logoPath);
+  return `data:image/png;base64,${bytes.toString('base64')}`;
+}
+
+function snapshotValue(value: string | null | undefined, fallback: string | null) {
+  return String(value ?? '').trim() ? value : fallback;
+}
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -23,7 +37,19 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     const origin = await prisma.formularioOrigen.findUnique({
       where: { dictamenId },
       select: {
-        dictamen: { select: { empleadoId: true } },
+        dictamen: {
+          select: {
+            empleadoId: true,
+            usuario: {
+              select: {
+                fechaNacimiento: true,
+                estadoCivil: true,
+                escolaridad: true,
+                zonaResidencia: true,
+              },
+            },
+          },
+        },
         versiones: {
           where:
             Number.isInteger(requestedVersion) && requestedVersion > 0
@@ -47,8 +73,33 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       );
     }
 
+    const [logoSrc, junta] = await Promise.all([
+      getLogoDataUrl().catch(() => null),
+      getActiveOriginJuntaSnapshot(),
+    ]);
+    const snapshot = version.snapshot as FormularioOrigenSnapshot;
+    const teacher = snapshot.docente ?? {};
+    const liveTeacher = origin.dictamen.usuario;
+    const printableSnapshot: FormularioOrigenSnapshot = {
+      ...snapshot,
+      docente: {
+        ...teacher,
+        fechaNacimiento: snapshotValue(
+          teacher.fechaNacimiento,
+          formatDateOnly(liveTeacher.fechaNacimiento),
+        ),
+        estadoCivil: snapshotValue(teacher.estadoCivil, liveTeacher.estadoCivil),
+        escolaridad: snapshotValue(teacher.escolaridad, liveTeacher.escolaridad),
+        zonaResidencia: snapshotValue(
+          teacher.zonaResidencia,
+          liveTeacher.zonaResidencia,
+        ),
+      },
+      junta,
+    };
     const document = React.createElement(FormularioOrigenPdf, {
-      data: version.snapshot as FormularioOrigenSnapshot,
+      data: printableSnapshot,
+      logoSrc,
     });
     const buffer = await renderToBuffer(document as never);
     const body = buffer.buffer.slice(

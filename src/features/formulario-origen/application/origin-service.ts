@@ -15,6 +15,10 @@ import { formatDateOnly, getDiaSemanaBogota, parseColombiaDate } from '../domain
 import { buildNumeroDictamen } from '../domain/numero-dictamen';
 import { calculateSectionProgress, validateFormularioOrigen } from '../domain/validation';
 import { ApplicationError } from './errors';
+import {
+  getActiveOriginJuntaSnapshot,
+  type OriginJuntaSnapshot,
+} from './origin-junta';
 
 const originArgs = Prisma.validator<Prisma.FormularioOrigenDefaultArgs>()({
   include: {
@@ -24,6 +28,8 @@ const originArgs = Prisma.validator<Prisma.FormularioOrigenDefaultArgs>()({
           include: {
             secretariaRef: { select: { nombre: true } },
             institucionEducativaRef: { select: { nombre: true } },
+            cargoDocente: { select: { nombre: true } },
+            municipio: { select: { nombre: true } },
           },
         },
         empleado: {
@@ -479,21 +485,44 @@ export async function saveSustentacionOrigen(
 function buildSnapshot(
   record: OriginRecord,
   finalizadoEn: Date,
+  junta: OriginJuntaSnapshot[],
 ): Prisma.InputJsonValue {
   return JSON.parse(
     JSON.stringify({
       formatoVersion: record.formatoVersion,
       numeroVersion: record.versionActual,
       documento: {
+        fechaRecepcionSolicitud: formatDateOnly(record.dictamen.creadoEn),
         fechaDictamenOrigen: formatDateOnly(record.fechaDictamenOrigen),
         numeroDictamenOrigen: record.numeroDictamenOrigen,
+      },
+      entidad: {
+        nombreContratista: 'IPS SISM',
+        departamento: 'Magdalena',
+        direccion: 'CRA 19 N 26B - 53 LOS NARANJOS',
+        telefono: '3205184998',
+        municipio: 'Santa Marta',
       },
       docente: {
         id: record.dictamen.usuario.id,
         documento: record.dictamen.usuario.identificacion,
         tipoDocumento: record.dictamen.usuario.tipoIdentificacion,
+        primerApellido: record.dictamen.usuario.primerApellido,
+        segundoApellido: record.dictamen.usuario.segundoApellido,
+        primerNombre: record.dictamen.usuario.primerNombre,
+        segundoNombre: record.dictamen.usuario.segundoNombre,
         nombreCompleto: fullName(record.dictamen.usuario),
+        fechaNacimiento: formatDateOnly(record.dictamen.usuario.fechaNacimiento),
         edad: record.dictamen.usuario.edad,
+        sexo: record.dictamen.usuario.sexo,
+        tipoUsuario: record.dictamen.usuario.tipoUsuario,
+        categoria: record.dictamen.usuario.categoria,
+        fechaVinculacion: formatDateOnly(record.dictamen.usuario.fechaVinculacion),
+        estadoCivil: record.dictamen.usuario.estadoCivil,
+        escolaridad: record.dictamen.usuario.escolaridad,
+        zonaResidencia: record.dictamen.usuario.zonaResidencia,
+        municipio: record.dictamen.usuario.municipio?.nombre ?? null,
+        cargo: record.dictamen.usuario.cargoDocente?.nombre ?? null,
         secretaria: record.dictamen.usuario.secretariaRef?.nombre ?? null,
         institucion: record.dictamen.usuario.institucionEducativaRef?.nombre ?? null,
       },
@@ -535,6 +564,7 @@ function buildSnapshot(
         tipoEvento: record.tipoEvento,
         origenEvento: record.origenEvento,
       },
+      junta,
     }),
   ) as Prisma.InputJsonValue;
 }
@@ -561,12 +591,14 @@ export async function finalizarFormularioOrigen(
     current.dictamen.usuario.identificacion,
   );
   const finalizadoEn = new Date();
+  const junta = await getActiveOriginJuntaSnapshot();
   const snapshot = buildSnapshot(
     {
       ...current,
       numeroDictamenOrigen: numero,
     },
     finalizadoEn,
+    junta,
   );
 
   await prisma.$transaction(async (tx) => {
