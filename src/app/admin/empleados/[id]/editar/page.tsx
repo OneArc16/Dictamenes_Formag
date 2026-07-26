@@ -20,7 +20,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
     );
   }
 
-  const [perfiles, especialidades, empleado] = await Promise.all([
+  const [perfiles, especialidades, sedes, empleado] = await Promise.all([
     prisma.perfil.findMany({
       where: { estado: 1 },
       orderBy: { nombre: 'asc' },
@@ -28,6 +28,11 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
     }),
     prisma.especialidadMedica.findMany({
       where: { estado: true },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true },
+    }),
+    prisma.sede.findMany({
+      where: { estado: 1 },
       orderBy: { nombre: 'asc' },
       select: { id: true, nombre: true },
     }),
@@ -98,6 +103,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
         <EmpleadoForm
           perfiles={perfiles}
           especialidades={especialidades} // ✅ lista completa para el multiselect
+          sedes={sedes}
           method="PATCH"
           apiUrl={`/api/admin/empleados/${empleado.id}`}
           submitLabel="Guardar cambios"
@@ -116,6 +122,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
             segundoApellido: empleado.segundoApellido ?? '',
             email: empleado.email ?? '',
             perfilId: empleado.perfilId != null ? String(empleado.perfilId) : '',
+            sedeId: empleado.idSede != null ? String(empleado.idSede) : '',
             activo: empleado.activo ?? true,
             telefonos: empleado.telefonos ?? '',
             direccion: empleado.direccion ?? '',

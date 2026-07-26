@@ -66,6 +66,7 @@ export default async function NotificadoresPclPage() {
       orderBy: [{ primerApellido: 'asc' }, { primerNombre: 'asc' }],
       select: {
         id: true,
+        idSede: true,
         tipoDocumento: true,
         numeroIdentidad: true,
         primerNombre: true,
@@ -104,6 +105,7 @@ export default async function NotificadoresPclPage() {
     id: empleado.id,
     nombreCompleto: buildNombreCompleto(empleado),
     documento: [empleado.tipoDocumento, empleado.numeroIdentidad].filter(Boolean).join(' ') || null,
+    sedeId: empleado.idSede ?? null,
     sedeNombre: empleado.sede?.nombre ?? null,
     tieneFirma: Boolean(empleado.firma),
   }));

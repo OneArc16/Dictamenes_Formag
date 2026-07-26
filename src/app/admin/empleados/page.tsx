@@ -44,6 +44,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
       { usuario: { contains: q, mode: 'insensitive' } },
       { email: { contains: q, mode: 'insensitive' } },
       { numeroIdentidad: { contains: q, mode: 'insensitive' } },
+      { sede: { nombre: { contains: q, mode: 'insensitive' } } },
     ];
   }
 
@@ -62,7 +63,10 @@ export default async function EmpleadosPage({ searchParams }: Props) {
       orderBy: { id: 'desc' },
       skip,
       take: pageSize,
-      include: { perfil: true },
+      include: {
+        perfil: true,
+        sede: { select: { nombre: true } },
+      },
     }),
   ]);
 
@@ -115,6 +119,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
               <th className="px-3 py-2">Usuario</th>
               <th className="px-3 py-2">Documento</th>
               <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Sede</th>
               <th className="px-3 py-2">Perfil</th>
               <th className="px-3 py-2">Estado</th>
               <th className="px-3 py-2">Acciones</th>
@@ -124,7 +129,7 @@ export default async function EmpleadosPage({ searchParams }: Props) {
           <tbody className="divide-y divide-slate-100">
             {empleados.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={7}>
+                <td className="px-3 py-6 text-slate-500" colSpan={8}>
                   No hay resultados.
                 </td>
               </tr>
@@ -143,6 +148,8 @@ export default async function EmpleadosPage({ searchParams }: Props) {
                   </td>
 
                   <td className="px-3 py-2">{e.email ?? '-'}</td>
+
+                  <td className="px-3 py-2">{e.sede?.nombre ?? '-'}</td>
 
                   <td className="px-3 py-2">{e.perfil?.nombre ?? '-'}</td>
 

@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       body.password = form.get('password');
 
       body.perfilId = form.get('perfilId');
+      body.idSede = form.get('idSede');
       body.activo = form.get('activo');
 
       body.telefonos = form.get('telefonos');
@@ -105,6 +106,8 @@ export async function POST(req: Request) {
 
     const perfilIdRaw = body?.perfilId;
     const perfilId = perfilIdRaw === '' || perfilIdRaw == null ? null : Number(perfilIdRaw);
+    const idSedeRaw = body?.idSede;
+    const idSede = idSedeRaw === '' || idSedeRaw == null ? null : Number(idSedeRaw);
 
     const activo =
       body?.activo == null
@@ -138,6 +141,9 @@ export async function POST(req: Request) {
     if (perfilId != null && !Number.isFinite(perfilId)) {
       return NextResponse.json({ ok: false, error: 'Perfil inválido' }, { status: 400 });
     }
+    if (idSede != null && !Number.isFinite(idSede)) {
+      return NextResponse.json({ ok: false, error: 'Sede inválida' }, { status: 400 });
+    }
 
     // Si es junta, debe traer firma (en creación)
     if (esMiembroJunta && ct.includes('multipart/form-data')) {
@@ -156,6 +162,14 @@ export async function POST(req: Request) {
         select: { id: true },
       });
       if (!perfilOk) return NextResponse.json({ ok: false, error: 'Perfil inválido o inactivo' }, { status: 400 });
+    }
+
+    if (idSede != null) {
+      const sedeOk = await prisma.sede.findFirst({
+        where: { id: idSede, estado: 1 },
+        select: { id: true },
+      });
+      if (!sedeOk) return NextResponse.json({ ok: false, error: 'Sede inválida o inactiva' }, { status: 400 });
     }
 
     // Unicidad
@@ -223,6 +237,7 @@ export async function POST(req: Request) {
 
         // ✅ como tu schema soporta perfilId, puedes usar connect (seguro)
         ...(perfilId != null ? { perfil: { connect: { id: perfilId } } } : {}),
+        idSede,
 
         telefonos,
         direccion,

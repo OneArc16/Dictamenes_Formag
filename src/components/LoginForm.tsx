@@ -1,12 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import {
+  ArrowRight,
+  CircleAlert,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  UserRound,
+} from 'lucide-react';
 
 type LoginFormProps = {
-  action?: string;            // endpoint (default /api/auth/login)
-  onSuccessRedirect?: string; // fallback si el API no envía redirect
+  action?: string;
+  onSuccessRedirect?: string;
 };
 
 export default function LoginForm({
@@ -18,13 +26,15 @@ export default function LoginForm({
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!username.trim() || !password.trim() || loading) return;
 
     setLoading(true);
-    const t = toast.loading('Ingresando…');
+    setError(null);
+
     try {
       const res = await fetch(action, {
         method: 'POST',
@@ -39,105 +49,142 @@ export default function LoginForm({
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error || 'Usuario o contraseña inválidos');
       }
-      toast.success('Bienvenido', { id: t });
+
       queryClient.clear();
       window.location.assign(data.redirect ?? onSuccessRedirect);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error de autenticación', { id: t });
+      setError(err instanceof Error ? err.message : 'No fue posible iniciar sesión');
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
-      <Field label="Usuario" hint="Asignado por el administrador del sistema">
-        <input
-          id="username"
-          autoComplete="username"
-          disabled={loading}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Ej: jcastano"
-          className="w-full px-4 py-3 border rounded-xl border-subtle bg-bg text-text placeholder-muted focus:border-brand-300 focus:ring-2 focus:ring-brand-200"
-        />
+    <form onSubmit={onSubmit} className="space-y-5">
+      <Field id="username" label="Usuario" hint="Usuario asignado por el administrador">
+        <div className="relative">
+          <UserRound
+            className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <input
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            disabled={loading}
+            aria-describedby="username-hint"
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              setError(null);
+            }}
+            placeholder="Escribe tu usuario"
+            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-11 pr-4 text-base text-slate-950 outline-none transition-[border-color,background-color,box-shadow] duration-150 placeholder:text-slate-400 hover:border-slate-300 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:text-sm"
+          />
+        </div>
       </Field>
 
-      <Field label="Clave" hint="Asignada en el sistema">
+      <Field id="password" label="Contraseña" hint="Utiliza la contraseña asignada en el sistema">
         <div className="relative">
+          <LockKeyhole
+            className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
           <input
             id="password"
+            name="password"
             type={show ? 'text' : 'password'}
             autoComplete="current-password"
+            required
             disabled={loading}
+            aria-describedby="password-hint"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setError(null);
+            }}
             placeholder="••••••••"
-            className="w-full px-4 py-3 pr-12 border rounded-xl border-subtle bg-bg text-text placeholder-muted focus:border-brand-300 focus:ring-2 focus:ring-brand-200"
+            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-11 pr-14 text-base text-slate-950 outline-none transition-[border-color,background-color,box-shadow] duration-150 placeholder:text-slate-400 hover:border-slate-300 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:text-sm"
           />
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute inset-y-0 inline-flex items-center justify-center px-3 my-auto text-sm border rounded-lg right-2 h-9 border-subtle bg-panel text-muted hover:bg-bg"
-            tabIndex={-1}
+            disabled={loading}
+            aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-pressed={show}
+            className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
           >
-            {show ? 'Ocultar' : 'Ver'}
+            {show ? (
+              <EyeOff className="h-4.5 w-4.5" aria-hidden="true" />
+            ) : (
+              <Eye className="h-4.5 w-4.5" aria-hidden="true" />
+            )}
           </button>
         </div>
       </Field>
 
+      {error ? (
+        <div
+          id="login-error"
+          role="alert"
+          aria-live="assertive"
+          className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm leading-5 text-rose-800"
+        >
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
       <button
         type="submit"
-        disabled={loading || !username.trim() || !password.trim()}
-        className="inline-flex items-center justify-center px-4 mt-2 text-sm font-medium text-white border h-11 rounded-xl border-subtle bg-primary hover:bg-brand-700 disabled:opacity-60"
+        disabled={loading}
+        className="group mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm transition-[background-color,transform,box-shadow] duration-150 hover:bg-brand-700 hover:shadow-md active:translate-y-px focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 disabled:pointer-events-none disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none"
       >
         {loading ? (
-          <span className="inline-flex items-center gap-2">
-            <Spinner /> Validando…
-          </span>
+          <>
+            <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            Validando acceso…
+          </>
         ) : (
-          'Ingresar'
+          <>
+            Ingresar
+            <ArrowRight
+              className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+          </>
         )}
       </button>
     </form>
   );
 }
 
-/* ---------- helpers UI locales ---------- */
 function Field({
+  id,
   label,
   hint,
   children,
 }: {
+  id: string;
   label: string;
   hint?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <label className="grid gap-1 text-sm">
-      <span className="text-text">{label}</span>
+    <div className="grid gap-2">
+      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+        {label}
+      </label>
       {children}
-      {hint && <span className="text-xs text-muted">{hint}</span>}
-    </label>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="w-4 h-4 text-white animate-spin" viewBox="0 0 24 24">
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-        fill="none"
-      />
-      <path
-        className="opacity-90"
-        fill="currentColor"
-        d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
-      />
-    </svg>
+      {hint ? (
+        <p id={`${id}-hint`} className="text-xs leading-5 text-slate-500">
+          {hint}
+        </p>
+      ) : null}
+    </div>
   );
 }

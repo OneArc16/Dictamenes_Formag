@@ -66,6 +66,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       body.password = form.get('password');
 
       body.perfilId = form.get('perfilId');
+      body.idSede = form.get('idSede');
       body.activo = form.get('activo');
 
       body.telefonos = form.get('telefonos');
@@ -109,6 +110,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const perfilIdRaw = body?.perfilId;
     const perfilId = perfilIdRaw === '' || perfilIdRaw == null ? null : Number(perfilIdRaw);
+    const idSedeRaw = body?.idSede;
+    const idSede = idSedeRaw === '' || idSedeRaw == null ? null : Number(idSedeRaw);
 
     const activo =
       body?.activo == null
@@ -136,6 +139,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!email) return NextResponse.json({ ok: false, error: 'Email es obligatorio' }, { status: 400 });
     if (perfilId != null && !Number.isFinite(perfilId)) {
       return NextResponse.json({ ok: false, error: 'Perfil inválido' }, { status: 400 });
+    }
+    if (idSede != null && !Number.isFinite(idSede)) {
+      return NextResponse.json({ ok: false, error: 'Sede inválida' }, { status: 400 });
     }
     if (password && password.length < 6) {
       return NextResponse.json({ ok: false, error: 'La nueva contraseña debe tener mínimo 6 caracteres' }, { status: 400 });
@@ -165,6 +171,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         select: { id: true },
       });
       if (!perfilOk) return NextResponse.json({ ok: false, error: 'Perfil inválido o inactivo' }, { status: 400 });
+    }
+
+    if (idSede != null) {
+      const sedeOk = await prisma.sede.findFirst({
+        where: { id: idSede, estado: 1 },
+        select: { id: true },
+      });
+      if (!sedeOk) return NextResponse.json({ ok: false, error: 'Sede inválida o inactiva' }, { status: 400 });
     }
 
     // Unicidad excluyendo el mismo
@@ -214,6 +228,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       email,
       activo,
       perfilId,
+      idSede,
       telefonos,
       direccion,
       registroMedico,

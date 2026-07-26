@@ -6,17 +6,23 @@ import EmpleadoForm from '@/components/admin/empleados/EmpleadoForm';
 export default async function NuevoEmpleadoPage() {
   await requireAdmin('admin.empleados.manage');
 
-  const perfiles = await prisma.perfil.findMany({
-    where: { estado: 1 },
-    orderBy: { nombre: 'asc' },
-    select: { id: true, nombre: true },
-  });
-
-  const especialidades = await prisma.especialidadMedica.findMany({
-    where: { estado: true },
-    orderBy: { nombre: 'asc' },
-    select: { id: true, nombre: true },
-  });
+  const [perfiles, especialidades, sedes] = await Promise.all([
+    prisma.perfil.findMany({
+      where: { estado: 1 },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true },
+    }),
+    prisma.especialidadMedica.findMany({
+      where: { estado: true },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true },
+    }),
+    prisma.sede.findMany({
+      where: { estado: 1 },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-3">
@@ -40,6 +46,7 @@ export default async function NuevoEmpleadoPage() {
         <EmpleadoForm
           perfiles={perfiles}
           especialidades={especialidades}
+          sedes={sedes}
           method="POST"
           apiUrl="/api/admin/empleados"
           showPassword

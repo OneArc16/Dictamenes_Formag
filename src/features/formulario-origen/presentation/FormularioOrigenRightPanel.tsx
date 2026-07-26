@@ -94,7 +94,7 @@ export function FormularioOrigenRightPanel({
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-sky-700 bg-white px-4 text-sm font-semibold text-sky-800 hover:bg-sky-50"
             >
               <Eye className="h-4 w-4" aria-hidden="true" />
-              Ver certificado
+              Determinacion de Origen
             </button>
             {formulario.canOpenPcl ? (
               <button

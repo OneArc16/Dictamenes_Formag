@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 
 type PerfilOption = { id: number; nombre: string };
 type EspecialidadOption = { id: number; nombre: string };
+type SedeOption = { id: number; nombre: string };
 
 type Tratamiento = 'DR' | 'DRA';
 
@@ -20,6 +21,7 @@ type InitialValues = {
   segundoApellido?: string;
   email?: string;
   perfilId?: string; // '' para null
+  sedeId?: string; // '' para null
   activo?: boolean;
 
   telefonos?: string;
@@ -38,6 +40,7 @@ type InitialValues = {
 type Props = {
   perfiles: PerfilOption[];
   especialidades?: EspecialidadOption[];
+  sedes?: SedeOption[];
 
   method: 'POST' | 'PATCH';
   apiUrl: string;
@@ -83,6 +86,7 @@ function isAllowedFirma(file: File) {
 export default function EmpleadoForm({
   perfiles,
   especialidades = [],
+  sedes = [],
 
   method,
   apiUrl,
@@ -109,6 +113,7 @@ export default function EmpleadoForm({
       segundoApellido: initialValues?.segundoApellido ?? '',
       email: initialValues?.email ?? '',
       perfilId: initialValues?.perfilId ?? '',
+      sedeId: initialValues?.sedeId ?? '',
       activo: initialValues?.activo ?? true,
       telefonos: initialValues?.telefonos ?? '',
       direccion: initialValues?.direccion ?? '',
@@ -132,6 +137,7 @@ export default function EmpleadoForm({
   const [segundoApellido, setSegundoApellido] = useState(initial.segundoApellido);
   const [email, setEmail] = useState(initial.email);
   const [perfilId, setPerfilId] = useState(initial.perfilId);
+  const [sedeId, setSedeId] = useState(initial.sedeId);
   const [activo, setActivo] = useState<boolean>(initial.activo);
 
   const [telefonos, setTelefonos] = useState(initial.telefonos);
@@ -159,6 +165,7 @@ export default function EmpleadoForm({
     setSegundoApellido(initial.segundoApellido);
     setEmail(initial.email);
     setPerfilId(initial.perfilId);
+    setSedeId(initial.sedeId);
     setActivo(initial.activo);
     setTelefonos(initial.telefonos);
     setDireccion(initial.direccion);
@@ -222,6 +229,7 @@ export default function EmpleadoForm({
       email: lower(email),
 
       perfilId: perfilId ? Number(perfilId) : null,
+      idSede: sedeId ? Number(sedeId) : null,
       activo: Boolean(activo),
 
       telefonos: clean(telefonos) ? upper(telefonos) : null,
@@ -305,6 +313,7 @@ export default function EmpleadoForm({
       if (base.licencia) fd.append('licencia', base.licencia);
 
       if (base.perfilId != null) fd.append('perfilId', String(base.perfilId));
+      if (base.idSede != null) fd.append('idSede', String(base.idSede));
       fd.append('activo', base.activo ? 'true' : 'false');
 
       if (base.password) fd.append('password', base.password);
@@ -437,6 +446,22 @@ export default function EmpleadoForm({
             {perfiles.map((p) => (
               <option key={p.id} value={String(p.id)}>
                 {p.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="col-span-12 md:col-span-4">
+          <label className="block text-[11px] font-medium text-slate-600">Sede</label>
+          <select
+            value={sedeId}
+            onChange={(e) => setSedeId(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:ring-2 focus:ring-blue-500/40"
+          >
+            <option value="">Sin sede</option>
+            {sedes.map((sede) => (
+              <option key={sede.id} value={String(sede.id)}>
+                {sede.nombre}
               </option>
             ))}
           </select>

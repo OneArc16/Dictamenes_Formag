@@ -11,6 +11,7 @@ export type NotificadorEmpleadoOption = {
   id: number;
   nombreCompleto: string;
   documento: string | null;
+  sedeId: number | null;
   sedeNombre: string | null;
   tieneFirma: boolean;
 };
@@ -146,6 +147,11 @@ export default function SedeNotificadoresManager({ sedes, empleados }: Props) {
             {sedes.map((sede) => {
               const row = values[sede.id] ?? { empleadoId: '', vigenteDesde: '', vigenteHasta: '' };
               const selectedEmpleado = row.empleadoId ? empleadosById.get(Number(row.empleadoId)) : null;
+              const empleadosDisponibles = empleados.filter((empleado) => empleado.sedeId === sede.id);
+              const opcionesEmpleado =
+                selectedEmpleado && !empleadosDisponibles.some((empleado) => empleado.id === selectedEmpleado.id)
+                  ? [selectedEmpleado, ...empleadosDisponibles]
+                  : empleadosDisponibles;
 
               return (
                 <tr key={sede.id} className="align-top text-slate-700">
@@ -190,7 +196,7 @@ export default function SedeNotificadoresManager({ sedes, empleados }: Props) {
                       className="h-9 w-full min-w-[240px] rounded-lg border border-slate-200 bg-white px-3 text-[11px] text-slate-700 shadow-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     >
                       <option value="">Sin notificador asignado</option>
-                      {empleados.map((empleado) => (
+                      {opcionesEmpleado.map((empleado) => (
                         <option key={empleado.id} value={empleado.id}>
                           {empleado.nombreCompleto}
                           {empleado.documento ? ` - ${empleado.documento}` : ''}

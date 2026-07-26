@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     if (empleadoId) {
       const empleado = await prisma.empleado.findUnique({
         where: { id: empleadoId },
-        select: { id: true, activo: true, firma: true },
+        select: { id: true, activo: true, firma: true, idSede: true },
       });
 
       if (!empleado || !empleado.activo) {
@@ -68,6 +68,20 @@ export async function POST(req: Request) {
       if (!empleado.firma || empleado.firma.byteLength === 0) {
         return NextResponse.json(
           { ok: false, error: 'El empleado seleccionado no tiene firma registrada.' },
+          { status: 400 },
+        );
+      }
+
+      if (!empleado.idSede) {
+        return NextResponse.json(
+          { ok: false, error: 'El empleado seleccionado no tiene sede asignada.' },
+          { status: 400 },
+        );
+      }
+
+      if (empleado.idSede !== parsed.data.sedeId) {
+        return NextResponse.json(
+          { ok: false, error: 'El empleado seleccionado pertenece a una sede diferente.' },
           { status: 400 },
         );
       }

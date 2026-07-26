@@ -22,7 +22,7 @@ export default function ImprimirDictamenPage() {
     );
   }
 
-  const src = `/api/dictamenes/${dictamenId}/pdf`;
+  const src = `/api/dictamenes/${dictamenId}/pdf-react`;
 
   return (
     <div className="h-[calc(100vh-0px)] w-full bg-slate-100">
