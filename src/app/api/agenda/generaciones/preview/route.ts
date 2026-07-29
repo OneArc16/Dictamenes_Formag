@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { assertAgendaCreationScope } from '@/features/agenda/application/agenda-creation-scope';
 import { calculateAgenda } from '@/features/agenda/application/agenda-service';
 import { agendaGenerationSchema, validationMessage } from '@/features/agenda/domain/validation';
 import { agendaErrorResponse } from '@/features/agenda/presentation/http';
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ ok: false, error: validationMessage(parsed.error) }, { status: 400 });
     }
+    await assertAgendaCreationScope(auth.auth.empleadoId, parsed.data.sedeId);
     const result = await calculateAgenda(parsed.data);
     return NextResponse.json({ ok: true, preview: result.preview });
   } catch (error) {

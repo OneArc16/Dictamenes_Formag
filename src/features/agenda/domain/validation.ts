@@ -17,6 +17,52 @@ const exclusionsByDoctorSchema = z.object({
   fechas: z.array(dateOnlySchema).max(90).default([]),
 });
 
+export const workScheduleBlockSchema = z.object({
+  diaSemana: z.number().int().min(1).max(7),
+  horaInicio: timeSchema,
+  horaFin: timeSchema,
+  orden: z.number().int().min(1).max(50).optional(),
+});
+
+export const scheduleBlocksSchema = z
+  .array(workScheduleBlockSchema)
+  .min(1)
+  .max(35)
+  .superRefine((blocks, context) => {
+    const byDay = new Map<number, Array<{ start: string; end: string; index: number }>>();
+    blocks.forEach((block, index) => {
+      if (block.horaInicio >= block.horaFin) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'horaFin'],
+          message: 'La hora final debe ser posterior.',
+        });
+      }
+      const day = byDay.get(block.diaSemana) ?? [];
+      day.push({ start: block.horaInicio, end: block.horaFin, index });
+      byDay.set(block.diaSemana, day);
+    });
+
+    for (const [day, dayBlocks] of byDay) {
+      const sorted = [...dayBlocks].sort((left, right) => left.start.localeCompare(right.start));
+      for (let index = 1; index < sorted.length; index += 1) {
+        if (sorted[index].start < sorted[index - 1].end) {
+          context.addIssue({
+            code: 'custom',
+            path: [],
+            message: `Hay bloques superpuestos en el día ${day}.`,
+          });
+          break;
+        }
+      }
+    }
+  });
+
+const customScheduleSchema = z.object({
+  medicoId: z.number().int().positive(),
+  bloques: scheduleBlocksSchema,
+});
+
 export const agendaGenerationSchema = z
   .object({
     sedeId: z.number().int().positive(),
@@ -28,6 +74,7 @@ export const agendaGenerationSchema = z
     }),
     fechasExcluidas: z.array(dateOnlySchema).max(90).default([]),
     exclusionesPorMedico: z.array(exclusionsByDoctorSchema).max(50).default([]),
+    horariosPersonalizados: z.array(customScheduleSchema).max(50).default([]),
   })
   .superRefine((value, context) => {
     if (value.fechaFinal < value.fechaInicial) {
@@ -50,20 +97,31 @@ export const agendaGenerationSchema = z
         message: 'Las exclusiones solo pueden pertenecer a médicos seleccionados.',
       });
     }
+
+    if (value.horariosPersonalizados.some((item) => !allowedDoctors.has(item.medicoId))) {
+      context.addIssue({
+        code: 'custom',
+        path: ['horariosPersonalizados'],
+        message: 'Los horarios personalizados solo pueden pertenecer a médicos seleccionados.',
+      });
+    }
+
+    const customDoctorIds = value.horariosPersonalizados.map((item) => item.medicoId);
+    if (new Set(customDoctorIds).size !== customDoctorIds.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['horariosPersonalizados'],
+        message: 'No repitas personalizaciones para el mismo médico.',
+      });
+    }
   });
 
-export const confirmAgendaGenerationSchema = z.object({
-  ...agendaGenerationSchema.shape,
-  idempotencyKey: z.string().uuid(),
-  previewFingerprint: z.string().min(16).max(128).optional(),
-});
-
-export const workScheduleBlockSchema = z.object({
-  diaSemana: z.number().int().min(1).max(7),
-  horaInicio: timeSchema,
-  horaFin: timeSchema,
-  orden: z.number().int().min(1).max(50).optional(),
-});
+export const confirmAgendaGenerationSchema = agendaGenerationSchema.and(
+  z.object({
+    idempotencyKey: z.string().uuid(),
+    previewFingerprint: z.string().min(16).max(128).optional(),
+  }),
+);
 
 export const workScheduleSchema = z
   .object({
@@ -71,7 +129,7 @@ export const workScheduleSchema = z
     medicoId: z.number().int().positive().nullable().optional(),
     nombre: z.string().trim().min(3).max(120),
     zonaHoraria: z.string().trim().min(3).max(80).default('America/Bogota'),
-    bloques: z.array(workScheduleBlockSchema).min(1).max(35),
+    bloques: scheduleBlocksSchema,
   })
   .superRefine((value, context) => {
     try {
@@ -80,25 +138,6 @@ export const workScheduleSchema = z
       context.addIssue({ code: 'custom', path: ['zonaHoraria'], message: 'La zona horaria IANA no es válida.' });
     }
 
-    const byDay = new Map<number, Array<{ start: string; end: string }>>();
-    value.bloques.forEach((block, index) => {
-      if (block.horaInicio >= block.horaFin) {
-        context.addIssue({ code: 'custom', path: ['bloques', index, 'horaFin'], message: 'La hora final debe ser posterior.' });
-      }
-      const day = byDay.get(block.diaSemana) ?? [];
-      day.push({ start: block.horaInicio, end: block.horaFin });
-      byDay.set(block.diaSemana, day);
-    });
-
-    for (const [day, blocks] of byDay) {
-      const sorted = [...blocks].sort((a, b) => a.start.localeCompare(b.start));
-      for (let index = 1; index < sorted.length; index += 1) {
-        if (sorted[index].start < sorted[index - 1].end) {
-          context.addIssue({ code: 'custom', path: ['bloques'], message: `Hay bloques superpuestos en el día ${day}.` });
-          break;
-        }
-      }
-    }
   });
 
 export const cancelSlotsSchema = z

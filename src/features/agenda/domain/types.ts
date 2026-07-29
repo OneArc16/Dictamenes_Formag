@@ -27,6 +27,10 @@ export type AgendaGenerationInput = {
     medicoId: number;
     fechas: DateOnly[];
   }>;
+  horariosPersonalizados: Array<{
+    medicoId: number;
+    bloques: WeeklyBlock[];
+  }>;
 };
 
 export type AgendaPreviewDoctor = {
@@ -34,7 +38,7 @@ export type AgendaPreviewDoctor = {
   medicoNombre: string;
   horarioLaboralId: number | null;
   horarioLaboralNombre: string | null;
-  horarioOrigen: 'SEDE' | 'PARTICULAR' | null;
+  horarioOrigen: 'SEDE' | 'PARTICULAR' | 'PERSONALIZADO' | null;
   fechasLaborales: number;
   fechasLaboralesLista: DateOnly[];
   fechasExcluidas: number;
@@ -43,6 +47,20 @@ export type AgendaPreviewDoctor = {
   totalOmitidos: number;
   totalConflictos: number;
   errores: string[];
+};
+
+export type EffectiveWorkSchedule = {
+  id: number;
+  nombre: string;
+  origen: 'SEDE' | 'PARTICULAR';
+  zonaHoraria: string;
+  bloques: WeeklyBlock[];
+};
+
+export type EffectiveDoctorWorkSchedule = {
+  medicoId: number;
+  schedule: EffectiveWorkSchedule | null;
+  error: string | null;
 };
 
 export type AgendaPreview = {

@@ -69,6 +69,7 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
     duracionMinutos: 30,
     fechasExcluidas: [],
     exclusionesPorMedico: [],
+    horariosPersonalizados: [],
   };
 
   const preview = await calculateAgenda(input);
@@ -131,4 +132,26 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   });
   assert.equal(particular.preview.totalNuevos, 4);
   assert.equal(particular.preview.medicos[0].horarioOrigen, 'PARTICULAR');
+
+  const customized = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-14',
+    fechaFinal: '2030-01-14',
+    horariosPersonalizados: [
+      {
+        medicoId: doctor.id,
+        bloques: [{ diaSemana: 1, horaInicio: '10:00', horaFin: '11:00' }],
+      },
+    ],
+  });
+  assert.equal(customized.preview.totalNuevos, 2);
+  assert.equal(customized.preview.medicos[0].horarioOrigen, 'PERSONALIZADO');
+
+  const unchanged = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-14',
+    fechaFinal: '2030-01-14',
+  });
+  assert.equal(unchanged.preview.totalNuevos, 4);
+  assert.equal(unchanged.preview.medicos[0].horarioOrigen, 'PARTICULAR');
 });

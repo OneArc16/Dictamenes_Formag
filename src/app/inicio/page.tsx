@@ -28,12 +28,6 @@ export default async function InicioPage() {
               <Blocks className="h-4 w-4" aria-hidden="true" />
               Módulos disponibles
             </div>
-            <h1 id="home-title" className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Bienvenido, {authorization.name.split(' ')[0] || 'Usuario'}
-            </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              Selecciona el módulo en el que deseas trabajar. Las opciones se muestran de acuerdo con los permisos vigentes de tu perfil.
-            </p>
           </div>
 
           {modules.length > 0 ? (

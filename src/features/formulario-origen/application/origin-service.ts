@@ -140,6 +140,7 @@ export function serializeFormularioOrigen(record: OriginRecord) {
     fechaDictamenOrigen: formatDateOnly(record.fechaDictamenOrigen),
     numeroDictamenOrigen: record.numeroDictamenOrigen,
     descripcion: record.descripcion ?? '',
+    actividadExtralaboral: record.actividadExtralaboral ?? '',
     fechaOcurrencia: formatDateOnly(record.fechaOcurrencia),
     horaOcurrencia: timeOnly(record.horaOcurrencia),
     diaSemana: getDiaSemanaBogota(formatDateOnly(record.fechaOcurrencia)),
@@ -285,6 +286,7 @@ export async function saveDescripcionOrigen(
   auth: AuthorizationContext,
   input: {
     descripcion: string;
+    actividadExtralaboral: string;
     fechaDictamenOrigen?: string;
     expectedVersion: number;
   },
@@ -301,6 +303,7 @@ export async function saveDescripcionOrigen(
       where: { id: current.id },
       data: {
         descripcion: input.descripcion.trim() || null,
+        actividadExtralaboral: input.actividadExtralaboral.trim() || null,
         fechaDictamenOrigen: fecha,
         numeroDictamenOrigen: buildNumeroDictamen(
           fechaIso,
@@ -527,6 +530,7 @@ function buildSnapshot(
         institucion: record.dictamen.usuario.institucionEducativaRef?.nombre ?? null,
       },
       descripcion: record.descripcion,
+      actividadExtralaboral: record.actividadExtralaboral,
       informacion: {
         fechaOcurrencia: formatDateOnly(record.fechaOcurrencia),
         horaOcurrencia: timeOnly(record.horaOcurrencia),

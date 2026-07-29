@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 
 import AppNav from '@/components/AppNav';
 import { ClinicalDocumentLayout } from '@/components/clinical-document/ClinicalDocumentLayout';
+import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
 import { buildNumeroDictamen } from '../domain/numero-dictamen';
 import { calculateSectionProgress } from '../domain/validation';
 import { FormularioOrigenCenterPanel } from './FormularioOrigenCenterPanel';
@@ -51,9 +52,11 @@ export default function FormularioOrigenPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [showEditDocente, setShowEditDocente] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const lastSavedDescription = useRef('');
+  const lastSavedExtraActivity = useRef('');
   const lastSavedDate = useRef('');
   const formRef = useRef<FormularioOrigenDto | null>(null);
 
@@ -77,6 +80,7 @@ export default function FormularioOrigenPage() {
       const next = data.formulario as FormularioOrigenDto;
       setFormulario(next);
       lastSavedDescription.current = next.descripcion;
+      lastSavedExtraActivity.current = next.actividadExtralaboral;
       lastSavedDate.current = next.fechaDictamenOrigen;
       setLoadError(null);
     } catch (error) {
@@ -109,6 +113,7 @@ export default function FormularioOrigenPage() {
         endpoint = 'descripcion';
         body = {
           descripcion: current.descripcion,
+          actividadExtralaboral: current.actividadExtralaboral,
           fechaDictamenOrigen: current.fechaDictamenOrigen,
           expectedVersion: current.lockVersion,
         };
@@ -185,11 +190,13 @@ export default function FormularioOrigenPage() {
           tab === 'descripcion' &&
           latest &&
           (latest.descripcion !== current.descripcion ||
+            latest.actividadExtralaboral !== current.actividadExtralaboral ||
             latest.fechaDictamenOrigen !== current.fechaDictamenOrigen);
         const next = descriptionChangedWhileSaving
           ? {
               ...server,
               descripcion: latest.descripcion,
+              actividadExtralaboral: latest.actividadExtralaboral,
               fechaDictamenOrigen: latest.fechaDictamenOrigen,
               numeroDictamenOrigen: buildNumeroDictamen(
                 latest.fechaDictamenOrigen,
@@ -201,6 +208,7 @@ export default function FormularioOrigenPage() {
         formRef.current = next;
         if (tab === 'descripcion') {
           lastSavedDescription.current = current.descripcion;
+          lastSavedExtraActivity.current = current.actividadExtralaboral;
           lastSavedDate.current = current.fechaDictamenOrigen;
         }
         setSaveState('saved');
@@ -228,6 +236,7 @@ export default function FormularioOrigenPage() {
       !formulario ||
       formulario.readOnly ||
       (formulario.descripcion === lastSavedDescription.current &&
+        formulario.actividadExtralaboral === lastSavedExtraActivity.current &&
         formulario.fechaDictamenOrigen === lastSavedDate.current) ||
       saving
     ) {
@@ -340,9 +349,32 @@ export default function FormularioOrigenPage() {
     );
   }
 
+  const handleDocenteUpdated = async () => {
+    const response = await fetch(`/api/dictamenes/${dictamenId}/origen`, {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    const data = await readResponse(response);
+    const next = data.formulario as FormularioOrigenDto;
+    setFormulario(next);
+    formRef.current = next;
+    lastSavedDescription.current = next.descripcion;
+    lastSavedExtraActivity.current = next.actividadExtralaboral;
+    lastSavedDate.current = next.fechaDictamenOrigen;
+    toast.success('Datos del docente actualizados correctamente.');
+  };
+
   return (
     <div className="min-h-dvh bg-slate-50">
       <AppNav title="Formulario de Origen" />
+      {!formulario.readOnly && showEditDocente ? (
+        <ActualizarDocenteModal
+          open={showEditDocente}
+          onClose={() => setShowEditDocente(false)}
+          numeroDocumento={formulario.docente.documento}
+          onUpdate={handleDocenteUpdated}
+        />
+      ) : null}
       <main
         id="main-content"
         className="mx-auto w-full max-w-[1760px] px-3 pb-6 pt-2 sm:px-4 lg:px-6 2xl:px-8"
@@ -363,6 +395,9 @@ export default function FormularioOrigenPage() {
               savingLabel={savingLabel}
               onDateChange={(fechaDictamenOrigen) =>
                 setFormulario({ ...formulario, fechaDictamenOrigen })
+              }
+              onEditDocente={
+                formulario.readOnly ? undefined : () => setShowEditDocente(true)
               }
             />
           }

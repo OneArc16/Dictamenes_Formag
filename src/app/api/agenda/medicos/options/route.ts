@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 
+import { assertAgendaCreationScope } from '@/features/agenda/application/agenda-creation-scope';
 import { listSchedulableDoctors } from '@/features/agenda/infrastructure/schedulable-doctors';
+import { agendaErrorResponse } from '@/features/agenda/presentation/http';
 import { requireAnyAbilityApi } from '@/lib/auth/api-guards';
+import { hasAbility } from '@/lib/auth/authorization';
 
 export async function GET(request: Request) {
   const auth = await requireAnyAbilityApi(['agenda.create', 'agenda.schedule.manage', 'agenda.read']);
@@ -13,10 +16,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Selecciona una sede válida.' }, { status: 400 });
   }
 
-  const options = await listSchedulableDoctors({
-    sedeId,
-    search: url.searchParams.get('search') ?? undefined,
-    limit: 100,
-  });
-  return NextResponse.json({ ok: true, options });
+  try {
+    if (!hasAbility(auth.auth, 'agenda.schedule.manage')) {
+      await assertAgendaCreationScope(auth.auth.empleadoId, sedeId);
+    }
+
+    const options = await listSchedulableDoctors({
+      sedeId,
+      search: url.searchParams.get('search') ?? undefined,
+      limit: 100,
+    });
+    return NextResponse.json({ ok: true, options });
+  } catch (error) {
+    return agendaErrorResponse(error, 'No se pudieron consultar los médicos.');
+  }
 }

@@ -10,6 +10,7 @@ export const optimisticVersionSchema = z.number().int().positive();
 
 export const descripcionOrigenSchema = z.object({
   descripcion: z.string(),
+  actividadExtralaboral: z.string().max(1000).optional().default(''),
   fechaDictamenOrigen: isoDateSchema.optional(),
   expectedVersion: optimisticVersionSchema,
 });

@@ -1113,29 +1113,30 @@ model Dictamen {
 }
 
 model FormularioOrigen {
-  id                   Int                    @id @default(autoincrement())
-  dictamenId           Int                    @unique @map("dictamen_id")
-  estado               EstadoFormularioOrigen @default(BORRADOR)
-  formatoVersion       String                 @default("BORRADOR-INSTITUCIONAL-1") @map("formato_version") @db.VarChar(50)
-  versionActual        Int                    @default(1) @map("version_actual")
-  lockVersion          Int                    @default(1) @map("lock_version")
-  fechaDictamenOrigen  DateTime               @map("fecha_dictamen_origen") @db.Date
-  numeroDictamenOrigen String?                @map("numero_dictamen_origen") @db.VarChar(40)
-  descripcion          String?                @db.Text
-  fechaOcurrencia      DateTime?              @map("fecha_ocurrencia") @db.Date
-  horaOcurrencia       DateTime?              @map("hora_ocurrencia") @db.Time(0)
-  jornadaEvento        JornadaEvento?         @map("jornada_evento")
-  tratamiento          String?                @db.Text
-  concepto             String?                @db.Text
-  fundamentosDerecho   String?                @map("fundamentos_derecho") @db.Text
-  tipoEvento           DictamenTipoEvento?    @map("tipo_evento")
-  origenEvento         DictamenOrigenEvento?  @map("origen_evento")
-  createdAt            DateTime               @default(now()) @map("created_at")
-  updatedAt            DateTime               @updatedAt @map("updated_at")
-  finalizadoEn         DateTime?              @map("finalizado_en")
-  finalizadoPorId      Int?                   @map("finalizado_por_id")
-  reabiertoEn          DateTime?              @map("reabierto_en")
-  reabiertoPorId       Int?                   @map("reabierto_por_id")
+  id                    Int                    @id @default(autoincrement())
+  dictamenId            Int                    @unique @map("dictamen_id")
+  estado                EstadoFormularioOrigen @default(BORRADOR)
+  formatoVersion        String                 @default("BORRADOR-INSTITUCIONAL-1") @map("formato_version") @db.VarChar(50)
+  versionActual         Int                    @default(1) @map("version_actual")
+  lockVersion           Int                    @default(1) @map("lock_version")
+  fechaDictamenOrigen   DateTime               @map("fecha_dictamen_origen") @db.Date
+  numeroDictamenOrigen  String?                @map("numero_dictamen_origen") @db.VarChar(40)
+  descripcion           String?                @db.Text
+  actividadExtralaboral String?                @map("actividad_extralaboral") @db.Text
+  fechaOcurrencia       DateTime?              @map("fecha_ocurrencia") @db.Date
+  horaOcurrencia        DateTime?              @map("hora_ocurrencia") @db.Time(0)
+  jornadaEvento         JornadaEvento?         @map("jornada_evento")
+  tratamiento           String?                @db.Text
+  concepto              String?                @db.Text
+  fundamentosDerecho    String?                @map("fundamentos_derecho") @db.Text
+  tipoEvento            DictamenTipoEvento?    @map("tipo_evento")
+  origenEvento          DictamenOrigenEvento?  @map("origen_evento")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  finalizadoEn          DateTime?              @map("finalizado_en")
+  finalizadoPorId       Int?                   @map("finalizado_por_id")
+  reabiertoEn           DateTime?              @map("reabierto_en")
+  reabiertoPorId        Int?                   @map("reabierto_por_id")
 
   dictamen         Dictamen                    @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
   finalizadoPor    Empleado?                   @relation("EmpleadoFinalizacionesFormularioOrigen", fields: [finalizadoPorId], references: [id], onDelete: SetNull)

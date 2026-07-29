@@ -113,6 +113,25 @@ fieldset:disabled button {
   font-weight: 600;
 }
 
+.date-range-day-picker .agenda-date-excluded .rdp-day_button {
+  background:
+    linear-gradient(
+      to bottom right,
+      transparent calc(50% - 1px),
+      #be123c calc(50% - 1px),
+      #be123c calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    #fff1f2;
+  color: #9f1239;
+}
+
+.date-range-day-picker .agenda-date-non-working:not(.rdp-selected) .rdp-day_button {
+  border: 1px dashed #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
+
 @media (max-width: 767px) {
   .date-range-day-picker {
     --rdp-day-height: 38px;

@@ -1,9 +1,17 @@
 import { Prisma } from '@prisma/client';
 
+import { AgendaApplicationError } from '@/features/agenda/application/errors';
+import { resolveEffectiveSchedule } from '@/features/agenda/application/effective-schedule';
 import { timeFromDatabase } from '@/features/agenda/domain/date-time';
-import { AgendaApplicationError } from '@/features/agenda/application/agenda-service';
+import type {
+  EffectiveDoctorWorkSchedule,
+  EffectiveWorkSchedule,
+} from '@/features/agenda/domain/types';
 import { listSchedulableDoctors } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { prisma } from '@/lib/prisma';
+
+const NO_EFFECTIVE_SCHEDULE =
+  'No existe un horario laboral activo para el médico ni para su sede.';
 
 export type WorkScheduleCommand = {
   sedeId: number;
@@ -163,6 +171,76 @@ export async function listWorkSchedules(filters: { sedeId: number; medicoId?: nu
       orden: block.orden,
     })),
   }));
+}
+
+export async function getEffectiveWorkSchedules(
+  sedeId: number,
+  medicoIds: number[],
+): Promise<EffectiveDoctorWorkSchedule[]> {
+  const normalizedIds = [...new Set(medicoIds)].sort((left, right) => left - right);
+  if (normalizedIds.length === 0) return [];
+
+  const doctors = await listSchedulableDoctors({
+    sedeId,
+    medicoIds: normalizedIds,
+    limit: normalizedIds.length,
+  });
+  const availableIds = new Set(doctors.map((doctor) => doctor.id));
+  if (normalizedIds.some((medicoId) => !availableIds.has(medicoId))) {
+    throw new AgendaApplicationError(
+      'Uno o más médicos no están activos o no pertenecen a la sede.',
+      404,
+    );
+  }
+
+  const schedules = await prisma.horarioLaboral.findMany({
+    where: {
+      sedeId,
+      activo: true,
+      OR: [{ medicoId: null }, { medicoId: { in: normalizedIds } }],
+    },
+    include: {
+      bloques: { orderBy: [{ diaSemana: 'asc' }, { orden: 'asc' }] },
+    },
+    orderBy: [{ medicoId: 'desc' }, { id: 'asc' }],
+  });
+
+  return normalizedIds.map((medicoId) => {
+    const resolved = resolveEffectiveSchedule(schedules, medicoId);
+    const schedule = resolved.schedule;
+    const effectiveSchedule: EffectiveWorkSchedule | null = schedule
+      ? {
+          id: schedule.id,
+          nombre: schedule.nombre,
+          origen: schedule.medicoId === null ? 'SEDE' : 'PARTICULAR',
+          zonaHoraria: schedule.zonaHoraria,
+          bloques: schedule.bloques.map((block) => ({
+            diaSemana: block.diaSemana,
+            horaInicio: timeFromDatabase(block.horaInicio),
+            horaFin: timeFromDatabase(block.horaFin),
+          })),
+        }
+      : null;
+
+    return {
+      medicoId,
+      schedule: effectiveSchedule,
+      error:
+        resolved.error ??
+        (effectiveSchedule ? null : NO_EFFECTIVE_SCHEDULE),
+    };
+  });
+}
+
+export async function getEffectiveWorkSchedule(sedeId: number, medicoId: number) {
+  const [result] = await getEffectiveWorkSchedules(sedeId, [medicoId]);
+  if (result.error) {
+    throw new AgendaApplicationError(
+      result.error,
+      result.error === NO_EFFECTIVE_SCHEDULE ? 404 : 409,
+    );
+  }
+  return result.schedule!;
 }
 
 export function isDatabaseConflict(error: unknown) {

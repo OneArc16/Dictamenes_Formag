@@ -7,10 +7,12 @@ export function FormularioOrigenLeftPanel({
   formulario,
   savingLabel,
   onDateChange,
+  onEditDocente,
 }: {
   formulario: FormularioOrigenDto;
   savingLabel: string;
   onDateChange: (date: string) => void;
+  onEditDocente?: () => void;
 }) {
   let number = formulario.numeroDictamenOrigen;
   try {
@@ -24,7 +26,7 @@ export function FormularioOrigenLeftPanel({
 
   return (
     <>
-      <DocenteSummaryCard docente={formulario.docente} />
+      <DocenteSummaryCard docente={formulario.docente} onEdit={onEditDocente} />
       <DocumentMetaCard
         title="Formulario de Origen"
         number={number}

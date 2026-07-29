@@ -8,6 +8,7 @@ import { calculateSectionProgress, validateFormularioOrigen } from './validation
 import { getReopeningTargets } from './reopening';
 import { hasCaseScope } from '@/lib/auth/case-scope';
 import {
+  descripcionOrigenSchema,
   diagnosticosOrigenSchema,
   informacionFundamentosOrigenSchema,
   registrarCasoDictamenSchema,
@@ -58,6 +59,30 @@ test('acepta elegir PCL u Origen como documento inicial', () => {
   assert.equal(documentoInicialSchema.parse('PCL'), 'PCL');
   assert.equal(documentoInicialSchema.parse('ORIGEN'), 'ORIGEN');
   assert.equal(documentoInicialSchema.parse(undefined), 'ORIGEN');
+});
+
+test('acepta y limita la actividad extralaboral opcional', () => {
+  const parsed = descripcionOrigenSchema.parse({
+    descripcion: 'Descripción del cargo.',
+    actividadExtralaboral: 'Entrenamiento deportivo',
+    expectedVersion: 1,
+  });
+
+  assert.equal(parsed.actividadExtralaboral, 'Entrenamiento deportivo');
+  assert.equal(
+    descripcionOrigenSchema.parse({
+      descripcion: 'Descripción del cargo.',
+      expectedVersion: 1,
+    }).actividadExtralaboral,
+    '',
+  );
+  assert.throws(() =>
+    descripcionOrigenSchema.parse({
+      descripcion: 'Descripción del cargo.',
+      actividadExtralaboral: 'a'.repeat(1001),
+      expectedVersion: 1,
+    }),
+  );
 });
 
 test('deriva etapa y estado sin persistirlos por duplicado', () => {

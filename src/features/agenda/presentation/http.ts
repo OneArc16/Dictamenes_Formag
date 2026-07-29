@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { AgendaApplicationError } from '@/features/agenda/application/agenda-service';
+import { AgendaApplicationError } from '@/features/agenda/application/errors';
 
 export function agendaErrorResponse(error: unknown, fallback: string) {
   if (error instanceof AgendaApplicationError) {

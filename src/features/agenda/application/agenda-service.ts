@@ -11,6 +11,8 @@ import {
   parseDateOnly,
   timeFromDatabase,
 } from '@/features/agenda/domain/date-time';
+import { resolveEffectiveSchedule } from '@/features/agenda/application/effective-schedule';
+import { AgendaApplicationError } from '@/features/agenda/application/errors';
 import { generateSlotCandidates, intervalsOverlap } from '@/features/agenda/domain/slot-engine';
 import type {
   AgendaGenerationInput,
@@ -50,37 +52,6 @@ export type AgendaCalculation = {
   doctors: DoctorCalculation[];
 };
 
-export class AgendaApplicationError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-    this.name = 'AgendaApplicationError';
-  }
-}
-
-function resolveEffectiveSchedule(
-  schedules: ScheduleRow[],
-  medicoId: number,
-): { schedule: ScheduleRow | null; error: string | null } {
-  const particular = schedules.filter(
-    (schedule) => schedule.medicoId === medicoId && schedule.activo,
-  );
-  if (particular.length > 1) {
-    return { schedule: null, error: 'Hay más de un horario particular activo.' };
-  }
-  if (particular[0]) return { schedule: particular[0], error: null };
-
-  const site = schedules.filter(
-    (schedule) => schedule.medicoId === null && schedule.activo,
-  );
-  if (site.length > 1) {
-    return { schedule: null, error: 'Hay más de un horario de sede activo.' };
-  }
-  return { schedule: site[0] ?? null, error: null };
-}
-
 function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGenerationInput {
   const medicoIds = [...new Set(input.medicoIds)].sort((a, b) => a - b);
   const globalDates = [...new Set(input.fechasExcluidas)].sort();
@@ -100,6 +71,23 @@ function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGeneratio
     exclusionesPorMedico: [...byDoctor.entries()]
       .sort(([left], [right]) => left - right)
       .map(([medicoId, dates]) => ({ medicoId, fechas: [...dates].sort() })),
+    horariosPersonalizados: input.horariosPersonalizados
+      .map((item) => ({
+        medicoId: item.medicoId,
+        bloques: item.bloques
+          .map((block) => ({
+            diaSemana: block.diaSemana,
+            horaInicio: block.horaInicio,
+            horaFin: block.horaFin,
+          }))
+          .sort(
+            (left, right) =>
+              left.diaSemana - right.diaSemana ||
+              left.horaInicio.localeCompare(right.horaInicio) ||
+              left.horaFin.localeCompare(right.horaFin),
+          ),
+      }))
+      .sort((left, right) => left.medicoId - right.medicoId),
   };
 }
 
@@ -209,6 +197,9 @@ export async function calculateAgenda(
   const exclusionsByDoctor = new Map(
     input.exclusionesPorMedico.map((item) => [item.medicoId, new Set(item.fechas)]),
   );
+  const customSchedulesByDoctor = new Map(
+    input.horariosPersonalizados.map((item) => [item.medicoId, item.bloques]),
+  );
   const dates = eachDateInclusive(input.fechaInicial, input.fechaFinal);
   const scheduleVersions = new Set<string>();
   const evaluatedWorkDates = new Set<string>();
@@ -229,13 +220,14 @@ export async function calculateAgenda(
       doctorErrors.add('No existe un horario laboral activo para el médico ni para su sede.');
     }
     const schedule = resolved.schedule;
-    const blocks = schedule
+    const customBlocks = customSchedulesByDoctor.get(medicoId);
+    const blocks = customBlocks ?? (schedule
       ? schedule.bloques.map((block) => ({
           diaSemana: block.diaSemana,
           horaInicio: timeFromDatabase(block.horaInicio),
           horaFin: timeFromDatabase(block.horaFin),
         }))
-      : [];
+      : []);
     if (schedule) {
       usedSchedules.set(schedule.id, schedule);
       scheduleVersions.add(`${schedule.id}:${schedule.updatedAt.toISOString()}`);
@@ -288,7 +280,11 @@ export async function calculateAgenda(
         medicoNombre: doctor.nombre,
         horarioLaboralId: primarySchedule?.id ?? null,
         horarioLaboralNombre: names.length > 0 ? [...new Set(names)].join(' / ') : null,
-        horarioOrigen: origins.size === 1 ? ([...origins][0] as 'SEDE' | 'PARTICULAR') : null,
+        horarioOrigen: customBlocks
+          ? 'PERSONALIZADO'
+          : origins.size === 1
+            ? ([...origins][0] as 'SEDE' | 'PARTICULAR')
+            : null,
         fechasLaborales: doctorWorkDates.size,
         fechasLaboralesLista: [...doctorWorkDates].sort(),
         fechasExcluidas: excludedDates,

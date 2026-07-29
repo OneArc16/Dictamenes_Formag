@@ -3,23 +3,44 @@ import type { ValidationIssue } from '../types';
 
 export function DescripcionTab({
   value,
+  actividadExtralaboral,
   readOnly,
   saving,
   issues,
-  onChange,
+  onDescriptionChange,
+  onExtraActivityChange,
   onSave,
   onContinue,
 }: {
   value: string;
+  actividadExtralaboral: string;
   readOnly: boolean;
   saving: boolean;
   issues: ValidationIssue[];
-  onChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onExtraActivityChange: (value: string) => void;
   onSave: () => Promise<boolean | void> | boolean | void;
   onContinue: () => void;
 }) {
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <FormField
+          id="origin-extra-activity"
+          label="Actividad extralaboral"
+        >
+          <input
+            id="origin-extra-activity"
+            type="text"
+            value={actividadExtralaboral}
+            readOnly={readOnly}
+            maxLength={1000}
+            placeholder="Ej.: deporte, manualidades o actividad comercial"
+            onChange={(event) => onExtraActivityChange(event.target.value)}
+            className={inputClassName}
+          />
+        </FormField>
+      </div>
       <FormField
         id="origin-description"
         label="Descripción"
@@ -32,7 +53,7 @@ export function DescripcionTab({
           value={value}
           readOnly={readOnly}
           rows={14}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onDescriptionChange(event.target.value)}
           className={`${inputClassName} min-h-[clamp(20rem,48dvh,36rem)] resize-y`}
           aria-describedby="origin-description-count"
         />

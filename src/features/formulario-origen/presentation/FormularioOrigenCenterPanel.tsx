@@ -128,10 +128,16 @@ export function FormularioOrigenCenterPanel({
         {activeTab === 'descripcion' ? (
           <DescripcionTab
             value={formulario.descripcion}
+            actividadExtralaboral={formulario.actividadExtralaboral}
             readOnly={formulario.readOnly}
             saving={saving}
             issues={sectionIssues}
-            onChange={(descripcion) => onChange({ ...formulario, descripcion })}
+            onDescriptionChange={(descripcion) =>
+              onChange({ ...formulario, descripcion })
+            }
+            onExtraActivityChange={(actividadExtralaboral) =>
+              onChange({ ...formulario, actividadExtralaboral })
+            }
             onSave={() => onSave('descripcion')}
             onContinue={goNext}
           />

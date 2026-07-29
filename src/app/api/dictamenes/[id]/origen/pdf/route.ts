@@ -43,6 +43,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
             usuario: {
               select: {
                 fechaNacimiento: true,
+                fechaVinculacion: true,
+                sexo: true,
                 estadoCivil: true,
                 escolaridad: true,
                 zonaResidencia: true,
@@ -88,6 +90,11 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
           teacher.fechaNacimiento,
           formatDateOnly(liveTeacher.fechaNacimiento),
         ),
+        fechaVinculacion: snapshotValue(
+          teacher.fechaVinculacion,
+          formatDateOnly(liveTeacher.fechaVinculacion),
+        ),
+        sexo: snapshotValue(teacher.sexo, liveTeacher.sexo),
         estadoCivil: snapshotValue(teacher.estadoCivil, liveTeacher.estadoCivil),
         escolaridad: snapshotValue(teacher.escolaridad, liveTeacher.escolaridad),
         zonaResidencia: snapshotValue(

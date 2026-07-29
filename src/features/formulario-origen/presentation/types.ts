@@ -60,6 +60,7 @@ export type FormularioOrigenDto = {
   fechaDictamenOrigen: string;
   numeroDictamenOrigen: string | null;
   descripcion: string;
+  actividadExtralaboral: string;
   fechaOcurrencia: string | null;
   horaOcurrencia: string | null;
   diaSemana: string | null;

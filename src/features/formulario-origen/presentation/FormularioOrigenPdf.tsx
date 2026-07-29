@@ -46,6 +46,7 @@ export type FormularioOrigenSnapshot = {
     institucion?: string | null;
   };
   descripcion?: string | null;
+  actividadExtralaboral?: string | null;
   informacion?: {
     fechaOcurrencia?: string | null;
     horaOcurrencia?: string | null;
@@ -240,23 +241,24 @@ const styles = StyleSheet.create({
   longText: { fontSize: 7.6, lineHeight: 1.35, textAlign: 'center' },
   classificationLabel: { fontSize: 7.6, fontWeight: 700, textAlign: 'center' },
   signaturesHeader: {
-    minHeight: 48,
+    minHeight: 14,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: BORDER,
     backgroundColor: BLUE,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 3,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   signatureInfo: {
-    fontSize: 7.2,
-    lineHeight: 1.35,
+    fontSize: 6.8,
+    lineHeight: 1.25,
     textAlign: 'center',
   },
   signatureImage: {
     width: '92%',
-    height: 45,
+    height: 34,
     objectFit: 'contain',
   },
 });
@@ -279,18 +281,26 @@ function dateDisplay(input: unknown) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw;
 }
 
-function monthDiff(from: unknown, to: unknown) {
+function elapsedMonths(from: unknown, to: unknown) {
   const start = new Date(show(from));
   const end = new Date(show(to));
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
-  return String(
-    Math.max(
-      0,
-      (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
-        end.getUTCMonth() -
-        start.getUTCMonth(),
-    ),
-  );
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  let months =
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    end.getUTCMonth() -
+    start.getUTCMonth();
+  if (end.getUTCDate() < start.getUTCDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+function monthDiff(from: unknown, to: unknown) {
+  const months = elapsedMonths(from, to);
+  return months === null ? '' : String(months);
+}
+
+function yearDiff(from: unknown, to: unknown) {
+  const months = elapsedMonths(from, to);
+  return months === null ? '' : String(Math.floor(months / 12));
 }
 
 function legacyNameParts(fullName: unknown) {
@@ -484,10 +494,12 @@ function DiagnosisRows({ data }: { data: FormularioOrigenSnapshot }) {
   );
 }
 
-function SignatureRow({
+function SignatureCell({
   member,
+  width,
 }: {
   member: NonNullable<FormularioOrigenSnapshot['junta']>[number];
+  width: string;
 }) {
   const documentLabel = member.numeroDocumento
     ? `${upper(member.tipoDocumento) || 'CC'}: ${member.numeroDocumento}`
@@ -504,22 +516,16 @@ function SignatureRow({
     .join('\n');
 
   return (
-    <View style={styles.row} wrap={false}>
-      <Cell width="24%" minHeight={50}>NOMBRE</Cell>
-      <Cell width="28%" minHeight={50} align="center">
-        <Text style={styles.signatureInfo}>
-          {upper(member.nombreCompleto)}
-          {credentials ? `\n${credentials}` : ''}
-        </Text>
-      </Cell>
-      <Cell width="8%" minHeight={50} align="center">FIRMA</Cell>
-      <Cell width="40%" minHeight={50} align="center">
-        {member.firmaSrc ? (
-          // eslint-disable-next-line jsx-a11y/alt-text
-          <Image src={member.firmaSrc} style={styles.signatureImage} />
-        ) : null}
-      </Cell>
-    </View>
+    <Cell width={width} minHeight={64} align="center" padding={2}>
+      {member.firmaSrc ? (
+        // eslint-disable-next-line jsx-a11y/alt-text
+        <Image src={member.firmaSrc} style={styles.signatureImage} />
+      ) : null}
+      <Text style={styles.signatureInfo}>
+        {upper(member.nombreCompleto)}
+        {credentials ? `\n${credentials}` : ''}
+      </Text>
+    </Cell>
   );
 }
 
@@ -536,6 +542,7 @@ function PageOne({
   const civil = upper(teacher.estadoCivil);
   const school = upper(teacher.escolaridad);
   const category = upper(teacher.categoria || teacher.tipoUsuario);
+  const extraActivity = show(data.actividadExtralaboral);
   const history = data.historialLaboral ?? [];
   const legacyName = legacyNameParts(teacher.nombreCompleto);
   const teacherName = {
@@ -676,8 +683,11 @@ function PageOne({
           </Cell>
           <Cell width="12%" minHeight={28} align="center">
             <View style={styles.choiceRow}>
-              <Choice label="M" selected={sex === 'M' || sex === 'H'} />
-              <Choice label="F" selected={sex === 'F'} />
+              <Choice label="M" selected={sex === 'H' || sex.includes('MASCULINO')} />
+              <Choice
+                label="F"
+                selected={sex === 'M' || sex === 'F' || sex.includes('FEMENINO')}
+              />
             </View>
           </Cell>
           <Cell width="32%" minHeight={28} align="center">
@@ -723,18 +733,24 @@ function PageOne({
           <Cell width="21%" align="center">
             {monthDiff(teacher.fechaVinculacion, data.documento?.fechaDictamenOrigen)}
           </Cell>
-          <Cell width="27%" blue align="center">ANTIGÜEDAD EN EL CARGO</Cell>
-          <Cell width="16%" />
+          <Cell width="27%" blue align="center">
+            ANTIGÜEDAD EN EL CARGO (EN AÑOS)
+          </Cell>
+          <Cell width="16%" align="center">
+            {yearDiff(teacher.fechaVinculacion, data.documento?.fechaDictamenOrigen)}
+          </Cell>
         </View>
         <View style={styles.row}>
           <Cell width="36%" blue>ACTIVIDADES EXTRALABORALES</Cell>
           <Cell width="21%" align="center">
             <View style={styles.choiceRow}>
-              <Choice label="SI" selected={false} />
-              <Choice label="NO" selected={false} />
+              <Choice label="SI" selected={Boolean(extraActivity)} />
+              <Choice label="NO" selected={!extraActivity} />
             </View>
           </Cell>
-          <Cell width="43%" />
+          <Cell width="43%" align="center" fontSize={6.5}>
+            {upper(extraActivity)}
+          </Cell>
         </View>
         <View style={styles.row}>
           <View style={styles.largeDescriptionCell}>
@@ -868,26 +884,24 @@ function PageTwo({ data }: { data: FormularioOrigenSnapshot }) {
                 : 'ORIGEN COMÚN'}
             </Cell>
           </View>
-          <View style={styles.row}><Cell width="100%" minHeight={14} /></View>
-
-          <View style={styles.signaturesHeader}>
-            <Text style={styles.sectionTitleText}>8. RESPONSABLE (S) DE LA CALIFICACIÓN</Text>
+          <View wrap={false}>
+            <View style={styles.signaturesHeader}>
+              <Text style={styles.sectionTitleText}>8. RESPONSABLE (S) DE LA CALIFICACIÓN</Text>
+            </View>
+            {signatures.length > 0 ? (
+              <View style={styles.row}>
+                {signatures.map((member, index) => (
+                  <SignatureCell
+                    key={index}
+                    member={member}
+                    width={`${100 / signatures.length}%`}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
-          {signatures.slice(0, 2).map((member, index) => (
-            <SignatureRow key={index} member={member} />
-          ))}
         </View>
       </Page>
-
-      {signatures.length > 2 ? (
-        <Page size="LETTER" style={styles.page}>
-          <View style={styles.table}>
-            {signatures.slice(2).map((member, index) => (
-              <SignatureRow key={index} member={member} />
-            ))}
-          </View>
-        </Page>
-      ) : null}
     </>
   );
 }
