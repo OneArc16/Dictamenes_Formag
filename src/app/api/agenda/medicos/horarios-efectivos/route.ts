@@ -4,6 +4,7 @@ import { assertAgendaCreationScope } from '@/features/agenda/application/agenda-
 import { getEffectiveWorkSchedules } from '@/features/agenda/application/schedule-service';
 import { agendaErrorResponse } from '@/features/agenda/presentation/http';
 import { requireAgendaApi } from '@/lib/auth/api-guards';
+import { hasAbility } from '@/lib/auth/authorization';
 
 const MAX_DOCTORS = 50;
 
@@ -40,7 +41,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    await assertAgendaCreationScope(auth.auth.empleadoId, sedeId);
+    await assertAgendaCreationScope(auth.auth.empleadoId, sedeId, undefined, {
+      canSelectSite: hasAbility(auth.auth, 'agenda.site.select'),
+    });
     const schedules = await getEffectiveWorkSchedules(sedeId, medicoIds);
     return NextResponse.json({ ok: true, schedules });
   } catch (error) {

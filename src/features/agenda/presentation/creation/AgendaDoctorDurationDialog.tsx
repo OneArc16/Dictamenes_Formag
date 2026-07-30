@@ -131,28 +131,28 @@ export function AgendaDoctorDurationDialog({
         </DialogTrigger>
       </IconTooltip>
 
-      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-slate-200 bg-white p-0 shadow-2xl">
-        <DialogHeader className="border-b border-slate-100 px-5 py-5 pr-14 sm:px-6">
-          <DialogTitle className="flex items-center gap-2 text-left text-lg text-slate-950">
-            <Timer className="h-5 w-5 text-sky-700" aria-hidden="true" />
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-slate-200 bg-white p-0 shadow-2xl">
+        <DialogHeader className="border-b border-slate-100 px-4 py-4 pr-14 sm:px-5">
+          <DialogTitle className="flex items-center gap-2 text-left text-base text-slate-950">
+            <Timer className="h-4 w-4 text-sky-700" aria-hidden="true" />
             Minutos por consulta
           </DialogTitle>
-          <DialogDescription className="text-left leading-5 text-slate-600">
-            Define la duración de las consultas de {doctorName} únicamente para esta agenda.
+          <DialogDescription className="sr-only">
+            Configura una duración temporal para {doctorName} en esta agenda.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
-          <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm leading-5 text-sky-900">
-            Duración general: <strong>{defaultDuration} minutos</strong>. Los demás médicos
-            conservarán este valor.
+        <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-slate-800">Selecciona una duración</p>
+            <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-sky-800">
+              General: {defaultDuration} min
+            </span>
           </div>
 
           <fieldset disabled={disabled}>
-            <legend className="mb-2 text-sm font-medium text-slate-800">
-              Duraciones rápidas
-            </legend>
-            <div className="flex flex-wrap gap-2">
+            <legend className="sr-only">Duraciones rápidas</legend>
+            <div className="flex flex-wrap gap-1.5">
               {AGENDA_QUICK_DURATIONS.filter(
                 (minutes) =>
                   minutes >= minimum &&
@@ -164,7 +164,7 @@ export function AgendaDoctorDurationDialog({
                   type="button"
                   variant={Number(draft) === minutes ? 'default' : 'outline'}
                   aria-pressed={Number(draft) === minutes}
-                  className="min-h-11 min-w-16"
+                  className="min-h-11 min-w-[4.25rem] px-3"
                   onClick={() => selectDuration(minutes)}
                 >
                   {minutes} min
@@ -173,8 +173,13 @@ export function AgendaDoctorDurationDialog({
             </div>
           </fieldset>
 
-          <div className="space-y-2">
-            <Label htmlFor={inputId}>Duración personalizada</Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor={inputId}>Otro valor</Label>
+              <p id={`${inputId}-help`} className="text-xs text-slate-500">
+                De {minimum} a {maximum} min · múltiplos de {step}
+              </p>
+            </div>
             <Input
               id={inputId}
               type="number"
@@ -192,9 +197,6 @@ export function AgendaDoctorDurationDialog({
               aria-describedby={`${inputId}-help${error ? ` ${inputId}-error` : ''}`}
               className="min-h-11 text-base sm:text-sm"
             />
-            <p id={`${inputId}-help`} className="text-xs leading-5 text-slate-500">
-              Múltiplos de {step}, entre {minimum} y {maximum} minutos.
-            </p>
             {error ? (
               <p
                 id={`${inputId}-error`}
@@ -207,7 +209,7 @@ export function AgendaDoctorDurationDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+        <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-5">
           <Button
             type="button"
             variant="ghost"
@@ -216,14 +218,14 @@ export function AgendaDoctorDurationDialog({
             onClick={restoreDefault}
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            Usar duración general
+            Usar general
           </Button>
           <Button
             type="button"
             className="min-h-11 bg-sky-700 px-5 text-white hover:bg-sky-800"
             onClick={apply}
           >
-            Aplicar a este médico
+            Aplicar
           </Button>
         </DialogFooter>
       </DialogContent>

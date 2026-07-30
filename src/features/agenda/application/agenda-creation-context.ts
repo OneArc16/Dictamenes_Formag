@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma';
 const TIME_ZONE = 'America/Bogota';
 
 type AgendaCreationContextDatabase = Pick<PrismaClient, 'empleado'>;
+type AgendaCreationSiteDatabase = Pick<PrismaClient, 'sede'>;
+type AgendaSite = { id: number; nombre: string; estado: number };
 
 type AgendaCreationLimits = {
   maxDoctors: number;
@@ -46,6 +48,41 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
+function readyContext(site: AgendaSite, now: Date): AgendaCreationContext {
+  const today = dateInTimeZone(now, TIME_ZONE);
+  return {
+    status: 'ready',
+    site: {
+      id: site.id,
+      name: site.nombre,
+    },
+    timeZone: TIME_ZONE,
+    today,
+    defaultEndDate: addDays(today, 6),
+    limits: LIMITS,
+  };
+}
+
+export async function getAgendaCreationContextForSite(
+  siteId: number,
+  db: AgendaCreationSiteDatabase = prisma,
+  now = new Date(),
+): Promise<AgendaCreationContext> {
+  const site = await db.sede.findFirst({
+    where: { id: siteId, estado: 1 },
+    select: { id: true, nombre: true, estado: true },
+  });
+
+  if (!site) {
+    return {
+      status: 'blocked',
+      message: 'La sede seleccionada no está activa o ya no existe.',
+    };
+  }
+
+  return readyContext(site, now);
+}
+
 export async function getAgendaCreationContext(
   employeeId: number,
   db: AgendaCreationContextDatabase = prisma,
@@ -79,16 +116,5 @@ export async function getAgendaCreationContext(
     };
   }
 
-  const today = dateInTimeZone(now, TIME_ZONE);
-  return {
-    status: 'ready',
-    site: {
-      id: employee.sede.id,
-      name: employee.sede.nombre,
-    },
-    timeZone: TIME_ZONE,
-    today,
-    defaultEndDate: addDays(today, 6),
-    limits: LIMITS,
-  };
+  return readyContext(employee.sede, now);
 }

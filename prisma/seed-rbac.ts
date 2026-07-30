@@ -13,6 +13,7 @@ const permissions = [
   { codigo: 'agenda.read', nombre: 'Consultar agendas y cupos', modulo: 'agenda' },
   { codigo: 'agenda.read.own', nombre: 'Consultar agenda medica propia', modulo: 'agenda' },
   { codigo: 'agenda.create', nombre: 'Crear agendas medicas', modulo: 'agenda' },
+  { codigo: 'agenda.site.select', nombre: 'Seleccionar sede al crear agendas', modulo: 'agenda' },
   { codigo: 'agenda.schedule.manage', nombre: 'Gestionar horarios laborales', modulo: 'agenda' },
   { codigo: 'agenda.slots.cancel', nombre: 'Cancelar cupos disponibles', modulo: 'agenda' },
 

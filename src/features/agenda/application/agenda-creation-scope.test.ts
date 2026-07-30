@@ -19,6 +19,17 @@ function databaseWithEmployee(
   } as never;
 }
 
+function databaseWithSelectableSite(site: { id: number; nombre: string; estado: number } | null) {
+  return {
+    empleado: {
+      findFirst: async () => null,
+    },
+    sede: {
+      findFirst: async () => site,
+    },
+  } as never;
+}
+
 test('permite crear únicamente en la sede activa del empleado', async () => {
   const context = await assertAgendaCreationScope(
     7,
@@ -65,4 +76,16 @@ test('bloquea la creación cuando el empleado no tiene sede', async () => {
       error.status === 409 &&
       error.message.includes('No tienes una sede asignada'),
   );
+});
+
+test('permite crear en otra sede activa con el permiso de selección de sede', async () => {
+  const context = await assertAgendaCreationScope(
+    7,
+    9,
+    databaseWithSelectableSite({ id: 9, nombre: 'Sede Sur', estado: 1 }),
+    { canSelectSite: true },
+  );
+
+  assert.equal(context.status, 'ready');
+  assert.equal(context.site.id, 9);
 });

@@ -17,7 +17,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    if (!hasAbility(auth.auth, 'agenda.schedule.manage')) {
+    if (
+      !hasAbility(auth.auth, 'agenda.schedule.manage') &&
+      !hasAbility(auth.auth, 'agenda.site.select')
+    ) {
       await assertAgendaCreationScope(auth.auth.empleadoId, sedeId);
     }
 

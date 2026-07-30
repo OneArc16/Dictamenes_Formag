@@ -455,7 +455,13 @@ Las rutas:
 - `POST /api/agenda/generaciones`;
 
 deben verificar que `payload.sedeId` coincide con la sede activa del empleado
-que crea la agenda.
+que crea la agenda, salvo que el perfil tenga el permiso explícito
+`agenda.site.select`.
+
+Con `agenda.site.select`, la pantalla muestra un selector de sedes activas y
+cada cambio reinicia el formulario para cargar únicamente los médicos y los
+horarios de la sede elegida. El permiso también debe validarse en servidor al
+consultar médicos, horarios efectivos, calcular el preview y confirmar.
 
 La misma política debe compartirse en un servicio o guard de aplicación. No se
 debe copiar la consulta y el mensaje de error en ambas rutas.
@@ -974,7 +980,10 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 
 - [ ] La ruta muestra una sola vista, sin pasos ni botones siguiente/anterior.
 - [ ] La sede asignada aparece desde la primera renderización.
-- [ ] La sede no puede alterarse desde el cliente ni mediante el payload.
+- [ ] Sin `agenda.site.select`, la sede no puede alterarse desde el cliente ni
+      mediante el payload.
+- [ ] Con `agenda.site.select`, se pueden elegir sedes activas y la búsqueda
+      muestra únicamente los médicos de la sede elegida.
 - [ ] Un usuario sin sede recibe un estado bloqueado comprensible.
 - [ ] El combobox busca por nombre, documento y especialidad.
 - [ ] El combobox funciona con teclado y lector de pantalla.
@@ -1011,7 +1020,8 @@ La funcionalidad se considera terminada cuando:
 2. Las pruebas de dominio, reducer, alcance e integración pasan.
 3. Lint, TypeScript y build no presentan errores nuevos.
 4. La vista se verificó con teclado y en los breakpoints definidos.
-5. Preview y confirmación no permiten operar fuera de la sede del usuario.
+5. Preview y confirmación no permiten operar fuera de la sede del usuario, a
+   menos que el perfil tenga `agenda.site.select`.
 6. No se añadieron migraciones ni cambios innecesarios al motor de generación.
 7. El archivo monolítico anterior fue retirado o reducido a una compatibilidad
    temporal claramente documentada.

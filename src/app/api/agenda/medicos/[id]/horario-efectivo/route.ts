@@ -4,6 +4,7 @@ import { assertAgendaCreationScope } from '@/features/agenda/application/agenda-
 import { getEffectiveWorkSchedule } from '@/features/agenda/application/schedule-service';
 import { agendaErrorResponse } from '@/features/agenda/presentation/http';
 import { requireAgendaApi } from '@/lib/auth/api-guards';
+import { hasAbility } from '@/lib/auth/authorization';
 
 export async function GET(
   request: Request,
@@ -24,7 +25,9 @@ export async function GET(
   }
 
   try {
-    await assertAgendaCreationScope(auth.auth.empleadoId, sedeId);
+    await assertAgendaCreationScope(auth.auth.empleadoId, sedeId, undefined, {
+      canSelectSite: hasAbility(auth.auth, 'agenda.site.select'),
+    });
     const schedule = await getEffectiveWorkSchedule(sedeId, medicoId);
     return NextResponse.json({ ok: true, schedule });
   } catch (error) {

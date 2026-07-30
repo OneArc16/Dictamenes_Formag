@@ -1,10 +1,23 @@
+'use client';
+
 import { Building2, CalendarDays, Clock3 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import type { AgendaCreationContext } from '@/features/agenda/application/agenda-creation-context';
 
 type ReadyContext = Extract<AgendaCreationContext, { status: 'ready' }>;
+type AgendaSiteOption = { id: number; name: string };
 
-export function AgendaCreationHeader({ context }: { context: ReadyContext }) {
+export function AgendaCreationHeader({
+  context,
+  siteOptions = [],
+}: {
+  context: ReadyContext;
+  siteOptions?: AgendaSiteOption[];
+}) {
+  const router = useRouter();
+  const canSelectSite = siteOptions.length > 1;
+
   return (
     <section
       aria-labelledby="agenda-site-title"
@@ -23,10 +36,37 @@ export function AgendaCreationHeader({ context }: { context: ReadyContext }) {
             <Building2 className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-sky-950">Sede asignada</h2>
-            <p className="mt-0.5 break-words text-sm font-semibold text-sky-900">
-              {context.site.name}
-            </p>
+            {canSelectSite ? (
+              <>
+                <label htmlFor="agenda-site-selector" className="text-sm font-semibold text-sky-950">
+                  Sede para la agenda
+                </label>
+                <select
+                  id="agenda-site-selector"
+                  value={context.site.id}
+                  onChange={(event) => {
+                    const siteId = Number(event.target.value);
+                    if (Number.isInteger(siteId) && siteId > 0) {
+                      router.replace(`/agenda/crear?sedeId=${siteId}`, { scroll: false });
+                    }
+                  }}
+                  className="mt-0.5 min-h-10 max-w-full bg-white pr-9 text-sm font-semibold text-sky-900"
+                >
+                  {siteOptions.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <h2 className="text-sm font-semibold text-sky-950">Sede asignada</h2>
+                <p className="mt-0.5 break-words text-sm font-semibold text-sky-900">
+                  {context.site.name}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

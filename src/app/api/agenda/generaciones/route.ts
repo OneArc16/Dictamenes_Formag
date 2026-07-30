@@ -6,6 +6,7 @@ import { agendaReadScope } from '@/features/agenda/application/query-scope';
 import { confirmAgendaGenerationSchema, validationMessage } from '@/features/agenda/domain/validation';
 import { agendaErrorResponse, auditActor } from '@/features/agenda/presentation/http';
 import { requireAgendaApi, requireAnyAbilityApi } from '@/lib/auth/api-guards';
+import { hasAbility } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
@@ -67,7 +68,9 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ ok: false, error: validationMessage(parsed.error) }, { status: 400 });
     }
-    await assertAgendaCreationScope(auth.auth.empleadoId, parsed.data.sedeId);
+    await assertAgendaCreationScope(auth.auth.empleadoId, parsed.data.sedeId, undefined, {
+      canSelectSite: hasAbility(auth.auth, 'agenda.site.select'),
+    });
     const result = await confirmAgendaGeneration(parsed.data, auditActor(auth.payload));
     return NextResponse.json({ ok: true, result }, { status: 201 });
   } catch (error) {

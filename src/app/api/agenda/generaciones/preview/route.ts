@@ -5,6 +5,7 @@ import { calculateAgenda } from '@/features/agenda/application/agenda-service';
 import { agendaGenerationSchema, validationMessage } from '@/features/agenda/domain/validation';
 import { agendaErrorResponse } from '@/features/agenda/presentation/http';
 import { requireAgendaApi } from '@/lib/auth/api-guards';
+import { hasAbility } from '@/lib/auth/authorization';
 
 export async function POST(request: Request) {
   const auth = await requireAgendaApi('agenda.create');
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ ok: false, error: validationMessage(parsed.error) }, { status: 400 });
     }
-    await assertAgendaCreationScope(auth.auth.empleadoId, parsed.data.sedeId);
+    await assertAgendaCreationScope(auth.auth.empleadoId, parsed.data.sedeId, undefined, {
+      canSelectSite: hasAbility(auth.auth, 'agenda.site.select'),
+    });
     const result = await calculateAgenda(parsed.data);
     return NextResponse.json({ ok: true, preview: result.preview });
   } catch (error) {

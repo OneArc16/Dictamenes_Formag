@@ -31,9 +31,10 @@ const DOCTOR_SEARCH_INPUT_ID = 'agenda-doctor-search';
 
 type ReadyAgendaCreationFormProps = {
   context: Extract<AgendaCreationContext, { status: 'ready' }>;
+  siteOptions?: { id: number; name: string }[];
 };
 
-function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
+function ReadyAgendaCreationForm({ context, siteOptions }: ReadyAgendaCreationFormProps) {
   const controller = useAgendaCreationController(context);
   const doctorSearch = useAgendaDoctorSearch(context.site.id);
   const activeDoctors = useAgendaActiveDoctors(context.site.id);
@@ -129,7 +130,7 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
     >
       <Card className="border-slate-200 bg-white shadow-sm">
         <CardContent className="space-y-4 p-4 sm:p-5">
-          <AgendaCreationHeader context={context} />
+          <AgendaCreationHeader context={context} siteOptions={siteOptions} />
 
           {state.formError ? (
             <div
@@ -311,9 +312,15 @@ function BlockedAgendaCreationForm({
   );
 }
 
-export default function AgendaCreationForm({ context }: { context: AgendaCreationContext }) {
+export default function AgendaCreationForm({
+  context,
+  siteOptions,
+}: {
+  context: AgendaCreationContext;
+  siteOptions?: { id: number; name: string }[];
+}) {
   return context.status === 'ready' ? (
-    <ReadyAgendaCreationForm context={context} />
+    <ReadyAgendaCreationForm context={context} siteOptions={siteOptions} />
   ) : (
     <BlockedAgendaCreationForm context={context} />
   );
