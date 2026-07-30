@@ -5,8 +5,9 @@
 - Estado: implementada.
 - Módulo: Agenda médica.
 - Ruta afectada: `/agenda/crear`.
-- Alcance técnico: Next.js 16, React 19, TypeScript, React Query, Prisma y Tailwind.
-- Fecha: 2026-07-28.
+- Alcance técnico: Next.js 16, React 19, TypeScript, React Query, Prisma,
+  Tailwind, React DayPicker y date-holidays.
+- Fecha: 2026-07-29.
 
 ## 2. Objetivo
 
@@ -86,8 +87,12 @@ posterior.
   horarios efectivos de los médicos seleccionados.
 - Duraciones rápidas y duración personalizada.
 - Exclusiones particulares por médico.
-- Personalización temporal de los bloques semanales de cada médico, aplicable
+- Personalización temporal por fecha de los bloques de cada médico, aplicable
   únicamente a la agenda en creación y sin modificar su horario predeterminado.
+- Calendario de personalización con festivos públicos de Colombia, fechas
+  excluidas, días sin atención y fechas modificadas claramente diferenciados.
+- Resumen compacto por médico de las fechas laborables y sus bloques horarios,
+  actualizado al cambiar el rango, las exclusiones o la personalización temporal.
 - Vista previa, errores, resumen y confirmación en la misma página.
 - Invalidación de la vista previa al modificar datos.
 - Protección del alcance de sede en preview y confirmación.
@@ -100,7 +105,7 @@ posterior.
 - Permitir que un usuario cree agendas para una sede distinta a la asignada.
 - Editar horarios laborales desde la pantalla de creación.
 - Guardar borradores.
-- Seleccionar horas o cupos individualmente.
+- Seleccionar cupos individualmente antes de generar.
 - Cambiar la zona horaria `America/Bogota`.
 - Rediseñar el listado o el detalle de generaciones.
 
@@ -127,6 +132,7 @@ Se conserva el modelo actual:
 - `fechaInicial`;
 - `fechaFinal`;
 - `fechasExcluidas`;
+- `fechasHabilitadas`, como excepciones a cierres automáticos;
 - `exclusionesPorMedico`.
 
 El calendario nuevo representa un rango continuo y permite excluir fechas
@@ -162,20 +168,24 @@ La confirmación solo se habilita cuando la última vista previa:
 5. Los médicos aparecen inmediatamente en la sección inferior.
 6. El usuario selecciona el rango; el sistema marca las fechas donde ninguno
    de los médicos seleccionados tiene horario.
-7. El usuario define la duración y, si lo necesita, exclusiones generales.
-8. Opcionalmente configura exclusiones particulares desde cada médico.
-9. Opcionalmente personaliza las horas de un médico solo para esta generación.
-10. El usuario pulsa `Calcular agenda`.
-11. La página muestra el resumen y los conflictos sin cambiar de ruta.
-12. Si el resultado es válido, el usuario pulsa `Confirmar N cupos`.
-13. El servidor recalcula y confirma de forma idempotente.
-14. La aplicación navega al detalle de la generación creada.
+7. Si necesita trabajar una fecha marcada, la desmarca directamente. Un festivo
+   reutiliza el horario habitual; un día sin horario requiere que luego ajuste
+   las horas desde la tarjeta del médico.
+8. El usuario define la duración y, si lo necesita, exclusiones generales.
+9. Opcionalmente configura exclusiones particulares desde cada médico.
+10. Opcionalmente selecciona fechas concretas en el calendario de un médico y
+   personaliza sus horas solo para esta generación.
+11. El usuario pulsa `Calcular agenda`.
+12. La página muestra el resumen y los conflictos sin cambiar de ruta.
+13. Si el resultado es válido, el usuario pulsa `Confirmar N cupos`.
+14. El servidor recalcula y confirma de forma idempotente.
+15. La aplicación navega al detalle de la generación creada.
 
 ## 7. Estructura de la vista
 
 ```text
 ┌───────────────────────────────────────────────────────────────┐
-│ Crear agenda médica                                          │
+│ [icono] AGENDA MÉDICA                                        │
 │ Sede asignada: [Nombre de la sede]                            │
 ├───────────────────────────────┬───────────────────────────────┤
 │ Buscar médicos              │ Periodo y duración              │
@@ -245,6 +255,7 @@ src/
 │               ├── AgendaDoctorCombobox.tsx
 │               ├── AgendaDateSelector.tsx
 │               ├── AgendaDurationSelector.tsx
+│               ├── AgendaDoctorDurationDialog.tsx
 │               ├── SelectedDoctorsSection.tsx
 │               ├── SelectedDoctorCard.tsx
 │               ├── AgendaPreviewPanel.tsx
@@ -316,6 +327,14 @@ los límites de responsabilidad.
 - Emite un número de minutos.
 - No conoce el payload completo.
 
+#### `AgendaDoctorDurationDialog`
+
+- Se abre desde un botón circular con icono en la tarjeta de cada médico.
+- Reutiliza las opciones rápidas y las reglas de la duración general.
+- Permite definir una duración exclusiva para ese médico y esta agenda.
+- Muestra la duración general como referencia y permite restablecerla.
+- No modifica la configuración persistida del médico ni la duración de los demás.
+
 #### `SelectedDoctorsSection`
 
 - Renderiza el estado vacío o la colección.
@@ -325,9 +344,23 @@ los límites de responsabilidad.
 #### `SelectedDoctorCard`
 
 - Presenta identidad, especialidad y origen de horario.
+- Presenta las fechas laborables del periodo con sus bloques horarios.
+- Diferencia las fechas excluidas sin ocultarlas para facilitar la revisión.
+- Limita el resumen inicial y permite expandir periodos extensos.
 - Permite quitar al médico.
-- Permite expandir exclusiones particulares.
+- Permite excluir o volver a incluir directamente cada fecha visible.
 - Solo recibe las fechas relevantes y emite eventos.
+
+#### `AgendaDoctorScheduleDialog`
+
+- Usa React DayPicker para navegar exclusivamente por el periodo de la agenda.
+- Carga de forma diferida los festivos públicos de Colombia con date-holidays.
+- Muestra el nombre del festivo; una fecha desmarcada utiliza el horario habitual
+  del médico y continúa permitiendo una personalización opcional.
+- Edita bloques de horas de una fecha concreta y conserva el horario
+  predeterminado en las demás fechas.
+- Permite restablecer una fecha o todas las personalizaciones.
+- No modifica la configuración persistida del horario laboral.
 
 #### `AgendaPreviewPanel`
 
@@ -354,6 +387,7 @@ El estado canónico debe contener:
 - duración en minutos;
 - fechas excluidas globalmente;
 - exclusiones por médico;
+- personalizaciones por médico, fecha y bloques de horas;
 - revisión numérica del formulario;
 - campos tocados o errores de presentación, si son necesarios.
 
@@ -468,8 +502,15 @@ La UI construye:
 - `fechaInicial`;
 - `fechaFinal`;
 - `duracionMinutos`;
+- `duracionesPorMedico`, únicamente para médicos con una excepción explícita;
 - `fechasExcluidas`;
-- `exclusionesPorMedico`.
+- `fechasHabilitadas`;
+- `exclusionesPorMedico`;
+- `horariosPersonalizados`, agrupados por médico y fecha.
+
+Cada personalización contiene una `fecha` y de uno a cinco bloques
+`horaInicio`/`horaFin`. Una fecha no personalizada continúa usando el bloque
+semanal efectivo que le corresponda.
 
 El servidor devuelve `AgendaPreview`, incluyendo fingerprint, métricas,
 errores, fechas evaluadas y detalle por médico.
@@ -489,6 +530,7 @@ después de modificar o recalcular el formulario.
 Antes de enviar:
 
 - ordenar `medicoIds`;
+- ordenar las duraciones particulares por `medicoId`;
 - ordenar fechas globales;
 - ordenar exclusiones por `medicoId`;
 - ordenar fechas de cada médico;
@@ -507,12 +549,20 @@ El backend debe repetir las validaciones esenciales.
 5. El rango inclusivo no puede superar 90 días naturales.
 6. La duración debe estar entre 5 y 240 minutos.
 7. La duración debe ser múltiplo de 5.
-8. Solo se pueden excluir fechas dentro del rango.
-9. Las exclusiones particulares solo pueden pertenecer a médicos seleccionados.
-10. Los días sin horario efectivo no generan cupos.
-11. Los cupos existentes, pasados o en conflicto se omiten conforme al motor
+8. Una duración particular debe pertenecer a un médico seleccionado y cumplir
+   las mismas reglas de mínimo, máximo y múltiplo que la duración general.
+9. Solo se pueden excluir fechas dentro del rango.
+10. Las exclusiones particulares solo pueden pertenecer a médicos seleccionados.
+11. Los días sin horario efectivo no generan cupos.
+12. Los cupos existentes, pasados o en conflicto se omiten conforme al motor
     actual.
-12. Confirmar siempre recalcula para proteger cambios concurrentes.
+13. Confirmar siempre recalcula para proteger cambios concurrentes.
+14. Una personalización solo reemplaza el horario de su fecha exacta.
+15. Las fechas personalizadas deben pertenecer al periodo y no pueden repetirse
+    para el mismo médico.
+16. Los bloques de una fecha no pueden superponerse.
+17. Los festivos públicos no generan cupos salvo que estén incluidos en
+    `fechasHabilitadas` o tengan una personalización para ese médico.
 
 ## 13. Especificación del combobox
 
@@ -557,6 +607,10 @@ El backend debe repetir las validaciones esenciales.
 ### 14.1 Calendario
 
 - Construido sobre `react-day-picker`, ya incluido en el proyecto.
+- Carga de forma diferida los festivos públicos de Colombia con date-holidays.
+- Marca los festivos visibles y muestra su fecha y nombre debajo del calendario.
+- Los festivos públicos se consideran cerrados por defecto durante la
+  generación, aunque continúan visibles dentro del rango.
 - Un mes en móvil y dos meses desde `md`.
 - Idioma `es-CO`.
 - Navegación de mes accesible.
@@ -571,9 +625,22 @@ El backend debe repetir las validaciones esenciales.
 - El estado excluido debe comunicarse con texto o icono, no solo color.
 - Cuando hay médicos seleccionados, sus horarios efectivos se consultan en una
   sola operación y las fechas donde ninguno trabaja se muestran marcadas,
-  deshabilitadas y con la etiqueta `No laborable`.
-- Una fecha no laborable no se agrega a `fechasExcluidas` ni aumenta el contador
-  de exclusiones manuales; el motor ya evita generar cupos en ella.
+  con la etiqueta `No laborable` y una acción explícita para habilitarlas.
+- Antes de seleccionar médicos, sábado y domingo se muestran marcados como
+  previsión; al resolver los horarios efectivos prevalece la configuración real.
+- Los festivos públicos de Colombia también se muestran marcados por defecto
+  con su nombre.
+- El contador refleja todas las fechas marcadas, tanto automáticas como
+  manuales, sin duplicarlas.
+- Las fechas automáticas no necesitan agregarse a `fechasExcluidas`; el motor
+  evita generar cupos en ellas por su horario o por su condición de festivo.
+- Desmarcar una fecha automática la habilita inmediatamente, sin abrir otro
+  modal ni solicitar confirmación.
+- Un festivo desmarcado reutiliza el horario habitual configurado para ese día.
+- Un día sin horario queda habilitado, pero no genera cupos hasta que se le
+  asignen horas desde el calendario individual de uno o más médicos.
+- Volver a marcar la fecha elimina su habilitación automática y cualquier
+  personalización temporal de esa fecha.
 - Si al menos un médico trabaja una fecha, esta continúa disponible como
   exclusión general.
 - Las personalizaciones temporales de horario actualizan inmediatamente esta
@@ -589,6 +656,9 @@ El backend debe repetir las validaciones esenciales.
 - Campo personalizado con `min=5`, `max=240`, `step=5`.
 - Solo una duración activa.
 - Los errores aparecen junto al selector.
+- Cada médico puede reemplazar temporalmente este valor desde su tarjeta.
+- La excepción solo aplica a la generación actual y no cambia la duración
+  general de los demás médicos.
 
 ## 15. Médicos seleccionados
 
@@ -608,8 +678,15 @@ Cada tarjeta incluye:
 - documento, si existe;
 - especialidad principal o `Sin especialidad principal`;
 - `Horario particular` o `Horario de sede`;
+- resumen de fechas laborables y bloques de horas del periodo;
+- indicador explícito para las fechas excluidas globalmente o para ese médico;
 - botón `Quitar médico`;
-- control expandible `Excluir fechas para este médico`.
+- botón iconográfico para personalizar minutos por consulta;
+- botón iconográfico por fecha para excluirla o volverla a incluir solo para ese médico.
+
+El botón de duración muestra mediante tooltip los minutos efectivos. Cuando
+existe una excepción individual, presenta además un estado visual activo que no
+depende exclusivamente del color.
 
 ### 15.3 Eliminación
 
@@ -620,6 +697,20 @@ Quitar un médico:
 - invalida el preview;
 - anuncia el cambio en una región `aria-live="polite"`;
 - no requiere confirmación porque es reversible antes de crear la agenda.
+
+### 15.4 Personalización temporal por fecha
+
+- El calendario muestra un mes a la vez y limita la navegación al periodo.
+- Cada día puede indicar: festivo, excluido, sin atención o personalizado.
+- Los estados incluyen texto, icono o leyenda; no dependen solo del color.
+- Al seleccionar un día se muestran sus horas efectivas.
+- Editar o agregar un bloque crea una excepción solo para esa fecha.
+- `Restablecer día` recupera el horario semanal predeterminado de ese día.
+- `Restablecer todo` elimina todas las excepciones temporales del médico.
+- Los festivos públicos de Colombia se obtienen con date-holidays y son
+  cerrados por defecto. Desmarcarlos habilita el horario habitual; una
+  personalización posterior puede ajustar médicos u horas concretas.
+- Cambiar el rango elimina personalizaciones que queden fuera.
 
 ## 16. Preview y confirmación
 
@@ -632,6 +723,7 @@ Mostrar:
 - nuevos;
 - omitidos;
 - conflictos, cuando sea relevante.
+- duración efectiva por médico.
 
 Los números usarán cifras tabulares.
 
@@ -759,6 +851,7 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 - fecha inicial pasada;
 - rango superior a 90 días;
 - duración inválida;
+- duración particular inválida, duplicada o asignada a un médico no seleccionado;
 - médicos duplicados;
 - exclusiones fuera de selección;
 - normalización determinista del payload.
@@ -767,7 +860,10 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 
 - agregar médico sin duplicarlo;
 - quitar médico elimina sus exclusiones;
+- personalizar y restablecer la duración de un médico conserva la duración general;
 - cambiar rango elimina exclusiones fuera del rango;
+- desmarcar una fecha automática actualiza su disponibilidad en una sola
+  transición y sin abrir otro flujo;
 - cualquier cambio incrementa revisión e invalida preview;
 - una respuesta de revisión antigua se ignora;
 - solo `ready` puede confirmar;
@@ -779,6 +875,11 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 - label y atributos ARIA correctos;
 - estados cargando, vacío y error;
 - calendario impide fechas pasadas y rangos superiores a 90 días;
+- calendario temporal identifica festivos y permite editar horas por fecha;
+- una fecha automática se habilita inmediatamente al desmarcarla;
+- una fecha habilitada sin horario muestra una indicación textual para ajustar
+  horas desde la tarjeta del médico;
+- restablecer un día no afecta las demás personalizaciones;
 - médico seleccionado aparece debajo;
 - quitar médico devuelve el foco a un lugar predecible;
 - mensajes de error se anuncian.
@@ -799,11 +900,15 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 2. Crear agenda con varios médicos.
 3. Excluir una fecha global.
 4. Excluir una fecha para un solo médico.
-5. Modificar duración después del preview y verificar que confirmar se
+5. Personalizar una fecha y comprobar que otra fecha del mismo día de la semana
+   conserva el horario predeterminado.
+6. Revisar un festivo, confirmar que está marcado por defecto y habilitarlo
+   desmarcándolo una sola vez.
+7. Modificar duración después del preview y verificar que confirmar se
    deshabilita.
-6. Simular cambio concurrente y recalcular.
-7. Usar toda la vista únicamente con teclado.
-8. Verificar 375, 768, 1024 y 1440 px.
+8. Simular cambio concurrente y recalcular.
+9. Usar toda la vista únicamente con teclado.
+10. Verificar 375, 768, 1024 y 1440 px.
 
 ## 23. Plan de implementación
 
@@ -877,8 +982,17 @@ rutas y servicios. Las reglas puras compartibles pertenecen al dominio.
 - [ ] Los médicos aparecen debajo y pueden quitarse.
 - [ ] El calendario selecciona un rango inclusivo de máximo 90 días.
 - [ ] Las fechas pasadas están deshabilitadas.
+- [ ] El selector de rango identifica los festivos visibles con fecha y nombre.
+- [ ] Los días sin horario y los festivos aparecen marcados por defecto y pueden
+      habilitarse directamente al desmarcarlos, sin abrir otro flujo.
 - [ ] Se pueden excluir fechas globales y por médico.
+- [ ] El calendario temporal muestra festivos públicos de Colombia.
+- [ ] Se pueden personalizar las horas de una fecha sin alterar otras fechas.
+- [ ] Las fechas excluidas y personalizadas se distinguen también mediante
+      texto o iconos.
 - [ ] La duración admite opciones rápidas y múltiplos de 5 entre 5 y 240.
+- [ ] Cada médico permite personalizar sus minutos por consulta desde un botón
+      iconográfico, sin afectar a los demás ni su configuración persistida.
 - [ ] El preview se muestra en la misma página.
 - [ ] Cambiar el formulario invalida el preview.
 - [ ] Solo una vista previa vigente puede confirmarse.

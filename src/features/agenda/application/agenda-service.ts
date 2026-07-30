@@ -13,6 +13,7 @@ import {
 } from '@/features/agenda/domain/date-time';
 import { resolveEffectiveSchedule } from '@/features/agenda/application/effective-schedule';
 import { AgendaApplicationError } from '@/features/agenda/application/errors';
+import { getColombiaPublicHolidays } from '@/features/agenda/application/colombia-public-holidays';
 import { generateSlotCandidates, intervalsOverlap } from '@/features/agenda/domain/slot-engine';
 import type {
   AgendaGenerationInput,
@@ -55,11 +56,19 @@ export type AgendaCalculation = {
 function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGenerationInput {
   const medicoIds = [...new Set(input.medicoIds)].sort((a, b) => a - b);
   const globalDates = [...new Set(input.fechasExcluidas)].sort();
+  const globalDateSet = new Set(globalDates);
+  const enabledDates = [...new Set(input.fechasHabilitadas ?? [])]
+    .filter((date) => !globalDateSet.has(date))
+    .sort();
   const byDoctor = new Map<number, Set<string>>();
   for (const exclusion of input.exclusionesPorMedico) {
     const dates = byDoctor.get(exclusion.medicoId) ?? new Set<string>();
     exclusion.fechas.forEach((date) => dates.add(date));
     byDoctor.set(exclusion.medicoId, dates);
+  }
+  const durationsByDoctor = new Map<number, number>();
+  for (const item of input.duracionesPorMedico ?? []) {
+    durationsByDoctor.set(item.medicoId, item.duracionMinutos);
   }
   return {
     sedeId: input.sedeId,
@@ -67,25 +76,35 @@ function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGeneratio
     fechaInicial: input.fechaInicial,
     fechaFinal: input.fechaFinal,
     duracionMinutos: input.duracionMinutos,
+    duracionesPorMedico: [...durationsByDoctor.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([medicoId, duracionMinutos]) => ({
+        medicoId,
+        duracionMinutos,
+      })),
     fechasExcluidas: globalDates,
+    fechasHabilitadas: enabledDates,
     exclusionesPorMedico: [...byDoctor.entries()]
       .sort(([left], [right]) => left - right)
       .map(([medicoId, dates]) => ({ medicoId, fechas: [...dates].sort() })),
     horariosPersonalizados: input.horariosPersonalizados
       .map((item) => ({
         medicoId: item.medicoId,
-        bloques: item.bloques
-          .map((block) => ({
-            diaSemana: block.diaSemana,
-            horaInicio: block.horaInicio,
-            horaFin: block.horaFin,
+        fechas: item.fechas
+          .map((date) => ({
+            fecha: date.fecha,
+            bloques: date.bloques
+              .map((block) => ({
+                horaInicio: block.horaInicio,
+                horaFin: block.horaFin,
+              }))
+              .sort(
+                (left, right) =>
+                  left.horaInicio.localeCompare(right.horaInicio) ||
+                  left.horaFin.localeCompare(right.horaFin),
+              ),
           }))
-          .sort(
-            (left, right) =>
-              left.diaSemana - right.diaSemana ||
-              left.horaInicio.localeCompare(right.horaInicio) ||
-              left.horaFin.localeCompare(right.horaFin),
-          ),
+          .sort((left, right) => left.fecha.localeCompare(right.fecha)),
       }))
       .sort((left, right) => left.medicoId - right.medicoId),
   };
@@ -139,12 +158,24 @@ function assertGenerationRange(input: AgendaGenerationInput, now: Date) {
   }
 
   const allDates = new Set(eachDateInclusive(input.fechaInicial, input.fechaFinal));
-  const invalidExclusion = [
+  const invalidConfiguredDate = [
     ...input.fechasExcluidas,
+    ...input.fechasHabilitadas,
     ...input.exclusionesPorMedico.flatMap((item) => item.fechas),
   ].find((date) => !allDates.has(date));
-  if (invalidExclusion) {
-    throw new AgendaApplicationError(`La fecha excluida ${invalidExclusion} está fuera del periodo.`);
+  if (invalidConfiguredDate) {
+    throw new AgendaApplicationError(
+      `La fecha configurada ${invalidConfiguredDate} está fuera del periodo.`,
+    );
+  }
+
+  const invalidCustomDate = input.horariosPersonalizados
+    .flatMap((item) => item.fechas)
+    .find((item) => !allDates.has(item.fecha));
+  if (invalidCustomDate) {
+    throw new AgendaApplicationError(
+      `La fecha personalizada ${invalidCustomDate.fecha} está fuera del periodo.`,
+    );
   }
 }
 
@@ -194,13 +225,24 @@ export async function calculateAgenda(
   });
 
   const globalExclusions = new Set(input.fechasExcluidas);
+  const globallyEnabledDates = new Set(input.fechasHabilitadas);
   const exclusionsByDoctor = new Map(
     input.exclusionesPorMedico.map((item) => [item.medicoId, new Set(item.fechas)]),
   );
+  const durationsByDoctor = new Map(
+    input.duracionesPorMedico.map((item) => [
+      item.medicoId,
+      item.duracionMinutos,
+    ]),
+  );
   const customSchedulesByDoctor = new Map(
-    input.horariosPersonalizados.map((item) => [item.medicoId, item.bloques]),
+    input.horariosPersonalizados.map((item) => [
+      item.medicoId,
+      new Map(item.fechas.map((date) => [date.fecha, date.bloques])),
+    ]),
   );
   const dates = eachDateInclusive(input.fechaInicial, input.fechaFinal);
+  const publicHolidays = getColombiaPublicHolidays(dates);
   const scheduleVersions = new Set<string>();
   const evaluatedWorkDates = new Set<string>();
   const errors = new Set<string>();
@@ -213,6 +255,8 @@ export async function calculateAgenda(
     const usedSchedules = new Map<number, ScheduleRow>();
     const doctorWorkDates = new Set<string>();
     let excludedDates = 0;
+    const consultationDuration =
+      durationsByDoctor.get(medicoId) ?? input.duracionMinutos;
 
     const resolved = resolveEffectiveSchedule(schedules, medicoId);
     if (resolved.error) doctorErrors.add(resolved.error);
@@ -220,14 +264,14 @@ export async function calculateAgenda(
       doctorErrors.add('No existe un horario laboral activo para el médico ni para su sede.');
     }
     const schedule = resolved.schedule;
-    const customBlocks = customSchedulesByDoctor.get(medicoId);
-    const blocks = customBlocks ?? (schedule
+    const customDates = customSchedulesByDoctor.get(medicoId);
+    const defaultBlocks = schedule
       ? schedule.bloques.map((block) => ({
           diaSemana: block.diaSemana,
           horaInicio: timeFromDatabase(block.horaInicio),
           horaFin: timeFromDatabase(block.horaFin),
         }))
-      : []);
+      : [];
     if (schedule) {
       usedSchedules.set(schedule.id, schedule);
       scheduleVersions.add(`${schedule.id}:${schedule.updatedAt.toISOString()}`);
@@ -235,7 +279,19 @@ export async function calculateAgenda(
 
     for (const date of dates) {
       if (!schedule) continue;
-      if (!blocks.some((block) => block.diaSemana === isoDayOfWeek(date))) continue;
+      const day = isoDayOfWeek(date);
+      const customBlocks = customDates?.get(date);
+      if (
+        publicHolidays.has(date) &&
+        !globallyEnabledDates.has(date) &&
+        !customBlocks
+      ) {
+        continue;
+      }
+      const dateBlocks = customBlocks
+        ? customBlocks.map((block) => ({ ...block, diaSemana: day }))
+        : defaultBlocks.filter((block) => block.diaSemana === day);
+      if (dateBlocks.length === 0) continue;
       doctorWorkDates.add(date);
       evaluatedWorkDates.add(date);
 
@@ -251,8 +307,8 @@ export async function calculateAgenda(
           horarioLaboralId: schedule.id,
           fecha: date,
           zonaHoraria: schedule.zonaHoraria,
-          duracionMinutos: input.duracionMinutos,
-          bloques: blocks,
+          duracionMinutos: consultationDuration,
+          bloques: dateBlocks,
         }),
       );
     }
@@ -278,9 +334,10 @@ export async function calculateAgenda(
       preview: {
         medicoId,
         medicoNombre: doctor.nombre,
+        duracionMinutos: consultationDuration,
         horarioLaboralId: primarySchedule?.id ?? null,
         horarioLaboralNombre: names.length > 0 ? [...new Set(names)].join(' / ') : null,
-        horarioOrigen: customBlocks
+        horarioOrigen: customDates?.size
           ? 'PERSONALIZADO'
           : origins.size === 1
             ? ([...origins][0] as 'SEDE' | 'PARTICULAR')

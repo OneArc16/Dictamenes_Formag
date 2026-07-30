@@ -58,9 +58,86 @@ export const scheduleBlocksSchema = z
     }
   });
 
+export const timeBlocksSchema = z
+  .array(
+    z.object({
+      horaInicio: timeSchema,
+      horaFin: timeSchema,
+    }),
+  )
+  .min(1)
+  .max(5)
+  .superRefine((blocks, context) => {
+    const sorted = blocks
+      .map((block, index) => ({
+        start: block.horaInicio,
+        end: block.horaFin,
+        index,
+      }))
+      .sort((left, right) => left.start.localeCompare(right.start));
+
+    for (const block of sorted) {
+      if (block.start >= block.end) {
+        context.addIssue({
+          code: 'custom',
+          path: [block.index, 'horaFin'],
+          message: 'La hora final debe ser posterior.',
+        });
+      }
+    }
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      if (sorted[index].start < sorted[index - 1].end) {
+        context.addIssue({
+          code: 'custom',
+          path: [],
+          message: 'Hay bloques superpuestos en una fecha personalizada.',
+        });
+        break;
+      }
+    }
+  });
+
+export const dateScheduleOverridesSchema = z
+  .array(
+    z.object({
+      fecha: dateOnlySchema,
+      bloques: timeBlocksSchema,
+    }),
+  )
+  .min(1)
+  .max(90)
+  .superRefine((dates, context) => {
+    const seen = new Set<string>();
+    dates.forEach((item, index) => {
+      if (seen.has(item.fecha)) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'fecha'],
+          message: 'No repitas una fecha personalizada.',
+        });
+      }
+      seen.add(item.fecha);
+    });
+  });
+
 const customScheduleSchema = z.object({
   medicoId: z.number().int().positive(),
-  bloques: scheduleBlocksSchema,
+  fechas: dateScheduleOverridesSchema,
+});
+
+export const consultationDurationSchema = z
+  .number()
+  .int('La duración debe ser un número entero.')
+  .min(5, 'La duración mínima es de 5 minutos.')
+  .max(240, 'La duración máxima es de 240 minutos.')
+  .refine((value) => value % 5 === 0, {
+    message: 'La duración debe ser múltiplo de 5 minutos.',
+  });
+
+const doctorDurationSchema = z.object({
+  medicoId: z.number().int().positive(),
+  duracionMinutos: consultationDurationSchema,
 });
 
 export const agendaGenerationSchema = z
@@ -69,10 +146,10 @@ export const agendaGenerationSchema = z
     medicoIds: z.array(z.number().int().positive()).min(1).max(50),
     fechaInicial: dateOnlySchema,
     fechaFinal: dateOnlySchema,
-    duracionMinutos: z.number().int().min(5).max(240).refine((value) => value % 5 === 0, {
-      message: 'La duración debe ser múltiplo de 5 minutos.',
-    }),
+    duracionMinutos: consultationDurationSchema,
+    duracionesPorMedico: z.array(doctorDurationSchema).max(50).default([]),
     fechasExcluidas: z.array(dateOnlySchema).max(90).default([]),
+    fechasHabilitadas: z.array(dateOnlySchema).max(90).default([]),
     exclusionesPorMedico: z.array(exclusionsByDoctorSchema).max(50).default([]),
     horariosPersonalizados: z.array(customScheduleSchema).max(50).default([]),
   })
@@ -90,6 +167,23 @@ export const agendaGenerationSchema = z
     }
 
     const allowedDoctors = new Set(value.medicoIds);
+    if (value.duracionesPorMedico.some((item) => !allowedDoctors.has(item.medicoId))) {
+      context.addIssue({
+        code: 'custom',
+        path: ['duracionesPorMedico'],
+        message: 'Las duraciones particulares solo pueden pertenecer a médicos seleccionados.',
+      });
+    }
+
+    const durationDoctorIds = value.duracionesPorMedico.map((item) => item.medicoId);
+    if (new Set(durationDoctorIds).size !== durationDoctorIds.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['duracionesPorMedico'],
+        message: 'No repitas la duración particular del mismo médico.',
+      });
+    }
+
     if (value.exclusionesPorMedico.some((item) => !allowedDoctors.has(item.medicoId))) {
       context.addIssue({
         code: 'custom',
@@ -114,6 +208,34 @@ export const agendaGenerationSchema = z
         message: 'No repitas personalizaciones para el mismo médico.',
       });
     }
+
+    value.horariosPersonalizados.forEach((item, scheduleIndex) => {
+      item.fechas.forEach((date, dateIndex) => {
+        if (date.fecha < value.fechaInicial || date.fecha > value.fechaFinal) {
+          context.addIssue({
+            code: 'custom',
+            path: [
+              'horariosPersonalizados',
+              scheduleIndex,
+              'fechas',
+              dateIndex,
+              'fecha',
+            ],
+            message: 'La fecha personalizada debe pertenecer al periodo.',
+          });
+        }
+      });
+    });
+
+    value.fechasHabilitadas.forEach((date, index) => {
+      if (date < value.fechaInicial || date > value.fechaFinal) {
+        context.addIssue({
+          code: 'custom',
+          path: ['fechasHabilitadas', index],
+          message: 'La fecha habilitada debe pertenecer al periodo.',
+        });
+      }
+    });
   });
 
 export const confirmAgendaGenerationSchema = agendaGenerationSchema.and(

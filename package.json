@@ -10,7 +10,7 @@
     "lint": "eslint",
     "test:navigation": "tsx --test src/lib/module-navigation.test.ts",
     "test:origen": "node --import tsx --test src/features/formulario-origen/domain/origen-domain.test.ts",
-    "test:agenda": "node --import tsx --test src/features/agenda/domain/slot-engine.test.ts src/features/agenda/application/agenda-creation-scope.test.ts src/features/agenda/presentation/creation/agenda-creation-reducer.test.ts src/features/agenda/presentation/creation/agenda-creation-work-dates.test.ts src/features/agenda/presentation/slot-selection.test.ts src/lib/module-navigation.test.ts",
+    "test:agenda": "node --import tsx --test src/features/agenda/domain/slot-engine.test.ts src/features/agenda/domain/agenda-generation-validation.test.ts src/features/agenda/application/agenda-creation-scope.test.ts src/features/agenda/application/colombia-public-holidays.test.ts src/features/agenda/presentation/creation/agenda-creation-reducer.test.ts src/features/agenda/presentation/creation/agenda-creation-work-dates.test.ts src/features/agenda/presentation/slot-selection.test.ts src/lib/module-navigation.test.ts",
     "test:agenda:integration": "node --import tsx --test src/features/agenda/application/agenda-service.integration.test.ts"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "date-holidays": "^3.34.0",
     "dexie": "^4.2.1",
     "exceljs": "^4.4.0",
     "jose": "^6.1.0",

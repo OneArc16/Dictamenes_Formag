@@ -33,3 +33,20 @@ export function formatAgendaDateInput(value: string) {
   const date = parseLocalDateOnly(value);
   return date ? format(date, 'dd/MM/yyyy') : 'dd/mm/aaaa';
 }
+
+export function calendarMonthDates(month: Date, numberOfMonths: number) {
+  const cursor = new Date(month.getFullYear(), month.getMonth(), 1);
+  const end = new Date(
+    month.getFullYear(),
+    month.getMonth() + numberOfMonths,
+    0,
+  );
+  const dates: string[] = [];
+
+  while (cursor <= end) {
+    dates.push(toDateOnly(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+}

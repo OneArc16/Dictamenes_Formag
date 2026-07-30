@@ -25,6 +25,7 @@ import { useAgendaActiveDoctors } from './useAgendaActiveDoctors';
 import { useAgendaCreationController } from './useAgendaCreationController';
 import { useAgendaDoctorSearch } from './useAgendaDoctorSearch';
 import { useAgendaEffectiveSchedules } from './useAgendaEffectiveSchedules';
+import { useAgendaHolidays } from './useAgendaHolidays';
 
 const DOCTOR_SEARCH_INPUT_ID = 'agenda-doctor-search';
 
@@ -65,6 +66,11 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
     if (!Number.isFinite(days) || days < 0 || days >= context.limits.maxRangeDays) return [];
     return eachDateInclusive(state.startDate, state.endDate);
   }, [context.limits.maxRangeDays, state.endDate, state.startDate]);
+  const holidayState = useAgendaHolidays(periodDates, periodDates.length > 0);
+  const holidayDates = useMemo(
+    () => holidayState.holidays.map((holiday) => holiday.date),
+    [holidayState.holidays],
+  );
 
   const currentPreview =
     state.process.status === 'ready' || state.process.status === 'confirming'
@@ -77,13 +83,27 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
         selectedDoctorIds,
         effectiveSchedules.schedules,
         state.doctorScheduleOverrides,
+        holidayDates,
+        state.enabledAutomaticDates,
       ),
     [
       effectiveSchedules.schedules,
       periodDates,
       selectedDoctorIds,
       state.doctorScheduleOverrides,
+      state.enabledAutomaticDates,
+      holidayDates,
     ],
+  );
+  const defaultWorkDates = useMemo(
+    () =>
+      deriveAgendaWorkDates(
+        periodDates,
+        selectedDoctorIds,
+        effectiveSchedules.schedules,
+        {},
+      ),
+    [effectiveSchedules.schedules, periodDates, selectedDoctorIds],
   );
   const evaluatedWorkDates = workDates.complete
     ? workDates.allDoctors
@@ -105,9 +125,7 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
   return (
     <ModulePageLayout
       moduleKey="agenda"
-      title="Crear agenda médica"
-      description="Selecciona médicos, periodo y duración en una sola vista. La disponibilidad se valida antes de confirmar."
-      compactHero
+      hideHero
     >
       <Card className="border-slate-200 bg-white shadow-sm">
         <CardContent className="space-y-6 p-4 sm:p-6">
@@ -176,8 +194,18 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
                   <AgendaDateExclusionDialog
                     periodDates={periodDates}
                     excludedDates={state.excludedDates}
+                    doctorScheduleOverrides={state.doctorScheduleOverrides}
+                    enabledAutomaticDates={state.enabledAutomaticDates}
+                    holidays={holidayState.holidays}
+                    holidaysLoading={holidayState.isLoading}
+                    holidaysError={holidayState.error}
                     onExcludedDateChange={controller.toggleGlobalDate}
-                    evaluatedWorkDates={evaluatedWorkDates}
+                    onAutomaticDateChange={controller.toggleAutomaticDate}
+                    evaluatedDefaultWorkDates={
+                      defaultWorkDates.complete
+                        ? defaultWorkDates.allDoctors
+                        : undefined
+                    }
                     workDatesLoading={effectiveSchedules.isLoading}
                     workDatesError={effectiveSchedules.error}
                     onRetryWorkDates={() => void effectiveSchedules.retry()}
@@ -205,11 +233,24 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
             globallyExcludedDates={state.excludedDates}
             doctorExclusions={state.doctorExclusions}
             doctorScheduleOverrides={state.doctorScheduleOverrides}
-            workDatesByDoctor={workDates.complete ? workDates.byDoctor : undefined}
+            defaultDuration={state.durationMinutes}
+            doctorDurationOverrides={state.doctorDurationOverrides}
+            minimumDuration={context.limits.minDurationMinutes}
+            maximumDuration={context.limits.maxDurationMinutes}
+            durationStep={context.limits.durationStepMinutes}
+            dateSchedulesByDoctor={
+              workDates.complete ? workDates.schedulesByDoctor : undefined
+            }
+            scheduleErrorsByDoctor={
+              workDates.complete ? workDates.errorsByDoctor : undefined
+            }
+            workSchedulesLoading={effectiveSchedules.isLoading}
+            workSchedulesError={effectiveSchedules.error}
             preview={currentPreview}
             onRemove={removeDoctor}
             onDoctorDateChange={controller.toggleDoctorDate}
             onDoctorScheduleChange={controller.changeDoctorSchedule}
+            onDoctorDurationChange={controller.changeDoctorDuration}
             scheduleError={state.fieldErrors.schedules}
             disabled={fieldsDisabled}
           />

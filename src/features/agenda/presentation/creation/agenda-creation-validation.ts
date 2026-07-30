@@ -18,8 +18,14 @@ function fieldForPath(path: PropertyKey): keyof AgendaCreationFieldErrors | null
   if (path === 'medicoIds') return 'doctors';
   if (path === 'fechaInicial') return 'startDate';
   if (path === 'fechaFinal') return 'endDate';
-  if (path === 'duracionMinutos') return 'duration';
-  if (path === 'fechasExcluidas' || path === 'exclusionesPorMedico') return 'exclusions';
+  if (path === 'duracionMinutos' || path === 'duracionesPorMedico') return 'duration';
+  if (
+    path === 'fechasExcluidas' ||
+    path === 'fechasHabilitadas' ||
+    path === 'exclusionesPorMedico'
+  ) {
+    return 'exclusions';
+  }
   if (path === 'horariosPersonalizados') return 'schedules';
   return null;
 }

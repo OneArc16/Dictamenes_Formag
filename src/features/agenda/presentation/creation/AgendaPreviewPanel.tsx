@@ -32,6 +32,7 @@ function DoctorPreviewMobileCard({ doctor }: { doctor: AgendaPreviewDoctor }) {
         {doctor.horarioOrigen
           ? ` · ${scheduleOriginLabel(doctor.horarioOrigen)}`
           : ''}
+        {` · ${doctor.duracionMinutos} min por consulta`}
       </p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-lg bg-slate-50 p-2">
@@ -70,6 +71,9 @@ function PreviewContent({
   preview: AgendaPreview;
   confirmationError?: string;
 }) {
+  const durations = [
+    ...new Set(preview.medicos.map((doctor) => doctor.duracionMinutos)),
+  ];
   const metrics = [
     { label: 'Médicos', value: preview.totalMedicos, tone: 'slate' },
     { label: 'Candidatos', value: preview.totalCandidatos, tone: 'slate' },
@@ -144,6 +148,7 @@ function PreviewContent({
             <tr>
               <th scope="col" className="p-3">Médico</th>
               <th scope="col" className="p-3">Horario efectivo</th>
+              <th scope="col" className="p-3 text-right">Duración</th>
               <th scope="col" className="p-3 text-right">Laborales</th>
               <th scope="col" className="p-3 text-right">Nuevos</th>
               <th scope="col" className="p-3 text-right">Omitidos</th>
@@ -162,6 +167,9 @@ function PreviewContent({
                     ? ` (${scheduleOriginLabel(doctor.horarioOrigen).toLocaleLowerCase('es-CO')})`
                     : ''}
                 </td>
+                <td className="p-3 text-right tabular-nums">
+                  {doctor.duracionMinutos} min
+                </td>
                 <td className="p-3 text-right tabular-nums">{doctor.fechasLaborales}</td>
                 <td className="p-3 text-right tabular-nums">{doctor.totalNuevos}</td>
                 <td className="p-3 text-right tabular-nums">{doctor.totalOmitidos}</td>
@@ -173,8 +181,11 @@ function PreviewContent({
       </div>
 
       <p className="rounded-xl bg-slate-100 p-4 text-sm leading-6 text-slate-700">
-        Se crearán <strong>{preview.totalNuevos} cupos</strong> de{' '}
-        {preview.duracionMinutos} minutos para {preview.totalMedicos}{' '}
+        Se crearán <strong>{preview.totalNuevos} cupos</strong>{' '}
+        {durations.length === 1
+          ? `de ${durations[0]} minutos`
+          : 'con la duración configurada para cada médico'}{' '}
+        para {preview.totalMedicos}{' '}
         {preview.totalMedicos === 1 ? 'médico' : 'médicos'} en {preview.sedeNombre}.
       </p>
     </div>

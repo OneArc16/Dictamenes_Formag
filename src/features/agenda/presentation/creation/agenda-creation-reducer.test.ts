@@ -122,13 +122,24 @@ test('quitar un médico elimina también sus exclusiones particulares', () => {
   state = agendaCreationReducer(state, {
     type: 'doctorScheduleOverrideChanged',
     doctorId: doctor.id,
-    blocks: [{ diaSemana: 1, horaInicio: '08:00', horaFin: '12:00' }],
+    dates: [
+      {
+        fecha: '2026-07-30',
+        bloques: [{ horaInicio: '08:00', horaFin: '12:00' }],
+      },
+    ],
+  });
+  state = agendaCreationReducer(state, {
+    type: 'doctorDurationChanged',
+    doctorId: doctor.id,
+    durationMinutes: 45,
   });
   state = agendaCreationReducer(state, { type: 'doctorRemoved', doctorId: doctor.id });
 
   assert.deepEqual(state.selectedDoctors, []);
   assert.deepEqual(state.doctorExclusions, {});
   assert.deepEqual(state.doctorScheduleOverrides, {});
+  assert.deepEqual(state.doctorDurationOverrides, {});
   assert.match(state.announcement, /retirado/);
 });
 
@@ -151,13 +162,30 @@ test('cambiar el rango elimina exclusiones que queden fuera', () => {
     excluded: true,
   });
   state = agendaCreationReducer(state, {
+    type: 'doctorScheduleOverrideChanged',
+    doctorId: doctor.id,
+    dates: [
+      {
+        fecha: '2026-08-03',
+        bloques: [{ horaInicio: '08:00', horaFin: '12:00' }],
+      },
+    ],
+  });
+  state = agendaCreationReducer(state, {
+    type: 'automaticDateToggled',
+    date: '2026-08-03',
+    enabled: true,
+  });
+  state = agendaCreationReducer(state, {
     type: 'rangeChanged',
     startDate: '2026-07-28',
     endDate: '2026-07-31',
   });
 
   assert.deepEqual(state.excludedDates, []);
+  assert.deepEqual(state.enabledAutomaticDates, []);
   assert.deepEqual(state.doctorExclusions, {});
+  assert.deepEqual(state.doctorScheduleOverrides, {});
 });
 
 test('cualquier cambio posterior a un preview lo marca como desactualizado', () => {
@@ -199,6 +227,7 @@ test('el constructor de payload normaliza y descarta exclusiones inválidas', ()
     ...createInitialAgendaCreationState(context),
     selectedDoctors: [doctor],
     excludedDates: ['2026-07-30', '2026-07-30', '2026-09-01'],
+    enabledAutomaticDates: ['2026-08-01', '2026-08-01', '2026-09-01'],
     doctorExclusions: {
       12: ['2026-07-31', '2026-07-31'],
       99: ['2026-07-31'],
@@ -211,10 +240,45 @@ test('el constructor de payload normaliza y descarta exclusiones inválidas', ()
     fechaInicial: '2026-07-28',
     fechaFinal: '2026-08-03',
     duracionMinutos: 30,
+    duracionesPorMedico: [],
     fechasExcluidas: ['2026-07-30'],
+    fechasHabilitadas: ['2026-08-01'],
     exclusionesPorMedico: [{ medicoId: 12, fechas: ['2026-07-31'] }],
     horariosPersonalizados: [],
   });
+});
+
+test('personaliza y restablece la duración de un médico sin cambiar la general', () => {
+  let state = createInitialAgendaCreationState(context);
+  state = agendaCreationReducer(state, {
+    type: 'doctorAdded',
+    doctor,
+    maximum: context.limits.maxDoctors,
+  });
+  state = agendaCreationReducer(state, {
+    type: 'doctorDurationChanged',
+    doctorId: doctor.id,
+    durationMinutes: 45,
+  });
+
+  assert.equal(state.durationMinutes, 30);
+  assert.equal(state.doctorDurationOverrides[doctor.id], 45);
+  assert.deepEqual(
+    buildAgendaCreationPayload(context.site.id, state).duracionesPorMedico,
+    [{ medicoId: doctor.id, duracionMinutos: 45 }],
+  );
+
+  state = agendaCreationReducer(state, {
+    type: 'durationChanged',
+    durationMinutes: 45,
+  });
+  assert.equal(state.doctorDurationOverrides[doctor.id], 45);
+
+  state = agendaCreationReducer(state, {
+    type: 'doctorDurationChanged',
+    doctorId: doctor.id,
+  });
+  assert.equal(state.doctorDurationOverrides[doctor.id], undefined);
 });
 
 test('personaliza y restablece el horario de un médico sin alterar otros datos', () => {
@@ -227,24 +291,86 @@ test('personaliza y restablece el horario de un médico sin alterar otros datos'
   state = agendaCreationReducer(state, {
     type: 'doctorScheduleOverrideChanged',
     doctorId: doctor.id,
-    blocks: [{ diaSemana: 1, horaInicio: '09:00', horaFin: '12:00' }],
+    dates: [
+      {
+        fecha: '2026-07-31',
+        bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+      },
+    ],
   });
 
   assert.deepEqual(state.doctorScheduleOverrides[doctor.id], [
-    { diaSemana: 1, horaInicio: '09:00', horaFin: '12:00' },
+    {
+      fecha: '2026-07-31',
+      bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+    },
   ]);
   assert.deepEqual(buildAgendaCreationPayload(context.site.id, state).horariosPersonalizados, [
     {
       medicoId: doctor.id,
-      bloques: [{ diaSemana: 1, horaInicio: '09:00', horaFin: '12:00' }],
+      fechas: [
+        {
+          fecha: '2026-07-31',
+          bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+        },
+      ],
     },
   ]);
+
+  const unchanged = agendaCreationReducer(state, {
+    type: 'doctorScheduleOverrideChanged',
+    doctorId: doctor.id,
+    dates: state.doctorScheduleOverrides[doctor.id],
+  });
+  assert.equal(unchanged, state);
 
   state = agendaCreationReducer(state, {
     type: 'doctorScheduleOverrideChanged',
     doctorId: doctor.id,
   });
   assert.equal(state.doctorScheduleOverrides[doctor.id], undefined);
+});
+
+test('desmarca y vuelve a marcar una fecha automática sin abrir otro flujo', () => {
+  let state = createInitialAgendaCreationState(context);
+  state = agendaCreationReducer(state, {
+    type: 'doctorAdded',
+    doctor,
+    maximum: context.limits.maxDoctors,
+  });
+  state = agendaCreationReducer(state, {
+    type: 'globalDateToggled',
+    date: '2026-08-01',
+    excluded: true,
+  });
+  state = agendaCreationReducer(state, {
+    type: 'automaticDateToggled',
+    date: '2026-08-01',
+    enabled: true,
+  });
+
+  assert.deepEqual(state.excludedDates, []);
+  assert.deepEqual(state.enabledAutomaticDates, ['2026-08-01']);
+  assert.match(state.announcement, /habilitada/);
+
+  state = agendaCreationReducer(state, {
+    type: 'doctorScheduleOverrideChanged',
+    doctorId: doctor.id,
+    dates: [
+      {
+        fecha: '2026-08-01',
+        bloques: [{ horaInicio: '08:00', horaFin: '12:00' }],
+      },
+    ],
+  });
+  state = agendaCreationReducer(state, {
+    type: 'automaticDateToggled',
+    date: '2026-08-01',
+    enabled: false,
+  });
+  assert.deepEqual(state.enabledAutomaticDates, []);
+  assert.equal(state.doctorScheduleOverrides[doctor.id], undefined);
+  assert.match(state.announcement, /no disponible/);
 });
 
 test('la validación de presentación rechaza fechas pasadas', () => {
@@ -271,8 +397,13 @@ test('la validación rechaza bloques personalizados superpuestos', () => {
     selectedDoctors: [doctor],
     doctorScheduleOverrides: {
       [doctor.id]: [
-        { diaSemana: 1, horaInicio: '08:00', horaFin: '12:00' },
-        { diaSemana: 1, horaInicio: '11:00', horaFin: '13:00' },
+        {
+          fecha: '2026-07-31',
+          bloques: [
+            { horaInicio: '08:00', horaFin: '12:00' },
+            { horaInicio: '11:00', horaFin: '13:00' },
+          ],
+        },
       ],
     },
   };

@@ -64,13 +64,30 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   const input = {
     sedeId: site.id,
     medicoIds: [doctor.id],
-    fechaInicial: '2030-01-07',
-    fechaFinal: '2030-01-07',
+    fechaInicial: '2030-02-04',
+    fechaFinal: '2030-02-04',
     duracionMinutos: 30,
+    duracionesPorMedico: [],
     fechasExcluidas: [],
+    fechasHabilitadas: [],
     exclusionesPorMedico: [],
     horariosPersonalizados: [],
   };
+
+  const closedHoliday = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-07',
+    fechaFinal: '2030-01-07',
+  });
+  assert.equal(closedHoliday.preview.totalNuevos, 0);
+
+  const enabledHoliday = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-07',
+    fechaFinal: '2030-01-07',
+    fechasHabilitadas: ['2030-01-07'],
+  });
+  assert.equal(enabledHoliday.preview.totalNuevos, 16);
 
   const preview = await calculateAgenda(input);
   assert.equal(preview.preview.totalNuevos, 16);
@@ -136,15 +153,20 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   const customized = await calculateAgenda({
     ...input,
     fechaInicial: '2030-01-14',
-    fechaFinal: '2030-01-14',
+    fechaFinal: '2030-01-21',
     horariosPersonalizados: [
       {
         medicoId: doctor.id,
-        bloques: [{ diaSemana: 1, horaInicio: '10:00', horaFin: '11:00' }],
+        fechas: [
+          {
+            fecha: '2030-01-14',
+            bloques: [{ horaInicio: '10:00', horaFin: '11:00' }],
+          },
+        ],
       },
     ],
   });
-  assert.equal(customized.preview.totalNuevos, 2);
+  assert.equal(customized.preview.totalNuevos, 6);
   assert.equal(customized.preview.medicos[0].horarioOrigen, 'PERSONALIZADO');
 
   const unchanged = await calculateAgenda({
@@ -154,4 +176,15 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   });
   assert.equal(unchanged.preview.totalNuevos, 4);
   assert.equal(unchanged.preview.medicos[0].horarioOrigen, 'PARTICULAR');
+
+  const customDuration = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-28',
+    fechaFinal: '2030-01-28',
+    duracionesPorMedico: [
+      { medicoId: doctor.id, duracionMinutos: 60 },
+    ],
+  });
+  assert.equal(customDuration.preview.totalNuevos, 2);
+  assert.equal(customDuration.preview.medicos[0].duracionMinutos, 60);
 });

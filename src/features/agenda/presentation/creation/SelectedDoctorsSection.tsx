@@ -2,7 +2,11 @@
 
 import { UsersRound } from 'lucide-react';
 
-import type { AgendaPreview, WeeklyBlock } from '@/features/agenda/domain/types';
+import type {
+  AgendaPreview,
+  DoctorDateScheduleOverride,
+} from '@/features/agenda/domain/types';
+import type { AgendaDoctorDateSchedule } from './agenda-creation-work-dates';
 import { SelectedDoctorCard } from './SelectedDoctorCard';
 import type { AgendaDoctorOption } from './agenda-creation-types';
 
@@ -12,12 +16,27 @@ type SelectedDoctorsSectionProps = {
   periodDates: string[];
   globallyExcludedDates: string[];
   doctorExclusions: Record<number, string[]>;
-  doctorScheduleOverrides: Record<number, WeeklyBlock[]>;
-  workDatesByDoctor?: Record<number, string[]>;
+  doctorScheduleOverrides: Record<number, DoctorDateScheduleOverride[]>;
+  defaultDuration: number;
+  doctorDurationOverrides: Record<number, number>;
+  minimumDuration: number;
+  maximumDuration: number;
+  durationStep: number;
+  dateSchedulesByDoctor?: Record<number, AgendaDoctorDateSchedule[]>;
+  scheduleErrorsByDoctor?: Record<number, string>;
+  workSchedulesLoading?: boolean;
+  workSchedulesError?: string;
   preview?: AgendaPreview;
   onRemove: (doctorId: number) => void;
   onDoctorDateChange: (doctorId: number, date: string, excluded: boolean) => void;
-  onDoctorScheduleChange: (doctorId: number, blocks?: WeeklyBlock[]) => void;
+  onDoctorScheduleChange: (
+    doctorId: number,
+    dates?: DoctorDateScheduleOverride[],
+  ) => void;
+  onDoctorDurationChange: (
+    doctorId: number,
+    duration?: number,
+  ) => void;
   scheduleError?: string;
   disabled?: boolean;
 };
@@ -29,11 +48,20 @@ export function SelectedDoctorsSection({
   globallyExcludedDates,
   doctorExclusions,
   doctorScheduleOverrides,
-  workDatesByDoctor,
+  defaultDuration,
+  doctorDurationOverrides,
+  minimumDuration,
+  maximumDuration,
+  durationStep,
+  dateSchedulesByDoctor,
+  scheduleErrorsByDoctor,
+  workSchedulesLoading = false,
+  workSchedulesError,
   preview,
   onRemove,
   onDoctorDateChange,
   onDoctorScheduleChange,
+  onDoctorDurationChange,
   scheduleError,
   disabled = false,
 }: SelectedDoctorsSectionProps) {
@@ -74,13 +102,6 @@ export function SelectedDoctorsSection({
         <div className="grid gap-3">
           {doctors.map((doctor) => {
             const doctorPreview = previewByDoctor.get(doctor.id);
-            const sourceDates =
-              workDatesByDoctor?.[doctor.id] ??
-              doctorPreview?.fechasLaboralesLista ??
-              periodDates;
-            const selectableDates = sourceDates.filter(
-              (date) => !globallyExcludedDates.includes(date),
-            );
 
             return (
               <SelectedDoctorCard
@@ -89,13 +110,27 @@ export function SelectedDoctorsSection({
                 doctor={doctor}
                 preview={doctorPreview}
                 scheduleOverride={doctorScheduleOverrides[doctor.id]}
-                selectableDates={selectableDates}
+                defaultDuration={defaultDuration}
+                durationOverride={doctorDurationOverrides[doctor.id]}
+                minimumDuration={minimumDuration}
+                maximumDuration={maximumDuration}
+                durationStep={durationStep}
+                periodDates={periodDates}
+                dateSchedules={dateSchedulesByDoctor?.[doctor.id]}
+                globallyExcludedDates={globallyExcludedDates}
+                scheduleLoading={workSchedulesLoading}
+                scheduleError={
+                  workSchedulesError ?? scheduleErrorsByDoctor?.[doctor.id]
+                }
                 excludedDates={doctorExclusions[doctor.id] ?? []}
                 onExcludedDateChange={(date, excluded) =>
                   onDoctorDateChange(doctor.id, date, excluded)
                 }
                 onScheduleOverrideChange={(blocks) =>
                   onDoctorScheduleChange(doctor.id, blocks)
+                }
+                onDurationChange={(duration) =>
+                  onDoctorDurationChange(doctor.id, duration)
                 }
                 onRemove={() => onRemove(doctor.id)}
                 disabled={disabled}

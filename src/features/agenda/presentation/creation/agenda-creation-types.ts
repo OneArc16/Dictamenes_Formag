@@ -1,4 +1,7 @@
-import type { AgendaPreview, WeeklyBlock } from '@/features/agenda/domain/types';
+import type {
+  AgendaPreview,
+  DoctorDateScheduleOverride,
+} from '@/features/agenda/domain/types';
 
 export type AgendaDoctorOption = {
   id: number;
@@ -41,9 +44,11 @@ export type AgendaCreationState = {
   startDate: string;
   endDate: string;
   durationMinutes: number;
+  doctorDurationOverrides: Record<number, number>;
   excludedDates: string[];
+  enabledAutomaticDates: string[];
   doctorExclusions: Record<number, string[]>;
-  doctorScheduleOverrides: Record<number, WeeklyBlock[]>;
+  doctorScheduleOverrides: Record<number, DoctorDateScheduleOverride[]>;
   revision: number;
   process: AgendaCreationProcess;
   fieldErrors: AgendaCreationFieldErrors;
@@ -57,12 +62,22 @@ export type AgendaCreationAction =
   | { type: 'doctorRemoved'; doctorId: number }
   | { type: 'rangeChanged'; startDate: string; endDate: string }
   | { type: 'durationChanged'; durationMinutes: number }
+  | {
+      type: 'doctorDurationChanged';
+      doctorId: number;
+      durationMinutes?: number;
+    }
   | { type: 'globalDateToggled'; date: string; excluded: boolean }
   | { type: 'doctorDateToggled'; doctorId: number; date: string; excluded: boolean }
   | {
       type: 'doctorScheduleOverrideChanged';
       doctorId: number;
-      blocks?: WeeklyBlock[];
+      dates?: DoctorDateScheduleOverride[];
+    }
+  | {
+      type: 'automaticDateToggled';
+      date: string;
+      enabled: boolean;
     }
   | {
       type: 'validationFailed';

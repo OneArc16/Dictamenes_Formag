@@ -15,8 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-const QUICK_DURATIONS = [15, 20, 30, 45, 60];
+import { AGENDA_QUICK_DURATIONS } from './agenda-duration';
 
 type AgendaDurationSelectorProps = {
   value: number;
@@ -81,7 +80,7 @@ export function AgendaDurationSelector({
             <div>
               <p className="mb-2 text-sm font-medium text-slate-800">Duraciones rápidas</p>
               <div className="flex flex-wrap gap-2">
-                {QUICK_DURATIONS.map((minutes) => (
+                {AGENDA_QUICK_DURATIONS.map((minutes) => (
                   <Button
                     key={minutes}
                     type="button"

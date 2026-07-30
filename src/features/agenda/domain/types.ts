@@ -6,6 +6,16 @@ export type WeeklyBlock = {
   horaFin: string;
 };
 
+export type TimeBlock = {
+  horaInicio: string;
+  horaFin: string;
+};
+
+export type DoctorDateScheduleOverride = {
+  fecha: DateOnly;
+  bloques: TimeBlock[];
+};
+
 export type SlotCandidate = {
   medicoId: number;
   sedeId: number;
@@ -22,20 +32,26 @@ export type AgendaGenerationInput = {
   fechaInicial: DateOnly;
   fechaFinal: DateOnly;
   duracionMinutos: number;
+  duracionesPorMedico: Array<{
+    medicoId: number;
+    duracionMinutos: number;
+  }>;
   fechasExcluidas: DateOnly[];
+  fechasHabilitadas: DateOnly[];
   exclusionesPorMedico: Array<{
     medicoId: number;
     fechas: DateOnly[];
   }>;
   horariosPersonalizados: Array<{
     medicoId: number;
-    bloques: WeeklyBlock[];
+    fechas: DoctorDateScheduleOverride[];
   }>;
 };
 
 export type AgendaPreviewDoctor = {
   medicoId: number;
   medicoNombre: string;
+  duracionMinutos: number;
   horarioLaboralId: number | null;
   horarioLaboralNombre: string | null;
   horarioOrigen: 'SEDE' | 'PARTICULAR' | 'PERSONALIZADO' | null;

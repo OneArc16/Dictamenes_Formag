@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useReducer } from 'react';
 
 import type { AgendaCreationContext } from '@/features/agenda/application/agenda-creation-context';
-import type { AgendaPreview, WeeklyBlock } from '@/features/agenda/domain/types';
+import type {
+  AgendaPreview,
+  DoctorDateScheduleOverride,
+} from '@/features/agenda/domain/types';
 import {
   AgendaRequestError,
   agendaRequest,
@@ -135,12 +138,26 @@ export function useAgendaCreationController(context: ReadyContext) {
       dispatch({ type: 'rangeChanged', startDate, endDate }),
     changeDuration: (durationMinutes: number) =>
       dispatch({ type: 'durationChanged', durationMinutes }),
+    changeDoctorDuration: (
+      doctorId: number,
+      durationMinutes?: number,
+    ) =>
+      dispatch({
+        type: 'doctorDurationChanged',
+        doctorId,
+        durationMinutes,
+      }),
     toggleGlobalDate: (date: string, excluded: boolean) =>
       dispatch({ type: 'globalDateToggled', date, excluded }),
     toggleDoctorDate: (doctorId: number, date: string, excluded: boolean) =>
       dispatch({ type: 'doctorDateToggled', doctorId, date, excluded }),
-    changeDoctorSchedule: (doctorId: number, blocks?: WeeklyBlock[]) =>
-      dispatch({ type: 'doctorScheduleOverrideChanged', doctorId, blocks }),
+    changeDoctorSchedule: (
+      doctorId: number,
+      dates?: DoctorDateScheduleOverride[],
+    ) =>
+      dispatch({ type: 'doctorScheduleOverrideChanged', doctorId, dates }),
+    toggleAutomaticDate: (date: string, enabled: boolean) =>
+      dispatch({ type: 'automaticDateToggled', date, enabled }),
     calculate,
     confirm,
   };

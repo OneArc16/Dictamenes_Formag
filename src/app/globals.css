@@ -132,6 +132,79 @@ fieldset:disabled button {
   color: #92400e;
 }
 
+.date-range-day-picker .agenda-date-holiday .rdp-day_button {
+  position: relative;
+}
+
+.date-range-day-picker .agenda-date-holiday .rdp-day_button::after {
+  position: absolute;
+  bottom: 2px;
+  left: calc(50% - 2.5px);
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #d97706;
+  box-shadow: 0 0 0 1px #fff;
+  content: "";
+}
+
+.doctor-schedule-day-picker {
+  --rdp-day-height: 42px;
+  --rdp-day-width: 42px;
+  --rdp-day_button-height: 38px;
+  --rdp-day_button-width: 38px;
+  margin-top: 0.75rem;
+}
+
+.doctor-schedule-day-picker .rdp-day_button {
+  position: relative;
+}
+
+.doctor-schedule-day-picker .agenda-day-customized .rdp-day_button::after,
+.doctor-schedule-day-picker .agenda-day-holiday .rdp-day_button::before {
+  position: absolute;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  content: "";
+}
+
+.doctor-schedule-day-picker .agenda-day-customized .rdp-day_button::after {
+  left: calc(50% - 6px);
+  background: #0284c7;
+}
+
+.doctor-schedule-day-picker .agenda-day-holiday .rdp-day_button::before {
+  right: calc(50% - 6px);
+  background: #d97706;
+}
+
+.doctor-schedule-day-picker
+  .agenda-day-customized:not(.agenda-day-holiday)
+  .rdp-day_button::after,
+.doctor-schedule-day-picker
+  .agenda-day-holiday:not(.agenda-day-customized)
+  .rdp-day_button::before {
+  right: auto;
+  left: calc(50% - 2.5px);
+}
+
+.doctor-schedule-day-picker .agenda-day-holiday:not(.rdp-selected) .rdp-day_button {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.doctor-schedule-day-picker .agenda-day-customized:not(.rdp-selected) .rdp-day_button {
+  border: 1px solid #38bdf8;
+}
+
+.doctor-schedule-day-picker .agenda-day-non-working:not(.rdp-selected) .rdp-day_button {
+  border: 1px dashed #94a3b8;
+  color: #64748b;
+}
+
 @media (max-width: 767px) {
   .date-range-day-picker {
     --rdp-day-height: 38px;

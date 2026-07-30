@@ -48,7 +48,9 @@ export function createInitialAgendaCreationState(
     startDate: context.today,
     endDate: context.defaultEndDate,
     durationMinutes: 30,
+    doctorDurationOverrides: {},
     excludedDates: [],
+    enabledAutomaticDates: [],
     doctorExclusions: {},
     doctorScheduleOverrides: {},
     revision: 0,
@@ -121,18 +123,24 @@ export function agendaCreationReducer(
       delete doctorExclusions[action.doctorId];
       const doctorScheduleOverrides = { ...state.doctorScheduleOverrides };
       delete doctorScheduleOverrides[action.doctorId];
+      const doctorDurationOverrides = { ...state.doctorDurationOverrides };
+      delete doctorDurationOverrides[action.doctorId];
       return withFormChange(
         state,
         {
           selectedDoctors: state.selectedDoctors.filter((item) => item.id !== action.doctorId),
           doctorExclusions,
           doctorScheduleOverrides,
+          doctorDurationOverrides,
         },
         `${doctor.nombre} fue retirado de la agenda.`,
       );
     }
     case 'rangeChanged': {
       const excludedDates = state.excludedDates.filter((date) =>
+        inRange(date, action.startDate, action.endDate),
+      );
+      const enabledAutomaticDates = state.enabledAutomaticDates.filter((date) =>
         inRange(date, action.startDate, action.endDate),
       );
       const doctorExclusions = Object.fromEntries(
@@ -143,19 +151,62 @@ export function agendaCreationReducer(
           ])
           .filter(([, dates]) => (dates as string[]).length > 0),
       );
+      const doctorScheduleOverrides = Object.fromEntries(
+        Object.entries(state.doctorScheduleOverrides)
+          .map(([doctorId, dates]) => [
+            doctorId,
+            dates.filter((item) =>
+              inRange(item.fecha, action.startDate, action.endDate),
+            ),
+          ])
+          .filter(([, dates]) => (dates as unknown[]).length > 0),
+      );
       return withFormChange(state, {
         startDate: action.startDate,
         endDate: action.endDate,
         excludedDates,
+        enabledAutomaticDates,
         doctorExclusions,
+        doctorScheduleOverrides,
       });
     }
     case 'durationChanged':
       if (state.durationMinutes === action.durationMinutes) return state;
       return withFormChange(state, { durationMinutes: action.durationMinutes });
+    case 'doctorDurationChanged': {
+      const doctor = state.selectedDoctors.find(
+        (item) => item.id === action.doctorId,
+      );
+      if (!doctor) return state;
+
+      const nextDuration =
+        action.durationMinutes === state.durationMinutes
+          ? undefined
+          : action.durationMinutes;
+      if (state.doctorDurationOverrides[action.doctorId] === nextDuration) {
+        return state;
+      }
+
+      const doctorDurationOverrides = { ...state.doctorDurationOverrides };
+      if (nextDuration === undefined) {
+        delete doctorDurationOverrides[action.doctorId];
+      } else {
+        doctorDurationOverrides[action.doctorId] = nextDuration;
+      }
+      return withFormChange(
+        state,
+        { doctorDurationOverrides },
+        nextDuration === undefined
+          ? `${doctor.nombre} usará la duración general de ${state.durationMinutes} minutos.`
+          : `${doctor.nombre} usará consultas de ${nextDuration} minutos únicamente en esta agenda.`,
+      );
+    }
     case 'globalDateToggled':
       return withFormChange(state, {
         excludedDates: toggleDate(state.excludedDates, action.date, action.excluded),
+        enabledAutomaticDates: action.excluded
+          ? state.enabledAutomaticDates.filter((date) => date !== action.date)
+          : state.enabledAutomaticDates,
       });
     case 'doctorDateToggled': {
       if (!state.selectedDoctors.some((doctor) => doctor.id === action.doctorId)) return state;
@@ -171,18 +222,59 @@ export function agendaCreationReducer(
     }
     case 'doctorScheduleOverrideChanged': {
       if (!state.selectedDoctors.some((doctor) => doctor.id === action.doctorId)) return state;
+      const currentDates = state.doctorScheduleOverrides[action.doctorId] ?? [];
+      const nextDates = action.dates ?? [];
+      if (JSON.stringify(currentDates) === JSON.stringify(nextDates)) return state;
       const doctorScheduleOverrides = { ...state.doctorScheduleOverrides };
-      if (action.blocks?.length) {
-        doctorScheduleOverrides[action.doctorId] = action.blocks.map((block) => ({ ...block }));
+      if (action.dates?.length) {
+        doctorScheduleOverrides[action.doctorId] = action.dates.map((item) => ({
+          fecha: item.fecha,
+          bloques: item.bloques.map((block) => ({ ...block })),
+        }));
       } else {
         delete doctorScheduleOverrides[action.doctorId];
       }
       return withFormChange(
         state,
         { doctorScheduleOverrides },
-        action.blocks?.length
-          ? 'El horario se personalizó únicamente para esta agenda.'
+        action.dates?.length
+          ? `Se personalizaron ${action.dates.length} ${
+              action.dates.length === 1 ? 'fecha' : 'fechas'
+            } únicamente para esta agenda.`
           : 'Se restableció el horario predeterminado para esta agenda.',
+      );
+    }
+    case 'automaticDateToggled': {
+      if (!inRange(action.date, state.startDate, state.endDate)) return state;
+
+      const enabledAutomaticDates = toggleDate(
+        state.enabledAutomaticDates,
+        action.date,
+        action.enabled,
+      );
+      const doctorScheduleOverrides = action.enabled
+        ? state.doctorScheduleOverrides
+        : Object.fromEntries(
+            Object.entries(state.doctorScheduleOverrides)
+              .map(([doctorId, dates]) => [
+                doctorId,
+                dates.filter((item) => item.fecha !== action.date),
+              ])
+              .filter(([, dates]) => (dates as unknown[]).length > 0),
+          );
+
+      return withFormChange(
+        state,
+        {
+          enabledAutomaticDates,
+          excludedDates: action.enabled
+            ? state.excludedDates.filter((date) => date !== action.date)
+            : state.excludedDates,
+          doctorScheduleOverrides,
+        },
+        action.enabled
+          ? 'La fecha quedó habilitada.'
+          : 'La fecha volvió a quedar marcada como no disponible.',
       );
     }
     case 'validationFailed':

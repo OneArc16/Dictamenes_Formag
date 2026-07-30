@@ -41,6 +41,10 @@ test('identifica sábado y domingo como no laborables antes del preview', () => 
   assert.equal(result.complete, true);
   assert.deepEqual(result.allDoctors, mondayToSunday.slice(0, 5));
   assert.deepEqual(result.byDoctor[12], mondayToSunday.slice(0, 5));
+  assert.deepEqual(result.schedulesByDoctor[12][0], {
+    date: '2026-07-27',
+    blocks: [{ diaSemana: 1, horaInicio: '08:00', horaFin: '17:00' }],
+  });
 });
 
 test('usa la unión de días laborables para exclusiones generales', () => {
@@ -66,18 +70,66 @@ test('usa la unión de días laborables para exclusiones generales', () => {
   assert.deepEqual(result.byDoctor[13], ['2026-08-01']);
 });
 
-test('la personalización temporal reemplaza los días del horario predeterminado', () => {
+test('la personalización temporal afecta solo la fecha indicada', () => {
   const result = deriveAgendaWorkDates(
     mondayToSunday,
     [12],
     [weekdaySchedule],
     {
-      12: [{ diaSemana: 7, horaInicio: '09:00', horaFin: '11:00' }],
+      12: [
+        {
+          fecha: '2026-08-02',
+          bloques: [{ horaInicio: '09:00', horaFin: '11:00' }],
+        },
+      ],
     },
   );
 
-  assert.deepEqual(result.allDoctors, ['2026-08-02']);
-  assert.deepEqual(result.byDoctor[12], ['2026-08-02']);
+  assert.deepEqual(result.allDoctors, [
+    ...mondayToSunday.slice(0, 5),
+    '2026-08-02',
+  ]);
+  assert.deepEqual(result.byDoctor[12], [
+    ...mondayToSunday.slice(0, 5),
+    '2026-08-02',
+  ]);
+});
+
+test('un festivo queda cerrado salvo que tenga una personalización temporal', () => {
+  const holiday = '2026-07-27';
+  const closed = deriveAgendaWorkDates(
+    mondayToSunday,
+    [12],
+    [weekdaySchedule],
+    {},
+    [holiday],
+  );
+  const enabled = deriveAgendaWorkDates(
+    mondayToSunday,
+    [12],
+    [weekdaySchedule],
+    {
+      12: [
+        {
+          fecha: holiday,
+          bloques: [{ horaInicio: '09:00', horaFin: '11:00' }],
+        },
+      ],
+    },
+    [holiday],
+  );
+  const enabledDirectly = deriveAgendaWorkDates(
+    mondayToSunday,
+    [12],
+    [weekdaySchedule],
+    {},
+    [holiday],
+    [holiday],
+  );
+
+  assert.equal(closed.byDoctor[12].includes(holiday), false);
+  assert.equal(enabled.byDoctor[12].includes(holiday), true);
+  assert.equal(enabledDirectly.byDoctor[12].includes(holiday), true);
 });
 
 test('evita inferencias parciales mientras falte el horario de un médico', () => {
@@ -91,4 +143,66 @@ test('evita inferencias parciales mientras falte el horario de un médico', () =
   assert.equal(result.complete, false);
   assert.deepEqual(result.allDoctors, []);
   assert.deepEqual(result.byDoctor, {});
+  assert.deepEqual(result.schedulesByDoctor, {});
+});
+
+test('ordena los bloques horarios dentro de cada fecha', () => {
+  const result = deriveAgendaWorkDates(
+    ['2026-07-27'],
+    [12],
+    [weekdaySchedule],
+    {
+      12: [
+        {
+          fecha: '2026-07-27',
+          bloques: [
+            { horaInicio: '13:00', horaFin: '17:00' },
+            { horaInicio: '08:00', horaFin: '12:00' },
+          ],
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(result.schedulesByDoctor[12][0].blocks, [
+    { diaSemana: 1, horaInicio: '08:00', horaFin: '12:00' },
+    { diaSemana: 1, horaInicio: '13:00', horaFin: '17:00' },
+  ]);
+});
+
+test('expone el error del horario efectivo por médico', () => {
+  const result = deriveAgendaWorkDates(
+    mondayToSunday,
+    [12],
+    [{ medicoId: 12, schedule: null, error: 'No hay horario activo.' }],
+    {},
+  );
+
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.schedulesByDoctor[12], []);
+  assert.equal(result.errorsByDoctor[12], 'No hay horario activo.');
+});
+
+test('conserva el error del horario efectivo aunque exista una fecha temporal', () => {
+  const result = deriveAgendaWorkDates(
+    mondayToSunday,
+    [12],
+    [{ medicoId: 12, schedule: null, error: 'No hay horario activo.' }],
+    {
+      12: [
+        {
+          fecha: '2026-07-27',
+          bloques: [{ horaInicio: '10:00', horaFin: '14:00' }],
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(result.schedulesByDoctor[12], [
+    {
+      date: '2026-07-27',
+      blocks: [{ diaSemana: 1, horaInicio: '10:00', horaFin: '14:00' }],
+    },
+  ]);
+  assert.equal(result.errorsByDoctor[12], 'No hay horario activo.');
 });
