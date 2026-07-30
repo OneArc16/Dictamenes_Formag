@@ -29,6 +29,12 @@ button:focus-visible, a:focus-visible {
   outline: none;
 }
 
+.ui-tooltip:has(:focus-visible) .ui-tooltip-content {
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
 fieldset:disabled input,
 fieldset:disabled textarea,
 fieldset:disabled select {
@@ -127,25 +133,15 @@ fieldset:disabled button {
 }
 
 .date-range-day-picker .agenda-date-non-working:not(.rdp-selected) .rdp-day_button {
-  border: 1px dashed #d97706;
-  background: #fffbeb;
+  border: 1px dashed #fda4af;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.date-range-day-picker .agenda-date-holiday:not(.rdp-selected) .rdp-day_button {
+  border: 1px solid #f59e0b;
+  background: #fef3c7;
   color: #92400e;
-}
-
-.date-range-day-picker .agenda-date-holiday .rdp-day_button {
-  position: relative;
-}
-
-.date-range-day-picker .agenda-date-holiday .rdp-day_button::after {
-  position: absolute;
-  bottom: 2px;
-  left: calc(50% - 2.5px);
-  width: 5px;
-  height: 5px;
-  border-radius: 9999px;
-  background: #d97706;
-  box-shadow: 0 0 0 1px #fff;
-  content: "";
 }
 
 .doctor-schedule-day-picker {
@@ -160,8 +156,7 @@ fieldset:disabled button {
   position: relative;
 }
 
-.doctor-schedule-day-picker .agenda-day-customized .rdp-day_button::after,
-.doctor-schedule-day-picker .agenda-day-holiday .rdp-day_button::before {
+.doctor-schedule-day-picker .agenda-day-customized .rdp-day_button::after {
   position: absolute;
   bottom: 2px;
   width: 5px;
@@ -175,21 +170,6 @@ fieldset:disabled button {
   background: #0284c7;
 }
 
-.doctor-schedule-day-picker .agenda-day-holiday .rdp-day_button::before {
-  right: calc(50% - 6px);
-  background: #d97706;
-}
-
-.doctor-schedule-day-picker
-  .agenda-day-customized:not(.agenda-day-holiday)
-  .rdp-day_button::after,
-.doctor-schedule-day-picker
-  .agenda-day-holiday:not(.agenda-day-customized)
-  .rdp-day_button::before {
-  right: auto;
-  left: calc(50% - 2.5px);
-}
-
 .doctor-schedule-day-picker .agenda-day-holiday:not(.rdp-selected) .rdp-day_button {
   border-color: #f59e0b;
   background: #fffbeb;
@@ -201,8 +181,15 @@ fieldset:disabled button {
 }
 
 .doctor-schedule-day-picker .agenda-day-non-working:not(.rdp-selected) .rdp-day_button {
-  border: 1px dashed #94a3b8;
-  color: #64748b;
+  border: 1px dashed #fda4af;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.doctor-schedule-day-picker .agenda-day-holiday:not(.rdp-selected) .rdp-day_button {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 @media (max-width: 767px) {

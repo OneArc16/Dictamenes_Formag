@@ -68,10 +68,10 @@ export function SelectedDoctorsSection({
   const previewByDoctor = new Map(preview?.medicos.map((doctor) => [doctor.medicoId, doctor]));
 
   return (
-    <section aria-labelledby="selected-doctors-title" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section aria-labelledby="selected-doctors-title" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 id="selected-doctors-title" className="text-lg font-semibold text-slate-950">
+          <h2 id="selected-doctors-title" className="text-base font-semibold text-slate-950">
             Médicos seleccionados
           </h2>
         </div>
@@ -99,7 +99,7 @@ export function SelectedDoctorsSection({
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-2.5">
           {doctors.map((doctor) => {
             const doctorPreview = previewByDoctor.get(doctor.id);
 

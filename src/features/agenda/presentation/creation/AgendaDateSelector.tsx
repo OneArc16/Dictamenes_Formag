@@ -3,13 +3,13 @@
 import {
   CalendarDays,
   CalendarHeart,
-  CalendarOff,
   LoaderCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
 
+import { isoDayOfWeek } from '@/features/agenda/domain/date-time';
 import {
   addDateOnlyDays,
   calendarMonthDates,
@@ -106,10 +106,11 @@ export function AgendaDateSelector({
   );
 
   const nonWorkingDateObjects = useMemo(() => {
-    if (!evaluatedWorkDates) return [];
-    const evaluated = new Set(evaluatedWorkDates);
+    const evaluated = evaluatedWorkDates ? new Set(evaluatedWorkDates) : undefined;
     return periodDates
-      .filter((date) => !evaluated.has(date))
+      .filter((date) =>
+        evaluated ? !evaluated.has(date) : isoDayOfWeek(date) >= 6,
+      )
       .map(parseLocalDateOnly)
       .filter((date): date is Date => Boolean(date));
   }, [evaluatedWorkDates, periodDates]);
@@ -120,6 +121,14 @@ export function AgendaDateSelector({
         (date) => date >= today,
       ),
     [desktop, today, visibleMonth],
+  );
+  const visibleWeekendDates = useMemo(
+    () =>
+      visibleCalendarDates
+        .filter((date) => isoDayOfWeek(date) >= 6)
+        .map(parseLocalDateOnly)
+        .filter((date): date is Date => Boolean(date)),
+    [visibleCalendarDates],
   );
   const holidayState = useAgendaHolidays(
     visibleCalendarDates,
@@ -165,7 +174,7 @@ export function AgendaDateSelector({
   };
 
   return (
-    <section aria-labelledby="agenda-dates-title" className="space-y-4">
+    <section aria-labelledby="agenda-dates-title" className="space-y-3">
       <div>
         <h2 id="agenda-dates-title" className="text-base font-semibold text-slate-950">
           Periodo de la agenda
@@ -175,7 +184,7 @@ export function AgendaDateSelector({
         </p>
       </div>
 
-      <fieldset disabled={disabled} className="space-y-4">
+      <fieldset disabled={disabled} className="space-y-3">
         <legend className="sr-only">Seleccionar periodo de la agenda</legend>
         <div ref={pickerRef} className="relative">
           <span className="block text-xs font-medium text-slate-700">Rango de fechas</span>
@@ -233,11 +242,13 @@ export function AgendaDateSelector({
                 modifiers={{
                   excluded: excludedDateObjects,
                   nonWorking: nonWorkingDateObjects,
+                  weekend: visibleWeekendDates,
                   holiday: holidayDateObjects,
                 }}
                 modifiersClassNames={{
                   excluded: 'agenda-date-excluded',
                   nonWorking: 'agenda-date-non-working',
+                  weekend: 'agenda-date-non-working',
                   holiday: 'agenda-date-holiday',
                 }}
                 locale={es}
@@ -284,14 +295,14 @@ export function AgendaDateSelector({
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <span
-                      className="h-2.5 w-2.5 rounded-full bg-amber-500"
+                      className="h-3 w-3 rounded-sm border border-amber-400 bg-amber-100"
                       aria-hidden="true"
                     />
                     Festivo
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <CalendarOff
-                      className="h-3.5 w-3.5 text-amber-700"
+                    <span
+                      className="h-3 w-3 rounded-sm border border-dashed border-rose-300 bg-rose-50"
                       aria-hidden="true"
                     />
                     No laborable
@@ -353,7 +364,7 @@ export function AgendaDateSelector({
         <div
           id="agenda-date-range-summary"
           aria-live="polite"
-          className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-700"
+          className="flex min-h-11 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-700"
         >
           <CalendarDays className="h-4 w-4 shrink-0 text-sky-700" aria-hidden="true" />
           <span>{summary}</span>

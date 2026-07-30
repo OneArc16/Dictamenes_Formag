@@ -128,7 +128,7 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
       hideHero
     >
       <Card className="border-slate-200 bg-white shadow-sm">
-        <CardContent className="space-y-6 p-4 sm:p-6">
+        <CardContent className="space-y-4 p-4 sm:p-5">
           <AgendaCreationHeader context={context} />
 
           {state.formError ? (
@@ -142,8 +142,12 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
             </div>
           ) : null}
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.75fr)_minmax(580px,1.25fr)]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">
+          <section
+            aria-label="Configuración inicial de la agenda"
+            className="rounded-xl border border-slate-200 bg-slate-50/50"
+          >
+            <div className="grid items-start xl:grid-cols-[minmax(280px,1fr)_minmax(380px,1.15fr)_auto]">
+              <div className="p-3 sm:p-4">
               <AgendaDoctorCombobox
                 inputId={DOCTOR_SEARCH_INPUT_ID}
                 query={doctorSearch.query}
@@ -165,30 +169,32 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
                 }
               />
               {state.selectedDoctors.length >= context.limits.maxDoctors ? (
-                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
                   Alcanzaste el límite de {context.limits.maxDoctors} médicos por generación.
                 </p>
               ) : null}
-            </div>
+              </div>
 
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">
-              <AgendaDateSelector
-                startDate={state.startDate}
-                endDate={state.endDate}
-                periodDates={periodDates}
-                onRangeChange={controller.changeRange}
-                excludedDates={state.excludedDates}
-                today={context.today}
-                maxRangeDays={context.limits.maxRangeDays}
-                evaluatedWorkDates={evaluatedWorkDates}
-                startError={state.fieldErrors.startDate}
-                endError={state.fieldErrors.endDate}
-                disabled={fieldsDisabled}
-              />
+              <div className="border-t border-slate-200 p-3 sm:p-4 xl:border-l xl:border-t-0">
+                <AgendaDateSelector
+                  startDate={state.startDate}
+                  endDate={state.endDate}
+                  periodDates={periodDates}
+                  onRangeChange={controller.changeRange}
+                  excludedDates={state.excludedDates}
+                  today={context.today}
+                  maxRangeDays={context.limits.maxRangeDays}
+                  evaluatedWorkDates={evaluatedWorkDates}
+                  startError={state.fieldErrors.startDate}
+                  endError={state.fieldErrors.endDate}
+                  disabled={fieldsDisabled}
+                />
+              </div>
+
               <div
                 role="group"
                 aria-label="Configuración adicional de la agenda"
-                className="flex flex-wrap items-start gap-x-5 gap-y-3"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200 p-3 sm:p-4 xl:flex-col xl:items-start xl:gap-3 xl:border-l xl:border-t-0"
               >
                 {periodDates.length > 0 ? (
                   <AgendaDateExclusionDialog
@@ -224,7 +230,7 @@ function ReadyAgendaCreationForm({ context }: ReadyAgendaCreationFormProps) {
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           <SelectedDoctorsSection
             siteId={context.site.id}
