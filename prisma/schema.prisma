@@ -262,8 +262,10 @@ enum EstadoCita {
 enum TipoEventoCita {
   CREADA
   ACTIVADA
+  RECORDATORIO_GENERADO
   CANCELADA
   REPROGRAMADA
+  ATENDIDA
 }
 
 enum ResultadoAuditoriaRecepcion {
@@ -286,6 +288,12 @@ enum TipoMotivoCambioCita {
 
 enum TipoDocumentoCita {
   RECORDATORIO_CITA
+}
+
+enum TipoEventoClinicalInbox {
+  RECEIVED
+  PROCESSED
+  REJECTED
 }
 
 enum FlujoDictamenVersion {
@@ -1010,6 +1018,8 @@ model Cita {
   estado             EstadoCita         @default(ASIGNADA)
   activadaAt         DateTime?          @db.Timestamptz(3)
   activadaBy         Int?
+  clinicalEncounterSource String?       @db.VarChar(80)
+  clinicalEncounterId     String?       @db.VarChar(120)
   citaOrigenId       Int?
   lockVersion        Int                @default(0)
   createdAt          DateTime           @default(now())
@@ -1033,6 +1043,7 @@ model Cita {
   @@index([usuarioId, estado, inicioProgramado])
   @@index([cupoMedicoId])
   @@index([citaOrigenId])
+  @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@map("citas")
 }
 
@@ -1159,6 +1170,41 @@ model ReceptionSearchRateLimit {
   @@unique([scopeType, scopeId, windowType, windowStart])
   @@index([windowStart])
   @@map("reception_search_rate_limits")
+}
+
+model ClinicalEncounterInboxMessage {
+  id                      String   @id @default(uuid()) @db.Uuid
+  issuer                  String   @db.VarChar(100)
+  messageId               String   @db.VarChar(160)
+  citaIdEsperada          Int
+  usuarioIdEsperado       Int
+  clinicalEncounterSource String   @db.VarChar(80)
+  clinicalEncounterId     String   @db.VarChar(120)
+  encounterOccurredAt     DateTime @db.Timestamptz(3)
+  evidenceDigest          String   @db.Char(64)
+  signatureKeyId          String   @db.VarChar(100)
+  receivedAt              DateTime @default(now())
+  events                  ClinicalEncounterInboxEvent[]
+
+  @@unique([issuer, messageId])
+  @@unique([issuer, clinicalEncounterSource, clinicalEncounterId])
+  @@map("clinical_encounter_inbox_messages")
+}
+
+model ClinicalEncounterInboxEvent {
+  id        Int                    @id @default(autoincrement())
+  messageId String                 @db.Uuid
+  sequence  Int
+  tipoEvento TipoEventoClinicalInbox
+  occurredAt DateTime              @default(now())
+  resultCode String?               @db.VarChar(80)
+  metadata  Json?
+
+  message ClinicalEncounterInboxMessage @relation(fields: [messageId], references: [id], onDelete: Restrict)
+
+  @@unique([messageId, sequence])
+  @@index([messageId, occurredAt])
+  @@map("clinical_encounter_inbox_events")
 }
 
 // =====================================

@@ -2,11 +2,12 @@
 -- availability record, while an appointment is the patient-facing lifecycle.
 CREATE TYPE "MedioSolicitudCita" AS ENUM ('PRESENCIAL', 'TELEFONO', 'CORREO', 'WHATSAPP');
 CREATE TYPE "EstadoCita" AS ENUM ('ASIGNADA', 'ATENDIDA', 'REPROGRAMADA', 'CANCELADA');
-CREATE TYPE "TipoEventoCita" AS ENUM ('CREADA', 'ACTIVADA', 'CANCELADA', 'REPROGRAMADA');
+CREATE TYPE "TipoEventoCita" AS ENUM ('CREADA', 'ACTIVADA', 'RECORDATORIO_GENERADO', 'CANCELADA', 'REPROGRAMADA', 'ATENDIDA');
 CREATE TYPE "ResultadoAuditoriaRecepcion" AS ENUM ('SUCCESS', 'DENIED', 'CONFLICT', 'FAILURE');
 CREATE TYPE "EstadoOperacionIdempotente" AS ENUM ('PROCESSING', 'COMPLETED', 'FAILED');
 CREATE TYPE "TipoMotivoCambioCita" AS ENUM ('CANCELACION', 'REPROGRAMACION');
 CREATE TYPE "TipoDocumentoCita" AS ENUM ('RECORDATORIO_CITA');
+CREATE TYPE "TipoEventoClinicalInbox" AS ENUM ('RECEIVED', 'PROCESSED', 'REJECTED');
 
 ALTER TABLE "usuarios" ADD COLUMN "contactVersion" INTEGER NOT NULL DEFAULT 0;
 
@@ -39,6 +40,8 @@ CREATE TABLE "citas" (
   "estado" "EstadoCita" NOT NULL DEFAULT 'ASIGNADA',
   "activadaAt" TIMESTAMPTZ(3),
   "activadaBy" INTEGER,
+  "clinicalEncounterSource" VARCHAR(80),
+  "clinicalEncounterId" VARCHAR(120),
   "citaOrigenId" INTEGER,
   "lockVersion" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -147,10 +150,36 @@ CREATE TABLE "reception_search_rate_limits" (
   CONSTRAINT "reception_search_rate_limits_pkey" PRIMARY KEY ("id")
 );
 
+CREATE TABLE "clinical_encounter_inbox_messages" (
+  "id" UUID NOT NULL,
+  "issuer" VARCHAR(100) NOT NULL,
+  "messageId" VARCHAR(160) NOT NULL,
+  "citaIdEsperada" INTEGER NOT NULL,
+  "usuarioIdEsperado" INTEGER NOT NULL,
+  "clinicalEncounterSource" VARCHAR(80) NOT NULL,
+  "clinicalEncounterId" VARCHAR(120) NOT NULL,
+  "encounterOccurredAt" TIMESTAMPTZ(3) NOT NULL,
+  "evidenceDigest" CHAR(64) NOT NULL,
+  "signatureKeyId" VARCHAR(100) NOT NULL,
+  "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "clinical_encounter_inbox_messages_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "clinical_encounter_inbox_events" (
+  "id" SERIAL NOT NULL,
+  "messageId" UUID NOT NULL,
+  "sequence" INTEGER NOT NULL,
+  "tipoEvento" "TipoEventoClinicalInbox" NOT NULL,
+  "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "resultCode" VARCHAR(80),
+  "metadata" JSONB,
+  CONSTRAINT "clinical_encounter_inbox_events_pkey" PRIMARY KEY ("id")
+);
+
 CREATE INDEX "citas_usuarioId_inicioProgramado_idx" ON "citas"("usuarioId", "inicioProgramado" DESC);
 CREATE INDEX "citas_usuarioId_estado_inicioProgramado_idx" ON "citas"("usuarioId", "estado", "inicioProgramado" DESC);
 CREATE INDEX "citas_cupoMedicoId_idx" ON "citas"("cupoMedicoId");
 CREATE INDEX "citas_citaOrigenId_idx" ON "citas"("citaOrigenId");
+CREATE UNIQUE INDEX "citas_clinical_encounter_key" ON "citas"("clinicalEncounterSource", "clinicalEncounterId");
 CREATE INDEX "citas_historial_usuarioId_createdAt_idx" ON "citas_historial"("usuarioId", "createdAt" DESC);
 CREATE INDEX "citas_historial_citaId_createdAt_idx" ON "citas_historial"("citaId", "createdAt" DESC);
 CREATE INDEX "auditoria_recepcion_actor_createdAt_idx" ON "auditoria_recepcion"("actorEmpleadoId", "occurredAt" DESC);
@@ -167,6 +196,10 @@ CREATE INDEX "motivos_cambio_cita_tipo_estado_idx" ON "motivos_cambio_cita"("tip
 CREATE INDEX "documentos_cita_cita_tipo_idx" ON "documentos_cita"("citaId", "tipo");
 CREATE UNIQUE INDEX "reception_search_rate_limits_window_key" ON "reception_search_rate_limits"("scopeType", "scopeId", "windowType", "windowStart");
 CREATE INDEX "reception_search_rate_limits_windowStart_idx" ON "reception_search_rate_limits"("windowStart");
+CREATE UNIQUE INDEX "clinical_inbox_issuer_message_key" ON "clinical_encounter_inbox_messages"("issuer", "messageId");
+CREATE UNIQUE INDEX "clinical_inbox_issuer_encounter_key" ON "clinical_encounter_inbox_messages"("issuer", "clinicalEncounterSource", "clinicalEncounterId");
+CREATE UNIQUE INDEX "clinical_inbox_events_message_sequence_key" ON "clinical_encounter_inbox_events"("messageId", "sequence");
+CREATE INDEX "clinical_inbox_events_message_occurred_idx" ON "clinical_encounter_inbox_events"("messageId", "occurredAt" DESC);
 CREATE UNIQUE INDEX "citas_cupo_vigente_unique" ON "citas"("cupoMedicoId") WHERE "estado" IN ('ASIGNADA', 'ATENDIDA');
 CREATE INDEX "cupos_medicos_reception_available_idx" ON "cupos_medicos"("sedeId", "inicio", "medicoId") WHERE "estado" = 'DISPONIBLE';
 CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -185,6 +218,7 @@ ALTER TABLE "citas" ADD CONSTRAINT "citas_citaOrigenId_fkey" FOREIGN KEY ("citaO
 ALTER TABLE "citas_historial" ADD CONSTRAINT "citas_historial_citaId_fkey" FOREIGN KEY ("citaId") REFERENCES "citas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "reception_site_policies" ADD CONSTRAINT "reception_site_policies_sedeId_fkey" FOREIGN KEY ("sedeId") REFERENCES "sedes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "documentos_cita" ADD CONSTRAINT "documentos_cita_citaId_fkey" FOREIGN KEY ("citaId") REFERENCES "citas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "clinical_encounter_inbox_events" ADD CONSTRAINT "clinical_inbox_events_message_fkey" FOREIGN KEY ("messageId") REFERENCES "clinical_encounter_inbox_messages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- This catches writers outside Reception as well, so optimistic contact edits
 -- cannot silently overwrite a telephone, email or address updated elsewhere.
@@ -221,6 +255,48 @@ FOR EACH ROW EXECUTE FUNCTION reject_reception_append_only_mutation();
 CREATE TRIGGER auditoria_recepcion_append_only_trigger
 BEFORE UPDATE OR DELETE ON "auditoria_recepcion"
 FOR EACH ROW EXECUTE FUNCTION reject_reception_append_only_mutation();
+
+CREATE TRIGGER clinical_inbox_message_append_only_trigger
+BEFORE UPDATE OR DELETE ON "clinical_encounter_inbox_messages"
+FOR EACH ROW EXECUTE FUNCTION reject_reception_append_only_mutation();
+
+CREATE TRIGGER clinical_inbox_event_append_only_trigger
+BEFORE UPDATE OR DELETE ON "clinical_encounter_inbox_events"
+FOR EACH ROW EXECUTE FUNCTION reject_reception_append_only_mutation();
+
+-- Permite los estados intermedios dentro de una transacción, pero rechaza un
+-- commit donde una cita vigente y su cupo no coincidan.
+CREATE OR REPLACE FUNCTION assert_reception_appointment_slot_consistency()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "citas" c
+    JOIN "cupos_medicos" s ON s."id" = c."cupoMedicoId"
+    WHERE c."estado" IN ('ASIGNADA', 'ATENDIDA') AND s."estado" <> 'ASIGNADO'
+  ) THEN
+    RAISE EXCEPTION 'Una cita vigente debe referenciar un cupo asignado';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM "cupos_medicos" s
+    WHERE s."estado" = 'ASIGNADO' AND NOT EXISTS (
+      SELECT 1 FROM "citas" c WHERE c."cupoMedicoId" = s."id" AND c."estado" IN ('ASIGNADA', 'ATENDIDA')
+    )
+  ) THEN
+    RAISE EXCEPTION 'Un cupo asignado debe tener una cita vigente';
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER citas_reception_slot_consistency
+AFTER INSERT OR UPDATE OR DELETE ON "citas"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION assert_reception_appointment_slot_consistency();
+
+CREATE CONSTRAINT TRIGGER cupos_reception_slot_consistency
+AFTER UPDATE OR DELETE ON "cupos_medicos"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION assert_reception_appointment_slot_consistency();
 
 INSERT INTO "modalidades_cita" ("codigo", "nombre", "estado", "updatedAt")
 VALUES ('PRESENCIAL', 'Presencial', true, CURRENT_TIMESTAMP),

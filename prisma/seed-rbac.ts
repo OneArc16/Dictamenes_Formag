@@ -25,6 +25,7 @@ const permissions = [
   { codigo: 'appointment.cancel', nombre: 'Cancelar citas', modulo: 'appointment' },
   { codigo: 'appointment.reschedule', nombre: 'Reprogramar citas', modulo: 'appointment' },
   { codigo: 'appointment.reminder.print', nombre: 'Generar e imprimir recordatorios de cita', modulo: 'appointment' },
+  { codigo: 'appointment.attend', nombre: 'Marcar citas como atendidas desde flujo clínico', modulo: 'appointment' },
 
   { codigo: 'admin.dashboard.read', nombre: 'Ver dashboard administrativo', modulo: 'admin' },
   { codigo: 'admin.empleados.read', nombre: 'Ver empleados', modulo: 'admin' },
@@ -37,6 +38,7 @@ const permissions = [
   { codigo: 'admin.notificadores_pcl.manage', nombre: 'Gestionar notificadores PCL', modulo: 'admin' },
   { codigo: 'admin.auditoria.read', nombre: 'Ver auditoria', modulo: 'admin' },
   { codigo: 'admin.auditoria.export', nombre: 'Exportar auditoria', modulo: 'admin' },
+  { codigo: 'admin.reception.policy.manage', nombre: 'Gestionar políticas operativas de recepción', modulo: 'admin' },
 
   { codigo: 'dictamen.read', nombre: 'Ver dictamenes', modulo: 'dictamen' },
   { codigo: 'dictamen.create', nombre: 'Crear dictamenes', modulo: 'dictamen' },
@@ -100,6 +102,7 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
     'module.recomendaciones.access',
     'module.agenda.access',
     'agenda.read.own',
+    'appointment.attend',
 
     'dictamen.read',
     'dictamen.create',

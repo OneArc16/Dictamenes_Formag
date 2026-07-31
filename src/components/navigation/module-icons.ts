@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
   UserRoundCog,
   UserSquare2,
   type LucideIcon,
@@ -37,4 +38,5 @@ export const navigationIconMap: Record<NavigationIconKey, LucideIcon> = {
   'agenda-create': CalendarPlus2,
   'agenda-schedule': Clock3,
   'patient-reception': ContactRound,
+  'reception-policies': SlidersHorizontal,
 };

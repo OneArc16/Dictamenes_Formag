@@ -17,7 +17,8 @@ export type NavigationIconKey =
   | 'agenda-list'
   | 'agenda-create'
   | 'agenda-schedule'
-  | 'patient-reception';
+  | 'patient-reception'
+  | 'reception-policies';
 
 type AbilityRequirement =
   | {
@@ -189,6 +190,13 @@ export const MODULE_DEFINITIONS = [
         href: '/admin/auditoria',
         iconKey: 'audit',
         requiredAbility: 'admin.auditoria.read',
+      },
+      {
+        key: 'reception-policies',
+        label: 'Políticas de recepción',
+        href: '/admin/politicas-recepcion',
+        iconKey: 'reception-policies',
+        requiredAbility: 'admin.reception.policy.manage',
       },
     ],
   },

@@ -249,3 +249,26 @@ export async function rescheduleAppointment(auth: AuthorizationContext, appointm
     return { id: newAppointment.id, originalId: original.id, lockVersion: newAppointment.lockVersion };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
+
+/** Invoked by an authenticated clinical workflow, never exposed as a reception action. */
+export async function markAppointmentAttended(
+  auth: AuthorizationContext,
+  appointmentId: number,
+  encounter: { source: string; id: string; occurredAt: Date },
+) {
+  if (!hasAbility(auth, 'appointment.attend')) throw new ReceptionError('FORBIDDEN', 'No tienes permiso clínico para atender citas.', 403);
+  if (encounter.occurredAt > new Date()) throw new ReceptionError('INVALID_CLINICAL_ENCOUNTER', 'El encuentro clínico no puede estar en el futuro.', 422);
+  return prisma.$transaction(async (tx) => {
+    const appointment = await tx.cita.findUnique({ where: { id: appointmentId } });
+    if (!appointment || appointment.estado !== 'ASIGNADA') throw new ReceptionError('INVALID_TRANSITION', 'La cita no se puede marcar como atendida.', 409);
+    const duplicate = await tx.cita.findFirst({ where: { clinicalEncounterSource: encounter.source, clinicalEncounterId: encounter.id } });
+    if (duplicate) {
+      if (duplicate.id === appointmentId) return { id: appointmentId, lockVersion: duplicate.lockVersion, replayed: true };
+      throw new ReceptionError('CLINICAL_ENCOUNTER_ALREADY_LINKED', 'El encuentro ya está asociado a otra cita.', 409);
+    }
+    const updated = await tx.cita.updateMany({ where: { id: appointmentId, estado: 'ASIGNADA' }, data: { estado: 'ATENDIDA', clinicalEncounterSource: encounter.source, clinicalEncounterId: encounter.id, updatedBy: auth.empleadoId, lockVersion: { increment: 1 } } });
+    if (!updated.count) throw new ReceptionError('INVALID_TRANSITION', 'La cita cambió durante la actualización.', 409);
+    await tx.citaHistorial.create({ data: { citaId: appointment.id, usuarioId: appointment.usuarioId, cupoMedicoId: appointment.cupoMedicoId, tipoEvento: 'ATENDIDA', estadoAnterior: 'ASIGNADA', estadoNuevo: 'ATENDIDA', estadoCupoAnterior: 'ASIGNADO', estadoCupoNuevo: 'ASIGNADO', actorEmpleadoId: auth.empleadoId, metadata: { clinicalEncounterSource: encounter.source, clinicalEncounterId: encounter.id } } });
+    return { id: appointmentId, lockVersion: appointment.lockVersion + 1, replayed: false };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
