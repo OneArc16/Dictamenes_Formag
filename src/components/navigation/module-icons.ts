@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CalendarPlus2,
   CalendarRange,
+  ContactRound,
   Clock3,
   ClipboardCheck,
   ClipboardList,
@@ -35,4 +36,5 @@ export const navigationIconMap: Record<NavigationIconKey, LucideIcon> = {
   'agenda-list': CalendarRange,
   'agenda-create': CalendarPlus2,
   'agenda-schedule': Clock3,
+  'patient-reception': ContactRound,
 };

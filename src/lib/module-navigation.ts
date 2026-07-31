@@ -16,7 +16,8 @@ export type NavigationIconKey =
   | 'audit'
   | 'agenda-list'
   | 'agenda-create'
-  | 'agenda-schedule';
+  | 'agenda-schedule'
+  | 'patient-reception';
 
 type AbilityRequirement =
   | {
@@ -93,7 +94,16 @@ export const MODULE_DEFINITIONS = [
     iconKey: 'admisiones',
     routePrefixes: ['/admisiones'],
     requiredAbility: 'module.admisiones.access',
-    secondaryNavigation: [],
+    defaultSecondaryKey: 'patient-reception',
+    secondaryNavigation: [
+      {
+        key: 'patient-reception',
+        label: 'Recepción de pacientes',
+        href: '/admisiones/recepcion-pacientes',
+        iconKey: 'patient-reception',
+        requiredAbility: 'reception.read',
+      },
+    ],
   },
   {
     key: 'agenda',

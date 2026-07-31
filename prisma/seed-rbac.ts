@@ -17,6 +17,15 @@ const permissions = [
   { codigo: 'agenda.schedule.manage', nombre: 'Gestionar horarios laborales', modulo: 'agenda' },
   { codigo: 'agenda.slots.cancel', nombre: 'Cancelar cupos disponibles', modulo: 'agenda' },
 
+  { codigo: 'reception.read', nombre: 'Consultar recepción de pacientes', modulo: 'reception' },
+  { codigo: 'reception.patient.update', nombre: 'Actualizar contacto del paciente', modulo: 'reception' },
+  { codigo: 'reception.site.select', nombre: 'Seleccionar sede de atención', modulo: 'reception' },
+  { codigo: 'appointment.schedule', nombre: 'Agendar citas', modulo: 'appointment' },
+  { codigo: 'appointment.activate', nombre: 'Activar citas', modulo: 'appointment' },
+  { codigo: 'appointment.cancel', nombre: 'Cancelar citas', modulo: 'appointment' },
+  { codigo: 'appointment.reschedule', nombre: 'Reprogramar citas', modulo: 'appointment' },
+  { codigo: 'appointment.reminder.print', nombre: 'Generar e imprimir recordatorios de cita', modulo: 'appointment' },
+
   { codigo: 'admin.dashboard.read', nombre: 'Ver dashboard administrativo', modulo: 'admin' },
   { codigo: 'admin.empleados.read', nombre: 'Ver empleados', modulo: 'admin' },
   { codigo: 'admin.empleados.manage', nombre: 'Gestionar empleados', modulo: 'admin' },
@@ -64,6 +73,14 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
     'module.recomendaciones.access',
     'module.agenda.access',
     'agenda.read',
+
+    'reception.read',
+    'reception.patient.update',
+    'appointment.schedule',
+    'appointment.activate',
+    'appointment.cancel',
+    'appointment.reschedule',
+    'appointment.reminder.print',
 
     'dictamen.read',
     'dictamen.reopen',

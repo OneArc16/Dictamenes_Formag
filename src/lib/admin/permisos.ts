@@ -13,7 +13,7 @@ export type PermisoGroup = {
   items: PermisoOption[];
 };
 
-const MODULE_ORDER = ['module', 'dictamen', 'recomendacion', 'admin'] as const;
+const MODULE_ORDER = ['module', 'reception', 'appointment', 'dictamen', 'recomendacion', 'admin'] as const;
 
 const MODULE_META: Record<string, { label: string; description: string }> = {
   module: {
@@ -27,6 +27,14 @@ const MODULE_META: Record<string, { label: string; description: string }> = {
   recomendacion: {
     label: 'Recomendaciones',
     description: 'Permisos operativos del flujo de recomendaciones laborales.',
+  },
+  reception: {
+    label: 'Recepción de pacientes',
+    description: 'Consulta institucional y actualización de contacto de pacientes.',
+  },
+  appointment: {
+    label: 'Citas',
+    description: 'Asignación y gestión operativa de citas médicas.',
   },
   admin: {
     label: 'Administrador',
@@ -42,6 +50,8 @@ function resolveModuloKey(permiso: PermisoOption) {
   if (permiso.codigo.startsWith('dictamen.')) return 'dictamen';
   if (permiso.codigo.startsWith('recomendacion.')) return 'recomendacion';
   if (permiso.codigo.startsWith('agenda.')) return 'agenda';
+  if (permiso.codigo.startsWith('reception.')) return 'reception';
+  if (permiso.codigo.startsWith('appointment.')) return 'appointment';
   if (permiso.codigo.startsWith('admin.')) return 'admin';
 
   return 'otros';
