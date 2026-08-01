@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
+
+import { cn } from '@/lib/utils';
 
 export type SearchableOption = {
   value: string;
@@ -13,6 +15,8 @@ export type SearchableSelectProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  id?: string;
+  className?: string;
 
   onSearch?: (term: string) => void;
   minSearchLength?: number;
@@ -33,10 +37,15 @@ export function SearchableSelect({
   onChange,
   placeholder = 'Seleccione…',
   disabled,
+  id,
+  className,
   onSearch,
   minSearchLength = 3,
   isLoading,
 }: SearchableSelectProps) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+  const listboxId = `${inputId}-listbox`;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -101,13 +110,20 @@ export function SearchableSelect({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
+        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
         disabled={disabled}
         placeholder={placeholder}
-        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        id={inputId}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && !disabled}
+        aria-controls={listboxId}
+        autoComplete="off"
+        className={cn('h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500', className)}
       />
 
       {open && !disabled && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-md border bg-white shadow-lg">
+        <div id={listboxId} role="listbox" className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-md border bg-white shadow-lg">
           {onSearch ? (
             query.trim().length < minSearchLength ? (
               <div className="px-3 py-2 text-xs text-slate-500">
@@ -123,7 +139,9 @@ export function SearchableSelect({
                   <li key={`${opt.value}-${idx}`}>
                     <button
                       type="button"
-                      className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
+                      role="option"
+                      aria-selected={opt.value === value}
+                      className="w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         handleSelect(opt);
@@ -143,7 +161,9 @@ export function SearchableSelect({
                 <li key={`${opt.value}-${idx}`}>
                   <button
                     type="button"
-                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50"
+                    role="option"
+                    aria-selected={opt.value === value}
+                    className="w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleSelect(opt);

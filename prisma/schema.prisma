@@ -550,9 +550,9 @@ model Sede {
   departamento Departamento? @relation("DepartamentoSedes", fields: [codigoDepartamento], references: [codigo])
   municipio    Municipio?    @relation("MunicipioSedes", fields: [codigoMunicipio], references: [codigo])
 
-  usuarios           Usuario[]          @relation("SedeUsuarios")
-  empleados          Empleado[]         @relation("SedeEmpleados")
-  dictamenes         Dictamen[]         @relation("SedeDictamenes")
+  usuarios           Usuario[]             @relation("SedeUsuarios")
+  empleados          Empleado[]            @relation("SedeEmpleados")
+  dictamenes         Dictamen[]            @relation("SedeDictamenes")
   notificadores      SedeNotificador[]
   horariosLaborales  HorarioLaboral[]
   generacionesAgenda GeneracionAgenda[]
@@ -716,7 +716,7 @@ model Usuario {
 
   celular            String? @db.VarChar(15)
   email              String? @db.VarChar(100)
-  contactVersion     Int     @default(0)
+  profileVersion     Int     @default(0)
   religion           String? @db.VarChar(50)
   telefonoSecundario String? @db.VarChar(15)
 
@@ -770,7 +770,7 @@ model Usuario {
   dictamenes                Dictamen[]
   versionesFormularioOrigen VersionFormularioOrigen[] @relation("UsuarioSnapshotFormularioOrigen")
   recomendacionesLaborales  RecomendacionLaboral[]    @relation("UsuarioRecomendacionesLaborales")
-  citas                    Cita[]
+  citas                     Cita[]
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -842,8 +842,8 @@ model Empleado {
 
   recomendacionesReabiertas RecomendacionLaboral[]          @relation("EmpleadoReaberturasRecomendacionesLaborales")
   historialRecomendaciones  RecomendacionLaboralHistorial[] @relation("EmpleadoHistorialRecomendacionesLaborales")
-  citasMedicas              Cita[]                         @relation("CitaMedico")
-  citasCreadas              Cita[]                         @relation("CitaCreadaPor")
+  citasMedicas              Cita[]                          @relation("CitaMedico")
+  citasCreadas              Cita[]                          @relation("CitaCreadaPor")
 
   @@unique([tipoDocumento, numeroIdentidad])
   @@unique([usuario])
@@ -1001,31 +1001,31 @@ model ModalidadCita {
 }
 
 model Cita {
-  id                 Int                @id @default(autoincrement())
-  usuarioId          Int
-  cupoMedicoId       Int
-  sedeId             Int
-  medicoId           Int
-  especialidadId     Int
-  modalidadId        Int
-  inicioProgramado   DateTime           @db.Timestamptz(3)
-  finProgramado      DateTime           @db.Timestamptz(3)
-  sedeNombre         String             @db.VarChar(100)
-  medicoNombre       String             @db.VarChar(180)
-  especialidadNombre String             @db.VarChar(150)
-  modalidadNombre    String             @db.VarChar(100)
-  medioSolicitud     MedioSolicitudCita
-  estado             EstadoCita         @default(ASIGNADA)
-  activadaAt         DateTime?          @db.Timestamptz(3)
-  activadaBy         Int?
-  clinicalEncounterSource String?       @db.VarChar(80)
-  clinicalEncounterId     String?       @db.VarChar(120)
-  citaOrigenId       Int?
-  lockVersion        Int                @default(0)
-  createdAt          DateTime           @default(now())
-  createdBy          Int
-  updatedAt          DateTime           @updatedAt
-  updatedBy          Int
+  id                      Int                @id @default(autoincrement())
+  usuarioId               Int
+  cupoMedicoId            Int
+  sedeId                  Int
+  medicoId                Int
+  especialidadId          Int
+  modalidadId             Int
+  inicioProgramado        DateTime           @db.Timestamptz(3)
+  finProgramado           DateTime           @db.Timestamptz(3)
+  sedeNombre              String             @db.VarChar(100)
+  medicoNombre            String             @db.VarChar(180)
+  especialidadNombre      String             @db.VarChar(150)
+  modalidadNombre         String             @db.VarChar(100)
+  medioSolicitud          MedioSolicitudCita
+  estado                  EstadoCita         @default(ASIGNADA)
+  activadaAt              DateTime?          @db.Timestamptz(3)
+  activadaBy              Int?
+  clinicalEncounterSource String?            @db.VarChar(80)
+  clinicalEncounterId     String?            @db.VarChar(120)
+  citaOrigenId            Int?
+  lockVersion             Int                @default(0)
+  createdAt               DateTime           @default(now())
+  createdBy               Int
+  updatedAt               DateTime           @updatedAt
+  updatedBy               Int
 
   paciente           Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   cupoMedico         CupoMedico         @relation(fields: [cupoMedicoId], references: [id], onDelete: Restrict)
@@ -1039,11 +1039,11 @@ model Cita {
   historial          CitaHistorial[]
   documentos         DocumentoCita[]
 
+  @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
   @@index([usuarioId, estado, inicioProgramado])
   @@index([cupoMedicoId])
   @@index([citaOrigenId])
-  @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@map("citas")
 }
 
@@ -1090,22 +1090,25 @@ model AuditoriaRecepcion {
 }
 
 model OperacionIdempotente {
-  id                String                      @id @default(uuid()) @db.Uuid
-  actorEmpleadoId   Int
-  operationType     String                      @db.VarChar(80)
-  idempotencyKey    String                      @db.Uuid
-  payloadHash       String                      @db.Char(64)
-  status            EstadoOperacionIdempotente @default(PROCESSING)
-  resultResourceId  String?                     @db.VarChar(100)
-  resultVersion     Int?
-  responseStatus    Int?
-  responseCode      String?                     @db.VarChar(80)
-  createdAt         DateTime                    @default(now())
-  updatedAt         DateTime                    @updatedAt
-  completedAt       DateTime?
+  id               String                     @id @default(uuid()) @db.Uuid
+  actorEmpleadoId  Int
+  operationType    String                     @db.VarChar(80)
+  idempotencyKey   String                     @db.Uuid
+  payloadMac       String                     @db.Char(64)
+  status           EstadoOperacionIdempotente @default(PROCESSING)
+  ownerToken       String?                    @db.Uuid
+  leaseUntil       DateTime?
+  lockVersion      Int                        @default(0)
+  resultResourceId String?                    @db.VarChar(100)
+  resultVersion    Int?
+  responseStatus   Int?
+  responseCode     String?                    @db.VarChar(80)
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  completedAt      DateTime?
 
   @@unique([actorEmpleadoId, operationType, idempotencyKey])
-  @@index([status, updatedAt])
+  @@index([status, leaseUntil])
   @@map("operaciones_idempotentes")
 }
 
@@ -1127,13 +1130,13 @@ model ReceptionSitePolicy {
 }
 
 model MotivoCambioCita {
-  id        Int                    @id @default(autoincrement())
+  id        Int                  @id @default(autoincrement())
   tipo      TipoMotivoCambioCita
-  codigo    String                 @db.VarChar(50)
-  nombre    String                 @db.VarChar(160)
-  estado    Boolean                @default(true)
-  createdAt DateTime               @default(now())
-  updatedAt DateTime               @updatedAt
+  codigo    String               @db.VarChar(50)
+  nombre    String               @db.VarChar(160)
+  estado    Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@unique([tipo, codigo])
   @@index([tipo, estado])
@@ -1141,15 +1144,15 @@ model MotivoCambioCita {
 }
 
 model DocumentoCita {
-  id                 String             @id @default(uuid()) @db.Uuid
+  id                 String            @id @default(uuid()) @db.Uuid
   citaId             Int
   tipo               TipoDocumentoCita
   snapshotCiphertext Bytes
   nonce              Bytes
   authTag            Bytes
-  checksumSha256     String             @db.Char(64)
-  keyVersion         String             @db.VarChar(40)
-  createdAt          DateTime           @default(now())
+  checksumSha256     String            @db.Char(64)
+  keyVersion         String            @db.VarChar(40)
+  createdAt          DateTime          @default(now())
   createdBy          Int
 
   cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
@@ -1173,17 +1176,17 @@ model ReceptionSearchRateLimit {
 }
 
 model ClinicalEncounterInboxMessage {
-  id                      String   @id @default(uuid()) @db.Uuid
-  issuer                  String   @db.VarChar(100)
-  messageId               String   @db.VarChar(160)
+  id                      String                        @id @default(uuid()) @db.Uuid
+  issuer                  String                        @db.VarChar(100)
+  messageId               String                        @db.VarChar(160)
   citaIdEsperada          Int
   usuarioIdEsperado       Int
-  clinicalEncounterSource String   @db.VarChar(80)
-  clinicalEncounterId     String   @db.VarChar(120)
-  encounterOccurredAt     DateTime @db.Timestamptz(3)
-  evidenceDigest          String   @db.Char(64)
-  signatureKeyId          String   @db.VarChar(100)
-  receivedAt              DateTime @default(now())
+  clinicalEncounterSource String                        @db.VarChar(80)
+  clinicalEncounterId     String                        @db.VarChar(120)
+  encounterOccurredAt     DateTime                      @db.Timestamptz(3)
+  evidenceDigest          String                        @db.Char(64)
+  signatureKeyId          String                        @db.VarChar(100)
+  receivedAt              DateTime                      @default(now())
   events                  ClinicalEncounterInboxEvent[]
 
   @@unique([issuer, messageId])
@@ -1192,13 +1195,13 @@ model ClinicalEncounterInboxMessage {
 }
 
 model ClinicalEncounterInboxEvent {
-  id        Int                    @id @default(autoincrement())
-  messageId String                 @db.Uuid
-  sequence  Int
+  id         Int                     @id @default(autoincrement())
+  messageId  String                  @db.Uuid
+  sequence   Int
   tipoEvento TipoEventoClinicalInbox
-  occurredAt DateTime              @default(now())
-  resultCode String?               @db.VarChar(80)
-  metadata  Json?
+  occurredAt DateTime                @default(now())
+  resultCode String?                 @db.VarChar(80)
+  metadata   Json?
 
   message ClinicalEncounterInboxMessage @relation(fields: [messageId], references: [id], onDelete: Restrict)
 

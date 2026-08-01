@@ -170,7 +170,8 @@ realizan llamadas de red dentro de una transacción.
   limitar pacientes por `Usuario.idSede`.
 - Búsqueda exacta por número de documento con Enter o botón `Buscar`.
 - Presentación compacta de datos básicos del paciente.
-- Edición controlada de celular, teléfono, correo y dirección.
+- Edición controlada de identificación, nombres, fecha de nacimiento, sexo,
+  EPS, municipio y datos de contacto.
 - Botón `Guardar datos` habilitado solo cuando existan cambios válidos.
 - Sede asignada precargada y selector de otras sedes con permiso específico.
 - Consulta dependiente en el orden especialidad, fecha, médico, hora disponible,
@@ -192,8 +193,6 @@ realizan llamadas de red dentro de una transacción.
   informa que debe crearse mediante el flujo vigente.
 - Crear o modificar horarios laborales o generaciones de agenda.
 - Sobrecupos o citas sin un `CupoMedico` válido.
-- Cambiar datos de identidad, nombres, fecha de nacimiento, sexo o EPS desde
-  recepción.
 - Implementar una historia clínica nueva.
 - Enviar recordatorios por SMS, correo, WhatsApp u otro proveedor externo. El
   recordatorio de esta entrega es exclusivamente un formato PDF para imprimir y
@@ -259,21 +258,19 @@ debe implicar automáticamente poder asignar citas en otras sedes, ni viceversa.
 
 ### 6.3 Datos del paciente
 
-Datos de solo lectura:
+Datos editables:
 
 - tipo y número de documento;
 - nombres y apellidos;
-- fecha de nacimiento y edad calculada;
+- fecha de nacimiento;
 - sexo;
-- EPS;
-- municipio.
-
-Datos editables:
-
+- EPS, departamento y municipio;
 - celular;
 - teléfono;
 - correo electrónico;
 - dirección.
+
+La edad es calculada y permanece en solo lectura.
 
 Reglas del botón `Guardar datos`:
 
@@ -284,12 +281,11 @@ Reglas del botón `Guardar datos`:
 - durante el envío permanece deshabilitado y muestra `Guardando…`;
 - después de guardar, la respuesta del servidor se convierte en el nuevo
   snapshot y el estado vuelve a `pristine`;
-- usa control optimista mediante `contactVersion`; el cliente envía
-  `expectedContactVersion`, la actualización condiciona `id + contactVersion`.
-  Un trigger PostgreSQL incrementa la versión cuando cambie celular, teléfono,
-  correo o dirección, incluso si el cambio proviene de otro módulo o de SQL. Así
-  no se pierden actualizaciones y tampoco se producen conflictos por campos no
-  relacionados. Ante edición concurrente responde `409 STALE_CONTACT_VERSION`,
+- usa control optimista mediante `profileVersion`; el cliente envía
+  `expectedProfileVersion`, la actualización condiciona `id + profileVersion`.
+  Un trigger PostgreSQL incrementa la versión cuando cambie cualquier campo
+  editable del perfil, incluso si el cambio proviene de otro módulo o de SQL.
+  Ante edición concurrente responde `409 STALE_PROFILE_VERSION`,
   devuelve únicamente la versión actual y solicita recargar los datos.
 
 Cambiar de paciente con cambios sin guardar exige confirmación antes de
@@ -671,7 +667,7 @@ Todos requieren además `module.admisiones.access`.
 | --- | --- |
 | `reception.read` | Entrar al submódulo, buscar paciente y consultar historial |
 | `reception.schedule` | Asignar citas |
-| `reception.patient.update` | Modificar datos de contacto del paciente |
+| `reception.patient.update` | Modificar los datos administrativos del paciente |
 | `reception.site.select` | Operar en una sede activa diferente a la asignada |
 | `reception.appointment.activate` | Activar una cita asignada |
 | `reception.appointment.reminder.print` | Generar y obtener recordatorio PDF |
@@ -981,13 +977,13 @@ pueden sobrevivir dentro de la transacción fallida.
 
 ### 10.7 Integridad adicional
 
-- `Usuario` incorpora `contactVersion INT NOT NULL DEFAULT 0`. Un trigger `BEFORE
-  UPDATE` la incrementa solo cuando cambian celular, teléfono, correo o dirección;
+- `Usuario` incorpora `profileVersion INT NOT NULL DEFAULT 0`. Un trigger `BEFORE
+  UPDATE` la incrementa cuando cambia cualquier campo editable del perfil;
   todos los escritores existentes quedan cubiertos sin depender de que recuerden
   incrementar la versión desde Prisma.
   El trigger compara valores con `IS DISTINCT FROM`, asigna siempre
-  `NEW.contactVersion = OLD.contactVersion + 1` ante cambio de contacto y conserva
-  `OLD.contactVersion` en los demás casos; ningún cliente puede fijar la versión.
+  `NEW.profileVersion = OLD.profileVersion + 1` ante cambios y conserva
+  `OLD.profileVersion` en los demás casos; ningún cliente puede fijar la versión.
 - Una restricción parcial única impide más de un evento `ACTIVADA` por cita,
   independientemente de la clave idempotente utilizada:
   `UNIQUE(citaId) WHERE tipoEvento = 'ACTIVADA'`.
@@ -1082,7 +1078,8 @@ operativa sin política.
 | `GET /api/reception/context` | Sede predeterminada, sedes permitidas y capacidades |
 | `POST /api/reception/patients/search` | Búsqueda exacta; documento únicamente en el body |
 | `GET /api/reception/patients/:id` | Refrescar proyección autorizada por identificador interno |
-| `PATCH /api/reception/patients/:id/contact` | Actualizar contacto con `expectedContactVersion` |
+| `GET /api/reception/patient-profile-options` | Catálogos de EPS y municipios para edición |
+| `PATCH /api/reception/patients/:id/profile` | Actualizar perfil con `expectedProfileVersion` |
 | `GET /api/reception/specialties?siteId=` | Especialidades con disponibilidad |
 | `GET /api/reception/availability/dates` | Días disponibles en la ventana visible |
 | `GET /api/reception/doctors` | Médicos por sede, especialidad y fecha |
@@ -1173,8 +1170,19 @@ type PatientSearchCommand = {
   documentType?: string;
 };
 
-type UpdatePatientContactCommand = {
-  expectedContactVersion: number;
+type UpdatePatientProfileCommand = {
+  expectedProfileVersion: number;
+  documentType: string;
+  documentNumber: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  secondLastName?: string | null;
+  birthDate: string | null;
+  sex: 'F' | 'M' | 'O';
+  epsCode: string;
+  departmentCode?: string | null;
+  municipalityCode?: string | null;
   celular?: string | null;
   telefono?: string | null;
   email?: string | null;
@@ -1563,9 +1571,9 @@ resultados técnicos y solo se consulta desde el flujo administrativo autorizado
 - El comando de asignación rechaza campos desconocidos como `siteId`, `doctorId`,
   inicio o fin; sede, médico e intervalo se derivan del cupo dentro del servidor.
 - Actualización concurrente del paciente devuelve `409`.
-- Un escritor existente que modifique contacto sin conocer `contactVersion`
+- Un escritor existente que modifique el perfil sin conocer `profileVersion`
   dispara el trigger; una edición de Recepción con la versión anterior responde
-  `STALE_CONTACT_VERSION`. Cambios no relacionados no incrementan esa versión.
+  `STALE_PROFILE_VERSION`.
 - Búsqueda por documento no expone el valor en URL, logs ni claves persistidas de
   caché y aplica límite de frecuencia.
 - Buscar, refrescar paciente y consultar historial generan los eventos de
@@ -1703,8 +1711,8 @@ resultados técnicos y solo se consulta desde el flujo administrativo autorizado
     otra sede autorizada sin modificar su registro maestro.
 29. Cambiar la sede de atención conserva al paciente y limpia únicamente
     especialidad, fecha, médico y cupo dependientes.
-30. `contactVersion` detecta cambios de contacto realizados por cualquier módulo
-    mediante trigger y no cambia por actualizaciones ajenas al contacto.
+30. `profileVersion` detecta cambios del perfil realizados por cualquier módulo
+    mediante trigger.
 31. Una cita solo puede activarse una vez aunque se usen claves idempotentes
     diferentes; la primera fecha y actor permanecen inmutables.
 32. La base de datos impide que una cita referencie un cupo con sede, médico o
@@ -1765,7 +1773,7 @@ institucional final:
    matriz de permisos/transiciones, y activar la verificación de drift en CI.
 4. Crear migración de citas, operación idempotente, historial, auditoría, rate
    limit, documentos, modalidad, motivos, `ReceptionSitePolicy`,
-   `contactVersion` con trigger, FK compuesta cita-cupo, constraint trigger
+   `profileVersion` con trigger, FK compuesta cita-cupo, constraint trigger
    diferido, las dos tablas append-only del inbox clínico, snapshots, índices
    parciales y permisos. Ejecutar reconciliación y smoke tests de migración.
 5. Implementar dominio y pruebas de transiciones, solapamientos, ventanas e

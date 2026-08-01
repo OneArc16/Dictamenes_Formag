@@ -5,7 +5,7 @@ import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-d
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
-import type { ScheduleAppointmentCommand } from '../domain/schemas';
+import type { PatientProfileCommand, ScheduleAppointmentCommand } from '../domain/schemas';
 import { ReceptionError } from './errors';
 
 const BOGOTA = 'America/Bogota';
@@ -14,8 +14,10 @@ export function patientProjection(patient: {
   id: number; identificacion: string; tipoIdentificacion: string; primerNombre: string;
   segundoNombre: string | null; primerApellido: string; segundoApellido: string | null;
   fechaNacimiento: Date | null; sexo: string; celular: string | null; telefono: string | null;
-  email: string | null; direccion: string | null; contactVersion: number;
-  eps: { nombreEntidad: string } | null; municipio: { nombre: string } | null;
+  email: string | null; direccion: string | null; profileVersion: number; codigoEps: string;
+  codigoDepartamento: string | null; codigoMunicipio: string | null;
+  eps: { nombreEntidad: string } | null; municipio: { nombre: string; codigoDepartamento: string } | null;
+  departamento: { nombre: string } | null;
 }) {
   const fullName = [patient.primerNombre, patient.segundoNombre, patient.primerApellido, patient.segundoApellido]
     .filter(Boolean).join(' ');
@@ -23,15 +25,21 @@ export function patientProjection(patient: {
   const age = birth ? Math.floor((Date.now() - patient.fechaNacimiento!.getTime()) / 31_556_952_000) : null;
   return {
     id: patient.id, documentNumber: patient.identificacion, documentType: patient.tipoIdentificacion,
-    fullName, birthDate: birth, age, sex: patient.sexo, eps: patient.eps?.nombreEntidad ?? null,
+    fullName, firstName: patient.primerNombre, middleName: patient.segundoNombre,
+    lastName: patient.primerApellido, secondLastName: patient.segundoApellido,
+    birthDate: birth, age, sex: patient.sexo, epsCode: patient.codigoEps,
+    eps: patient.eps?.nombreEntidad ?? null, departmentCode: patient.codigoDepartamento ?? patient.municipio?.codigoDepartamento ?? null,
+    department: patient.departamento?.nombre ?? null, municipalityCode: patient.codigoMunicipio,
     municipality: patient.municipio?.nombre ?? null, celular: patient.celular, telefono: patient.telefono,
-    email: patient.email, direccion: patient.direccion, contactVersion: patient.contactVersion,
+    email: patient.email, direccion: patient.direccion, profileVersion: patient.profileVersion,
+    contactVersion: patient.profileVersion,
   };
 }
 
 const patientInclude = {
   eps: { select: { nombreEntidad: true } },
-  municipio: { select: { nombre: true } },
+  departamento: { select: { nombre: true } },
+  municipio: { select: { nombre: true, codigoDepartamento: true } },
 } as const;
 
 export async function searchPatient(documentNumber: string, documentType?: string) {
@@ -47,20 +55,21 @@ export async function searchPatient(documentNumber: string, documentType?: strin
   return { kind: 'result' as const, patient: matches[0] ? patientProjection(matches[0]) : null };
 }
 
-export async function getPatient(patientId: number) {
-  const patient = await prisma.usuario.findUnique({ where: { id: patientId }, include: patientInclude });
+export async function getPatient(patientId: number, db: Prisma.TransactionClient | typeof prisma = prisma) {
+  const patient = await db.usuario.findUnique({ where: { id: patientId }, include: patientInclude });
   if (!patient) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
   return patientProjection(patient);
 }
 
-export async function updatePatientContact(
+export async function updatePatientContactInTransaction(
+  tx: Prisma.TransactionClient,
   patientId: number,
   input: { expectedContactVersion: number; celular?: string | null; telefono?: string | null; email?: string | null; direccion?: string | null },
 ) {
-  const existing = await prisma.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
+  const existing = await tx.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
   if (!existing) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
-  const result = await prisma.usuario.updateMany({
-    where: { id: patientId, contactVersion: input.expectedContactVersion },
+  const result = await tx.usuario.updateMany({
+    where: { id: patientId, profileVersion: input.expectedContactVersion },
     data: {
       ...(input.celular !== undefined ? { celular: input.celular } : {}),
       ...(input.telefono !== undefined ? { telefono: input.telefono } : {}),
@@ -69,7 +78,69 @@ export async function updatePatientContact(
     },
   });
   if (result.count !== 1) throw new ReceptionError('STALE_CONTACT_VERSION', 'Los datos de contacto cambiaron. Recarga el paciente antes de guardar.', 409);
-  return getPatient(patientId);
+  return getPatient(patientId, tx);
+}
+
+export async function updatePatientContact(
+  patientId: number,
+  input: { expectedContactVersion: number; celular?: string | null; telefono?: string | null; email?: string | null; direccion?: string | null },
+) {
+  return prisma.$transaction((tx) => updatePatientContactInTransaction(tx, patientId, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function updatePatientProfileInTransaction(
+  tx: Prisma.TransactionClient,
+  patientId: number,
+  input: PatientProfileCommand,
+) {
+  const existing = await tx.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
+  if (!existing) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
+
+  const [duplicate, eps, department, municipality] = await Promise.all([
+    tx.usuario.findFirst({ where: { identificacion: input.documentNumber, tipoIdentificacion: input.documentType, id: { not: patientId } }, select: { id: true } }),
+    tx.eps.findUnique({ where: { codigo: input.epsCode }, select: { codigo: true } }),
+    input.departmentCode ? tx.departamento.findUnique({ where: { codigo: input.departmentCode }, select: { codigo: true } }) : Promise.resolve(null),
+    input.municipalityCode ? tx.municipio.findUnique({ where: { codigo: input.municipalityCode }, select: { codigo: true, codigoDepartamento: true } }) : Promise.resolve(null),
+  ]);
+  if (duplicate) throw new ReceptionError('PATIENT_DOCUMENT_CONFLICT', 'Ya existe otro paciente con este tipo y número de documento.', 409);
+  if (!eps) throw new ReceptionError('PATIENT_EPS_INVALID', 'La EPS seleccionada no existe.', 422);
+  if (input.departmentCode && !department) throw new ReceptionError('PATIENT_DEPARTMENT_INVALID', 'El departamento seleccionado no existe.', 422);
+  if (input.municipalityCode && !municipality) throw new ReceptionError('PATIENT_MUNICIPALITY_INVALID', 'El municipio seleccionado no existe.', 422);
+  if (municipality && input.departmentCode !== municipality.codigoDepartamento) throw new ReceptionError('PATIENT_LOCATION_MISMATCH', 'El municipio no pertenece al departamento seleccionado.', 422);
+
+  const birthDate = input.birthDate ? new Date(`${input.birthDate}T00:00:00.000Z`) : null;
+  const age = birthDate ? Math.max(0, Math.floor((Date.now() - birthDate.getTime()) / 31_556_952_000)) : null;
+  try {
+    const result = await tx.usuario.updateMany({
+      where: { id: patientId, profileVersion: input.expectedProfileVersion },
+      data: {
+        identificacion: input.documentNumber,
+        tipoIdentificacion: input.documentType,
+        primerNombre: input.firstName.toLocaleUpperCase('es-CO'),
+        segundoNombre: input.middleName?.toLocaleUpperCase('es-CO') ?? null,
+        primerApellido: input.lastName.toLocaleUpperCase('es-CO'),
+        segundoApellido: input.secondLastName?.toLocaleUpperCase('es-CO') ?? null,
+        fechaNacimiento: birthDate,
+        edad: age,
+        unidadEdad: 'A',
+        sexo: input.sex,
+        codigoEps: input.epsCode,
+        codigoDepartamento: input.departmentCode,
+        codigoMunicipio: input.municipalityCode,
+        celular: input.celular,
+        telefono: input.telefono,
+        email: input.email,
+        direccion: input.direccion,
+      },
+    });
+    if (result.count !== 1) throw new ReceptionError('STALE_PROFILE_VERSION', 'Los datos del paciente cambiaron. Vuelve a buscarlo antes de guardar.', 409);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ReceptionError('PATIENT_DOCUMENT_CONFLICT', 'Ya existe otro paciente con este tipo y número de documento.', 409);
+    }
+    throw error;
+  }
+  return getPatient(patientId, tx);
 }
 
 export async function receptionContext(auth: AuthorizationContext) {
@@ -167,8 +238,7 @@ async function assertAppointmentReason(
   return reason;
 }
 
-export async function scheduleAppointment(auth: AuthorizationContext, command: ScheduleAppointmentCommand) {
-  return prisma.$transaction(async (tx) => {
+export async function scheduleAppointmentInTransaction(tx: Prisma.TransactionClient, auth: AuthorizationContext, command: ScheduleAppointmentCommand) {
     const { slot, modality, specialty } = await slotCommandContext(tx, command, auth);
     const claim = await tx.cupoMedico.updateMany({ where: { id: slot.id, estado: 'DISPONIBLE' }, data: { estado: 'ASIGNADO' } });
     if (claim.count !== 1) throw new ReceptionError('SLOT_NOT_AVAILABLE', 'El cupo acaba de ser asignado.', 409);
@@ -181,19 +251,63 @@ export async function scheduleAppointment(auth: AuthorizationContext, command: S
     } });
     await tx.citaHistorial.create({ data: { citaId: appointment.id, usuarioId: appointment.usuarioId, cupoMedicoId: slot.id, tipoEvento: 'CREADA', estadoNuevo: 'ASIGNADA', estadoCupoAnterior: 'DISPONIBLE', estadoCupoNuevo: 'ASIGNADO', actorEmpleadoId: auth.empleadoId } });
     return appointment;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-export async function appointmentHistory(patientId: number, statuses: EstadoCita[] = []) {
-  return prisma.cita.findMany({
-    where: { usuarioId: patientId, ...(statuses.length ? { estado: { in: statuses } } : {}) },
-    orderBy: [{ inicioProgramado: 'desc' }, { id: 'desc' }], take: 50,
+export async function scheduleAppointment(auth: AuthorizationContext, command: ScheduleAppointmentCommand) {
+  return prisma.$transaction((tx) => scheduleAppointmentInTransaction(tx, auth, command), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+type AppointmentCursor = { inicioProgramado: string; id: number };
+type MovementCursor = { createdAt: string; id: number };
+
+function encodeCursor(cursor: AppointmentCursor | MovementCursor) {
+  return Buffer.from(JSON.stringify(cursor)).toString('base64url');
+}
+
+function decodeCursor(value: string | null, kind: 'appointment' | 'movement'): AppointmentCursor | MovementCursor | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const dateField = kind === 'appointment' ? 'inicioProgramado' : 'createdAt';
+    const timestamp = typeof parsed[dateField] === 'string' ? new Date(parsed[dateField]) : null;
+    if (!timestamp || Number.isNaN(timestamp.getTime()) || !Number.isInteger(parsed.id) || Number(parsed.id) < 1) throw new Error('invalid cursor');
+    return { [dateField]: timestamp.toISOString(), id: Number(parsed.id) } as AppointmentCursor | MovementCursor;
+  } catch {
+    throw new ReceptionError('INVALID_CURSOR', 'El cursor de paginación no es válido.', 422);
+  }
+}
+
+export async function appointmentHistory(patientId: number, statuses: EstadoCita[] = [], pageSize = 20, cursor: string | null = null) {
+  const decoded = decodeCursor(cursor, 'appointment') as AppointmentCursor | null;
+  const rows = await prisma.cita.findMany({
+    where: {
+      usuarioId: patientId,
+      ...(statuses.length ? { estado: { in: statuses } } : {}),
+      ...(decoded ? { OR: [{ inicioProgramado: { lt: new Date(decoded.inicioProgramado) } }, { inicioProgramado: new Date(decoded.inicioProgramado), id: { lt: decoded.id } }] } : {}),
+    },
+    orderBy: [{ inicioProgramado: 'desc' }, { id: 'desc' }], take: pageSize + 1,
     select: { id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true, especialidadId: true, especialidadNombre: true, modalidadNombre: true, medioSolicitud: true, activadaAt: true, lockVersion: true },
   });
+  const items = rows.slice(0, pageSize);
+  const last = items.at(-1);
+  return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ inicioProgramado: last.inicioProgramado.toISOString(), id: last.id }) : null };
 }
 
-export async function activateAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number) {
-  return prisma.$transaction(async (tx) => {
+export async function appointmentMovements(appointmentId: number, pageSize = 20, cursor: string | null = null) {
+  const decoded = decodeCursor(cursor, 'movement') as MovementCursor | null;
+  const appointment = await prisma.cita.findUnique({ where: { id: appointmentId }, select: { id: true } });
+  if (!appointment) throw new ReceptionError('APPOINTMENT_NOT_FOUND', 'La cita no existe.', 404);
+  const rows = await prisma.citaHistorial.findMany({
+    where: { citaId: appointmentId, ...(decoded ? { OR: [{ createdAt: { lt: new Date(decoded.createdAt) } }, { createdAt: new Date(decoded.createdAt), id: { lt: decoded.id } }] } : {}) },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: pageSize + 1,
+    select: { id: true, tipoEvento: true, estadoAnterior: true, estadoNuevo: true, estadoCupoAnterior: true, estadoCupoNuevo: true, createdAt: true, metadata: true },
+  });
+  const items = rows.slice(0, pageSize);
+  const last = items.at(-1);
+  return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null };
+}
+
+export async function activateAppointmentInTransaction(tx: Prisma.TransactionClient, auth: AuthorizationContext, appointmentId: number, expectedVersion: number) {
     const appointment = await tx.cita.findUnique({ where: { id: appointmentId } });
     if (!appointment || appointment.estado !== 'ASIGNADA' || appointment.inicioProgramado <= new Date()) throw new ReceptionError('INVALID_TRANSITION', 'La cita no se puede activar.', 409);
     await assertReceptionSite(auth, appointment.sedeId);
@@ -201,11 +315,13 @@ export async function activateAppointment(auth: AuthorizationContext, appointmen
     if (!updated.count) throw new ReceptionError('STALE_APPOINTMENT_VERSION', 'La cita cambió. Actualiza el historial.', 409);
     await tx.citaHistorial.create({ data: { citaId: appointment.id, usuarioId: appointment.usuarioId, cupoMedicoId: appointment.cupoMedicoId, tipoEvento: 'ACTIVADA', actorEmpleadoId: auth.empleadoId } });
     return { id: appointment.id, lockVersion: expectedVersion + 1 };
-  });
 }
 
-export async function cancelAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number, reasonCode: string) {
-  return prisma.$transaction(async (tx) => {
+export async function activateAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number) {
+  return prisma.$transaction((tx) => activateAppointmentInTransaction(tx, auth, appointmentId, expectedVersion), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function cancelAppointmentInTransaction(tx: Prisma.TransactionClient, auth: AuthorizationContext, appointmentId: number, expectedVersion: number, reasonCode: string) {
     const appointment = await tx.cita.findUnique({ where: { id: appointmentId } });
     if (!appointment || appointment.estado !== 'ASIGNADA' || appointment.inicioProgramado <= new Date()) throw new ReceptionError('INVALID_TRANSITION', 'La cita no se puede cancelar.', 409);
     const policy = await assertAppointmentWindow(tx, appointment, 'cancel');
@@ -216,11 +332,13 @@ export async function cancelAppointment(auth: AuthorizationContext, appointmentI
     await tx.cupoMedico.update({ where: { id: appointment.cupoMedicoId }, data: { estado: 'DISPONIBLE' } });
     await tx.citaHistorial.create({ data: { citaId: appointment.id, usuarioId: appointment.usuarioId, cupoMedicoId: appointment.cupoMedicoId, tipoEvento: 'CANCELADA', estadoAnterior: 'ASIGNADA', estadoNuevo: 'CANCELADA', estadoCupoAnterior: 'ASIGNADO', estadoCupoNuevo: 'DISPONIBLE', actorEmpleadoId: auth.empleadoId, metadata: { reasonCode, reasonLabel: reason.nombre, policyId: policy.id, policyVersion: policy.version } } });
     return { id: appointment.id, lockVersion: expectedVersion + 1 };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-export async function rescheduleAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number, newSlotId: number, reasonCode: string) {
-  return prisma.$transaction(async (tx) => {
+export async function cancelAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number, reasonCode: string) {
+  return prisma.$transaction((tx) => cancelAppointmentInTransaction(tx, auth, appointmentId, expectedVersion, reasonCode), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function rescheduleAppointmentInTransaction(tx: Prisma.TransactionClient, auth: AuthorizationContext, appointmentId: number, expectedVersion: number, newSlotId: number, reasonCode: string) {
     const original = await tx.cita.findUnique({ where: { id: appointmentId } });
     if (!original || original.estado !== 'ASIGNADA' || original.inicioProgramado <= new Date()) throw new ReceptionError('INVALID_TRANSITION', 'La cita no se puede reprogramar.', 409);
     const policy = await assertAppointmentWindow(tx, original, 'reschedule');
@@ -247,18 +365,21 @@ export async function rescheduleAppointment(auth: AuthorizationContext, appointm
       { citaId: newAppointment.id, usuarioId: newAppointment.usuarioId, cupoMedicoId: newAppointment.cupoMedicoId, tipoEvento: 'CREADA', estadoNuevo: 'ASIGNADA', estadoCupoAnterior: 'DISPONIBLE', estadoCupoNuevo: 'ASIGNADO', actorEmpleadoId: auth.empleadoId, metadata: { rescheduledFrom: original.id } },
     ] });
     return { id: newAppointment.id, originalId: original.id, lockVersion: newAppointment.lockVersion };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function rescheduleAppointment(auth: AuthorizationContext, appointmentId: number, expectedVersion: number, newSlotId: number, reasonCode: string) {
+  return prisma.$transaction((tx) => rescheduleAppointmentInTransaction(tx, auth, appointmentId, expectedVersion, newSlotId, reasonCode), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
 /** Invoked by an authenticated clinical workflow, never exposed as a reception action. */
-export async function markAppointmentAttended(
+export async function markAppointmentAttendedInTransaction(
+  tx: Prisma.TransactionClient,
   auth: AuthorizationContext,
   appointmentId: number,
   encounter: { source: string; id: string; occurredAt: Date },
 ) {
   if (!hasAbility(auth, 'appointment.attend')) throw new ReceptionError('FORBIDDEN', 'No tienes permiso clínico para atender citas.', 403);
   if (encounter.occurredAt > new Date()) throw new ReceptionError('INVALID_CLINICAL_ENCOUNTER', 'El encuentro clínico no puede estar en el futuro.', 422);
-  return prisma.$transaction(async (tx) => {
     const appointment = await tx.cita.findUnique({ where: { id: appointmentId } });
     if (!appointment || appointment.estado !== 'ASIGNADA') throw new ReceptionError('INVALID_TRANSITION', 'La cita no se puede marcar como atendida.', 409);
     const duplicate = await tx.cita.findFirst({ where: { clinicalEncounterSource: encounter.source, clinicalEncounterId: encounter.id } });
@@ -270,5 +391,13 @@ export async function markAppointmentAttended(
     if (!updated.count) throw new ReceptionError('INVALID_TRANSITION', 'La cita cambió durante la actualización.', 409);
     await tx.citaHistorial.create({ data: { citaId: appointment.id, usuarioId: appointment.usuarioId, cupoMedicoId: appointment.cupoMedicoId, tipoEvento: 'ATENDIDA', estadoAnterior: 'ASIGNADA', estadoNuevo: 'ATENDIDA', estadoCupoAnterior: 'ASIGNADO', estadoCupoNuevo: 'ASIGNADO', actorEmpleadoId: auth.empleadoId, metadata: { clinicalEncounterSource: encounter.source, clinicalEncounterId: encounter.id } } });
     return { id: appointmentId, lockVersion: appointment.lockVersion + 1, replayed: false };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+/** Invoked by an authenticated clinical workflow, never exposed as a reception action. */
+export async function markAppointmentAttended(
+  auth: AuthorizationContext,
+  appointmentId: number,
+  encounter: { source: string; id: string; occurredAt: Date },
+) {
+  return prisma.$transaction((tx) => markAppointmentAttendedInTransaction(tx, auth, appointmentId, encounter), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

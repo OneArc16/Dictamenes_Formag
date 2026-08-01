@@ -1,6 +1,7 @@
 import type { EstadoCita } from '@prisma/client';
 import { appointmentHistory } from '@/features/reception/application/reception-service';
 import { auditReception } from '@/features/reception/application/reception-audit';
+import { ReceptionError } from '@/features/reception/application/errors';
 import { positiveQuery, receptionAuth, receptionError, receptionJson, receptionRequestId } from '@/lib/http/with-reception-api';
 
 const states = new Set<EstadoCita>(['ASIGNADA', 'ATENDIDA', 'REPROGRAMADA', 'CANCELADA']);
@@ -8,10 +9,14 @@ const states = new Set<EstadoCita>(['ASIGNADA', 'ATENDIDA', 'REPROGRAMADA', 'CAN
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await receptionAuth(request); if (!auth.ok) return auth.response;
   try {
-    const selected = (new URL(request.url).searchParams.get('states') ?? '').split(',').filter((state): state is EstadoCita => states.has(state as EstadoCita));
+    const query = new URL(request.url).searchParams;
+    const selected = (query.get('states') ?? '').split(',').filter((state): state is EstadoCita => states.has(state as EstadoCita));
+    if ((query.get('states') ?? '').split(',').filter(Boolean).length !== selected.length || selected.length > 4) throw new ReceptionError('VALIDATION_ERROR', 'Los estados de cita no son válidos.', 422);
+    const requestedPageSize = Number(query.get('pageSize') ?? 20);
+    if (!Number.isInteger(requestedPageSize) || requestedPageSize < 1 || requestedPageSize > 50) throw new ReceptionError('VALIDATION_ERROR', 'El tamaño de página no es válido.', 422);
     const patientId = positiveQuery((await params).id, 'Paciente');
-    const items = await appointmentHistory(patientId, selected);
-    await auditReception({ requestId: receptionRequestId(request), actorEmpleadoId: auth.auth.empleadoId, action: 'APPOINTMENT_HISTORY_VIEWED', result: 'SUCCESS', resourceType: 'Usuario', resourceId: patientId, httpStatus: 200, metadata: { filtered: selected.length > 0 } });
-    return receptionJson(request, items);
+    const page = await appointmentHistory(patientId, selected, requestedPageSize, query.get('cursor'));
+    await auditReception({ requestId: receptionRequestId(request), actorEmpleadoId: auth.auth.empleadoId, action: 'APPOINTMENT_HISTORY_VIEWED', result: 'SUCCESS', resourceType: 'Usuario', resourceId: patientId, httpStatus: 200, metadata: { filtered: selected.length > 0, pageSize: requestedPageSize } });
+    return receptionJson(request, page);
   } catch (error) { return receptionError(request, error); }
 }

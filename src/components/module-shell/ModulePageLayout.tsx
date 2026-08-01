@@ -21,6 +21,7 @@ type ModulePageLayoutProps = {
   compactHero?: boolean;
   description?: string;
   hideHero?: boolean;
+  minimalHero?: boolean;
   moduleKey: NavigationModuleKey;
   stats?: ModuleStat[];
   title?: string;
@@ -32,6 +33,7 @@ export default function ModulePageLayout({
   compactHero = false,
   description,
   hideHero = false,
+  minimalHero = false,
   moduleKey,
   stats = [],
   title,
@@ -44,6 +46,12 @@ export default function ModulePageLayout({
   return (
     <div className="space-y-4">
       {!hideHero ? (
+        minimalHero ? (
+          <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {currentModule?.label ?? 'Módulo'}
+          </div>
+        ) : (
         <Card className="overflow-hidden border-slate-200/80 bg-white/90 shadow-[0_20px_50px_rgba(148,163,184,0.14)] backdrop-blur">
           <CardHeader
             className={cn(
@@ -87,6 +95,7 @@ export default function ModulePageLayout({
             </CardContent>
           ) : null}
         </Card>
+        )
       ) : null}
 
       <div className="space-y-4">{children}</div>

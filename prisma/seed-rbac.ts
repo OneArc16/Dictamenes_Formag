@@ -18,7 +18,7 @@ const permissions = [
   { codigo: 'agenda.slots.cancel', nombre: 'Cancelar cupos disponibles', modulo: 'agenda' },
 
   { codigo: 'reception.read', nombre: 'Consultar recepción de pacientes', modulo: 'reception' },
-  { codigo: 'reception.patient.update', nombre: 'Actualizar contacto del paciente', modulo: 'reception' },
+  { codigo: 'reception.patient.update', nombre: 'Actualizar datos del paciente', modulo: 'reception' },
   { codigo: 'reception.site.select', nombre: 'Seleccionar sede de atención', modulo: 'reception' },
   { codigo: 'appointment.schedule', nombre: 'Agendar citas', modulo: 'appointment' },
   { codigo: 'appointment.activate', nombre: 'Activar citas', modulo: 'appointment' },

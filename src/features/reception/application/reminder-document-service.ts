@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import type { AuthorizationContext } from '@/lib/auth/authorization';
 
 import { ReceptionError } from './errors';
@@ -50,12 +51,12 @@ function decrypt(document: { nonce: Uint8Array; authTag: Uint8Array; snapshotCip
   }
 }
 
-export async function createReminderDocument(auth: AuthorizationContext, appointmentId: number) {
-  const appointment = await prisma.cita.findUnique({ where: { id: appointmentId }, include: { paciente: true } });
+export async function createReminderDocumentInTransaction(tx: Prisma.TransactionClient, auth: AuthorizationContext, appointmentId: number) {
+  const appointment = await tx.cita.findUnique({ where: { id: appointmentId }, include: { paciente: true } });
   if (!appointment || appointment.estado !== 'ASIGNADA' || appointment.inicioProgramado <= new Date()) throw new ReceptionError('REMINDER_DOCUMENT_NOT_RENDERABLE', 'La cita no permite generar un recordatorio.', 409);
   await assertReceptionSite(auth, appointment.sedeId);
-  const existing = await prisma.documentoCita.findFirst({ where: { citaId: appointmentId, tipo: 'RECORDATORIO_CITA' }, select: { id: true } });
-  if (existing) return { id: existing.id, replayed: true };
+  const existing = await tx.documentoCita.findFirst({ where: { citaId: appointmentId, tipo: 'RECORDATORIO_CITA' }, select: { id: true } });
+  if (existing) return { id: existing.id };
   const snapshot: ReminderSnapshot = {
     patientName: [appointment.paciente.primerNombre, appointment.paciente.segundoNombre, appointment.paciente.primerApellido, appointment.paciente.segundoApellido].filter(Boolean).join(' '),
     documentNumber: appointment.paciente.identificacion,
@@ -67,8 +68,12 @@ export async function createReminderDocument(auth: AuthorizationContext, appoint
     appointmentCode: String(appointment.id), generatedAt: new Date().toISOString(),
   };
   const encrypted = encrypt(snapshot);
-  const document = await prisma.documentoCita.create({ data: { citaId: appointmentId, tipo: 'RECORDATORIO_CITA', snapshotCiphertext: encrypted.ciphertext, nonce: encrypted.nonce, authTag: encrypted.authTag, checksumSha256: encrypted.checksum, keyVersion: 'v1', createdBy: auth.empleadoId } });
-  return { id: document.id, replayed: false };
+  const document = await tx.documentoCita.create({ data: { citaId: appointmentId, tipo: 'RECORDATORIO_CITA', snapshotCiphertext: encrypted.ciphertext, nonce: encrypted.nonce, authTag: encrypted.authTag, checksumSha256: encrypted.checksum, keyVersion: 'v1', createdBy: auth.empleadoId } });
+  return { id: document.id };
+}
+
+export async function createReminderDocument(auth: AuthorizationContext, appointmentId: number) {
+  return prisma.$transaction((tx) => createReminderDocumentInTransaction(tx, auth, appointmentId));
 }
 
 export async function renderReminderDocument(auth: AuthorizationContext, appointmentId: number, documentId: string) {

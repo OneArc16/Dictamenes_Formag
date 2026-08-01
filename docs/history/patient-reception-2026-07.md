@@ -20,26 +20,29 @@ aceptación verificables.
 Ya se implementaron:
 
 - ruta, navegación, RBAC y vista de Recepción de Pacientes;
-- búsqueda global exacta, edición de contacto con `contactVersion`, agenda de
+- búsqueda global exacta, edición integral del perfil con `profileVersion`, agenda de
   disponibilidad, asignación, activación, cancelación y reprogramación;
 - modelo `Cita`, historial append-only, políticas por sede, motivos de cambio,
   auditoría, cuota PostgreSQL por empleado y recordatorio PDF cifrado;
-- idempotencia persistida básica, exclusión de solapamiento e integridad
-  diferida entre cita y cupo;
-- transición clínica interna `markAppointmentAttended`, e infraestructura
-  append-only para recibir mensajes clínicos externos;
+- idempotencia persistida con HMAC-SHA-256, propietario, lease recuperable y
+  compare-and-set al completar; exclusión de solapamiento e integridad diferida
+  entre cita y cupo;
+- transición clínica interna `markAppointmentAttended` y procesador de inbox
+  append-only para sobres clínicos externos ya verificados;
 - endpoint y pantalla administrativa para versionar políticas de recepción.
 
-Siguen pendientes la verificación institucional de firmas del inbox externo,
-HMAC/leases de idempotencia, diálogos UI de motivos y pruebas automatizadas
-integrales. La migración y el seed RBAC aún deben aplicarse por entorno y el
-PDF requiere `RECEPTION_DOCUMENT_KEY` (base64, 32 bytes).
+Sigue pendiente conectar el verificador institucional de firmas y el principal
+técnico al inbox externo, además de las pruebas automatizadas integrales. La
+migración y el seed RBAC aún deben
+aplicarse por entorno; el PDF requiere `RECEPTION_DOCUMENT_KEY` (base64, 32
+bytes) y las operaciones idempotentes requieren
+`RECEPTION_IDEMPOTENCY_HMAC_KEY` (secreto de al menos 32 caracteres).
 
 ## Resultado acordado
 
 Recepción de Pacientes pertenece a **Admisiones** y se propone en la ruta
 `/admisiones/recepcion-pacientes`. Debe permitir buscar un paciente por documento
-en el directorio institucional, editar sus datos de contacto y asignarle un cupo
+en el directorio institucional, editar sus datos administrativos y asignarle un cupo
 de una agenda médica desde una vista compacta.
 
 El flujo no crea agendas médicas: consume los `CupoMedico` generados por Agenda.
@@ -70,10 +73,11 @@ La creación de Agenda y la asignación de una cita son responsabilidades separa
 - Si no existe, el mensaje es: `El paciente no existe. Debes crearlo antes de
   agendar una cita.` Se limpian los datos de la búsqueda anterior y se ofrece
   recuperación, no una falsa respuesta de error técnico.
-- Solo son editables celular, teléfono, correo y dirección. `Guardar datos`
-  inicia deshabilitado y se habilita exclusivamente cuando hay cambios válidos.
-- `contactVersion` protege contra actualizaciones perdidas. Un trigger de base de
-  datos incrementa esa versión incluso si el contacto cambia desde otro módulo.
+- Identificación, nombres, nacimiento, sexo, EPS, departamento, municipio y contacto son
+  editables. `Guardar datos` inicia deshabilitado y se habilita exclusivamente
+  cuando hay cambios válidos.
+- `profileVersion` protege contra actualizaciones perdidas. Un trigger de base de
+  datos incrementa esa versión ante cualquier cambio editable del perfil.
 
 ### Asignación y estados
 
@@ -121,7 +125,7 @@ La creación de Agenda y la asignación de una cita son responsabilidades separa
 | Asignación actual | nueva entidad `Cita` |
 | Bitácora funcional | `CitaHistorial` append-only |
 | Auditoría técnica y de acceso | `AuditoriaRecepcion` append-only |
-| Idempotencia | `OperacionIdempotente` con huella SHA-256 canónica y replay básico; faltan HMAC y leases |
+| Idempotencia | `OperacionIdempotente` con HMAC-SHA-256 canónico, `ownerToken`, lease recuperable y compare-and-set |
 | Política temporal | `ReceptionSitePolicy` versionada por sede |
 | Documento PDF | `DocumentoCita` con snapshot cifrado |
 | Entrada clínica externa | `ClinicalEncounterInboxMessage` + `ClinicalEncounterInboxEvent` |
@@ -144,10 +148,10 @@ La creación de Agenda y la asignación de una cita son responsabilidades separa
 ### Idempotencia y concurrencia
 
 - Las operaciones iniciadas en la UI usan `Idempotency-Key` UUID. La clave se
-  vincula a actor, tipo de operación y la huella SHA-256 del payload canónico,
+  vincula a actor, tipo de operación y un HMAC-SHA-256 del payload canónico,
   sin almacenar datos personales ni el body original.
-- La ampliación pendiente sustituirá la huella simple por HMAC versionado e
-  incorporará `ownerToken`, `lockVersion` y leases recuperables.
+- El propietario, `lockVersion` y lease recuperable se confirman con el cambio
+  de dominio y `COMPLETED` en la misma transacción serializable.
 - Reservar un cupo usa aislamiento `Serializable`, actualización condicional y
   reintentos acotados. Nunca se confía en una consulta previa del cliente.
 
@@ -227,12 +231,10 @@ es un control de seguridad.
 
 ## Implementación pendiente recomendada
 
-1. Aplicar migración, seed RBAC y configurar la clave institucional del PDF por
-   entorno.
-2. Implementar HMAC, leases y recuperación segura de operaciones idempotentes.
-3. Conectar el verificador de firma institucional al inbox clínico externo.
-4. Completar los diálogos de motivos y el historial paginado por cursor.
-5. Añadir contratos OpenAPI y pruebas de seguridad, integración, concurrencia,
+1. Aplicar migraciones, seed RBAC y configurar las claves institucionales del
+   PDF y del HMAC por entorno.
+2. Conectar el verificador de firma institucional al inbox clínico externo.
+3. Añadir contratos OpenAPI y pruebas de seguridad, integración, concurrencia,
    accesibilidad, E2E y carga.
 
 ## Insumos que siguen pendientes de la institución
