@@ -6,6 +6,7 @@ import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization'
 import { prisma } from '@/lib/prisma';
 
 import type { PatientProfileCommand, ScheduleAppointmentCommand } from '../domain/schemas';
+import { patientSexFromDatabase, patientSexToDatabase } from '../domain/patient-profile';
 import { ReceptionError } from './errors';
 
 const BOGOTA = 'America/Bogota';
@@ -16,8 +17,15 @@ export function patientProjection(patient: {
   fechaNacimiento: Date | null; sexo: string; celular: string | null; telefono: string | null;
   email: string | null; direccion: string | null; profileVersion: number; codigoEps: string;
   codigoDepartamento: string | null; codigoMunicipio: string | null;
+  barrio: string | null; zonaResidencia: string; residenciaPais: string; categoria: string | null;
+  cargoDocenteId: number | null; escolaridad: string | null; fechaVinculacion: Date | null;
+  secretariaId: number | null; institucionEducativaId: number | null; formaVinculacion: string;
+  estadoCivil: string | null; gradoEscalafon: string; nivelEscalafon: string;
   eps: { nombreEntidad: string } | null; municipio: { nombre: string; codigoDepartamento: string } | null;
   departamento: { nombre: string } | null;
+  barrioRef: { nombre: string } | null; paisResidencia: { nombre: string } | null;
+  cargoDocente: { nombre: string; codigo: string | null } | null; secretariaRef: { nombre: string } | null;
+  institucionEducativaRef: { nombre: string } | null;
 }) {
   const fullName = [patient.primerNombre, patient.segundoNombre, patient.primerApellido, patient.segundoApellido]
     .filter(Boolean).join(' ');
@@ -27,10 +35,20 @@ export function patientProjection(patient: {
     id: patient.id, documentNumber: patient.identificacion, documentType: patient.tipoIdentificacion,
     fullName, firstName: patient.primerNombre, middleName: patient.segundoNombre,
     lastName: patient.primerApellido, secondLastName: patient.segundoApellido,
-    birthDate: birth, age, sex: patient.sexo, epsCode: patient.codigoEps,
+    birthDate: birth, age, sex: patientSexFromDatabase(patient.sexo), epsCode: patient.codigoEps,
     eps: patient.eps?.nombreEntidad ?? null, departmentCode: patient.codigoDepartamento ?? patient.municipio?.codigoDepartamento ?? null,
     department: patient.departamento?.nombre ?? null, municipalityCode: patient.codigoMunicipio,
-    municipality: patient.municipio?.nombre ?? null, celular: patient.celular, telefono: patient.telefono,
+    municipality: patient.municipio?.nombre ?? null, neighborhood: patient.barrioRef?.nombre ?? patient.barrio,
+    zone: patient.zonaResidencia.trim().toUpperCase() === 'R' ? 'R' : 'U', countryCode: patient.residenciaPais,
+    country: patient.paisResidencia?.nombre ?? null, category: patient.categoria,
+    teacherPositionId: patient.cargoDocenteId, teacherPosition: patient.cargoDocente?.nombre ?? null,
+    teacherPositionCode: patient.cargoDocente?.codigo ?? null,
+    education: patient.escolaridad, employmentStartDate: patient.fechaVinculacion ? dateInTimeZone(patient.fechaVinculacion, BOGOTA) : null,
+    secretariatId: patient.secretariaId, secretariat: patient.secretariaRef?.nombre ?? null,
+    institutionId: patient.institucionEducativaId, institution: patient.institucionEducativaRef?.nombre ?? null,
+    employmentType: patient.formaVinculacion, civilStatus: patient.estadoCivil,
+    salaryGrade: patient.gradoEscalafon, salaryLevel: patient.nivelEscalafon === '0' ? 'NO_APLICA' : patient.nivelEscalafon,
+    celular: patient.celular, telefono: patient.telefono,
     email: patient.email, direccion: patient.direccion, profileVersion: patient.profileVersion,
     contactVersion: patient.profileVersion,
   };
@@ -40,6 +58,11 @@ const patientInclude = {
   eps: { select: { nombreEntidad: true } },
   departamento: { select: { nombre: true } },
   municipio: { select: { nombre: true, codigoDepartamento: true } },
+  barrioRef: { select: { nombre: true } },
+  paisResidencia: { select: { nombre: true } },
+  cargoDocente: { select: { nombre: true, codigo: true } },
+  secretariaRef: { select: { nombre: true } },
+  institucionEducativaRef: { select: { nombre: true } },
 } as const;
 
 export async function searchPatient(documentNumber: string, documentType?: string) {
@@ -96,19 +119,34 @@ export async function updatePatientProfileInTransaction(
   const existing = await tx.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
   if (!existing) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
 
-  const [duplicate, eps, department, municipality] = await Promise.all([
+  const [duplicate, eps, department, municipality, country, neighborhood, position, secretariat, institution] = await Promise.all([
     tx.usuario.findFirst({ where: { identificacion: input.documentNumber, tipoIdentificacion: input.documentType, id: { not: patientId } }, select: { id: true } }),
     tx.eps.findUnique({ where: { codigo: input.epsCode }, select: { codigo: true } }),
     input.departmentCode ? tx.departamento.findUnique({ where: { codigo: input.departmentCode }, select: { codigo: true } }) : Promise.resolve(null),
     input.municipalityCode ? tx.municipio.findUnique({ where: { codigo: input.municipalityCode }, select: { codigo: true, codigoDepartamento: true } }) : Promise.resolve(null),
+    tx.pais.findUnique({ where: { codigo: input.countryCode }, select: { codigo: true } }),
+    input.neighborhood && input.municipalityCode
+      ? tx.barrio.findFirst({ where: { codigoMunicipio: input.municipalityCode, nombre: { equals: input.neighborhood, mode: 'insensitive' } }, select: { id: true, nombre: true } })
+      : Promise.resolve(null),
+    input.teacherPositionId ? tx.cargoDocente.findFirst({ where: { id: input.teacherPositionId, estado: true }, select: { id: true } }) : Promise.resolve(null),
+    input.secretariatId ? tx.secretaria.findUnique({ where: { id: input.secretariatId }, select: { id: true } }) : Promise.resolve(null),
+    input.institutionId ? tx.institucionEducativa.findUnique({ where: { id: input.institutionId }, select: { id: true, idSecretaria: true, idMunicipio: true } }) : Promise.resolve(null),
   ]);
   if (duplicate) throw new ReceptionError('PATIENT_DOCUMENT_CONFLICT', 'Ya existe otro paciente con este tipo y número de documento.', 409);
   if (!eps) throw new ReceptionError('PATIENT_EPS_INVALID', 'La EPS seleccionada no existe.', 422);
   if (input.departmentCode && !department) throw new ReceptionError('PATIENT_DEPARTMENT_INVALID', 'El departamento seleccionado no existe.', 422);
   if (input.municipalityCode && !municipality) throw new ReceptionError('PATIENT_MUNICIPALITY_INVALID', 'El municipio seleccionado no existe.', 422);
   if (municipality && input.departmentCode !== municipality.codigoDepartamento) throw new ReceptionError('PATIENT_LOCATION_MISMATCH', 'El municipio no pertenece al departamento seleccionado.', 422);
+  if (!country) throw new ReceptionError('PATIENT_COUNTRY_INVALID', 'El país seleccionado no existe.', 422);
+  if (input.neighborhood && !neighborhood) throw new ReceptionError('PATIENT_NEIGHBORHOOD_INVALID', 'El barrio no pertenece al municipio seleccionado.', 422);
+  if (input.teacherPositionId && !position) throw new ReceptionError('PATIENT_POSITION_INVALID', 'El cargo seleccionado no existe o está inactivo.', 422);
+  if (input.secretariatId && !secretariat) throw new ReceptionError('PATIENT_SECRETARIAT_INVALID', 'La secretaría seleccionada no existe.', 422);
+  if (input.institutionId && !institution) throw new ReceptionError('PATIENT_INSTITUTION_INVALID', 'La institución seleccionada no existe.', 422);
+  if (institution?.idSecretaria && String(institution.idSecretaria) !== String(input.secretariatId ?? '')) throw new ReceptionError('PATIENT_EMPLOYMENT_MISMATCH', 'La institución no pertenece a la secretaría seleccionada.', 422);
+  if (institution?.idMunicipio && input.municipalityCode && institution.idMunicipio !== input.municipalityCode) throw new ReceptionError('PATIENT_EMPLOYMENT_LOCATION_MISMATCH', 'La institución no pertenece al municipio seleccionado.', 422);
 
   const birthDate = input.birthDate ? new Date(`${input.birthDate}T00:00:00.000Z`) : null;
+  const employmentStartDate = input.employmentStartDate ? new Date(`${input.employmentStartDate}T00:00:00.000Z`) : null;
   const age = birthDate ? Math.max(0, Math.floor((Date.now() - birthDate.getTime()) / 31_556_952_000)) : null;
   try {
     const result = await tx.usuario.updateMany({
@@ -123,14 +161,28 @@ export async function updatePatientProfileInTransaction(
         fechaNacimiento: birthDate,
         edad: age,
         unidadEdad: 'A',
-        sexo: input.sex,
+        sexo: patientSexToDatabase(input.sex),
         codigoEps: input.epsCode,
         codigoDepartamento: input.departmentCode,
         codigoMunicipio: input.municipalityCode,
+        barrio: neighborhood?.nombre ?? input.neighborhood,
+        barrioId: neighborhood?.id ?? null,
+        zonaResidencia: input.zone,
+        residenciaPais: input.countryCode,
+        categoria: input.category,
         celular: input.celular,
         telefono: input.telefono,
         email: input.email,
         direccion: input.direccion,
+        cargoDocenteId: input.teacherPositionId,
+        escolaridad: input.education,
+        fechaVinculacion: employmentStartDate,
+        secretariaId: input.secretariatId,
+        institucionEducativaId: input.institutionId,
+        formaVinculacion: input.employmentType.toLocaleUpperCase('es-CO'),
+        estadoCivil: input.civilStatus,
+        gradoEscalafon: input.salaryGrade.toLocaleUpperCase('es-CO'),
+        nivelEscalafon: input.salaryLevel === 'NO_APLICA' ? '0' : input.salaryLevel,
       },
     });
     if (result.count !== 1) throw new ReceptionError('STALE_PROFILE_VERSION', 'Los datos del paciente cambiaron. Vuelve a buscarlo antes de guardar.', 409);

@@ -80,14 +80,16 @@ export function SearchableSelect({
 
     const q = query.trim();
     if (q.length < minSearchLength) return;
+    // Sincronizar la etiqueta de una opción ya seleccionada no es una nueva
+    // intención de búsqueda. Evita ciclos etiqueta -> consulta -> etiqueta.
+    if (value && selectedOption && norm(q) === norm(selectedOption.label)) return;
 
     const id = setTimeout(() => {
       onSearch(q);
     }, 300);
 
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, minSearchLength]);
+  }, [minSearchLength, onSearch, query, selectedOption, value]);
 
   const handleSelect = (opt: SearchableOption) => {
     onChange(opt.value);

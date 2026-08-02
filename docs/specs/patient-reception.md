@@ -171,7 +171,9 @@ realizan llamadas de red dentro de una transacción.
 - Búsqueda exacta por número de documento con Enter o botón `Buscar`.
 - Presentación compacta de datos básicos del paciente.
 - Edición controlada de identificación, nombres, fecha de nacimiento, sexo,
-  EPS, municipio y datos de contacto.
+  ubicación completa, EPS, datos de contacto, cargo y escolaridad.
+- Revelado progresivo de los demás datos laborales del docente cuando la EPS
+  seleccionada sea Fideicomisos/Fiduprevisora.
 - Botón `Guardar datos` habilitado solo cuando existan cambios válidos.
 - Sede asignada precargada y selector de otras sedes con permiso específico.
 - Consulta dependiente en el orden especialidad, fecha, médico, hora disponible,
@@ -265,10 +267,23 @@ Datos editables:
 - fecha de nacimiento;
 - sexo;
 - EPS, departamento y municipio;
+- barrio o vereda, zona, país y categoría;
 - celular;
 - teléfono;
 - correo electrónico;
 - dirección.
+- cargo docente, escolaridad y estado civil, visibles para cualquier EPS dentro
+  de los datos generales del paciente;
+- fecha de vinculación, secretaría, institución, forma de vinculación, grado y
+  nivel de escalafón, visibles cuando la EPS sea Fideicomisos.
+
+La base histórica representa sexo como `H` (hombre), `M` (mujer) y `O` (otro).
+La API de Recepción traduce ese convenio al contrato de interfaz `M`
+(Masculino), `F` (Femenino) y `O` (Otro), y realiza la conversión inversa al
+guardar. Nunca se muestra directamente el código legado.
+
+`Tipo de dictamen` no forma parte del perfil maestro `Usuario`: pertenece al
+caso clínico y no se crea ni modifica desde Recepción.
 
 La edad es calculada y permanece en solo lectura.
 
@@ -1078,7 +1093,9 @@ operativa sin política.
 | `GET /api/reception/context` | Sede predeterminada, sedes permitidas y capacidades |
 | `POST /api/reception/patients/search` | Búsqueda exacta; documento únicamente en el body |
 | `GET /api/reception/patients/:id` | Refrescar proyección autorizada por identificador interno |
-| `GET /api/reception/patient-profile-options` | Catálogos de EPS y municipios para edición |
+| `GET /api/reception/patient-profile-options` | Catálogos de identificación, ubicación y datos laborales para edición |
+| `GET /api/reception/patient-profile-options/positions?q=` | Búsqueda acotada de cargos docentes activos |
+| `GET /api/reception/patient-profile-options/institutions` | Búsqueda acotada de instituciones por secretaría, municipio y texto |
 | `PATCH /api/reception/patients/:id/profile` | Actualizar perfil con `expectedProfileVersion` |
 | `GET /api/reception/specialties?siteId=` | Especialidades con disponibilidad |
 | `GET /api/reception/availability/dates` | Días disponibles en la ventana visible |

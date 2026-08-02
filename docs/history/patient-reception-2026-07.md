@@ -1,6 +1,6 @@
 # Historial técnico — Recepción de Pacientes
 
-**Actualizado:** 31 de julio de 2026
+**Actualizado:** 1 de agosto de 2026
 **Estado:** implementación base en curso; modelo, API, UI operativa y controles
 de integridad principales ya incorporados. Las integraciones institucionales y la
 batería de pruebas integral siguen pendientes.
@@ -33,10 +33,39 @@ Ya se implementaron:
 
 Sigue pendiente conectar el verificador institucional de firmas y el principal
 técnico al inbox externo, además de las pruebas automatizadas integrales. La
-migración y el seed RBAC aún deben
-aplicarse por entorno; el PDF requiere `RECEPTION_DOCUMENT_KEY` (base64, 32
-bytes) y las operaciones idempotentes requieren
-`RECEPTION_IDEMPOTENCY_HMAC_KEY` (secreto de al menos 32 caracteres).
+migración de ampliación del perfil y el seed RBAC ya se aplicaron en el entorno
+local; deben desplegarse y verificarse independientemente en los demás entornos.
+El PDF requiere `RECEPTION_DOCUMENT_KEY` (base64, 32 bytes) y las operaciones
+idempotentes requieren `RECEPTION_IDEMPOTENCY_HMAC_KEY` (secreto de al menos 32
+caracteres).
+
+## Bitácora de refinamiento — 1 de agosto de 2026
+
+- Se reemplazó la pantalla inicial por un formulario compacto: la búsqueda por
+  documento quedó integrada en la ficha y se eliminaron el hero y la barra de
+  búsqueda independientes para aprovechar mejor el espacio vertical.
+- Se habilitó la edición del perfil administrativo completo con guardado solo
+  cuando existen cambios válidos. La ficha incorpora identificación, nombres,
+  nacimiento, sexo, categoría, ubicación, contacto, EPS, cargo, escolaridad y
+  estado civil.
+- Se agregaron combobox con escritura para catálogos extensos. Cargo e
+  institución consultan el servidor con búsqueda acotada; las instituciones se
+  deduplican y la selección deja de parpadear al actualizar resultados.
+- Al seleccionar Fideicomisos/Fiduprevisora se muestran los datos laborales
+  específicos del docente. Cargo, escolaridad y estado civil permanecen como
+  campos generales dentro de identificación; el bloque laboral conserva fecha
+  de vinculación, secretaría, institución, forma de vinculación y escalafón.
+- Se corrigió la interpretación del sexo legado para presentar `Masculino` o
+  `Femenino` y conservar la codificación esperada por la base al guardar.
+- Se corrigió la configuración local de idempotencia para permitir el guardado
+  seguro del perfil sin el error `La idempotencia no está configurada de forma
+  segura`; el secreto continúa siendo una configuración por entorno y no se
+  versiona.
+- La asignación de cita usa una distribución más compacta y muestra dos meses
+  simultáneos en escritorio. Debajo se mantiene el historial de citas del
+  paciente.
+- La etiqueta visible `Cargo docente` de Recepción se simplificó a `Cargo`; no
+  cambió el identificador interno, el catálogo consultado ni el dato persistido.
 
 ## Resultado acordado
 
@@ -76,6 +105,23 @@ La creación de Agenda y la asignación de una cita son responsabilidades separa
 - Identificación, nombres, nacimiento, sexo, EPS, departamento, municipio y contacto son
   editables. `Guardar datos` inicia deshabilitado y se habilita exclusivamente
   cuando hay cambios válidos.
+- La ficha reutiliza los catálogos del registro docente: país, barrio/vereda,
+  zona, categoría, cargo, escolaridad, secretaría e institución. Cargo,
+  escolaridad y estado civil son generales y pertenecen al bloque de
+  identificación; fecha de vinculación, secretaría, institución, forma de
+  vinculación y escalafón se revelan solamente para la EPS
+  Fideicomisos/Fiduprevisora.
+- Cargo e institución usan búsqueda remota con mínimo tres caracteres y un
+  máximo de 50 resultados; el navegador no descarga el catálogo completo de
+  instituciones.
+- Los combobox asíncronos no vuelven a consultar al sincronizar una selección:
+  esto mantiene estable la etiqueta y el código del cargo. Las instituciones se
+  deduplican por nombre normalizado antes de mostrarse, conservando un único ID
+  canónico por resultado.
+- El contrato de UI normaliza el sexo legado de base (`H` hombre, `M` mujer) a
+  `M` Masculino y `F` Femenino, y aplica la conversión inversa al guardar.
+- `Tipo de dictamen` permanece fuera de Recepción porque pertenece al caso
+  clínico y no al perfil maestro del paciente.
 - `profileVersion` protege contra actualizaciones perdidas. Un trigger de base de
   datos incrementa esa versión ante cualquier cambio editable del perfil.
 
@@ -231,8 +277,8 @@ es un control de seguridad.
 
 ## Implementación pendiente recomendada
 
-1. Aplicar migraciones, seed RBAC y configurar las claves institucionales del
-   PDF y del HMAC por entorno.
+1. Desplegar y verificar las migraciones y el seed RBAC en cada entorno no
+   local, y configurar allí las claves institucionales del PDF y del HMAC.
 2. Conectar el verificador de firma institucional al inbox clínico externo.
 3. Añadir contratos OpenAPI y pruebas de seguridad, integración, concurrencia,
    accesibilidad, E2E y carga.

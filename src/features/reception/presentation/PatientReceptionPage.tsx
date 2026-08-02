@@ -4,7 +4,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DayPicker } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
-import { CalendarDays, Printer, Search, ShieldAlert, UserRound } from 'lucide-react';
+import { BriefcaseBusiness, CalendarDays, Printer, Search, ShieldAlert, UserRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -16,10 +16,45 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useCan } from '@/hooks/useCan';
+import {
+  CATEGORIA_OPTIONS,
+  ESCOLARIDAD_OPTIONS,
+  ESTADO_CIVIL_OPTIONS,
+  FORMA_VINCULACION_OPTIONS,
+  NIVEL_ESCALAFON_OPTIONS,
+} from '@/components/registrar-docente/constants';
 
-type Patient = { id: number; documentNumber: string; documentType: string; fullName: string; firstName: string; middleName: string | null; lastName: string; secondLastName: string | null; birthDate: string | null; age: number | null; sex: string; epsCode: string; eps: string | null; departmentCode: string | null; department: string | null; municipalityCode: string | null; municipality: string | null; celular: string | null; telefono: string | null; email: string | null; direccion: string | null; profileVersion: number };
-type PatientProfileDraft = { firstName: string; middleName: string; lastName: string; secondLastName: string; birthDate: string; sex: string; epsCode: string; departmentCode: string; municipalityCode: string; celular: string; telefono: string; email: string; direccion: string };
-type ProfileOptions = { eps: { value: string; label: string }[]; departments: { value: string; label: string }[]; municipalities: { value: string; label: string; departmentCode: string }[] };
+type Patient = {
+  id: number; documentNumber: string; documentType: string; fullName: string; firstName: string;
+  middleName: string | null; lastName: string; secondLastName: string | null; birthDate: string | null;
+  age: number | null; sex: string; epsCode: string; eps: string | null; departmentCode: string | null;
+  department: string | null; municipalityCode: string | null; municipality: string | null;
+  neighborhood: string | null; zone: string; countryCode: string; country: string | null;
+  category: string | null; celular: string | null; telefono: string | null; email: string | null;
+  direccion: string | null; teacherPositionId: number | null; teacherPosition: string | null;
+  teacherPositionCode: string | null;
+  education: string | null; employmentStartDate: string | null; secretariatId: number | null;
+  secretariat: string | null; institutionId: number | null; institution: string | null;
+  employmentType: string; civilStatus: string | null; salaryGrade: string; salaryLevel: string;
+  profileVersion: number;
+};
+type PatientProfileDraft = {
+  firstName: string; middleName: string; lastName: string; secondLastName: string; birthDate: string;
+  sex: string; epsCode: string; departmentCode: string; municipalityCode: string; neighborhood: string;
+  zone: string; countryCode: string; category: string; celular: string; telefono: string; email: string;
+  direccion: string; teacherPositionId: string; education: string; employmentStartDate: string;
+  secretariatId: string; institutionId: string; employmentType: string; civilStatus: string;
+  salaryGrade: string; salaryLevel: string;
+};
+type SearchOption = { value: string; label: string };
+type ProfileOptions = {
+  eps: (SearchOption & { isFideicomisos: boolean })[];
+  countries: SearchOption[];
+  departments: SearchOption[];
+  municipalities: (SearchOption & { departmentCode: string })[];
+  neighborhoods: (SearchOption & { id: number; municipalityCode: string })[];
+  secretariats: SearchOption[];
+};
 type Context = { assignedSiteId: number | null; canSelectSite: boolean; sites: { id: number; nombre: string }[] };
 type Option = { id: number; nombre: string };
 type Doctor = { id: number; name: string };
@@ -50,8 +85,29 @@ function formatDateTime(value: string) {
 function dateKey(date: Date) { return date.toISOString().slice(0, 10); }
 function futureWindow() { const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 61); return { start, end }; }
 function ageFromBirthDate(value: string) { if (!value) return ''; const birth = new Date(`${value}T00:00:00`); if (Number.isNaN(birth.getTime())) return ''; const today = new Date(); let age = today.getFullYear() - birth.getFullYear(); if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age -= 1; return age >= 0 ? `${age} años` : ''; }
-function patientDraft(patient: Patient): PatientProfileDraft { return { firstName: patient.firstName, middleName: patient.middleName ?? '', lastName: patient.lastName, secondLastName: patient.secondLastName ?? '', birthDate: patient.birthDate ?? '', sex: patient.sex, epsCode: patient.epsCode, departmentCode: patient.departmentCode ?? '', municipalityCode: patient.municipalityCode ?? '', celular: patient.celular ?? '', telefono: patient.telefono ?? '', email: patient.email ?? '', direccion: patient.direccion ?? '' }; }
-function emptyPatientDraft(): PatientProfileDraft { return { firstName: '', middleName: '', lastName: '', secondLastName: '', birthDate: '', sex: '', epsCode: '', departmentCode: '', municipalityCode: '', celular: '', telefono: '', email: '', direccion: '' }; }
+function patientDraft(patient: Patient): PatientProfileDraft {
+  return {
+    firstName: patient.firstName, middleName: patient.middleName ?? '', lastName: patient.lastName,
+    secondLastName: patient.secondLastName ?? '', birthDate: patient.birthDate ?? '', sex: patient.sex,
+    epsCode: patient.epsCode, departmentCode: patient.departmentCode ?? '', municipalityCode: patient.municipalityCode ?? '',
+    neighborhood: patient.neighborhood ?? '', zone: patient.zone, countryCode: patient.countryCode,
+    category: patient.category ?? '', celular: patient.celular ?? '', telefono: patient.telefono ?? '',
+    email: patient.email ?? '', direccion: patient.direccion ?? '',
+    teacherPositionId: patient.teacherPositionId ? String(patient.teacherPositionId) : '', education: patient.education ?? '',
+    employmentStartDate: patient.employmentStartDate ?? '', secretariatId: patient.secretariatId ? String(patient.secretariatId) : '',
+    institutionId: patient.institutionId ? String(patient.institutionId) : '', employmentType: patient.employmentType ?? '',
+    civilStatus: patient.civilStatus ?? '', salaryGrade: patient.salaryGrade ?? '', salaryLevel: patient.salaryLevel ?? '',
+  };
+}
+function emptyPatientDraft(): PatientProfileDraft {
+  return {
+    firstName: '', middleName: '', lastName: '', secondLastName: '', birthDate: '', sex: '', epsCode: '',
+    departmentCode: '', municipalityCode: '', neighborhood: '', zone: '', countryCode: '', category: '',
+    celular: '', telefono: '', email: '', direccion: '', teacherPositionId: '', education: '',
+    employmentStartDate: '', secretariatId: '', institutionId: '', employmentType: '', civilStatus: '',
+    salaryGrade: '', salaryLevel: '',
+  };
+}
 
 const DOCUMENT_TYPES = [
   { value: 'CC', label: 'Cédula de ciudadanía (CC)' },
@@ -101,25 +157,119 @@ function PatientDataForm({
     event.preventDefault();
     onSearch();
   };
+  const [positionSearch, setPositionSearch] = useState('');
+  const [institutionSearch, setInstitutionSearch] = useState('');
+  const isFideicomisos = options?.eps.find((item) => item.value === draft.epsCode)?.isFideicomisos ?? false;
+  const positions = useQuery({
+    queryKey: ['reception-profile-positions', positionSearch],
+    enabled: !!patient && positionSearch.trim().length >= 3,
+    queryFn: () => api<SearchOption[]>(`/api/reception/patient-profile-options/positions?q=${encodeURIComponent(positionSearch.trim())}`),
+  });
+  const institutions = useQuery({
+    queryKey: ['reception-profile-institutions', draft.secretariatId, draft.municipalityCode, institutionSearch],
+    enabled: !!patient && isFideicomisos && !!draft.secretariatId && institutionSearch.trim().length >= 3,
+    queryFn: () => {
+      const params = new URLSearchParams({ secretariatId: draft.secretariatId, q: institutionSearch.trim() });
+      if (draft.municipalityCode) params.set('municipalityCode', draft.municipalityCode);
+      return api<SearchOption[]>(`/api/reception/patient-profile-options/institutions?${params}`);
+    },
+  });
   const municipalityOptions = useMemo(() => (options?.municipalities ?? []).filter((item) => !draft.departmentCode || item.departmentCode === draft.departmentCode), [draft.departmentCode, options?.municipalities]);
+  const neighborhoodOptions = useMemo(() => {
+    const available = (options?.neighborhoods ?? []).filter((item) => !draft.municipalityCode || item.municipalityCode === draft.municipalityCode);
+    return draft.neighborhood && !available.some((item) => item.value === draft.neighborhood)
+      ? [{ value: draft.neighborhood, label: draft.neighborhood }, ...available]
+      : available;
+  }, [draft.municipalityCode, draft.neighborhood, options?.neighborhoods]);
+  const positionOptions = useMemo(() => {
+    const available = positions.data ?? [];
+    const currentPositionLabel = patient?.teacherPosition
+      ? patient.teacherPositionCode
+        ? `${patient.teacherPosition} (${patient.teacherPositionCode})`
+        : patient.teacherPosition
+      : null;
+    return draft.teacherPositionId && currentPositionLabel && !available.some((item) => item.value === draft.teacherPositionId)
+      ? [{ value: draft.teacherPositionId, label: currentPositionLabel }, ...available]
+      : available;
+  }, [draft.teacherPositionId, patient, positions.data]);
+  const institutionOptions = useMemo(() => {
+    const available = institutions.data ?? [];
+    return draft.institutionId && patient?.institution && !available.some((item) => item.value === draft.institutionId)
+      ? [{ value: draft.institutionId, label: patient.institution }, ...available]
+      : available;
+  }, [draft.institutionId, institutions.data, patient]);
   const emailInvalid = !!draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email);
-  return <Card><CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4 text-sky-700" /> Datos de identificación y contacto</CardTitle></CardHeader><CardContent className="space-y-4 p-4">
-    <form className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-12" onSubmit={submitSearch}>
-      <label className="xl:col-span-2" htmlFor="patient-document-type"><span className="mb-1 block text-xs font-medium text-slate-700">Tipo de documento</span><select id="patient-document-type" value={documentType} onChange={(event) => onDocumentTypeChange(event.target.value)} disabled={saving} className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Sin especificar</option>{DOCUMENT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-      <label className="xl:col-span-3" htmlFor="document-number"><span className="mb-1 block text-xs font-medium text-slate-700">Número de documento</span><div className="flex items-stretch rounded-md shadow-sm"><Input id="document-number" value={documentNumber} onChange={(event) => onDocumentNumberChange(event.target.value)} disabled={saving} inputMode="numeric" autoComplete="off" className="h-11 min-w-0 flex-1 rounded-r-none border-r-0 focus:z-10" /><Button type="submit" variant="outline" className="h-11 rounded-l-none border-slate-300 px-3 text-xs font-semibold" disabled={!documentNumber.trim() || searching || saving}><Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{searching ? 'Buscando…' : 'Buscar'}</span></Button></div></label>
-      <label className="xl:col-span-2" htmlFor="patient-birth-date"><span className="mb-1 block text-xs font-medium text-slate-700">Fecha de nacimiento</span><Input id="patient-birth-date" type="date" value={draft.birthDate} onChange={(event) => onDraftChange('birthDate', event.target.value)} disabled={!patient || !canEdit || saving} className="h-11" /></label>
-      <label className="xl:col-span-1" htmlFor="patient-age"><span className="mb-1 block text-xs font-medium text-slate-700">Edad</span><Input id="patient-age" value={ageFromBirthDate(draft.birthDate)} readOnly disabled={!patient} className="h-11 bg-slate-50 text-slate-700" /></label>
-      <label className="xl:col-span-2" htmlFor="patient-sex"><span className="mb-1 block text-xs font-medium text-slate-700">Sexo</span><select id="patient-sex" value={draft.sex} onChange={(event) => onDraftChange('sex', event.target.value)} disabled={!patient || !canEdit || saving} className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"><option value="">Selecciona</option><option value="M">Masculino</option><option value="F">Femenino</option><option value="O">Otro</option></select></label>
-      <div className="xl:col-span-2"><label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="patient-department">Departamento</label><SearchableSelect id="patient-department" value={draft.departmentCode} options={options?.departments} onChange={(value) => { onDraftChange('departmentCode', value); const currentMunicipality = options?.municipalities.find((item) => item.value === draft.municipalityCode); if (currentMunicipality && currentMunicipality.departmentCode !== value) onDraftChange('municipalityCode', ''); }} placeholder="Escribe para buscar" disabled={!patient || !canEdit || saving} /></div>
-    </form>
-    {notFound ? <p className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status" aria-live="polite" aria-atomic="true"><ShieldAlert className="h-4 w-4 shrink-0" />El paciente no existe. Debes crearlo antes de agendar una cita.</p> : null}
-    {ambiguousDocumentTypes.length ? <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900" role="status">El número existe con varios tipos de documento ({ambiguousDocumentTypes.join(', ')}). Selecciona uno y vuelve a buscar.</p> : null}
-    <fieldset className="space-y-3" disabled={!patient || !canEdit || saving}><legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Datos básicos editables</legend>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12"><label className="xl:col-span-2" htmlFor="patient-first-name"><span className="mb-1 block text-xs font-medium text-slate-700">Primer nombre</span><Input id="patient-first-name" value={draft.firstName} onChange={(event) => onDraftChange('firstName', event.target.value)} className="h-11" /></label><label className="xl:col-span-2" htmlFor="patient-middle-name"><span className="mb-1 block text-xs font-medium text-slate-700">Segundo nombre</span><Input id="patient-middle-name" value={draft.middleName} onChange={(event) => onDraftChange('middleName', event.target.value)} className="h-11" /></label><label className="xl:col-span-2" htmlFor="patient-last-name"><span className="mb-1 block text-xs font-medium text-slate-700">Primer apellido</span><Input id="patient-last-name" value={draft.lastName} onChange={(event) => onDraftChange('lastName', event.target.value)} className="h-11" /></label><label className="xl:col-span-2" htmlFor="patient-second-last-name"><span className="mb-1 block text-xs font-medium text-slate-700">Segundo apellido</span><Input id="patient-second-last-name" value={draft.secondLastName} onChange={(event) => onDraftChange('secondLastName', event.target.value)} className="h-11" /></label><label className="xl:col-span-4" htmlFor="patient-direccion"><span className="mb-1 block text-xs font-medium text-slate-700">Dirección</span><Input id="patient-direccion" value={draft.direccion} onChange={(event) => onDraftChange('direccion', event.target.value)} autoComplete="street-address" className="h-11" /></label></div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12"><div className="xl:col-span-3"><label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="patient-eps">EPS</label><SearchableSelect id="patient-eps" value={draft.epsCode} options={options?.eps} onChange={(value) => onDraftChange('epsCode', value)} placeholder="Escribe EPS" /></div><div className="xl:col-span-3"><label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="patient-municipality">Municipio</label><SearchableSelect id="patient-municipality" value={draft.municipalityCode} options={municipalityOptions} onChange={(value) => onDraftChange('municipalityCode', value)} placeholder={draft.departmentCode ? 'Escribe municipio' : 'Selecciona departamento'} disabled={!draft.departmentCode || saving} /></div><label className="xl:col-span-2" htmlFor="patient-celular"><span className="mb-1 block text-xs font-medium text-slate-700">Celular</span><Input id="patient-celular" type="tel" value={draft.celular} onChange={(event) => onDraftChange('celular', event.target.value)} autoComplete="tel" className="h-11" /></label><label className="xl:col-span-2" htmlFor="patient-telefono"><span className="mb-1 block text-xs font-medium text-slate-700">Teléfono</span><Input id="patient-telefono" type="tel" value={draft.telefono} onChange={(event) => onDraftChange('telefono', event.target.value)} autoComplete="tel" className="h-11" /></label><label className="xl:col-span-2" htmlFor="patient-email"><span className="mb-1 block text-xs font-medium text-slate-700">Correo</span><Input id="patient-email" type="email" value={draft.email} onChange={(event) => onDraftChange('email', event.target.value)} autoComplete="email" className="h-11" aria-invalid={emailInvalid} /></label></div>
-    </fieldset>
-    {patient && canEdit ? <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between"><p className={`text-xs ${!validProfile ? 'text-red-700' : 'text-slate-500'}`}>{!validProfile ? 'Completa los campos obligatorios y verifica el correo.' : profileChanged ? 'Hay cambios pendientes por guardar.' : 'Edita cualquier campo para habilitar el guardado.'}</p><Button className="h-11 shrink-0" onClick={onSave} disabled={!profileChanged || !validProfile || saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</Button></div> : patient ? <p className="text-sm text-slate-500">No tienes permiso para editar los datos del paciente.</p> : <p className="text-sm text-slate-500">Busca un paciente para cargar y editar sus datos.</p>}
-  </CardContent></Card>;
+  const fieldDisabled = !patient || !canEdit || saving;
+  const selectClassName = 'h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500';
+  const labelClassName = 'mb-1 block text-xs font-medium text-slate-700';
+
+  return <div className="space-y-4">
+    <Card>
+      <CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4 text-sky-700" /> Datos de identificación, ubicación y contacto</CardTitle></CardHeader>
+      <CardContent className="space-y-3 p-4">
+        <form className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-12" onSubmit={submitSearch}>
+          <label className="xl:col-span-2" htmlFor="patient-document-type"><span className={labelClassName}>Tipo de documento</span><select id="patient-document-type" value={documentType} onChange={(event) => onDocumentTypeChange(event.target.value)} disabled={saving} className={selectClassName}><option value="">Sin especificar</option>{DOCUMENT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="xl:col-span-3" htmlFor="document-number"><span className={labelClassName}>Número de documento</span><div className="flex items-stretch rounded-md shadow-sm"><Input id="document-number" value={documentNumber} onChange={(event) => onDocumentNumberChange(event.target.value)} disabled={saving} inputMode="numeric" autoComplete="off" className="h-11 min-w-0 flex-1 rounded-r-none border-r-0 focus:z-10" /><Button type="submit" variant="outline" className="h-11 rounded-l-none border-slate-300 px-3 text-xs font-semibold" disabled={!documentNumber.trim() || searching || saving}><Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{searching ? 'Buscando…' : 'Buscar'}</span></Button></div></label>
+          <label className="xl:col-span-2" htmlFor="patient-birth-date"><span className={labelClassName}>Fecha de nacimiento</span><Input id="patient-birth-date" type="date" value={draft.birthDate} onChange={(event) => onDraftChange('birthDate', event.target.value)} disabled={fieldDisabled} className="h-11" /></label>
+          <label className="xl:col-span-1" htmlFor="patient-age"><span className={labelClassName}>Edad</span><Input id="patient-age" value={ageFromBirthDate(draft.birthDate)} readOnly disabled={!patient} className="h-11 bg-slate-50 text-slate-700" /></label>
+          <label className="xl:col-span-2" htmlFor="patient-sex"><span className={labelClassName}>Sexo</span><select id="patient-sex" value={draft.sex} onChange={(event) => onDraftChange('sex', event.target.value)} disabled={fieldDisabled} className={selectClassName}><option value="">Selecciona</option><option value="M">Masculino</option><option value="F">Femenino</option><option value="O">Otro</option></select></label>
+          <label className="xl:col-span-2" htmlFor="patient-category"><span className={labelClassName}>Categoría</span><select id="patient-category" value={draft.category} onChange={(event) => onDraftChange('category', event.target.value)} disabled={fieldDisabled} className={selectClassName}><option value="">Selecciona</option>{CATEGORIA_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        </form>
+        {notFound ? <p className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status" aria-live="polite" aria-atomic="true"><ShieldAlert className="h-4 w-4 shrink-0" />El paciente no existe. Debes crearlo antes de agendar una cita.</p> : null}
+        {ambiguousDocumentTypes.length ? <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900" role="status">El número existe con varios tipos de documento ({ambiguousDocumentTypes.join(', ')}). Selecciona uno y vuelve a buscar.</p> : null}
+        <fieldset className="space-y-3" disabled={fieldDisabled}><legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Datos básicos editables</legend>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <label className="xl:col-span-2" htmlFor="patient-first-name"><span className={labelClassName}>Primer nombre</span><Input id="patient-first-name" value={draft.firstName} onChange={(event) => onDraftChange('firstName', event.target.value)} className="h-11" /></label>
+            <label className="xl:col-span-2" htmlFor="patient-middle-name"><span className={labelClassName}>Segundo nombre</span><Input id="patient-middle-name" value={draft.middleName} onChange={(event) => onDraftChange('middleName', event.target.value)} className="h-11" /></label>
+            <label className="xl:col-span-2" htmlFor="patient-last-name"><span className={labelClassName}>Primer apellido</span><Input id="patient-last-name" value={draft.lastName} onChange={(event) => onDraftChange('lastName', event.target.value)} className="h-11" /></label>
+            <label className="xl:col-span-2" htmlFor="patient-second-last-name"><span className={labelClassName}>Segundo apellido</span><Input id="patient-second-last-name" value={draft.secondLastName} onChange={(event) => onDraftChange('secondLastName', event.target.value)} className="h-11" /></label>
+            <label className="xl:col-span-4" htmlFor="patient-direccion"><span className={labelClassName}>Dirección</span><Input id="patient-direccion" value={draft.direccion} onChange={(event) => onDraftChange('direccion', event.target.value)} autoComplete="street-address" className="h-11" /></label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <div className="xl:col-span-3"><label className={labelClassName} htmlFor="patient-department">Departamento</label><SearchableSelect id="patient-department" value={draft.departmentCode} options={options?.departments} onChange={(value) => { onDraftChange('departmentCode', value); const current = options?.municipalities.find((item) => item.value === draft.municipalityCode); if (current && current.departmentCode !== value) { onDraftChange('municipalityCode', ''); onDraftChange('neighborhood', ''); onDraftChange('institutionId', ''); setInstitutionSearch(''); } }} placeholder="Escribe departamento" disabled={fieldDisabled} /></div>
+            <div className="xl:col-span-3"><label className={labelClassName} htmlFor="patient-municipality">Municipio</label><SearchableSelect id="patient-municipality" value={draft.municipalityCode} options={municipalityOptions} onChange={(value) => { if (value !== draft.municipalityCode) { onDraftChange('neighborhood', ''); onDraftChange('institutionId', ''); setInstitutionSearch(''); } onDraftChange('municipalityCode', value); }} placeholder={draft.departmentCode ? 'Escribe municipio' : 'Selecciona departamento'} disabled={fieldDisabled || !draft.departmentCode} /></div>
+            <div className="xl:col-span-2"><label className={labelClassName} htmlFor="patient-neighborhood">Barrio / vereda</label><SearchableSelect id="patient-neighborhood" value={draft.neighborhood} options={neighborhoodOptions} onChange={(value) => onDraftChange('neighborhood', value)} placeholder={draft.municipalityCode ? 'Escribe barrio' : 'Selecciona municipio'} disabled={fieldDisabled || !draft.municipalityCode} /></div>
+            <label className="xl:col-span-1" htmlFor="patient-zone"><span className={labelClassName}>Zona</span><select id="patient-zone" value={draft.zone} onChange={(event) => onDraftChange('zone', event.target.value)} className={selectClassName}><option value="">Selecciona</option><option value="U">Urbana</option><option value="R">Rural</option></select></label>
+            <div className="xl:col-span-3"><label className={labelClassName} htmlFor="patient-country">País</label><SearchableSelect id="patient-country" value={draft.countryCode} options={options?.countries} onChange={(value) => onDraftChange('countryCode', value)} placeholder="Escribe país" disabled={fieldDisabled} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <div className="xl:col-span-4"><label className={labelClassName} htmlFor="patient-eps">Aseguradora (EPS)</label><SearchableSelect id="patient-eps" value={draft.epsCode} options={options?.eps} onChange={(value) => onDraftChange('epsCode', value)} placeholder="Escribe EPS" disabled={fieldDisabled} /></div>
+            <label className="xl:col-span-2" htmlFor="patient-celular"><span className={labelClassName}>Celular</span><Input id="patient-celular" type="tel" value={draft.celular} onChange={(event) => onDraftChange('celular', event.target.value)} autoComplete="tel" className="h-11" /></label>
+            <label className="xl:col-span-2" htmlFor="patient-telefono"><span className={labelClassName}>Teléfono</span><Input id="patient-telefono" type="tel" value={draft.telefono} onChange={(event) => onDraftChange('telefono', event.target.value)} autoComplete="tel" className="h-11" /></label>
+            <label className="xl:col-span-4" htmlFor="patient-email"><span className={labelClassName}>Correo</span><Input id="patient-email" type="email" value={draft.email} onChange={(event) => onDraftChange('email', event.target.value)} autoComplete="email" className="h-11" aria-invalid={emailInvalid} aria-describedby={emailInvalid ? 'patient-email-error' : undefined} />{emailInvalid ? <span id="patient-email-error" className="mt-1 block text-xs text-red-700" role="alert">Escribe un correo válido.</span> : null}</label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <div className="xl:col-span-6"><label className={labelClassName} htmlFor="patient-position">Cargo</label><SearchableSelect id="patient-position" value={draft.teacherPositionId} options={positionOptions} onSearch={setPositionSearch} minSearchLength={3} isLoading={positions.isFetching} onChange={(value) => onDraftChange('teacherPositionId', value)} placeholder="Escribe mínimo 3 letras" disabled={fieldDisabled} /></div>
+            <label className="xl:col-span-3" htmlFor="patient-education"><span className={labelClassName}>Escolaridad</span><select id="patient-education" value={draft.education} onChange={(event) => onDraftChange('education', event.target.value)} className={selectClassName}><option value="">Selecciona</option>{ESCOLARIDAD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="xl:col-span-3" htmlFor="patient-civil-status"><span className={labelClassName}>Estado civil</span><select id="patient-civil-status" value={draft.civilStatus} onChange={(event) => onDraftChange('civilStatus', event.target.value)} className={selectClassName}><option value="">Selecciona</option>{ESTADO_CIVIL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          </div>
+        </fieldset>
+      </CardContent>
+    </Card>
+
+    {isFideicomisos ? <Card>
+      <CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm"><BriefcaseBusiness className="h-4 w-4 text-sky-700" /> Datos laborales del docente</CardTitle></CardHeader>
+      <CardContent className="space-y-3 p-4">
+        <fieldset className="space-y-3" disabled={fieldDisabled}>
+          <legend className="sr-only">Información laboral editable</legend>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <label className="xl:col-span-2" htmlFor="patient-employment-start"><span className={labelClassName}>Fecha de vinculación</span><Input id="patient-employment-start" type="date" value={draft.employmentStartDate} onChange={(event) => onDraftChange('employmentStartDate', event.target.value)} className="h-11" /></label>
+            <div className="xl:col-span-4"><label className={labelClassName} htmlFor="patient-secretariat">Secretaría donde labora</label><SearchableSelect id="patient-secretariat" value={draft.secretariatId} options={options?.secretariats} onChange={(value) => { if (value !== draft.secretariatId) { onDraftChange('institutionId', ''); setInstitutionSearch(''); } onDraftChange('secretariatId', value); }} placeholder="Escribe secretaría" disabled={fieldDisabled} /></div>
+            <div className="xl:col-span-6"><label className={labelClassName} htmlFor="patient-institution">Institución donde labora</label><SearchableSelect id="patient-institution" value={draft.institutionId} options={institutionOptions} onSearch={setInstitutionSearch} minSearchLength={3} isLoading={institutions.isFetching} onChange={(value) => onDraftChange('institutionId', value)} placeholder={draft.secretariatId ? 'Escribe mínimo 3 letras' : 'Selecciona secretaría'} disabled={fieldDisabled || !draft.secretariatId} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <label className="xl:col-span-4" htmlFor="patient-employment-type"><span className={labelClassName}>Forma de vinculación</span><select id="patient-employment-type" value={draft.employmentType} onChange={(event) => onDraftChange('employmentType', event.target.value)} className={selectClassName}><option value="">Selecciona</option>{FORMA_VINCULACION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="xl:col-span-4" htmlFor="patient-salary-grade"><span className={labelClassName}>Grado de escalafón</span><Input id="patient-salary-grade" value={draft.salaryGrade} onChange={(event) => onDraftChange('salaryGrade', event.target.value)} maxLength={2} placeholder="Ej. 14 o 2A" className="h-11" /></label>
+            <label className="xl:col-span-4" htmlFor="patient-salary-level"><span className={labelClassName}>Nivel de escalafón</span><select id="patient-salary-level" value={draft.salaryLevel} onChange={(event) => onDraftChange('salaryLevel', event.target.value)} className={selectClassName}><option value="">Selecciona</option>{NIVEL_ESCALAFON_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          </div>
+        </fieldset>
+      </CardContent>
+    </Card> : null}
+
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      {patient && canEdit ? <><p className={`text-xs ${!validProfile ? 'text-red-700' : 'text-slate-500'}`}>{!validProfile ? 'Completa identificación, sexo, ubicación, EPS y verifica el correo.' : profileChanged ? 'Hay cambios pendientes por guardar.' : 'Edita cualquier campo para habilitar el guardado.'}</p><Button className="h-11 shrink-0" onClick={onSave} disabled={!profileChanged || !validProfile || saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</Button></> : patient ? <p className="text-sm text-slate-500">No tienes permiso para editar los datos del paciente.</p> : <p className="text-sm text-slate-500">Busca un paciente para cargar y editar sus datos.</p>}
+    </div>
+  </div>;
 }
 
 function AvailabilityCalendar({
@@ -210,9 +360,24 @@ export default function PatientReceptionPage() {
   const movementItems = movements.data?.pages.flatMap((page) => page.items) ?? [];
 
   const profileChanged = patient && (documentNumber !== patient.documentNumber || documentType !== patient.documentType || JSON.stringify(draft) !== JSON.stringify(patientDraft(patient)));
-  const validProfile = documentType.length === 2 && !!documentNumber.trim() && !!draft.firstName.trim() && !!draft.lastName.trim() && !!draft.sex && !!draft.epsCode && (!draft.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) && (!draft.birthDate || !!ageFromBirthDate(draft.birthDate));
+  const validProfile = documentType.length === 2 && !!documentNumber.trim() && !!draft.firstName.trim() && !!draft.lastName.trim() && !!draft.sex && !!draft.epsCode && !!draft.zone && !!draft.countryCode && (!draft.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) && (!draft.birthDate || !!ageFromBirthDate(draft.birthDate));
   const saveProfile = useMutation({
-    mutationFn: () => api<Patient>(`/api/reception/patients/${patient!.id}/profile`, { method: 'PATCH', body: JSON.stringify({ expectedProfileVersion: patient!.profileVersion, documentType, documentNumber, firstName: draft.firstName, middleName: draft.middleName || null, lastName: draft.lastName, secondLastName: draft.secondLastName || null, birthDate: draft.birthDate || null, sex: draft.sex, epsCode: draft.epsCode, departmentCode: draft.departmentCode || null, municipalityCode: draft.municipalityCode || null, celular: draft.celular || null, telefono: draft.telefono || null, email: draft.email || null, direccion: draft.direccion || null }) }),
+    mutationFn: () => api<Patient>(`/api/reception/patients/${patient!.id}/profile`, { method: 'PATCH', body: JSON.stringify({
+      expectedProfileVersion: patient!.profileVersion, documentType, documentNumber,
+      firstName: draft.firstName, middleName: draft.middleName || null,
+      lastName: draft.lastName, secondLastName: draft.secondLastName || null,
+      birthDate: draft.birthDate || null, sex: draft.sex, epsCode: draft.epsCode,
+      departmentCode: draft.departmentCode || null, municipalityCode: draft.municipalityCode || null,
+      neighborhood: draft.neighborhood || null, zone: draft.zone, countryCode: draft.countryCode,
+      category: draft.category || null, celular: draft.celular || null, telefono: draft.telefono || null,
+      email: draft.email || null, direccion: draft.direccion || null,
+      teacherPositionId: draft.teacherPositionId ? Number(draft.teacherPositionId) : null,
+      education: draft.education || null, employmentStartDate: draft.employmentStartDate || null,
+      secretariatId: draft.secretariatId ? Number(draft.secretariatId) : null,
+      institutionId: draft.institutionId ? Number(draft.institutionId) : null,
+      employmentType: draft.employmentType, civilStatus: draft.civilStatus || null,
+      salaryGrade: draft.salaryGrade, salaryLevel: draft.salaryLevel,
+    }) }),
     onSuccess: (updated) => { setPatient(updated); setDocumentNumber(updated.documentNumber); setDocumentType(updated.documentType); setDraft(patientDraft(updated)); toast.success('Datos del paciente guardados.'); },
     onError: (error: Error) => toast.error(error.message),
   });
