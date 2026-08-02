@@ -41,6 +41,11 @@ caracteres).
 
 ## Bitácora de refinamiento — 1 de agosto de 2026
 
+- Admisiones conserva dos submódulos independientes en la navegación: `Dictamen`
+  en `/admisiones/dictamenes`, que contiene el listado operativo existente, y
+  `Recepción de pacientes` en `/admisiones/recepcion-pacientes`. La entrada
+  `/admisiones` dirige al primer submódulo autorizado y prioriza Dictamen para
+  mantener el comportamiento anterior cuando el perfil posee ambos permisos.
 - Se reemplazó la pantalla inicial por un formulario compacto: la búsqueda por
   documento quedó integrada en la ficha y se eliminaron el hero y la barra de
   búsqueda independientes para aprovechar mejor el espacio vertical.

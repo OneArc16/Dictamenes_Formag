@@ -95,8 +95,15 @@ export const MODULE_DEFINITIONS = [
     iconKey: 'admisiones',
     routePrefixes: ['/admisiones'],
     requiredAbility: 'module.admisiones.access',
-    defaultSecondaryKey: 'patient-reception',
+    defaultSecondaryKey: 'admission-dictamen',
     secondaryNavigation: [
+      {
+        key: 'admission-dictamen',
+        label: 'Dictamen',
+        href: '/admisiones/dictamenes',
+        iconKey: 'dictamenes',
+        requiredAbility: 'dictamen.read',
+      },
       {
         key: 'patient-reception',
         label: 'Recepción de pacientes',

@@ -26,7 +26,7 @@ export default function AdmisionesVerHistoriaClinicaPage() {
   const { id } = useParams<{ id: string }>();
   const dictamenId = Number(id);
 
-  const backTo = '/admisiones';
+  const backTo = '/admisiones/dictamenes';
 
   const [dictamen, setDictamen] = useState<DictamenDetalle | null>(null);
   const [serverVersion, setServerVersion] = useState('');

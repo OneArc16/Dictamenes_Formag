@@ -1,10 +1,10 @@
 'use client';
 
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DayPicker } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
-import { BriefcaseBusiness, CalendarDays, Printer, Search, ShieldAlert, UserRound } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarX2, ChevronDown, CircleCheck, Clock3, History, ListFilter, Printer, Search, ShieldAlert, UserRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import { useCan } from '@/hooks/useCan';
 import {
   CATEGORIA_OPTIONS,
@@ -82,6 +83,29 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(value));
 }
+function formatTime(value: string) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-CO', { timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(value));
+}
+function enumLabel(value: string | null) {
+  if (!value) return 'Sin registro';
+  const normalized = value.replaceAll('_', ' ').toLocaleLowerCase('es-CO');
+  return normalized.charAt(0).toLocaleUpperCase('es-CO') + normalized.slice(1);
+}
+function movementEventLabel(value: string) {
+  const labels: Record<string, string> = {
+    CREADA: 'Cita creada',
+    ACTIVADA: 'Cita activada',
+    RECORDATORIO_GENERADO: 'Recordatorio generado',
+    CANCELADA: 'Cita cancelada',
+    REPROGRAMADA: 'Cita reprogramada',
+    ATENDIDA: 'Cita atendida',
+  };
+  return labels[value] ?? enumLabel(value);
+}
+function movementReason(metadata: Record<string, unknown> | null) {
+  return typeof metadata?.reasonLabel === 'string' ? metadata.reasonLabel : null;
+}
 function dateKey(date: Date) { return date.toISOString().slice(0, 10); }
 function futureWindow() { const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 61); return { start, end }; }
 function ageFromBirthDate(value: string) { if (!value) return ''; const birth = new Date(`${value}T00:00:00`); if (Number.isNaN(birth.getTime())) return ''; const today = new Date(); let age = today.getFullYear() - birth.getFullYear(); if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age -= 1; return age >= 0 ? `${age} años` : ''; }
@@ -114,6 +138,13 @@ const DOCUMENT_TYPES = [
   { value: 'TI', label: 'Tarjeta de identidad (TI)' },
   { value: 'CE', label: 'Cédula de extranjería (CE)' },
   { value: 'PA', label: 'Pasaporte (PA)' },
+];
+
+const HISTORY_STATE_OPTIONS = [
+  { value: 'ASIGNADA', label: 'Asignada', dotClassName: 'bg-blue-500' },
+  { value: 'ATENDIDA', label: 'Atendida', dotClassName: 'bg-emerald-500' },
+  { value: 'REPROGRAMADA', label: 'Reprogramada', dotClassName: 'bg-amber-500' },
+  { value: 'CANCELADA', label: 'Cancelada', dotClassName: 'bg-rose-500' },
 ];
 
 function PatientDataForm({
@@ -277,22 +308,146 @@ function AvailabilityCalendar({
   availableDates,
   range,
   onSelect,
+  isLoading,
 }: {
   selected: Date | undefined;
   availableDates: string[];
   range: { start: Date; end: Date };
   onSelect: (date: Date | undefined) => void;
+  isLoading?: boolean;
 }) {
   const available = useMemo(() => new Set(availableDates), [availableDates]);
-  const calendar = (months: number) => <DayPicker className="date-range-day-picker" mode="single" locale={es} selected={selected} onSelect={onSelect} numberOfMonths={months} disabled={[{ before: range.start, after: range.end }, (date) => !available.has(dateKey(date))]} modifiers={{ available: (date) => available.has(dateKey(date)) }} modifiersClassNames={{ available: 'bg-emerald-100 font-semibold text-emerald-950' }} aria-label="Calendario de disponibilidad de los próximos dos meses" />;
+  const selectedLabel = selected
+    ? new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(selected)
+    : null;
+  const calendar = (months: number) => <DayPicker
+    className="appointment-date-picker"
+    mode="single"
+    locale={es}
+    selected={selected}
+    onSelect={onSelect}
+    numberOfMonths={months}
+    fixedWeeks
+    showOutsideDays
+    disabled={[{ before: range.start, after: range.end }, (date) => !available.has(dateKey(date))]}
+    modifiers={{ available: (date) => available.has(dateKey(date)) }}
+    modifiersClassNames={{ available: 'appointment-day-available' }}
+    aria-label="Calendario de disponibilidad de los próximos dos meses"
+  />;
 
-  return <div className="rounded-lg border border-slate-200 bg-white p-2"><div className="md:hidden">{calendar(1)}</div><div className="hidden md:block">{calendar(2)}</div></div>;
+  return <section className="appointment-calendar" aria-label="Selector de fecha de cita">
+    <header className="appointment-calendar__header">
+      <div>
+        <p className="appointment-calendar__eyebrow">Disponibilidad</p>
+        <h3>Elige una fecha disponible</h3>
+      </div>
+      <div className="appointment-calendar__availability" aria-live="polite">
+        <CircleCheck aria-hidden="true" />
+        <span>{isLoading ? 'Consultando cupos…' : `${available.size} fecha${available.size === 1 ? '' : 's'} con cupo`}</span>
+      </div>
+    </header>
+    {selectedLabel ? <div className="appointment-calendar__selection" aria-live="polite"><span>Fecha elegida</span><strong>{selectedLabel}</strong></div> : null}
+    <div className="appointment-calendar__body">
+      <div className="md:hidden">{calendar(1)}</div>
+      <div className="hidden md:block">{calendar(2)}</div>
+    </div>
+    <footer className="appointment-calendar__legend" aria-label="Leyenda de disponibilidad">
+      <span><i className="appointment-calendar__dot" aria-hidden="true" />Disponible</span>
+      <span><i className="appointment-calendar__selected-sample" aria-hidden="true" />Seleccionada</span>
+    </footer>
+  </section>;
+}
+
+function AppointmentDateSummary({ selected }: { selected?: Date }) {
+  const selectedLabel = selected
+    ? new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(selected)
+    : null;
+
+  return <div className={`appointment-date-summary${selected ? ' is-selected' : ''}`} aria-live="polite">
+    <span className="appointment-date-summary__icon"><CalendarDays aria-hidden="true" /></span>
+    <div className="appointment-date-summary__copy">
+      <span>Fecha de cita</span>
+      <strong>{selectedLabel ?? 'Sin fecha seleccionada'}</strong>
+      {!selectedLabel ? <p>Elige una fecha disponible en el calendario para continuar.</p> : null}
+    </div>
+    <span className="appointment-date-summary__status"><i aria-hidden="true" />{selected ? 'Fecha seleccionada' : 'Pendiente'}</span>
+  </div>;
+}
+
+function AppointmentIconAction({
+  id,
+  label,
+  icon,
+  onClick,
+  disabled,
+  tone = 'default',
+}: {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: 'default' | 'primary' | 'success' | 'danger';
+}) {
+  return <Tooltip id={id} label={label}>
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className={`appointment-icon-action is-${tone}`}
+      aria-label={label}
+      aria-describedby={id}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {icon}
+    </Button>
+  </Tooltip>;
+}
+
+function HistoryStateFilter({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) {
+  const selectedLabels = HISTORY_STATE_OPTIONS.filter((option) => values.includes(option.value)).map((option) => option.label);
+  const filterLabel = selectedLabels.length ? selectedLabels.join(', ') : 'Todos los estados';
+
+  return <div className="history-state-filter">
+    <span id="history-filter-label" className="history-state-filter__label">Filtrar por estado</span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" className="history-state-filter__trigger" aria-labelledby="history-filter-label" aria-describedby="history-filter-summary">
+          <ListFilter aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-left">{filterLabel}</span>
+          {values.length ? <span className="history-state-filter__count" aria-hidden="true">{values.length}</span> : null}
+          <ChevronDown className="history-state-filter__chevron" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="z-50 w-72 rounded-xl border-slate-200 bg-white p-2 text-slate-900 shadow-[0_18px_48px_rgba(15,23,42,0.18)]" align="end" sideOffset={8}>
+        <DropdownMenuLabel className="px-2 pb-2 pt-1">
+          <span className="block text-sm font-semibold text-slate-900">Estados de la cita</span>
+          <span className="mt-0.5 block text-xs font-normal text-slate-500">Puedes seleccionar varios estados.</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="mb-1 bg-slate-200" />
+        {HISTORY_STATE_OPTIONS.map((option) => <DropdownMenuCheckboxItem
+          key={option.value}
+          checked={values.includes(option.value)}
+          className="min-h-10 cursor-pointer rounded-lg pl-8 pr-3 text-sm text-slate-700 focus:bg-sky-50 focus:text-sky-900 data-[state=checked]:bg-sky-50 data-[state=checked]:font-semibold"
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={() => onChange(values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value])}
+        >
+          <span className={`mr-2 h-2 w-2 shrink-0 rounded-full ${option.dotClassName}`} aria-hidden="true" />
+          {option.label}
+        </DropdownMenuCheckboxItem>)}
+        <DropdownMenuSeparator className="mt-1 bg-slate-200" />
+        <DropdownMenuItem className="min-h-10 cursor-pointer rounded-lg px-2 text-sm text-slate-600 focus:bg-slate-100 focus:text-slate-900" disabled={!values.length} onSelect={(event) => { event.preventDefault(); onChange([]); }}><X aria-hidden="true" />Limpiar filtros</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <span id="history-filter-summary" className="sr-only" aria-live="polite">{filterLabel}</span>
+  </div>;
 }
 
 function InitialReceptionLayout() {
   return <section className="space-y-4" aria-label="Formulario de asignación de cita">
     <Card><CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-sky-700" /> Asignar cita</CardTitle></CardHeader><CardContent className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4"><label><span className="mb-1 block text-xs font-medium text-slate-700">Sede de atención</span><select disabled className="h-11 w-full rounded-md border border-slate-300 bg-slate-100 px-3 text-sm text-slate-500"><option>Selecciona un paciente</option></select></label><label><span className="mb-1 block text-xs font-medium text-slate-700">Especialidad</span><select disabled className="h-11 w-full rounded-md border border-slate-300 bg-slate-100 px-3 text-sm text-slate-500"><option>Selecciona un paciente</option></select></label><label><span className="mb-1 block text-xs font-medium text-slate-700">Médico</span><select disabled className="h-11 w-full rounded-md border border-slate-300 bg-slate-100 px-3 text-sm text-slate-500"><option>Selecciona una fecha</option></select></label><label><span className="mb-1 block text-xs font-medium text-slate-700">Modalidad</span><select disabled className="h-11 w-full rounded-md border border-slate-300 bg-slate-100 px-3 text-sm text-slate-500"><option>Selecciona un paciente</option></select></label><p className="text-xs text-slate-500 sm:col-span-2 xl:col-span-4">Busca un paciente para habilitar especialidad, calendario de dos meses y disponibilidad.</p></CardContent></Card>
-    <div className="flex min-h-12 items-center justify-center rounded-lg bg-slate-700 px-4 text-center text-sm font-medium text-white shadow-sm" aria-live="polite">Fecha de cita: No hay fecha seleccionada</div>
+    <AppointmentDateSummary />
     <Card><CardContent className="flex min-h-28 items-center justify-center p-4 text-center text-sm text-slate-600"><span>El historial de citas aparecerá aquí al consultar un paciente.</span></CardContent></Card>
   </section>;
 }
@@ -321,7 +476,6 @@ export default function PatientReceptionPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [historyStates, setHistoryStates] = useState<string[]>([]);
-  const [historyStateSearch, setHistoryStateSearch] = useState('');
   const range = useMemo(() => futureWindow(), []);
 
   const context = useQuery({ queryKey: ['reception-context'], queryFn: () => api<Context>('/api/reception/context') });
@@ -402,30 +556,87 @@ export default function PatientReceptionPage() {
   const resetForSite = (value: number) => { setSiteId(value); setSpecialtyId(null); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); };
   const selectSpecialty = (value: number) => { setSpecialtyId(value); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); };
   const canBook = !!patient && !!effectiveSiteId && !!specialtyId && !!selectedDate && !!doctorId && !!slotId && (!!rescheduling ? !!rescheduleReason : !!modalityId);
-  const historyStateOptions = [{ value: 'ASIGNADA', label: 'Asignada' }, { value: 'ATENDIDA', label: 'Atendida' }, { value: 'REPROGRAMADA', label: 'Reprogramada' }, { value: 'CANCELADA', label: 'Cancelada' }];
-  const visibleHistoryStateOptions = historyStateOptions.filter((state) => state.label.toLocaleLowerCase('es-CO').includes(historyStateSearch.trim().toLocaleLowerCase('es-CO')));
-  const historyFilterLabel = historyStates.length ? `${historyStates.length} estado${historyStates.length === 1 ? '' : 's'} seleccionado${historyStates.length === 1 ? '' : 's'}` : 'Todos los estados';
-
   return <ModulePageLayout moduleKey="admisiones" minimalHero>
     <PatientDataForm patient={patient} documentNumber={documentNumber} documentType={documentType} draft={draft} options={profileOptions.data} canEdit={canEditPatient} profileChanged={!!profileChanged} validProfile={validProfile} searching={search.isPending} saving={saveProfile.isPending} notFound={notFound} ambiguousDocumentTypes={ambiguousDocumentTypes} onDocumentNumberChange={(value) => { setDocumentNumber(value); setNotFound(false); setAmbiguousDocumentTypes([]); }} onDocumentTypeChange={(value) => { setDocumentType(value); setNotFound(false); }} onDraftChange={(field, value) => setDraft((current) => ({ ...current, [field]: value }))} onSearch={() => { setNotFound(false); void search.mutateAsync(); }} onSave={() => saveProfile.mutate()} />
 
     {patient ? <div className="grid gap-4 [&>div:first-child]:contents [&>div:first-child>div:nth-child(1)]:order-2 [&>div:first-child>div:nth-child(2)]:order-3 [&>div:nth-child(2)]:order-1">
       <div className="space-y-4">
-      <div className="flex min-h-16 items-center justify-center rounded-lg bg-slate-700 px-4 text-center text-sm font-medium text-white shadow-sm" aria-live="polite">Fecha de cita: {selectedDate ? new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(selectedDate) : 'No hay fecha seleccionada'}</div>
-      <Card><CardHeader><CardTitle className="text-base">Historial de citas</CardTitle></CardHeader><CardContent><div className="mb-4"><span id="history-filter-label" className="mb-1 block text-xs font-medium text-slate-600">Filtrar estados</span><DropdownMenu onOpenChange={(open) => { if (!open) setHistoryStateSearch(''); }}><DropdownMenuTrigger asChild><Button type="button" variant="outline" className="min-h-11 w-full justify-between sm:w-auto" aria-labelledby="history-filter-label" aria-describedby="history-filter-summary">{historyFilterLabel}<span aria-hidden="true">▾</span></Button></DropdownMenuTrigger><DropdownMenuContent className="w-64 p-2" align="start"><DropdownMenuLabel>Estados de cita</DropdownMenuLabel><label className="sr-only" htmlFor="history-state-search">Buscar estado</label><Input id="history-state-search" value={historyStateSearch} onChange={(event) => setHistoryStateSearch(event.target.value)} onKeyDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()} placeholder="Buscar estado" className="mb-2 h-10" autoComplete="off" />{visibleHistoryStateOptions.length ? visibleHistoryStateOptions.map((state) => <DropdownMenuCheckboxItem key={state.value} checked={historyStates.includes(state.value)} onSelect={(event) => event.preventDefault()} onCheckedChange={() => setHistoryStates((current) => current.includes(state.value) ? current.filter((item) => item !== state.value) : [...current, state.value])}>{state.label}</DropdownMenuCheckboxItem>) : <p className="px-2 py-3 text-sm text-slate-500">No hay estados coincidentes.</p>}<DropdownMenuSeparator /> <DropdownMenuItem disabled={!historyStates.length} onSelect={(event) => { event.preventDefault(); setHistoryStates([]); }}>Limpiar filtros</DropdownMenuItem></DropdownMenuContent></DropdownMenu><p id="history-filter-summary" className="mt-1 text-xs text-slate-500" aria-live="polite">{historyFilterLabel}</p></div>{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium">{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><Button className="mt-2" size="sm" variant="ghost" onClick={() => setMovementAppointment(item)}>Ver movimientos</Button>{item.estado === 'ASIGNADA' ? <div className="mt-3 flex flex-wrap items-end gap-2"><Button size="sm" variant="outline" onClick={() => act.mutate({ id: item.id, version: item.lockVersion, action: 'activate' })} disabled={!!item.activadaAt || act.isPending}>{item.activadaAt ? 'Activada' : 'Activar'}</Button><Button size="sm" variant="outline" onClick={() => { setRescheduling(item); setRescheduleReason(''); selectSpecialty(item.especialidadId); }}>Reprogramar</Button>{canPrintReminder ? <Button size="sm" variant="outline" onClick={() => reminder.mutate({ appointmentId: item.id, target: window.open('', '_blank', 'noopener') })} disabled={reminder.isPending}><Printer aria-hidden="true" />{reminder.isPending ? 'Generando…' : 'Imprimir'}</Button> : null}<Button size="sm" variant="destructive" onClick={() => { setCancelReason(''); setCancelling(item); }} disabled={act.isPending}>Cancelar</Button></div> : null}</article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent></Card></div>
+      <AppointmentDateSummary selected={selectedDate} />
+      <Card className="overflow-visible border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700"><History className="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+              <CardTitle className="text-base text-slate-900">Historial de citas</CardTitle>
+              <p className="mt-1 text-xs text-slate-500">Consulta y administra las citas del paciente.</p>
+            </div>
+          </div>
+          <HistoryStateFilter values={historyStates} onChange={setHistoryStates} />
+        </CardHeader>
+        <CardContent className="p-4">{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium">{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><div className="appointment-card-actions" role="group" aria-label={`Acciones de la cita de ${item.especialidadNombre}`}>
+          <AppointmentIconAction id={`appointment-${item.id}-movements`} label="Ver movimientos" icon={<History aria-hidden="true" />} onClick={() => setMovementAppointment(item)} />
+          {item.estado === 'ASIGNADA' ? <>
+            <AppointmentIconAction id={`appointment-${item.id}-activate`} label={item.activadaAt ? 'Cita activada' : 'Activar cita'} tone="success" icon={<CircleCheck aria-hidden="true" />} disabled={!!item.activadaAt || act.isPending} onClick={() => act.mutate({ id: item.id, version: item.lockVersion, action: 'activate' })} />
+            <AppointmentIconAction id={`appointment-${item.id}-reschedule`} label="Reprogramar cita" tone="primary" icon={<CalendarClock aria-hidden="true" />} onClick={() => { setRescheduling(item); setRescheduleReason(''); selectSpecialty(item.especialidadId); }} />
+            {canPrintReminder ? <AppointmentIconAction id={`appointment-${item.id}-print`} label={reminder.isPending ? 'Generando recordatorio' : 'Imprimir recordatorio'} icon={<Printer aria-hidden="true" />} disabled={reminder.isPending} onClick={() => reminder.mutate({ appointmentId: item.id, target: window.open('', '_blank', 'noopener') })} /> : null}
+            <AppointmentIconAction id={`appointment-${item.id}-cancel`} label="Cancelar cita" tone="danger" icon={<CalendarX2 aria-hidden="true" />} disabled={act.isPending} onClick={() => { setCancelReason(''); setCancelling(item); }} />
+          </> : null}
+        </div></article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent>
+      </Card>
+      </div>
       <Card className="h-fit"><CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-sky-700" /> {rescheduling ? 'Reprogramar cita' : 'Asignar cita'}</CardTitle></CardHeader><CardContent className="grid items-start gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
         {rescheduling ? <><div className="flex items-center justify-between rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 sm:col-span-2 xl:col-span-4"><span>Elige un nuevo cupo para {rescheduling.especialidadNombre}.</span><Button size="sm" variant="ghost" onClick={() => { setRescheduling(null); setRescheduleReason(''); }}>Cancelar</Button></div><label className="block text-sm font-medium" htmlFor="reschedule-reason">Motivo de reprogramación<select id="reschedule-reason" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3" value={rescheduleReason} onChange={(event) => setRescheduleReason(event.target.value)} required><option value="">Selecciona el motivo</option>{rescheduleReasons.data?.map((reason) => <option key={reason.codigo} value={reason.codigo}>{reason.nombre}</option>)}</select></label></> : null}
         <label className="block text-sm font-medium">Sede de atención<select className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3" value={effectiveSiteId ?? ''} disabled={!context.data?.canSelectSite} onChange={(event) => resetForSite(Number(event.target.value))}><option value="">Selecciona una sede</option>{context.data?.sites.map((site) => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select></label>
         <label className="block text-sm font-medium">Especialidad<select className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3" value={specialtyId ?? ''} disabled={!effectiveSiteId || specialties.isLoading} onChange={(event) => selectSpecialty(Number(event.target.value))}><option value="">Selecciona una especialidad</option>{specialties.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
-        <div className="sm:col-span-2 xl:col-span-2 xl:row-span-4"><div className="mb-2 flex flex-wrap items-end justify-between gap-2"><div><span className="block text-sm font-medium">Fecha de cita</span><p className="text-xs text-slate-500">Disponibilidad de los próximos dos meses</p></div><span className="inline-flex items-center gap-1.5 text-xs text-emerald-800"><span className="h-2 w-2 rounded-full bg-emerald-600" />Tiene cupos</span></div>{specialtyId ? <AvailabilityCalendar selected={selectedDate} availableDates={dates.data ?? []} range={range} onSelect={(date) => { setSelectedDate(date); setDoctorId(null); setSlotId(null); }} /> : <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Selecciona una especialidad para consultar las fechas disponibles.</p>}</div>
+        <div className="sm:col-span-2 xl:col-span-2 xl:row-span-4">{specialtyId ? <AvailabilityCalendar selected={selectedDate} availableDates={dates.data ?? []} range={range} isLoading={dates.isLoading} onSelect={(date) => { setSelectedDate(date); setDoctorId(null); setSlotId(null); }} /> : <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600"><p className="font-medium text-slate-800">Fecha de cita</p><p className="mt-1">Selecciona una especialidad para consultar las fechas disponibles.</p></div>}</div>
         <label className="block text-sm font-medium">Médico<select className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3" value={doctorId ?? ''} disabled={!selectedDateKey} onChange={(event) => { setDoctorId(Number(event.target.value)); setSlotId(null); }}><option value="">Selecciona un médico</option>{doctors.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <fieldset disabled={!doctorId}><legend className="mb-1 text-sm font-medium">Hora disponible</legend><div className="flex min-h-11 flex-wrap items-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-2 py-1">{slots.data?.length ? slots.data.map((slot) => <Button key={slot.id} type="button" size="sm" variant={slotId === slot.id ? 'default' : 'outline'} onClick={() => setSlotId(slot.id)}>{new Intl.DateTimeFormat('es-CO', { timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(slot.inicio))}</Button>) : <span className="text-sm text-slate-500">Selecciona un médico.</span>}</div></fieldset>
+        <fieldset className="appointment-time-slots" disabled={!doctorId}>
+          <legend className="sr-only">Hora disponible</legend>
+          <div className="appointment-time-slots__header">
+            <div>
+              <span className="appointment-time-slots__eyebrow"><Clock3 aria-hidden="true" /> Horarios disponibles</span>
+              <p>Elige la hora que mejor se ajuste a la atención.</p>
+            </div>
+            <div className="appointment-time-slots__selection" aria-live="polite">
+              {slotId && slots.data ? <><CircleCheck aria-hidden="true" /><span>Hora elegida</span><strong>{formatTime(slots.data.find((slot) => slot.id === slotId)?.inicio ?? '')}</strong></> : <span>Elige una hora</span>}
+            </div>
+          </div>
+          <div className="appointment-time-slots__grid" aria-live="polite">
+            {slots.isLoading ? <p className="appointment-time-slots__empty">Consultando horarios disponibles…</p> : slots.data?.length ? slots.data.map((slot) => {
+              const selectedSlot = slotId === slot.id;
+              return <button key={slot.id} type="button" className={`appointment-time-slot${selectedSlot ? ' is-selected' : ''}`} aria-pressed={selectedSlot} onClick={() => setSlotId(slot.id)}><strong>{formatTime(slot.inicio)}</strong><span>{selectedSlot ? 'Hora elegida' : 'Disponible'}</span></button>;
+            }) : <p className="appointment-time-slots__empty">Selecciona un médico para consultar sus horarios.</p>}
+          </div>
+        </fieldset>
         {!rescheduling ? <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2 xl:col-span-2"><label className="block text-sm font-medium">Medio<select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3" value={medium} onChange={(event) => setMedium(event.target.value)}><option value="PRESENCIAL">Presencial</option><option value="TELEFONO">Teléfono</option><option value="CORREO">Correo</option><option value="WHATSAPP">WhatsApp</option></select></label><label className="block text-sm font-medium">Modalidad<select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3" value={modalityId ?? ''} onChange={(event) => setModalityId(Number(event.target.value))}><option value="">Selecciona</option>{modalities.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div> : null}
         <Button className="h-11 sm:col-span-2 xl:col-span-2" disabled={!canBook || book.isPending} onClick={() => rescheduling ? setRescheduleConfirmationOpen(true) : book.mutate()}>{book.isPending ? 'Guardando…' : rescheduling ? 'Continuar con la reprogramación' : 'Agendar cita'}</Button><p className="sr-only" aria-live="polite">{book.isSuccess ? (rescheduling ? 'Cita reprogramada correctamente.' : 'Cita agendada correctamente.') : ''}</p>
       </CardContent></Card>
     </div> : <InitialReceptionLayout />}
     <AlertDialog open={!!cancelling} onOpenChange={(open) => { if (!open && !act.isPending) { setCancelling(null); setCancelReason(''); } }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancelar cita</AlertDialogTitle><AlertDialogDescription>El cupo volverá a estar disponible. Selecciona el motivo institucional antes de confirmar.</AlertDialogDescription></AlertDialogHeader><label className="grid gap-1 text-sm font-medium text-slate-800" htmlFor="cancel-reason">Motivo de cancelación<select id="cancel-reason" className="h-11 rounded-md border border-slate-300 bg-white px-3" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} autoFocus><option value="">Selecciona el motivo</option>{cancelReasons.data?.map((reason) => <option key={reason.codigo} value={reason.codigo}>{reason.nombre}</option>)}</select></label><AlertDialogFooter><AlertDialogCancel disabled={act.isPending}>Volver</AlertDialogCancel><AlertDialogAction className="bg-red-600 hover:bg-red-700" disabled={!cancelReason || act.isPending} onClick={(event) => { event.preventDefault(); if (cancelling) act.mutate({ id: cancelling.id, version: cancelling.lockVersion, action: 'cancel' }, { onSuccess: () => setCancelling(null) }); }}> {act.isPending ? 'Cancelando…' : 'Confirmar cancelación'} </AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <AlertDialog open={rescheduleConfirmationOpen} onOpenChange={(open) => { if (!open && !book.isPending) setRescheduleConfirmationOpen(false); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Confirmar reprogramación</AlertDialogTitle><AlertDialogDescription>La cita actual quedará reprogramada y se asignará el nuevo cupo seleccionado.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={book.isPending}>Volver</AlertDialogCancel><AlertDialogAction disabled={book.isPending} onClick={(event) => { event.preventDefault(); book.mutate(undefined, { onSuccess: () => setRescheduleConfirmationOpen(false) }); }}>{book.isPending ? 'Reprogramando…' : 'Confirmar reprogramación'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <Dialog open={!!movementAppointment} onOpenChange={(open) => { if (!open) setMovementAppointment(null); }}><DialogContent className="max-h-[80dvh] overflow-y-auto"><DialogHeader><DialogTitle>Movimientos de la cita</DialogTitle><DialogDescription>{movementAppointment ? `${movementAppointment.especialidadNombre} · ${formatDateTime(movementAppointment.inicioProgramado)}` : 'Trazabilidad operativa de la cita.'}</DialogDescription></DialogHeader>{movements.isLoading ? <p className="text-sm text-slate-500">Cargando movimientos…</p> : movements.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar los movimientos.</p><Button size="sm" variant="outline" onClick={() => movements.refetch()}>Reintentar</Button></div> : movementItems.length ? <ol className="space-y-3" aria-label="Movimientos de la cita">{movementItems.map((movement) => <li key={movement.id} className="rounded-lg border border-slate-200 p-3"><p className="text-sm font-semibold text-slate-900">{movement.tipoEvento}</p><p className="mt-1 text-xs text-slate-600">{formatDateTime(movement.createdAt)}</p>{movement.estadoAnterior || movement.estadoNuevo ? <p className="mt-1 text-xs text-slate-600">Estado: {movement.estadoAnterior ?? '—'} → {movement.estadoNuevo ?? '—'}</p> : null}{movement.estadoCupoAnterior || movement.estadoCupoNuevo ? <p className="text-xs text-slate-600">Cupo: {movement.estadoCupoAnterior ?? '—'} → {movement.estadoCupoNuevo ?? '—'}</p> : null}</li>)}</ol> : <p className="text-sm text-slate-500">Esta cita todavía no tiene movimientos.</p>}{movements.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => movements.fetchNextPage()} disabled={movements.isFetchingNextPage}>{movements.isFetchingNextPage ? 'Cargando…' : 'Cargar más movimientos'}</Button> : null}<DialogFooter><Button variant="outline" onClick={() => setMovementAppointment(null)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={!!movementAppointment} onOpenChange={(open) => { if (!open) setMovementAppointment(null); }}>
+      <DialogContent className="appointment-movements-dialog max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden border-slate-200 bg-white p-0 text-slate-950 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <DialogHeader className="appointment-movements-dialog__header">
+          <span className="appointment-movements-dialog__icon"><History aria-hidden="true" /></span>
+          <div>
+            <DialogTitle className="text-left text-lg text-slate-950">Movimientos de la cita</DialogTitle>
+            <DialogDescription className="mt-1 text-left text-sm text-slate-600">{movementAppointment ? `${movementAppointment.especialidadNombre} · ${formatDateTime(movementAppointment.inicioProgramado)}` : 'Trazabilidad operativa de la cita.'}</DialogDescription>
+          </div>
+        </DialogHeader>
+        <div className="appointment-movements-dialog__body">
+          {movements.isLoading ? <div className="appointment-movements-dialog__message" aria-live="polite"><span className="appointment-movements-dialog__loader" aria-hidden="true" />Consultando movimientos…</div> : movements.isError ? <div className="appointment-movements-dialog__error" role="alert"><p>No fue posible cargar los movimientos.</p><Button size="sm" variant="outline" className="mt-3" onClick={() => movements.refetch()}>Reintentar</Button></div> : movementItems.length ? <ol className="appointment-movement-timeline" aria-label="Movimientos de la cita">{movementItems.map((movement) => <li key={movement.id} className={`appointment-movement-timeline__item is-${movement.tipoEvento.toLocaleLowerCase('es-CO')}`}>
+            <span className="appointment-movement-timeline__marker" aria-hidden="true"><span /></span>
+            <article className="appointment-movement-card">
+              <header><strong>{movementEventLabel(movement.tipoEvento)}</strong><time dateTime={movement.createdAt}>{formatDateTime(movement.createdAt)}</time></header>
+              {movement.estadoAnterior || movement.estadoNuevo ? <div className="appointment-movement-card__transition"><span>Estado de la cita</span><div><strong>{enumLabel(movement.estadoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoNuevo)}</strong></div></div> : null}
+              {movement.estadoCupoAnterior || movement.estadoCupoNuevo ? <div className="appointment-movement-card__transition"><span>Estado del cupo</span><div><strong>{enumLabel(movement.estadoCupoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoCupoNuevo)}</strong></div></div> : null}
+              {movementReason(movement.metadata) ? <p className="appointment-movement-card__reason"><span>Motivo:</span> {movementReason(movement.metadata)}</p> : null}
+            </article>
+          </li>)}</ol> : <div className="appointment-movements-dialog__message">Esta cita todavía no tiene movimientos registrados.</div>}
+          {movements.hasNextPage ? <Button className="mt-4 w-full" variant="outline" onClick={() => movements.fetchNextPage()} disabled={movements.isFetchingNextPage}>{movements.isFetchingNextPage ? 'Cargando…' : 'Cargar más movimientos'}</Button> : null}
+        </div>
+        <DialogFooter className="appointment-movements-dialog__footer"><Button variant="outline" className="h-11 min-w-24 border-slate-300 bg-white text-slate-700 hover:bg-slate-100" onClick={() => setMovementAppointment(null)}>Cerrar</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   </ModulePageLayout>;
 }

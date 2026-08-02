@@ -223,6 +223,81 @@ test('mantiene la ruta canónica cuando el landing está autorizado', () => {
   );
 });
 
+test('Admisiones expone Dictamen y Recepción como submódulos independientes', () => {
+  const admisiones = getModuleByKey('admisiones');
+  assert.ok(admisiones);
+
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(admisiones, {
+      permissions: ['dictamen.read', 'reception.read'],
+    }).map((item) => item.key),
+    ['admission-dictamen', 'patient-reception'],
+  );
+  assert.deepEqual(
+    getVisibleSecondaryNavigation(admisiones, {
+      permissions: ['reception.read'],
+    }).map((item) => item.key),
+    ['patient-reception'],
+  );
+});
+
+test('Admisiones entra a Dictamen por defecto y respeta el acceso solo a Recepción', () => {
+  const admisiones = getModuleByKey('admisiones');
+  assert.ok(admisiones);
+
+  assert.equal(
+    getModuleEntryPath(admisiones, {
+      permissions: ['dictamen.read', 'reception.read'],
+    }),
+    '/admisiones/dictamenes',
+  );
+  assert.equal(
+    getModuleEntryPath(admisiones, {
+      permissions: ['reception.read'],
+    }),
+    '/admisiones/recepcion-pacientes',
+  );
+});
+
+test('marca el submódulo activo correcto dentro de Admisiones', () => {
+  const admisiones = getModuleByKey('admisiones');
+  assert.ok(admisiones);
+
+  const dictamen = admisiones.secondaryNavigation.find(
+    (item) => item.key === 'admission-dictamen',
+  );
+  const recepcion = admisiones.secondaryNavigation.find(
+    (item) => item.key === 'patient-reception',
+  );
+  assert.ok(dictamen);
+  assert.ok(recepcion);
+
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/admisiones/dictamenes/42',
+      dictamen,
+      admisiones,
+    ),
+    true,
+  );
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/admisiones/dictamenes/42',
+      recepcion,
+      admisiones,
+    ),
+    false,
+  );
+  assert.equal(
+    isSecondaryNavigationActive(
+      '/admisiones/recepcion-pacientes',
+      recepcion,
+      admisiones,
+    ),
+    true,
+  );
+});
+
 test('Agenda Médica usa permisos explícitos para módulo y accesos secundarios', () => {
   const agenda = getModuleByKey('agenda');
   assert.ok(agenda);
