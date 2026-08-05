@@ -13,6 +13,7 @@ import {
   AgendaRequestError,
   agendaRequest,
 } from '@/features/agenda/presentation/api-client';
+import { createUuidV4 } from '@/lib/browser/create-uuid';
 import { buildAgendaCreationPayload } from './agenda-creation-payload';
 import {
   agendaCreationReducer,
@@ -52,7 +53,7 @@ export function useAgendaCreationController(context: ReadyContext) {
         type: 'previewSucceeded',
         revision: variables.revision,
         preview,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: createUuidV4(),
       });
     },
     onError: (error, variables) => {

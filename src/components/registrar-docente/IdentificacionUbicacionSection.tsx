@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 
 import {
   CATEGORIA_OPTIONS,
+  ESTADO_CIVIL_OPTIONS,
+  ESCOLARIDAD_OPTIONS,
   SEXO_OPTIONS,
   TIPO_DOCUMENTO_OPTIONS,
   ZONA_OPTIONS,
@@ -69,195 +71,248 @@ export function IdentificacionUbicacionSection({
 
   return (
     <FormSection title="Datos de identificación y ubicación">
-      <div className="grid gap-4 md:grid-cols-12">
-        <div className="md:col-span-3">
-          <Field label="Tipo de documento">
-            <SelectInput
-              name="tipoDocumento"
-              value={form.tipoDocumento}
-              onChange={onFieldChange}
-              options={TIPO_DOCUMENTO_OPTIONS}
-              placeholder="Seleccione"
-              className="h-10"
-            />
-          </Field>
-        </div>
-
-        <div className="md:col-span-4">
-          <Field label="Número de documento">
-            <div className="flex items-stretch rounded-md shadow-sm">
-              <TextInput
-                name="numeroDocumento"
-                value={form.numeroDocumento}
+      <div className="ml-0 mr-auto w-full max-w-[1400px] space-y-2.5">
+        <div className="grid gap-2.5 md:grid-cols-12 xl:grid-cols-16">
+          <div className="md:col-span-3 xl:col-span-2">
+            <Field label="Tipo de documento">
+              <SelectInput
+                name="tipoDocumento"
+                value={form.tipoDocumento}
                 onChange={onFieldChange}
-                onKeyDown={handleDocumentoKeyDown}
-                className="h-10 min-w-0 flex-1 rounded-r-none border-r-0 focus:z-10"
+                options={TIPO_DOCUMENTO_OPTIONS}
+                placeholder="Seleccione"
+                className="h-8"
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onBuscarDocente}
-                disabled={searching}
-                className="h-10 rounded-l-none border-gray-300 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {searching ? 'Buscando...' : 'Buscar'}
-              </Button>
-            </div>
-          </Field>
+            </Field>
+          </div>
+
+          <div className="md:col-span-4 xl:col-span-4">
+            <Field label="Número de documento">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] rounded-md shadow-sm">
+                <TextInput
+                  name="numeroDocumento"
+                  value={form.numeroDocumento}
+                  onChange={onFieldChange}
+                  onKeyDown={handleDocumentoKeyDown}
+                  className="h-8 min-w-0 w-full rounded-r-none border-r-0 focus:z-10"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onBuscarDocente}
+                  disabled={searching}
+                  className="h-8 rounded-l-none border-gray-300 px-3 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  {searching ? 'Buscando...' : 'Buscar'}
+                </Button>
+              </div>
+            </Field>
+          </div>
+
+          <div className="md:col-span-3 xl:col-span-2">
+            <Field label="Fecha de nacimiento">
+              <TextInput
+                type="date"
+                name="fechaNacimiento"
+                value={form.fechaNacimiento}
+                onChange={onFieldChange}
+                className="h-8"
+              />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-1">
+            <Field label="Edad (años)">
+              <TextInput
+                name="edad"
+                value={form.edad}
+                onChange={onFieldChange}
+                readOnly
+                className="h-8 bg-gray-50 text-gray-700"
+              />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-3">
+            <Field label="Sexo">
+              <SelectInput
+                name="sexo"
+                value={form.sexo}
+                onChange={onFieldChange}
+                options={SEXO_OPTIONS}
+                placeholder="Seleccione..."
+              />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-4">
+            <Field label="Categoría">
+              <SelectInput
+                name="categoria"
+                value={form.categoria}
+                onChange={onFieldChange}
+                options={CATEGORIA_OPTIONS}
+                placeholder="Seleccione..."
+                className="h-8"
+              />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-1">
+            <Field label="Zona">
+              <SelectInput
+                name="zona"
+                value={form.zona}
+                onChange={onFieldChange}
+                options={ZONA_OPTIONS}
+                placeholder="Seleccione..."
+              />
+            </Field>
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-2">
+            <Field label="País">
+              <SearchableSelect
+                value={selectedPaisCodigo}
+                options={paises.map((pais) => ({
+                  value: pais.codigo,
+                  label: pais.nombre,
+                }))}
+                placeholder="Seleccione país..."
+                onChange={onPaisChange}
+                className="h-8 text-xs"
+              />
+            </Field>
+          </div>
         </div>
 
-        <div className="md:col-span-3">
-          <Field label="Fecha de nacimiento">
-            <TextInput
-              type="date"
-              name="fechaNacimiento"
-              value={form.fechaNacimiento}
-              onChange={onFieldChange}
-              className="h-10"
-            />
-          </Field>
+        <div className="grid gap-2.5 md:grid-cols-4 xl:grid-cols-16">
+          <div className="xl:col-span-3">
+            <Field label="Primer nombre">
+              <TextInput name="primerNombre" value={form.primerNombre} onChange={onFieldChange} />
+            </Field>
+          </div>
+          <div className="xl:col-span-3">
+            <Field label="Segundo nombre">
+              <TextInput name="segundoNombre" value={form.segundoNombre} onChange={onFieldChange} />
+            </Field>
+          </div>
+          <div className="xl:col-span-3">
+            <Field label="Primer apellido">
+              <TextInput name="primerApellido" value={form.primerApellido} onChange={onFieldChange} />
+            </Field>
+          </div>
+          <div className="xl:col-span-3">
+            <Field label="Segundo apellido">
+              <TextInput
+                name="segundoApellido"
+                value={form.segundoApellido}
+                onChange={onFieldChange}
+              />
+            </Field>
+          </div>
+          <div className="xl:col-span-4">
+            <Field label="Dirección">
+              <TextInput name="direccion" value={form.direccion} onChange={onFieldChange} />
+            </Field>
+          </div>
         </div>
 
-        <div className="md:col-span-2">
-          <Field label="Edad (años)">
-            <TextInput
-              name="edad"
-              value={form.edad}
-              onChange={onFieldChange}
-              readOnly
-              className="h-10 bg-gray-50 text-gray-700"
-            />
-          </Field>
-        </div>
-      </div>
+        <div className="grid gap-2.5 md:grid-cols-3 xl:grid-cols-16">
+          <div className="xl:col-span-3">
+            <Field label="Departamento / Estado">
+              <SearchableSelect
+                value={selectedDepartamento}
+                options={departamentos.map((departamento) => ({
+                  value: departamento.codigo,
+                  label: departamento.nombre,
+                }))}
+                placeholder={ubicacionLoading ? 'Cargando departamentos...' : 'Seleccione departamento...'}
+                onChange={onDepartamentoChange}
+                className="h-8 text-xs"
+              />
+            </Field>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Field label="Primer nombre">
-          <TextInput name="primerNombre" value={form.primerNombre} onChange={onFieldChange} />
-        </Field>
-        <Field label="Segundo nombre">
-          <TextInput name="segundoNombre" value={form.segundoNombre} onChange={onFieldChange} />
-        </Field>
-        <Field label="Primer apellido">
-          <TextInput name="primerApellido" value={form.primerApellido} onChange={onFieldChange} />
-        </Field>
-        <Field label="Segundo apellido">
-          <TextInput
-            name="segundoApellido"
-            value={form.segundoApellido}
-            onChange={onFieldChange}
-          />
-        </Field>
-      </div>
+          <div className="xl:col-span-3">
+            <Field label="Ciudad / Municipio">
+              <SearchableSelect
+                value={selectedMunicipio}
+                options={municipios.map((municipio) => ({
+                  value: municipio.codigo,
+                  label: municipio.nombre,
+                }))}
+                placeholder="Seleccione municipio..."
+                onChange={onMunicipioChange}
+                className="h-8 text-xs"
+              />
+            </Field>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Field label="Sexo">
-          <SelectInput
-            name="sexo"
-            value={form.sexo}
-            onChange={onFieldChange}
-            options={SEXO_OPTIONS}
-            placeholder="Seleccione..."
-          />
-        </Field>
+          <div className="xl:col-span-2">
+            <Field label="Barrio / Vereda">
+              <SearchableSelect
+                value={form.barrio}
+                options={barrios.map((barrio) => ({
+                  value: barrio.nombre,
+                  label: barrio.nombre,
+                }))}
+                placeholder="Seleccione barrio..."
+                onChange={onBarrioChange}
+                className="h-8 text-xs"
+              />
+            </Field>
+          </div>
 
-        <div className="md:col-span-2">
-          <Field label="Dirección">
-            <TextInput name="direccion" value={form.direccion} onChange={onFieldChange} />
-          </Field>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Field label="Departamento / Estado">
-          <SearchableSelect
-            value={selectedDepartamento}
-            options={departamentos.map((departamento) => ({
-              value: departamento.codigo,
-              label: departamento.nombre,
-            }))}
-            placeholder={ubicacionLoading ? 'Cargando departamentos...' : 'Seleccione departamento...'}
-            onChange={onDepartamentoChange}
-          />
-        </Field>
-
-        <Field label="Ciudad / Municipio">
-          <SearchableSelect
-            value={selectedMunicipio}
-            options={municipios.map((municipio) => ({
-              value: municipio.codigo,
-              label: municipio.nombre,
-            }))}
-            placeholder="Seleccione municipio..."
-            onChange={onMunicipioChange}
-          />
-        </Field>
-
-        <Field label="Barrio / Vereda">
-          <SearchableSelect
-            value={form.barrio}
-            options={barrios.map((barrio) => ({
-              value: barrio.nombre,
-              label: barrio.nombre,
-            }))}
-            placeholder="Seleccione barrio..."
-            onChange={onBarrioChange}
-          />
-        </Field>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Field label="Zona">
-          <SelectInput
-            name="zona"
-            value={form.zona}
-            onChange={onFieldChange}
-            options={ZONA_OPTIONS}
-            placeholder="Seleccione..."
-          />
-        </Field>
-
-        <Field label="Teléfono de contacto">
-          <TextInput name="telefono" value={form.telefono} onChange={onFieldChange} />
-        </Field>
-
-        <Field label="País">
-          <SearchableSelect
-            value={selectedPaisCodigo}
-            options={paises.map((pais) => ({
-              value: pais.codigo,
-              label: pais.nombre,
-            }))}
-            placeholder="Seleccione país..."
-            onChange={onPaisChange}
-          />
-        </Field>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <Field label="Aseguradora (EPS)">
-            <SearchableSelect
-              value={form.codigoEps}
-              options={epsList.map((eps) => ({
-                value: eps.codigo,
-                label: eps.nombre,
-              }))}
-              onChange={onEpsChange}
-              placeholder="Seleccione EPS..."
-            />
-          </Field>
+          <div className="xl:col-span-8">
+            <Field label="Aseguradora (EPS)">
+              <SearchableSelect
+                value={form.codigoEps}
+                options={epsList.map((eps) => ({
+                  value: eps.codigo,
+                  label: eps.nombre,
+                }))}
+                onChange={onEpsChange}
+                placeholder="Seleccione EPS..."
+                className="h-8 text-xs"
+              />
+            </Field>
+          </div>
         </div>
 
-        <Field label="Categoría">
-          <SelectInput
-            name="categoria"
-            value={form.categoria}
-            onChange={onFieldChange}
-            options={CATEGORIA_OPTIONS}
-            placeholder="Seleccione..."
-          />
-        </Field>
+        <div className="grid gap-2.5 md:grid-cols-3 xl:grid-cols-12">
+          <div className="xl:col-span-4">
+            <Field label="Teléfono de contacto">
+              <TextInput name="telefono" value={form.telefono} onChange={onFieldChange} />
+            </Field>
+          </div>
+
+          <div className="xl:col-span-4">
+            <Field label="Escolaridad">
+              <SelectInput
+                name="escolaridad"
+                value={form.escolaridad}
+                onChange={onFieldChange}
+                options={ESCOLARIDAD_OPTIONS}
+                placeholder="Seleccione..."
+                className="h-8"
+              />
+            </Field>
+          </div>
+
+          <div className="xl:col-span-4">
+            <Field label="Estado civil">
+              <SelectInput
+                name="estadoCivil"
+                value={form.estadoCivil}
+                onChange={onFieldChange}
+                options={ESTADO_CIVIL_OPTIONS}
+                placeholder="Seleccione..."
+                className="h-8"
+              />
+            </Field>
+          </div>
+        </div>
       </div>
     </FormSection>
   );

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
 import { useMedicoAccess } from '@/components/medico/MedicoAccessProvider';
+import { createUuidV4 } from '@/lib/browser/create-uuid';
 import { DatosLaboralesSection } from '@/components/registrar-docente/DatosLaboralesSection';
 import { FormActions } from '@/components/registrar-docente/FormActions';
 import { IdentificacionUbicacionSection } from '@/components/registrar-docente/IdentificacionUbicacionSection';
@@ -563,7 +564,7 @@ function DocenteModal({
         return;
       }
 
-      operationIdRef.current ??= crypto.randomUUID();
+      operationIdRef.current ??= createUuidV4();
       const created = await createDictamenCase(
         form,
         operationIdRef.current,
