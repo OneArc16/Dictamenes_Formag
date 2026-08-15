@@ -3,7 +3,7 @@ import type { ChangeEvent, InputHTMLAttributes, ReactNode, SelectHTMLAttributes 
 import { cn } from '@/lib/utils';
 
 const inputClassName =
-  'w-full h-8 rounded-md border border-gray-300 px-2.5 text-xs shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
+  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 type FieldProps = {
   label: string;
@@ -13,7 +13,7 @@ type FieldProps = {
 export function Field({ label, children }: FieldProps) {
   return (
     <div>
-      <label className="mb-0.5 block text-[11px] font-medium leading-4 text-gray-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
       {children}
     </div>
   );
@@ -63,10 +63,10 @@ type FormSectionProps = {
 export function FormSection({ title, children }: FormSectionProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <header className="border-b border-slate-200 bg-slate-50/80 px-4 py-2">
-        <h3 className="text-xs font-semibold text-slate-900">{title}</h3>
+      <header className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       </header>
-      <div className="space-y-3 bg-white p-3">{children}</div>
+      <div className="space-y-4 bg-white p-4">{children}</div>
     </section>
   );
 }

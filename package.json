@@ -2,9 +2,10 @@
   "name": "pcl-fomag",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "node scripts/next-dev.mjs",
-    "dev:3002": "PORT=3002 npm run dev",
+    "dev:3002": "PORT=3002 pnpm dev",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -63,6 +64,16 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

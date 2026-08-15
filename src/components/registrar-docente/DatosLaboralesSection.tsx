@@ -52,161 +52,133 @@ export function DatosLaboralesSection({
 }: Props) {
   return (
     <FormSection title="Datos laborales del docente">
-      <div className="ml-0 mr-auto w-full max-w-[1400px] space-y-2.5">
-        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-16">
-          <div className="xl:col-span-10">
-            <Field label="Cargo docente">
-              <SearchableSelect
-                value={form.cargoDocenteId ? String(form.cargoDocenteId) : ''}
-                options={cargosDocentes.map((cargo) => ({
-                  value: String(cargo.id),
-                  label: cargo.codigo ? `${cargo.nombre} (${cargo.codigo})` : cargo.nombre,
-                }))}
-                placeholder={loadingCargos ? 'Buscando cargos...' : 'Escribe mínimo 3 letras...'}
-                onSearch={onSearchCargoDocente}
-                isLoading={loadingCargos}
-                minSearchLength={3}
-                onChange={onCargoChange}
-                className="h-8 text-xs"
-              />
-            </Field>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Cargo docente">
+          <SearchableSelect
+            value={form.cargoDocenteId ? String(form.cargoDocenteId) : ''}
+            options={cargosDocentes.map((cargo) => ({
+              value: String(cargo.id),
+              label: cargo.codigo ? `${cargo.nombre} (${cargo.codigo})` : cargo.nombre,
+            }))}
+            placeholder={loadingCargos ? 'Buscando cargos...' : 'Escribe mínimo 3 letras...'}
+            onSearch={onSearchCargoDocente}
+            isLoading={loadingCargos}
+            minSearchLength={3}
+            onChange={onCargoChange}
+          />
+        </Field>
 
-          <div className="xl:col-span-6">
-            <Field label="Escolaridad">
-              <SelectInput
-                name="escolaridad"
-                value={form.escolaridad}
-                onChange={onFieldChange}
-                options={ESCOLARIDAD_OPTIONS}
-                placeholder="Seleccione..."
-                className="h-8"
-              />
-            </Field>
-          </div>
-        </div>
+        <Field label="Escolaridad">
+          <SelectInput
+            name="escolaridad"
+            value={form.escolaridad}
+            onChange={onFieldChange}
+            options={ESCOLARIDAD_OPTIONS}
+            placeholder="Seleccione..."
+          />
+        </Field>
+      </div>
 
-        <div className="grid gap-2.5 xl:grid-cols-16">
-          <div className={isRecommendationMode ? 'xl:col-span-2' : 'xl:col-span-2'}>
-            <Field label="Fecha de vinculación">
-              <TextInput
-                type="date"
-                name="fechaVinculacion"
-                value={form.fechaVinculacion}
-                onChange={onFieldChange}
-                className="h-8"
-              />
-            </Field>
-          </div>
+      <div className={`grid gap-4 ${isRecommendationMode ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+        <Field label="Fecha de vinculacion">
+          <TextInput
+            type="date"
+            name="fechaVinculacion"
+            value={form.fechaVinculacion}
+            onChange={onFieldChange}
+          />
+        </Field>
 
-          <div className={isRecommendationMode ? 'xl:col-span-4' : 'xl:col-span-3'}>
-            <Field label="Secretaría donde labora">
-              <SearchableSelect
-                value={selectedSecretariaId}
-                options={secretarias.map((secretaria) => ({
-                  value: String(secretaria.id),
-                  label: secretaria.nombre,
-                }))}
-                placeholder="Seleccione secretaría..."
-                onChange={onSecretariaChange}
-                className="h-8 text-xs"
-              />
-            </Field>
-          </div>
+        {!isRecommendationMode ? (
+          <Field label="Tipo de dictamen">
+            <SelectInput
+              name="tipoDictamen"
+              value={form.tipoDictamen}
+              onChange={onFieldChange}
+              options={TIPO_DICTAMEN_OPTIONS}
+              placeholder=""
+            />
+          </Field>
+        ) : null}
+      </div>
 
-          <div className={isRecommendationMode ? 'xl:col-span-10' : 'xl:col-span-7'}>
-            <Field label="Institución donde labora">
-              <SearchableSelect
-                value={form.institucionLabora}
-                options={instituciones.map((institucion) => ({
-                  value: institucion.nombre,
-                  label: institucion.nombre,
-                }))}
-                placeholder={
-                  !selectedSecretariaId
-                    ? 'Seleccione primero una secretaría'
-                    : loadingInstituciones
-                      ? 'Buscando instituciones...'
-                      : 'Empiece a escribir para buscar...'
-                }
-                disabled={!selectedSecretariaId}
-                onSearch={onInstitucionSearch}
-                isLoading={loadingInstituciones}
-                minSearchLength={3}
-                onChange={onInstitucionChange}
-                className="h-8 text-xs"
-              />
-            </Field>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Secretaría donde labora">
+          <SearchableSelect
+            value={selectedSecretariaId}
+            options={secretarias.map((secretaria) => ({
+              value: String(secretaria.id),
+              label: secretaria.nombre,
+            }))}
+            placeholder="Seleccione secretaría..."
+            onChange={onSecretariaChange}
+          />
+        </Field>
 
-          {!isRecommendationMode ? (
-            <div className="xl:col-span-4">
-              <Field label="Tipo de dictamen">
-                <SelectInput
-                  name="tipoDictamen"
-                  value={form.tipoDictamen}
-                  onChange={onFieldChange}
-                  options={TIPO_DICTAMEN_OPTIONS}
-                  placeholder=""
-                  className="h-8"
-                />
-              </Field>
-            </div>
-          ) : null}
-        </div>
+        <Field label="Institución donde labora">
+          <SearchableSelect
+            value={form.institucionLabora}
+            options={instituciones.map((institucion) => ({
+              value: institucion.nombre,
+              label: institucion.nombre,
+            }))}
+            placeholder={
+              !selectedSecretariaId
+                ? 'Seleccione primero una secretaría'
+                : loadingInstituciones
+                  ? 'Buscando instituciones...'
+                  : 'Empiece a escribir para buscar...'
+            }
+            disabled={!selectedSecretariaId}
+            onSearch={onInstitucionSearch}
+            isLoading={loadingInstituciones}
+            minSearchLength={3}
+            onChange={onInstitucionChange}
+          />
+        </Field>
+      </div>
 
-        <div className="grid gap-2.5 xl:grid-cols-13">
-          <div className="xl:col-span-4">
-            <Field label="Forma de vinculación">
-              <SelectInput
-                name="formaVinculacion"
-                value={form.formaVinculacion}
-                onChange={onFieldChange}
-                options={FORMA_VINCULACION_OPTIONS}
-                placeholder="Seleccione..."
-                className="h-8"
-              />
-            </Field>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Forma de vinculación">
+          <SelectInput
+            name="formaVinculacion"
+            value={form.formaVinculacion}
+            onChange={onFieldChange}
+            options={FORMA_VINCULACION_OPTIONS}
+            placeholder="Seleccione..."
+          />
+        </Field>
 
-          <div className="xl:col-span-3">
-            <Field label="Grado de escalafón">
-              <TextInput
-                name="gradoEscalafon"
-                value={form.gradoEscalafon}
-                onChange={onFieldChange}
-                placeholder="Ej: 14"
-                className="h-8"
-              />
-            </Field>
-          </div>
+        <Field label="Estado civil">
+          <SelectInput
+            name="estadoCivil"
+            value={form.estadoCivil}
+            onChange={onFieldChange}
+            options={ESTADO_CIVIL_OPTIONS}
+            placeholder="Seleccione..."
+          />
+        </Field>
+      </div>
 
-          <div className="xl:col-span-3">
-            <Field label="Nivel de escalafón">
-              <SelectInput
-                name="nivelEscalafon"
-                value={form.nivelEscalafon}
-                onChange={onFieldChange}
-                options={NIVEL_ESCALAFON_OPTIONS}
-                placeholder="Seleccione..."
-                className="h-8"
-              />
-            </Field>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Grado de escalafón">
+          <TextInput
+            name="gradoEscalafon"
+            value={form.gradoEscalafon}
+            onChange={onFieldChange}
+            placeholder="Ej: 14, 2A, etc."
+          />
+        </Field>
 
-          <div className="xl:col-span-3">
-            <Field label="Estado civil">
-              <SelectInput
-                name="estadoCivil"
-                value={form.estadoCivil}
-                onChange={onFieldChange}
-                options={ESTADO_CIVIL_OPTIONS}
-                placeholder="Seleccione..."
-                className="h-8"
-              />
-            </Field>
-          </div>
-        </div>
+        <Field label="Nivel de escalafón">
+          <SelectInput
+            name="nivelEscalafon"
+            value={form.nivelEscalafon}
+            onChange={onFieldChange}
+            options={NIVEL_ESCALAFON_OPTIONS}
+            placeholder="Seleccione..."
+          />
+        </Field>
       </div>
     </FormSection>
   );
