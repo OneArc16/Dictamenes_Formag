@@ -5,6 +5,7 @@ import type { Style } from '@react-pdf/types';
 
 import { PageFrame } from '@/lib/react-pdf/components/PageFrame';
 import { pdfTheme } from '@/lib/react-pdf/theme';
+import '@/lib/react-pdf/hyphenation';
 
 type FirmaPdf = {
   nombre: string;
@@ -44,34 +45,37 @@ type Props = {
   logoSrc?: string | null;
 };
 
+// Margen superior de este PDF (1,2 cm): sube el contenido respecto al margen de 3 cm del formulario.
+const PAGE_TOP = 34;
+
 const SERVICE_NAME = 'Servicios Integrales de Salud del Magdalena';
 const SERVICE_LINES = [
   'NIT: 900 018 045 - 5',
   'Lic. SST Res. 045/2023 SSSM',
-  'Direccion: Cra 19 # 28B-53 - Barrio Los Naranjos',
-  'Telefonos: 4304153, 4394152',
+  'Dirección: Cra 19 # 28B-53 - Barrio Los Naranjos',
+  'Teléfonos: 4304153, 4394152',
   'serviciosintegrales_saludmagdale@yahoo.com',
 ];
 
 const styles = StyleSheet.create({
   pageWrap: {
-    gap: 10,
+    gap: 6,
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    paddingBottom: 6,
+    paddingBottom: 3,
   },
   logoWrap: {
     width: 180,
-    height: 56,
+    height: 50,
     justifyContent: 'center',
   },
   logo: {
-    width: 170,
-    height: 52,
+    width: 160,
+    height: 46,
     objectFit: 'contain',
   },
   providerWrap: {
@@ -137,15 +141,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#c9d8ee',
     borderRadius: 2,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
   sectionTitleText: {
     fontSize: 8.6,
     fontWeight: 700,
     color: '#224f94',
-  },
-  sectionTitleTextCentered: {
-    textAlign: 'center',
   },
   infoGrid: {
     flexDirection: 'row',
@@ -154,11 +155,11 @@ const styles = StyleSheet.create({
   },
   infoColumn: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   infoColumnRight: {
     flex: 1,
-    gap: 4,
+    gap: 3,
     paddingLeft: 34,
   },
   infoRow: {
@@ -168,31 +169,31 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     width: 66,
-    fontSize: 7.9,
+    fontSize: 7.3,
     fontWeight: 700,
     color: '#224f94',
   },
   infoLabelRight: {
     width: 78,
-    fontSize: 7.9,
+    fontSize: 7.3,
     fontWeight: 700,
     color: '#224f94',
   },
   infoValue: {
     flex: 1,
-    fontSize: 8,
+    fontSize: 7.4,
     color: '#1a3f79',
     lineHeight: 1.2,
   },
   bodyText: {
-    fontSize: 7.9,
+    fontSize: 7.5,
     color: '#16386d',
     lineHeight: 1.22,
     textAlign: 'left',
     paddingHorizontal: 2,
   },
   compactText: {
-    fontSize: 7.6,
+    fontSize: 7.2,
     color: '#16386d',
     lineHeight: 1.2,
     textAlign: 'left',
@@ -235,27 +236,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingTop: 3,
   },
+  // 3 firmas por fila (las filas incompletas quedan centradas).
   signatureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 18,
-    paddingTop: 4,
   },
   signatureCard: {
-    width: '47%',
+    width: '30.5%',
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: 2,
   },
   signatureImageWrap: {
     width: 140,
-    height: 54,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   signatureImage: {
     maxWidth: 140,
-    maxHeight: 50,
+    maxHeight: 40,
     objectFit: 'contain',
   },
   signatureLine: {
@@ -276,19 +278,18 @@ const styles = StyleSheet.create({
     color: '#224f94',
     textAlign: 'center',
     textTransform: 'uppercase',
-    marginTop: 2,
+    marginTop: 1,
   },
   signatureMeta: {
     fontSize: 7.1,
     color: '#224f94',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 1,
   },
+  // Cada salto de línea del texto es un renglón normal (sin hueco extra); una línea en blanco
+  // ocupa exactamente un renglón, como en el cuadro de texto del formulario.
   sectionBlock: {
-    gap: 4,
-  },
-  flowSpacer: {
-    height: 4,
+    gap: 0,
   },
 });
 
@@ -316,9 +317,7 @@ function normalizeFlowingText(value: string | null | undefined, fallback = '—'
     const text = rawLine.replace(/\s+/g, ' ').trim();
 
     if (!text) {
-      if (items.length > 0 && items[items.length - 1]?.kind !== 'spacer') {
-        items.push({ kind: 'spacer' });
-      }
+      if (items.length > 0) items.push({ kind: 'spacer' });
       continue;
     }
 
@@ -335,23 +334,10 @@ function normalizeFlowingText(value: string | null | undefined, fallback = '—'
   return items.length > 0 ? items : [{ text: fallback, kind: 'paragraph' as const }];
 }
 
-function SectionTitle({
-  children,
-  centered = false,
-}: {
-  children: React.ReactNode;
-  centered?: boolean;
-}) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <View style={styles.sectionTitle}>
-      <Text
-        style={[
-          styles.sectionTitleText,
-          ...(centered ? [styles.sectionTitleTextCentered] : []),
-        ]}
-      >
-        {children}
-      </Text>
+      <Text style={styles.sectionTitleText}>{children}</Text>
     </View>
   );
 }
@@ -391,12 +377,38 @@ function SignatureCard({ firma }: { firma: FirmaPdf }) {
       ) : null}
 
       <Text style={styles.signatureMeta}>
-        Registro Medico: {showValue(firma.registroMedico)}
+        Registro médico: {showValue(firma.registroMedico)}
       </Text>
 
       {firma.licencia ? (
         <Text style={styles.signatureMeta}>Licencia: {firma.licencia}</Text>
       ) : null}
+    </View>
+  );
+}
+
+// Alto de un renglón del estilo dado: una línea en blanco ocupa exactamente eso.
+function lineHeightOf(style: Style | Style[]) {
+  const flat: Style = Array.isArray(style) ? Object.assign({}, ...style) : style;
+  const fontSize = typeof flat.fontSize === 'number' ? flat.fontSize : 8;
+  const lineHeight = typeof flat.lineHeight === 'number' ? flat.lineHeight : 1.2;
+  return fontSize * lineHeight;
+}
+
+function FlowingItems({ items, style }: { items: FlowingTextItem[]; style: Style | Style[] }) {
+  const spacerHeight = lineHeightOf(style);
+
+  return (
+    <View style={styles.sectionBlock}>
+      {items.map((item, index) =>
+        item.kind === 'spacer' ? (
+          <View key={[item.kind, index].join('-')} style={{ height: spacerHeight }} />
+        ) : (
+          <Text key={[item.kind, index].join('-')} style={style}>
+            {item.text}
+          </Text>
+        ),
+      )}
     </View>
   );
 }
@@ -410,29 +422,33 @@ function FlowingText({
   style: Style | Style[];
   fallback?: string;
 }) {
-  const items = normalizeFlowingText(value, fallback);
-
-  return (
-    <View style={styles.sectionBlock}>
-      {items.map((item, index) =>
-        item.kind === 'spacer' ? (
-          <View key={[item.kind, index].join('-')} style={styles.flowSpacer} />
-        ) : (
-          <Text key={[item.kind, index].join('-')} style={style}>
-            {item.text}
-          </Text>
-        ),
-      )}
-    </View>
-  );
+  return <FlowingItems items={normalizeFlowingText(value, fallback)} style={style} />;
 }
 
 export function RecomendacionLaboralReactPdf({ recomendacion, logoSrc }: Props) {
   const firmas = recomendacion.firmas.length > 0 ? recomendacion.firmas : [];
 
+  // El texto de la sección 4 fluye completo; el título de la sección 5 y las firmas van juntos, sin
+  // partirse: si no caben al final de la página pasan juntos a la siguiente (el título nunca queda
+  // separado de las firmas).
+  const recomendaciones = normalizeFlowingText(recomendacion.recomendaciones, 'Sin registro');
+
+  const bloqueFirmas = (
+    <View wrap={false} style={{ gap: 3 }}>
+      <SectionTitle>5. Junta médica de profesionales</SectionTitle>
+      <View style={styles.signatureGrid}>
+        {firmas.length > 0 ? (
+          firmas.map((firma, index) => <SignatureCard key={`${firma.nombre}-${index}`} firma={firma} />)
+        ) : (
+          <Text style={styles.bodyText}>Sin firmas registradas.</Text>
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <Document>
-      <PageFrame safeBottom={20} pageNumberBottom={14}>
+      <PageFrame pageNumberBottom={14} paddingTop={PAGE_TOP}>
         <View style={styles.pageWrap}>
           <View style={styles.topHeader}>
             <View style={styles.logoWrap}>
@@ -452,57 +468,50 @@ export function RecomendacionLaboralReactPdf({ recomendacion, logoSrc }: Props) 
           <View style={styles.titleRow}>
             <View style={styles.titleMain}>
               <Text style={styles.titleMainText}>
-                Dictamen Medico Del Comite De Medicina Laboral
+                Dictamen médico del Comité de Medicina Laboral
               </Text>
             </View>
             <View style={styles.titleMeta}>
-              <Text style={styles.titleMetaLabel}>Tipo de Certificacion:</Text>
-              <Text style={styles.titleMetaValue}>Recomendacion Medico Laborales</Text>
+              <Text style={styles.titleMetaLabel}>Tipo de certificación:</Text>
+              <Text style={styles.titleMetaValue}>Recomendaciones médico-laborales</Text>
             </View>
           </View>
 
-          <SectionTitle centered>1. Informacion General del Docente</SectionTitle>
+          <SectionTitle>1. Información general del docente</SectionTitle>
 
           <View style={styles.infoGrid}>
             <View style={styles.infoColumn}>
               <InfoItem label="Paciente:" value={recomendacion.docente.nombreCompleto} />
               <InfoItem label="ID:" value={recomendacion.docente.documento} />
-              <InfoItem label="Genero:" value={recomendacion.docente.genero} />
-              <InfoItem label="Estado Civil:" value={recomendacion.docente.estadoCivil} />
+              <InfoItem label="Género:" value={recomendacion.docente.genero} />
+              <InfoItem label="Estado civil:" value={recomendacion.docente.estadoCivil} />
               <InfoItem label="Empresa:" value={recomendacion.docente.empresa} />
               <InfoItem label="Cargo:" value={recomendacion.docente.cargo} />
-              <InfoItem label="Institucion:" value={recomendacion.docente.institucion} />
+              <InfoItem label="Institución:" value={recomendacion.docente.institucion} />
             </View>
 
             <View style={[styles.infoColumn, styles.infoColumnRight]}>
-              <InfoItem label="Fecha de Atencion:" value={recomendacion.fechaAtencion} labelStyle={styles.infoLabelRight} />
+              <InfoItem label="Fecha de atención:" value={recomendacion.fechaAtencion} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Talla:" value={recomendacion.docente.talla} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Peso:" value={recomendacion.docente.peso} labelStyle={styles.infoLabelRight} />
               <InfoItem label="IMC:" value={recomendacion.docente.imc} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Edad:" value={recomendacion.docente.edad ? `${recomendacion.docente.edad} AÑOS` : recomendacion.docente.edad} labelStyle={styles.infoLabelRight} />
-              <InfoItem label="Direccion:" value={recomendacion.docente.direccion} labelStyle={styles.infoLabelRight} />
-              <InfoItem label="Telefono:" value={recomendacion.docente.telefono} labelStyle={styles.infoLabelRight} />
+              <InfoItem label="Dirección:" value={recomendacion.docente.direccion} labelStyle={styles.infoLabelRight} />
+              <InfoItem label="Teléfono:" value={recomendacion.docente.telefono} labelStyle={styles.infoLabelRight} />
               <InfoItem label="Secretaria:" value={recomendacion.docente.secretaria} labelStyle={styles.infoLabelRight} />
             </View>
           </View>
 
-          <SectionTitle>2. Examenes Realizados.</SectionTitle>
+          <SectionTitle>2. Exámenes realizados</SectionTitle>
           <FlowingText value={recomendacion.examenesRealizados} style={styles.bodyText} fallback="Sin registro" />
 
-          <SectionTitle>3. Motivo.</SectionTitle>
+          <SectionTitle>3. Motivo</SectionTitle>
           <FlowingText value={recomendacion.motivo} style={styles.bodyText} fallback="Sin registro" />
 
-          <SectionTitle>4. Recomendaciones, Observaciones y Restricciones.</SectionTitle>
-          <FlowingText value={recomendacion.recomendaciones} style={styles.compactText} fallback="Sin registro" />
+          <SectionTitle>4. Recomendaciones, observaciones y restricciones</SectionTitle>
+          <FlowingItems items={recomendaciones} style={styles.compactText} />
 
-          <SectionTitle>5. Junta Medica de Profesionales:</SectionTitle>
-          <View style={styles.signatureGrid}>
-            {firmas.length > 0 ? (
-              firmas.map((firma, index) => <SignatureCard key={`${firma.nombre}-${index}`} firma={firma} />)
-            ) : (
-              <Text style={styles.bodyText}>Sin firmas registradas.</Text>
-            )}
-          </View>
+          {bloqueFirmas}
         </View>
       </PageFrame>
     </Document>

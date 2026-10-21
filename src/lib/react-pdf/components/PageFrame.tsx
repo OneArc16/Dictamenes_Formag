@@ -7,6 +7,8 @@ type Props = {
   children: React.ReactNode;
   header?: React.ReactNode;
   safeBottom?: number;
+  /** Sustituye el margen superior del tema (pt) en todas las páginas. */
+  paddingTop?: number;
   pageNumberBottom?: number;
   pageNumberOffset?: number;
   totalPagesOffset?: number;
@@ -36,6 +38,7 @@ export function PageFrame({
   children,
   header,
   safeBottom = 0,
+  paddingTop,
   pageNumberBottom = 28.35,
   pageNumberOffset = 0,
   totalPagesOffset = 0,
@@ -48,6 +51,7 @@ export function PageFrame({
         styles.page,
         {
           paddingBottom: PAGE_MARGINS.bottom + safeBottom,
+          ...(paddingTop !== undefined ? { paddingTop } : {}),
         },
       ]}
       wrap

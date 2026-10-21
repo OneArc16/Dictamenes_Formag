@@ -1,5 +1,7 @@
 import React from 'react';
-import { Font, Text, View } from '@react-pdf/renderer';
+import { Text, View } from '@react-pdf/renderer';
+
+import '../hyphenation';
 
 type ViewStyleProp = React.ComponentProps<typeof View>['style'];
 type TextStyleProp = React.ComponentProps<typeof Text>['style'];
@@ -21,10 +23,6 @@ type VAlign = 'top' | 'center' | 'bottom';
  *
  * (Los `as never` en `style` son solo para el tipado de React-PDF, que no admite `null` en arreglos de estilos.)
  */
-
-// El corte silábico por defecto de React-PDF es inglés y parte palabras en español
-// ("GEN-ERAL", "UR-BANA"): la plantilla solo corta entre palabras.
-Font.registerHyphenationCallback((word) => [word]);
 
 export const TPL = {
   blue: '#9BC2E6',
