@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -48,6 +48,38 @@ type MotivosReaperturaResponse = {
   options: RecomendacionMotivoReaperturaOption[];
 };
 
+const FILTROS_STORAGE_KEY = 'recomendaciones.filtros';
+const ESTADOS_VALIDOS: EstadoRecomendacionFiltro[] = ['PENDIENTES', 'REABIERTAS', 'CERRADAS', 'ANULADAS', 'TODOS'];
+
+type FiltrosGuardados = {
+  fechaDesde: string;
+  fechaHasta: string;
+  documento: string;
+  estado: EstadoRecomendacionFiltro;
+  // undefined = médico por defecto, null = todos los médicos
+  medicoId: number | null | undefined;
+};
+
+// Lee los filtros guardados al salir de la página (sessionStorage: duran lo que dure la pestaña).
+function leerFiltrosGuardados(): Partial<FiltrosGuardados> | null {
+  try {
+    const raw = sessionStorage.getItem(FILTROS_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      fechaDesde: typeof data.fechaDesde === 'string' ? data.fechaDesde : undefined,
+      fechaHasta: typeof data.fechaHasta === 'string' ? data.fechaHasta : undefined,
+      documento: typeof data.documento === 'string' ? data.documento : undefined,
+      estado: ESTADOS_VALIDOS.includes(data.estado as EstadoRecomendacionFiltro)
+        ? (data.estado as EstadoRecomendacionFiltro)
+        : undefined,
+      medicoId: data.medicoId === null || typeof data.medicoId === 'number' ? data.medicoId : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function formatFechaExport(value: unknown): string {
   if (!value) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -68,6 +100,32 @@ export default function RecomendacionesPage() {
   const [estado, setEstado] = useState<EstadoRecomendacionFiltro>('PENDIENTES');
   const [medicoId, setMedicoId] = useState<number | null | undefined>(undefined);
   const [showRegistrarModal, setShowRegistrarModal] = useState(false);
+  // Los filtros guardados se restauran tras montar (en el servidor no hay sessionStorage).
+  const [filtrosListos, setFiltrosListos] = useState(false);
+
+  useEffect(() => {
+    const guardados = leerFiltrosGuardados();
+    if (guardados) {
+      if (guardados.fechaDesde !== undefined) setFechaDesde(guardados.fechaDesde);
+      if (guardados.fechaHasta !== undefined) setFechaHasta(guardados.fechaHasta);
+      if (guardados.documento !== undefined) setDocumento(guardados.documento);
+      if (guardados.estado !== undefined) setEstado(guardados.estado);
+      if (guardados.medicoId !== undefined) setMedicoId(guardados.medicoId);
+    }
+    setFiltrosListos(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtrosListos) return;
+    try {
+      sessionStorage.setItem(
+        FILTROS_STORAGE_KEY,
+        JSON.stringify({ fechaDesde, fechaHasta, documento, estado, medicoId } satisfies FiltrosGuardados),
+      );
+    } catch {
+      // Sin almacenamiento disponible: los filtros simplemente no persisten.
+    }
+  }, [filtrosListos, fechaDesde, fechaHasta, documento, estado, medicoId]);
 
   const medicosQuery = useQuery<MedicosOptionsResponse>({
     queryKey: ['medicos-options-recomendaciones'],
@@ -136,6 +194,8 @@ export default function RecomendacionesPage() {
       'recomendaciones-laborales',
       { medicoId: effectiveMedicoId, estado, fechaDesde, fechaHasta, documento },
     ],
+    // Espera a restaurar los filtros guardados para no consultar primero con los de por defecto.
+    enabled: filtrosListos,
     queryFn: async () => {
       const params = new URLSearchParams();
 

@@ -36,6 +36,34 @@ type DictamenApiRow = {
   canReopen: boolean;
 };
 
+const FILTROS_STORAGE_KEY = 'medico.dictamenes.filtros';
+
+type FiltrosGuardados = {
+  fechaDesde: string;
+  fechaHasta: string;
+  documento: string;
+  estado: EstadoDictamenFiltro[];
+  medicoIds: number[];
+};
+
+// Lee los filtros guardados al salir de la página (sessionStorage: duran lo que dure la pestaña).
+function leerFiltrosGuardados(): Partial<FiltrosGuardados> | null {
+  try {
+    const raw = sessionStorage.getItem(FILTROS_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Partial<FiltrosGuardados>;
+    return {
+      fechaDesde: typeof data.fechaDesde === 'string' ? data.fechaDesde : undefined,
+      fechaHasta: typeof data.fechaHasta === 'string' ? data.fechaHasta : undefined,
+      documento: typeof data.documento === 'string' ? data.documento : undefined,
+      estado: Array.isArray(data.estado) ? data.estado : undefined,
+      medicoIds: Array.isArray(data.medicoIds) ? data.medicoIds.filter((id) => Number.isFinite(id)) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function formatFechaExport(value: unknown): string {
   if (!value) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -56,8 +84,38 @@ export default function MedicoPage() {
   const [medicos, setMedicos] = useState<MedicoOption[]>([]);
   const [medicoIds, setMedicoIds] = useState<number[]>([]);
   const [showRegistrarModal, setShowRegistrarModal] = useState(false);
+  // Los filtros guardados se restauran tras montar (en el servidor no hay sessionStorage).
+  const [filtrosListos, setFiltrosListos] = useState(false);
 
   useEffect(() => {
+    const guardados = leerFiltrosGuardados();
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (guardados) {
+      if (guardados.fechaDesde !== undefined) setFechaDesde(guardados.fechaDesde);
+      if (guardados.fechaHasta !== undefined) setFechaHasta(guardados.fechaHasta);
+      if (guardados.documento !== undefined) setDocumento(guardados.documento);
+      if (guardados.estado !== undefined) setEstado(guardados.estado);
+      if (guardados.medicoIds !== undefined) setMedicoIds(guardados.medicoIds);
+    }
+    setFiltrosListos(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  useEffect(() => {
+    if (!filtrosListos) return;
+    try {
+      sessionStorage.setItem(
+        FILTROS_STORAGE_KEY,
+        JSON.stringify({ fechaDesde, fechaHasta, documento, estado, medicoIds } satisfies FiltrosGuardados),
+      );
+    } catch {
+      // Sin almacenamiento disponible: los filtros simplemente no persisten.
+    }
+  }, [filtrosListos, fechaDesde, fechaHasta, documento, estado, medicoIds]);
+
+  useEffect(() => {
+    if (!filtrosListos) return;
+
     async function loadMedicos() {
       try {
         const response = await fetch('/api/medicos/options', {
@@ -76,13 +134,12 @@ export default function MedicoPage() {
         const options: MedicoOption[] = data.options ?? [];
         setMedicos(options);
 
-        if (medicoIds.length === 0) {
-          if (data.medicoIdActual) {
-            setMedicoIds([data.medicoIdActual]);
-          } else if (options.length > 0) {
-            setMedicoIds([options[0].id]);
-          }
-        }
+        // Solo se asigna el médico por defecto si no había uno restaurado.
+        setMedicoIds((actuales) => {
+          if (actuales.length > 0) return actuales;
+          if (data.medicoIdActual) return [data.medicoIdActual];
+          return options.length > 0 ? [options[0].id] : actuales;
+        });
       } catch (error) {
         console.error('Error fetching medicos:', error);
         setMedicos([]);
@@ -91,8 +148,7 @@ export default function MedicoPage() {
     }
 
     void loadMedicos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filtrosListos]);
 
   const {
     data: dictamenRows = [],
