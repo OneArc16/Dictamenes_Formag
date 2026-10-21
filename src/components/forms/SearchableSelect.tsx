@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -74,22 +74,39 @@ export function SearchableSelect({
     return options.filter((o) => norm(o.label).includes(q));
   }, [options, onSearch, query]);
 
+  // `onSearch` suele recrearse en cada render del padre: se guarda en una ref para que el
+  // debounce dependa solo del texto escrito. Si dependiera de su identidad, cada búsqueda
+  // terminada re-renderizaría al padre, reprogramaría el efecto y lanzaría la misma búsqueda
+  // otra vez en bucle (la lista parpadeaba entre "Buscando…" y los resultados).
+  const onSearchRef = useRef(onSearch);
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  });
+  const hasSearch = Boolean(onSearch);
+  const lastSearchedRef = useRef<string | null>(null);
+
   // Disparar onSearch con debounce
   useEffect(() => {
-    if (!onSearch) return;
+    if (!hasSearch) return;
 
     const q = query.trim();
-    if (q.length < minSearchLength) return;
+    if (q.length < minSearchLength) {
+      lastSearchedRef.current = null;
+      return;
+    }
     // Sincronizar la etiqueta de una opción ya seleccionada no es una nueva
     // intención de búsqueda. Evita ciclos etiqueta -> consulta -> etiqueta.
     if (value && selectedOption && norm(q) === norm(selectedOption.label)) return;
+    // Ya se buscó este mismo texto: no repetir la consulta.
+    if (lastSearchedRef.current === q) return;
 
     const id = setTimeout(() => {
-      onSearch(q);
+      lastSearchedRef.current = q;
+      onSearchRef.current?.(q);
     }, 300);
 
     return () => clearTimeout(id);
-  }, [minSearchLength, onSearch, query, selectedOption, value]);
+  }, [hasSearch, minSearchLength, query, selectedOption, value]);
 
   const handleSelect = (opt: SearchableOption) => {
     onChange(opt.value);
@@ -131,12 +148,10 @@ export function SearchableSelect({
               <div className="px-3 py-2 text-xs text-slate-500">
                 Escriba al menos {minSearchLength} caracteres para buscar…
               </div>
-            ) : isLoading ? (
-              <div className="px-3 py-2 text-xs text-slate-500">Buscando…</div>
             ) : options.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-500">Sin resultados</div>
+              <div className="px-3 py-2 text-xs text-slate-500">{isLoading ? 'Buscando…' : 'Sin resultados'}</div>
             ) : (
-              <ul className="py-1 text-sm">
+              <ul className={cn('py-1 text-sm', isLoading && 'opacity-60')}>
                 {options.map((opt, idx) => (
                   <li key={`${opt.value}-${idx}`}>
                     <button
