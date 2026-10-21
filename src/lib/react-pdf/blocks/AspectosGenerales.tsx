@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
+import { View } from '@react-pdf/renderer';
+import { Bar, T, Td, Tr, TPL } from '../components/Tpl';
 
 type Props = { dictamen: any };
 
@@ -14,115 +14,13 @@ function formatDateDMY(value?: string | Date | null) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
-const COL = {
-  c1: 1.1,
-  c2: 1.25,
-  c3: 2.0,
-  c4: 1.1,
-  c5: 0.35,
-} as const;
-
-// ✅ Colores EXACTOS como el Word de tu captura
-const WORD = {
-  title: '#FCE4D6', // naranja claro del título
-  head: '#9BC2E6',  // encabezados/labels
-  body: '#A5C9EB',  // valores (azul medio)
-  light: '#DDEBF7', // fecha / celda final muy clara
-  border: '#000000',
-};
-
-const styles = StyleSheet.create({
-  titleRow: {
-    backgroundColor: WORD.title,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 18,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: WORD.border,
-  },
-  titleText: { fontSize: 8.4, fontWeight: 700, textTransform: 'uppercase' },
-
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: WORD.border,
-  },
-  rowLast: { borderBottomWidth: 0 },
-
-  cell: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: WORD.border,
-  },
-  cellLast: { borderRightWidth: 0 },
-
-  bgHead: { backgroundColor: WORD.head },
-  bgBody: { backgroundColor: WORD.body },
-  bgLight: { backgroundColor: WORD.light },
-
-  th: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    lineHeight: 1.1,
-  },
-  td: {
-    fontSize: 7.8,
-    textAlign: 'center',
-    lineHeight: 1.1,
-  },
-  leftText: { textAlign: 'left' },
-
-  hHead: { height: 20 },
-  hVal: { height: 18 },
-
-  row4: {
-    flexDirection: 'row',
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: WORD.border,
-    height: 30,
-  },
-
-  fechaRow: {
-    backgroundColor: WORD.light,
-    height: 16,
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  fechaText: { fontSize: 7.8, fontWeight: 700, textTransform: 'uppercase' },
-});
-
-function Cell({
-  flex,
-  children,
-  last,
-  style,
-}: {
-  flex: number;
-  children: React.ReactNode;
-  last?: boolean;
-  style?: any;
-}) {
-  return (
-    <View style={[styles.cell, { flex }, last ? styles.cellLast : null, style]}>
-      {children}
-    </View>
-  );
-}
+// Proporciones de columnas de la plantilla (pt sobre 552,4 de ancho).
+const COL = [84.4, 111.4, 29.4, 134.3, 25.7, 115, 49.4] as const;
+const EST = { label: 147, value: 106.3, entLabel: 133.2, entValue: 165.1 } as const;
 
 export function AspectosGeneralesBlock({ dictamen }: Props) {
   const u = dictamen?.usuario ?? {};
   const ciudad = 'SANTA MARTA';
-
-  const origen = String(dictamen?.origenEvento ?? '').toUpperCase();
-  const enfermedadGeneral = origen === 'LABORAL' ? 'ATEP' : String(dictamen?.enfermedadGeneral ?? '—');
-
-  const decretoTop = 'DECRETO 1848 DE 1968';
-  const decretoSub = 'O LABORAL-PROFESIONAL';
-  const ley = 'LEY 100/93';
 
   const proc = String(dictamen?.procedimientoPcl ?? '').toUpperCase();
   const marcaA = proc === 'A' ? 'X' : '';
@@ -144,57 +42,51 @@ export function AspectosGeneralesBlock({ dictamen }: Props) {
   );
 
   const fecha = formatDateDMY(dictamen?.fechaDictamen ?? dictamen?.fecha ?? null);
+  const B = TPL.blue;
 
   return (
-    <View>
-      <View style={styles.titleRow}>
-        <Text style={styles.titleText}>1. ASPECTOS GENERALES DEL DICTAMEN</Text>
-      </View>
+    <View wrap={false}>
+      <Bar bg={TPL.salmon}>1. Aspectos Generales del Dictamen</Bar>
 
-      {/* Encabezados (azul head) */}
-      <View style={[styles.row, styles.hHead]}>
-        <Cell flex={COL.c1} style={styles.bgHead}><Text style={styles.th}>CIUDAD</Text></Cell>
-        <Cell flex={COL.c2} style={styles.bgHead}><Text style={styles.th}>ENFERMEDAD GENERAL</Text></Cell>
-        <Cell flex={COL.c3} style={styles.bgHead}>
-          <Text style={styles.th}>{decretoTop}</Text>
-          <Text style={styles.th}>{decretoSub}</Text>
-        </Cell>
-        <Cell flex={COL.c4} style={styles.bgHead}><Text style={styles.th}>PROCEDIMIENTO A</Text></Cell>
-        <Cell flex={COL.c5} style={styles.bgHead} last><Text style={styles.th}>{marcaA}</Text></Cell>
-      </View>
+      <Tr bg={B} minH={26}>
+        <Td w={COL[0]} bg={B}><T b>CIUDAD</T></Td>
+        <Td w={COL[1]} bg={B}><T b align="left">ENFERMEDAD GENERAL</T></Td>
+        <Td w={COL[2]} bg={B} />
+        <Td w={COL[3]} bg={B}>
+          <T b align="left">DECRETO 1848 DE 1968</T>
+          <T b align="left">O Laboral-Profesional</T>
+        </Td>
+        <Td w={COL[4]} bg={B} />
+        <Td w={COL[5]} bg={B}><T b>PROCEDIMIENTO A</T></Td>
+        <Td w={COL[6]} bg={B}><T b>{marcaA}</T></Td>
+      </Tr>
 
-      {/* Valores (azul body) */}
-      <View style={[styles.row, styles.hVal]}>
-        <Cell flex={COL.c1} style={styles.bgBody}><Text style={styles.td}>{ciudad}</Text></Cell>
-        <Cell flex={COL.c2} style={styles.bgBody}><Text style={styles.td}>ATEP</Text></Cell>
-        <Cell flex={COL.c3} style={styles.bgBody}><Text style={styles.td}>{ley}</Text></Cell>
-        <Cell flex={COL.c4} style={styles.bgBody}><Text style={styles.td}>PROCEDIMIENTO B</Text></Cell>
-        <Cell flex={COL.c5} style={styles.bgBody} last><Text style={styles.td}>{marcaB}</Text></Cell>
-      </View>
+      <Tr bg={B} minH={22}>
+        <Td w={COL[0]} bg={B}><T>{ciudad}</T></Td>
+        <Td w={COL[1]} bg={B}><T b align="left">ATEP</T></Td>
+        <Td w={COL[2]} bg={B} />
+        <Td w={COL[3]} bg={B} valign="top"><T b align="left">LEY 100/93</T></Td>
+        <Td w={COL[4]} bg={B} />
+        <Td w={COL[5]} bg={B}><T b>PROCEDIMIENTO B</T></Td>
+        <Td w={COL[6]} bg={B}><T b>{marcaB}</T></Td>
+      </Tr>
 
-      {/* Subtabla (labels head / valores body / última celda light como el Word) */}
-      <View style={styles.row4}>
-        <Cell flex={1.2} style={styles.bgHead}>
-          <Text style={[styles.th, styles.leftText]}>
-            ESTABLECIMIENTO EDUCATIVO{'\n'}DONDE LABORA:
-          </Text>
-        </Cell>
-        <Cell flex={1.1} style={styles.bgLight}>
-          <Text style={styles.td}>{establecimiento}</Text>
-        </Cell>
-        <Cell flex={1.2} style={styles.bgHead}>
-          <Text style={[styles.th, styles.leftText]}>
-            ENTIDAD TERRITORIAL DONDE{'\n'}LABORA:
-          </Text>
-        </Cell>
-        <Cell flex={1.0} style={styles.bgLight} last>
-          <Text style={styles.td}>{secretariaDondeLabora}</Text>
-        </Cell>
-      </View>
+      <Tr minH={32}>
+        <Td w={EST.label} bg={B} valign="top">
+          <T b align="left">Establecimiento educativo donde labora:</T>
+        </Td>
+        <Td w={EST.value} bg={TPL.light}><T>{establecimiento}</T></Td>
+        <Td w={EST.entLabel} bg={TPL.mid} valign="top">
+          <T b align="left">Entidad territorial donde labora:</T>
+        </Td>
+        <Td w={EST.entValue} bg={TPL.light}><T>{secretariaDondeLabora}</T></Td>
+      </Tr>
 
-      <View style={[styles.fechaRow, styles.bgHead]}>
-        <Text style={styles.fechaText}>FECHA: {fecha}</Text>
-      </View>
+      <Tr bg={B}>
+        <Td w={1} bg={B}>
+          <T b align="left">Fecha: {fecha}</T>
+        </Td>
+      </Tr>
     </View>
   );
 }

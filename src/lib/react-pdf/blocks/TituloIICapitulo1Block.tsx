@@ -1,9 +1,6 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { GridBand, GridCell, GridRow } from '../components/Grid';
-import { KeepTogether } from '../components/KeepTogether';
-import { HeaderWithFirstRow } from '../components/Pagination';
-import { pdfTheme } from '../theme';
+import React from 'react';
+import { View } from '@react-pdf/renderer';
+import { Bar, T, Tbl, Td, Tr, TPL } from '../components/Tpl';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -16,57 +13,45 @@ type Props = {
   dictamen: DictamenLike;
 };
 
-const COLOR = {
-  bar: pdfTheme.colors.templateBlue,
-  left: '#DAE9F7',
-  head: '#DAE9F7',
-  sumLeft: '#9BC2E6',
-  white: '#FFFFFF',
-};
-
-const COL = {
-  actividad: '66.6667%',
-  valorA: '11.1111%',
-  valorB: '11.1111%',
-  valorC: '11.1111%',
-  procedimiento: '33.3333%',
-} as const;
+// Proporciones de columnas de la plantilla (pt sobre 552,4 de ancho).
+const COL = { actividad: 303.1, a: 84.3, b: 107.9, c: 57.9 } as const;
+const PROC_W = COL.a + COL.b + COL.c;
 
 const ACTIVIDADES = [
-  { key: 'MIRAR', label: 'MIRAR' },
-  { key: 'ESCUCHAR', label: 'ESCUCHAR' },
-  { key: 'PENSAR', label: 'PENSAR' },
-  { key: 'LEER', label: 'LEER' },
-  { key: 'ESCRIBIR', label: 'ESCRIBIR' },
+  { key: 'MIRAR', label: 'Mirar' },
+  { key: 'ESCUCHAR', label: 'Escuchar' },
+  { key: 'PENSAR', label: 'Pensar' },
+  { key: 'LEER', label: 'Leer' },
+  { key: 'ESCRIBIR', label: 'Escribir' },
   {
     key: 'COMUNICARSE_CON_MENSAJES_ESCRITOS',
-    label: 'COMUNICARSE CON-RECEPCIÓN DE MENSAJES\nESCRITOS',
+    label: 'Comunicarse con-recepción de mensajes escritos',
   },
-  { key: 'HABLA', label: 'HABLA' },
+  { key: 'HABLA', label: 'Habla' },
   {
     key: 'PRODUCCION_MENSAJES_NO_VERBALES',
-    label: 'PRODUCCIÓN DE MENSAJES NO VERBALES',
+    label: 'Producción de mensajes no verbales',
   },
-  { key: 'MENSAJES_ESCRITOS', label: 'MENSAJES ESCRITOS' },
-  { key: 'CONVERSACION', label: 'CONVERSACIÓN' },
+  { key: 'MENSAJES_ESCRITOS', label: 'Mensajes escritos' },
+  { key: 'CONVERSACION', label: 'Conversación' },
   {
     key: 'MANTENER_CAMBIAR_POSICION_CUERPO',
-    label: 'MANTENER Y CAMBIAR LA POSICIÓN DEL CUERPO Y\nPOSTURAS CORPORALES',
+    label: 'Mantener y cambiar la posición del cuerpo y posturas corporales',
   },
-  { key: 'USO_MANO_BRAZO', label: 'USO DE LA MANO Y BRAZO' },
-  { key: 'DESPLAZARSE_ENTORNO', label: 'DESPLAZARSE EN EL ENTORNO' },
-  { key: 'USO_TRANSPORTE_PASAJERO', label: 'UTILIZACIÓN DE TRANSPORTE COMO PASAJERO' },
-  { key: 'CONDUCCION', label: 'CONDUCCIÓN' },
-  { key: 'LAVARSE', label: 'LAVARSE' },
-  { key: 'CUIDADO_PARTES_CUERPO', label: 'CUIDADO DE PARTES DEL CUERPO' },
-  { key: 'VESTIRSE', label: 'VESTIRSE' },
-  { key: 'COMER', label: 'COMER' },
-  { key: 'BEBER', label: 'BEBER' },
-  { key: 'ADQUIRIR_LO_NECESARIO_PARA_VIVIR', label: 'ADQUISICIÓN DE LO NECESARIO PARA VIVIR' },
-  { key: 'ADQUIRIR_BIENES_SERVICIOS', label: 'ADQUISICIÓN DE BIENES Y SERVICIOS' },
-  { key: 'PREPARAR_COMIDAS', label: 'PREPARAR COMIDAS' },
-  { key: 'QUEHACERES_CASA', label: 'REALIZAR LOS QUEHACERES DE LA CASA' },
-  { key: 'AYUDAR_A_LOS_DEMAS', label: 'AYUDAR A LOS DEMÁS' },
+  { key: 'USO_MANO_BRAZO', label: 'Uso de la mano y brazo' },
+  { key: 'DESPLAZARSE_ENTORNO', label: 'Desplazarse en el entorno' },
+  { key: 'USO_TRANSPORTE_PASAJERO', label: 'Utilización de transporte como pasajero' },
+  { key: 'CONDUCCION', label: 'Conducción' },
+  { key: 'LAVARSE', label: 'Lavarse' },
+  { key: 'CUIDADO_PARTES_CUERPO', label: 'Cuidado de partes del cuerpo' },
+  { key: 'VESTIRSE', label: 'Vestirse' },
+  { key: 'COMER', label: 'Comer' },
+  { key: 'BEBER', label: 'Beber' },
+  { key: 'ADQUIRIR_LO_NECESARIO_PARA_VIVIR', label: 'Adquisición de lo necesario para vivir' },
+  { key: 'ADQUIRIR_BIENES_SERVICIOS', label: 'Adquisición de bienes y servicios' },
+  { key: 'PREPARAR_COMIDAS', label: 'Preparar comidas' },
+  { key: 'QUEHACERES_CASA', label: 'Realizar los quehaceres de la casa' },
+  { key: 'AYUDAR_A_LOS_DEMAS', label: 'Ayudar a los demás' },
 ] as const;
 
 function asRecord(value: unknown): UnknownRecord {
@@ -111,159 +96,64 @@ export function TituloIICapitulo1Block({ dictamen }: Props) {
       sumatorias[index] += coeffs[index];
     }
   }
+
   const renderActivityRow = (actividad: (typeof ACTIVIDADES)[number]) => {
     const value = valuesByActivity.get(actividad.key);
-    const selectedIndex =
-      value == null ? -1 : coeffs.findIndex((coef) => almostEqual(value, coef));
+    const selectedIndex = value == null ? -1 : coeffs.findIndex((coef) => almostEqual(value, coef));
+    const mark = (i: number) => (selectedIndex === i ? 'X' : ' ');
 
     return (
-      <GridRow key={actividad.key} style={styles.activityRow}>
-        <GridCell
-          width={COL.actividad}
-          backgroundColor={COLOR.left}
-          align="flex-start"
-        >
-          <Text style={styles.activityText}>{actividad.label}</Text>
-        </GridCell>
-        <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
-          <Text style={styles.xText}>{selectedIndex === 0 ? 'X' : ' '}</Text>
-        </GridCell>
-        <GridCell width={COL.valorB} backgroundColor={COLOR.white}>
-          <Text style={styles.xText}>{selectedIndex === 1 ? 'X' : ' '}</Text>
-        </GridCell>
-        <GridCell width={COL.valorC} backgroundColor={COLOR.white} isLast>
-          <Text style={styles.xText}>{selectedIndex === 2 ? 'X' : ' '}</Text>
-        </GridCell>
-      </GridRow>
+      <Tr key={actividad.key} minH={16}>
+        <Td w={COL.actividad} bg={TPL.pale} px={6}>
+          <T align="left">{actividad.label}</T>
+        </Td>
+        <Td w={COL.a} bg={TPL.white}><T b size={8.2}>{mark(0)}</T></Td>
+        <Td w={COL.b} bg={TPL.white}><T b size={8.2}>{mark(1)}</T></Td>
+        <Td w={COL.c} bg={TPL.white}><T b size={8.2}>{mark(2)}</T></Td>
+      </Tr>
     );
   };
 
+  const renderSumRow = () => (
+    <Tr minH={16}>
+      <Td w={COL.actividad} bg={TPL.blue}><T b>SUMATORIA</T></Td>
+      <Td w={COL.a} bg={TPL.white}><T b size={8.2}>{formatCoef(sumatorias[0])}</T></Td>
+      <Td w={COL.b} bg={TPL.white}><T b size={8.2}>{formatCoef(sumatorias[1])}</T></Td>
+      <Td w={COL.c} bg={TPL.white}><T b size={8.2}>{formatCoef(sumatorias[2])}</T></Td>
+    </Tr>
+  );
+
+  const lastIndex = ACTIVIDADES.length - 1;
+
   return (
-    <View>
-      <HeaderWithFirstRow minPresenceAhead={24}>
-        <GridBand
-          backgroundColor={COLOR.bar}
-          textColor={pdfTheme.colors.white}
-        >
-          Titulo II - Capitulo 1
-        </GridBand>
-
-        <GridRow style={styles.headerRow}>
-          <GridCell width={COL.actividad} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>{' '}</Text>
-          </GridCell>
-          <GridCell
-            width={COL.procedimiento}
-            backgroundColor={COLOR.head}
-            isLast
-          >
-            <Text style={styles.headText}>PROCEDIMIENTO</Text>
-          </GridCell>
-        </GridRow>
-
-        <GridRow style={styles.headerRow}>
-          <GridCell
-            width={COL.actividad}
-            backgroundColor={COLOR.head}
-            align="flex-start"
-          >
-            <Text style={styles.headTextLeft}>CATEGORÍAS DE ACTIVIDADES</Text>
-          </GridCell>
-          <GridCell
-            width={COL.procedimiento}
-            backgroundColor={COLOR.white}
-            isLast
-          >
-            <Text style={styles.headText}>B</Text>
-          </GridCell>
-        </GridRow>
-
-        <GridRow style={styles.headerRow}>
-          <GridCell width={COL.actividad} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>{' '}</Text>
-          </GridCell>
-          <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
-            <Text style={styles.headText}>{formatCoef(coeffs[0])}</Text>
-          </GridCell>
-          <GridCell width={COL.valorB} backgroundColor={COLOR.white}>
-            <Text style={styles.headText}>{formatCoef(coeffs[1])}</Text>
-          </GridCell>
-          <GridCell width={COL.valorC} backgroundColor={COLOR.white} isLast>
-            <Text style={styles.headText}>{formatCoef(coeffs[2])}</Text>
-          </GridCell>
-        </GridRow>
+    <Tbl>
+      {/* Barra + encabezado + primera fila: nunca quedan solos al final de la hoja */}
+      <View wrap={false}>
+        <Bar bg={TPL.navy} color={TPL.white} minH={16} size={8.2}>TITULO II - CAPITULO 1</Bar>
+        <Tr minH={16}>
+          <Td w={COL.actividad} bg={TPL.pale} />
+          <Td w={PROC_W} bg={TPL.pale}><T b>Procedimiento</T></Td>
+        </Tr>
+        <Tr minH={16}>
+          <Td w={COL.actividad} bg={TPL.pale} px={6}><T align="left">CATEGORÍAS DE ACTIVIDADES</T></Td>
+          <Td w={PROC_W} bg={TPL.pale}><T>B</T></Td>
+        </Tr>
+        <Tr minH={16}>
+          <Td w={COL.actividad} bg={TPL.pale} />
+          <Td w={COL.a} bg={TPL.white}><T>{formatCoef(coeffs[0])}</T></Td>
+          <Td w={COL.b} bg={TPL.white}><T>{formatCoef(coeffs[1])}</T></Td>
+          <Td w={COL.c} bg={TPL.white}><T>{formatCoef(coeffs[2])}</T></Td>
+        </Tr>
         {renderActivityRow(ACTIVIDADES[0])}
-      </HeaderWithFirstRow>
+      </View>
 
-      {ACTIVIDADES.slice(1).map(renderActivityRow)}
+      {ACTIVIDADES.slice(1, lastIndex).map(renderActivityRow)}
 
-      <KeepTogether minPresenceAhead={16}>
-        <GridRow style={styles.sumRow}>
-          <GridCell width={COL.actividad} backgroundColor={COLOR.sumLeft}>
-            <Text style={styles.sumText}>SUMATORIA</Text>
-          </GridCell>
-          <GridCell width={COL.valorA} backgroundColor={COLOR.white}>
-            <Text style={styles.xText}>{formatCoef(sumatorias[0])}</Text>
-          </GridCell>
-          <GridCell width={COL.valorB} backgroundColor={COLOR.white}>
-            <Text style={styles.xText}>{formatCoef(sumatorias[1])}</Text>
-          </GridCell>
-          <GridCell width={COL.valorC} backgroundColor={COLOR.white} isLast>
-            <Text style={styles.xText}>{formatCoef(sumatorias[2])}</Text>
-          </GridCell>
-        </GridRow>
-      </KeepTogether>
-    </View>
+      {/* La última actividad viaja con la SUMATORIA */}
+      <View wrap={false}>
+        {renderActivityRow(ACTIVIDADES[lastIndex])}
+        {renderSumRow()}
+      </View>
+    </Tbl>
   );
 }
-
-const styles = StyleSheet.create({
-  barText: {
-    fontSize: 8,
-    fontWeight: 700,
-  },
-  headerRow: {
-    minHeight: 16,
-  },
-  headText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  headTextLeft: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'left',
-  },
-  activityRow: {
-    minHeight: 16,
-  },
-  activityText: {
-    fontSize: 7.6,
-    textAlign: 'left',
-    textTransform: 'uppercase',
-    lineHeight: 1.15,
-  },
-  xText: {
-    fontSize: 8.2,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  sumRow: {
-    minHeight: 16,
-    borderTopWidth: pdfTheme.sizes.borderWidth,
-    borderTopColor: pdfTheme.colors.border,
-  },
-  sumText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-});
-
-
-
-
-
-

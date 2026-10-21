@@ -1,8 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { GridBand, GridCell, GridRow } from '../components/Grid';
-import { KeepTogether } from '../components/KeepTogether';
-import { HeaderWithFirstRow } from '../components/Pagination';
+import { View } from '@react-pdf/renderer';
+import { Bar, Stack, Sub, T, Tbl, Td, Tr, TPL } from '../components/Tpl';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -23,18 +21,8 @@ type Props = {
   dictamen: DictamenLike;
 };
 
-const COLOR = {
-  blue: '#9BC2E6',
-  light: '#E0EDF8',
-  white: '#FFFFFF',
-};
-
-const COL = {
-  etapa: 12,
-  valorA: 14,
-  separador: 8,
-  valorB: 11,
-} as const;
+// Proporciones de columnas de la plantilla (pt sobre 552,4 de ancho).
+const COL = { blankL: 54.6, etapa: 91.9, a: 106.3, sep: 49.3, b: 83.6, blankR: 165.1 } as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -118,83 +106,36 @@ export default function PorcentajePclBlock({ dictamen }: Props) {
       bold: true,
     },
   ];
-  const renderRow = (row: { label: string; a: string; b: string; bold?: boolean }) => {
-    const textStyle = row.bold ? styles.bodyTextBold : styles.bodyText;
-    return (
-      <GridRow key={row.label} style={styles.bodyRow}>
-        <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
-          <Text style={textStyle}>{row.label}</Text>
-        </GridCell>
-        <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
-          <Text style={textStyle}>{row.a}</Text>
-        </GridCell>
-        <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
-          <Text style={styles.bodyText}>{' '}</Text>
-        </GridCell>
-        <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
-          <Text style={textStyle}>{row.b}</Text>
-        </GridCell>
-      </GridRow>
-    );
-  };
-
   return (
-    <View>
-      <HeaderWithFirstRow minPresenceAhead={24}>
-        <GridBand backgroundColor={COLOR.blue}>Porcentaje de perdida de capacidad laboral</GridBand>
+    <Tbl>
+      {/* Todo el cuadro es una sola pieza: la barra nunca queda sola */}
+      <View wrap={false}>
+        <Bar bg={TPL.blue}>PORCENTAJE DE PÉRDIDA DE CAPACIDAD LABORAL</Bar>
 
-        <GridRow style={styles.headerRow}>
-          <GridCell flex={COL.etapa} backgroundColor={COLOR.blue}>
-            <Text style={styles.headText}>ETAPA</Text>
-          </GridCell>
-          <GridCell flex={COL.valorA} backgroundColor={COLOR.light}>
-            <Text style={styles.headText}>PROCEDIMIENTO A</Text>
-          </GridCell>
-          <GridCell flex={COL.separador} backgroundColor={COLOR.white}>
-            <Text style={styles.headText}>{' '}</Text>
-          </GridCell>
-          <GridCell flex={COL.valorB} backgroundColor={COLOR.light} isLast>
-            <Text style={styles.headText}>PROCEDIMIENTO B</Text>
-          </GridCell>
-        </GridRow>
-        {renderRow(rows[0])}
-      </HeaderWithFirstRow>
-
-      {rows.slice(1).map((row) => {
-        const isLast = Boolean(row.bold);
-        const rowNode = renderRow(row);
-
-        return isLast ? (
-          <KeepTogether key={row.label} minPresenceAhead={14}>
-            {rowNode}
-          </KeepTogether>
-        ) : (
-          rowNode
-        );
-      })}
-    </View>
+        <Tr minH={16 * 7}>
+          <Td w={COL.blankL} bg={TPL.white} />
+          <Stack w={COL.etapa + COL.a + COL.sep + COL.b}>
+            <Sub first minH={26}>
+              <Td w={COL.etapa} bg={TPL.blue} valign="bottom"><T>ETAPA</T></Td>
+              <Td w={COL.a} bg={TPL.soft}><T>PROCEDIMIENTO A</T></Td>
+              <Td w={COL.sep} bg={TPL.white} />
+              <Td w={COL.b} bg={TPL.blue}><T>PROCEDIMIENTO B</T></Td>
+            </Sub>
+            {rows.map((row) => {
+              const textStyle = { b: Boolean(row.bold) };
+              return (
+                <Sub key={row.label} minH={16}>
+                  <Td w={COL.etapa} bg={TPL.blue}><T {...textStyle}>{row.label}</T></Td>
+                  <Td w={COL.a} bg={TPL.soft}><T {...textStyle}>{row.a}</T></Td>
+                  <Td w={COL.sep} bg={TPL.white} />
+                  <Td w={COL.b} bg={TPL.soft}><T {...textStyle}>{row.b}</T></Td>
+                </Sub>
+              );
+            })}
+          </Stack>
+          <Td w={COL.blankR} bg={TPL.white} />
+        </Tr>
+      </View>
+    </Tbl>
   );
 }
-
-const styles = StyleSheet.create({
-  headerRow: {
-    minHeight: 32,
-  },
-  headText: {
-    fontSize: 7.5,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  bodyRow: {
-    minHeight: 16,
-  },
-  bodyText: {
-    fontSize: 7.5,
-    textAlign: 'center',
-  },
-  bodyTextBold: {
-    fontSize: 7.5,
-    textAlign: 'center',
-    fontWeight: 700,
-  },
-});

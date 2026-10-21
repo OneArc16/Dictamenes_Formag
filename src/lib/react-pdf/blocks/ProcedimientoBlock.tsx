@@ -1,8 +1,6 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { GridBand } from '../components/Grid';
-import { KeepTogether } from '../components/KeepTogether';
-import { pdfTheme } from '../theme';
+import React from 'react';
+import { Text, View } from '@react-pdf/renderer';
+import { Bar, Tbl, Td, Tr, TPL } from '../components/Tpl';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -21,11 +19,6 @@ type DictamenLike = {
 
 type Props = {
   dictamen: DictamenLike;
-};
-
-const COLOR = {
-  blue: '#9BC2E6',
-  light: '#E0EDF8',
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -68,65 +61,45 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
   const baseMasTitulo3 = base != null && totalTitulo3 != null ? base + totalTitulo3 : null;
   const totalFinal = toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasTitulo3);
 
+  const line = { fontSize: 8, lineHeight: 1.2, marginBottom: 3 } as const;
+  const bold = { fontWeight: 700 } as const;
+  const boldItalic = { fontWeight: 700, fontStyle: 'italic' } as const;
+
   return (
-    <View>
-      <GridBand backgroundColor={COLOR.blue}>Procedimiento</GridBand>
+    <Tbl>
+      <View wrap={false}>
+        <Bar bg={TPL.blue}>PROCEDIMIENTO</Bar>
 
-      <KeepTogether minPresenceAhead={22}>
-        <View style={styles.body}>
-          <Text style={styles.line}>
-            Valor de la Deficiencia Titulo I + Valor de las limitaciones y restricciones Titulo II ={' '}
-            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(base) : '______'}</Text>%{' '}
-            <Text style={styles.italic}>(Valor perdida de capacidad laboral)</Text>
-          </Text>
+        <Tr minH={60}>
+          <Td w={1} bg={TPL.pale} valign="top" px={6} py={6}>
+            <Text style={line}>
+              Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
+              <Text style={bold}>{procedimiento === 'A' ? formatValue(base) : '______'}</Text>
+              <Text style={bold}>%</Text>{' '}
+              <Text style={boldItalic}>(Valor Pérdida de Capacidad Laboral)</Text>
+            </Text>
 
-          <Text style={styles.line}>
-            Valor perdida de capacidad laboral X Valor Titulo III ={' '}
-            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(totalTitulo3) : '______'}</Text>%{' '}
-            <Text style={styles.italic}>(Valor para adicionar por Titulo III)</Text>
-          </Text>
+            <Text style={[line, bold]}>
+              Valor Pérdida de Capacidad Laboral X Valor Título III ={' '}
+              {procedimiento === 'A' ? formatValue(totalTitulo3) : '______'}%{' '}
+              <Text style={boldItalic}>(Valor para adicionar por Título III)</Text>
+            </Text>
 
-          <Text style={styles.line}>
-            Valor para adicionar por Titulo III + Valor perdida de capacidad laboral ={' '}
-            <Text style={styles.bold}>{procedimiento === 'A' ? formatValue(totalFinal) : '______'}</Text>%{' '}
-            <Text style={styles.italic}>(Valor final ajustado de PCL)</Text>
-          </Text>
+            <Text style={[line, bold]}>
+              Valor para adicionar por Título III + Valor Pérdida de Capacidad Laboral ={' '}
+              {procedimiento === 'A' ? formatValue(totalFinal) : '______'}%{' '}
+              <Text style={boldItalic}>(Valor final ajustado de PCL)</Text>
+            </Text>
 
-          <Text style={[styles.line, styles.sectionLabel]}>PROCEDIMIENTO B</Text>
+            <Text style={line}>PROCEDIMIENTO B</Text>
 
-          <Text style={styles.line}>
-            Valor de la Deficiencia Titulo I + Valor de las limitaciones y restricciones Titulo II ={' '}
-            <Text style={styles.bold}>{procedimiento === 'B' ? formatValue(base) : '______'}</Text>%
-          </Text>
-        </View>
-      </KeepTogether>
-    </View>
+            <Text style={line}>
+              Valor de la Deficiencia Título I + Valor de las limitaciones y restricciones Título II ={' '}
+              {procedimiento === 'B' ? formatValue(base) : '______'}%
+            </Text>
+          </Td>
+        </Tr>
+      </View>
+    </Tbl>
   );
 }
-
-const styles = StyleSheet.create({
-  body: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    borderLeftWidth: pdfTheme.sizes.borderWidth,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderColor: pdfTheme.colors.border,
-    backgroundColor: COLOR.light,
-  },
-  line: {
-    fontSize: 8,
-    lineHeight: 1.15,
-    marginBottom: 3,
-  },
-  sectionLabel: {
-    marginTop: 6,
-    fontWeight: 700,
-  },
-  bold: {
-    fontWeight: 700,
-  },
-  italic: {
-    fontStyle: 'italic',
-  },
-});

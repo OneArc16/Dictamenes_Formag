@@ -1,6 +1,11 @@
 ﻿export const pdfTheme = {
   page: {
-    padding: 18,
+    // Carta en React-PDF se mide en puntos (72 pt = 1 in).
+    // Márgenes GTC 185: 3 / 2,5 / 2,5 / 2 cm.
+    paddingTop: 85.04,
+    paddingBottom: 70.87,
+    paddingLeft: 70.87,
+    paddingRight: 56.69,
     fontSize: 9,
     fontFamily: 'Helvetica',
   },
@@ -31,9 +36,10 @@
     rowPadding: 4,
 
     // Header
-    headerTopH: 52,
-    headerBandH: 14,
-    headerRowH: 14,
+    // El encabezado completo ocupa el margen superior de 3 cm.
+    headerTopH: 43,
+    headerBandH: 12,
+    headerRowH: 13,
     logoW: 120,
   },
 } as const;

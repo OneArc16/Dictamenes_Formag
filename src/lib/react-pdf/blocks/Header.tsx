@@ -1,12 +1,23 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
+import React from 'react';
+import { Image, View } from '@react-pdf/renderer';
 import { pdfTheme } from '../theme';
+import { T, Td, Tr, TPL, BW } from '../components/Tpl';
 
 type Props = {
   logoSrc?: string | null;
   numeroDictamen?: string | null;
   fechaDictamen?: string | Date | null;
 };
+
+// GTC 185: en la página 1 el encabezado arranca a 1,5 cm del borde superior.
+const HEADER_TOP = 42.52;
+
+const W = {
+  logo: 147,
+  title: 405.4,
+  label: 303.1,
+  value: 249.3,
+} as const;
 
 function formatDateDMY(value?: string | Date | null) {
   if (!value) return '—';
@@ -19,123 +30,53 @@ function formatDateDMY(value?: string | Date | null) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
-const styles = StyleSheet.create({
-  wrap: { borderWidth: pdfTheme.sizes.borderWidth, borderColor: pdfTheme.colors.border },
-
-  topRow: { flexDirection: 'row', height: pdfTheme.sizes.headerTopH },
-  logoCell: {
-    width: pdfTheme.sizes.logoW,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
-    backgroundColor: pdfTheme.colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
-  },
-  logo: {
-    width: pdfTheme.sizes.logoW - 18,
-    height: pdfTheme.sizes.headerTopH - 18,
-    objectFit: 'contain',
-  },
-  textCell: {
-    flex: 1,
-    backgroundColor: pdfTheme.colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  topText: {
-    fontSize: 7.2,
-    fontWeight: 700,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    color: pdfTheme.colors.text,
-    lineHeight: 1.2,
-  },
-
-  bandRow: {
-    height: pdfTheme.sizes.headerBandH,
-    backgroundColor: pdfTheme.colors.templateBlue,
-    borderTopWidth: pdfTheme.sizes.borderWidth,
-    borderTopColor: pdfTheme.colors.border,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bandText: {
-    fontSize: 8.5,
-    fontWeight: 700,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    color: pdfTheme.colors.text,
-  },
-
-  metaRow: {
-    flexDirection: 'row',
-    height: pdfTheme.sizes.headerRowH,
-    backgroundColor: pdfTheme.colors.templateBlue,
-    borderBottomWidth: pdfTheme.sizes.borderWidth,
-    borderBottomColor: pdfTheme.colors.border,
-  },
-  cellLeft: {
-    flex: 1.2,
-    borderRightWidth: pdfTheme.sizes.borderWidth,
-    borderRightColor: pdfTheme.colors.border,
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  cellRight: { flex: 1, justifyContent: 'center', paddingHorizontal: 6 },
-  label: {
-    fontSize: 8.2,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    color: pdfTheme.colors.text,
-  },
-  value: { fontSize: 8.2, color: pdfTheme.colors.text },
-});
-
-export function HeaderBlock(props: Props) {
-  const numero = props.numeroDictamen?.trim() || '—';
-  const fecha = formatDateDMY(props.fechaDictamen);
+/**
+ * Encabezado de la plantilla: recuadro con logo (izq.) y título (der.), y debajo
+ * las filas azules "FORMULARIO DE DICTAMEN / DICTAMEN NÚMERO / FECHA DEL DICTAMEN".
+ * Va solo en la página 1: se sube con margen negativo desde el margen superior
+ * de 3 cm de las demás páginas hasta los 1,5 cm que pide la norma.
+ */
+export function HeaderBlock({ logoSrc, numeroDictamen, fechaDictamen }: Props) {
+  const numero = numeroDictamen?.trim() || '—';
+  const fecha = formatDateDMY(fechaDictamen);
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.topRow}>
-        <View style={styles.logoCell}>
-          {props.logoSrc ? <Image src={props.logoSrc} style={styles.logo} /> : null}
-        </View>
+    <View wrap={false} style={{ marginTop: HEADER_TOP - pdfTheme.page.paddingTop }}>
+      <Tr first minH={62} bg={TPL.white} style={{ borderLeftWidth: BW }}>
+        <Td w={W.logo} bg={TPL.white} px={6} py={5}>
+          {logoSrc ? <Image src={logoSrc} style={{ width: '100%', height: 52, objectFit: 'contain' }} /> : null}
+        </Td>
+        <Td w={W.title} bg={TPL.white} px={10}>
+          <T b size={7.2} style={{ textTransform: 'uppercase', lineHeight: 1.25 }}>
+            FORMATO PARA EL DICTAMEN MEDICO LABORAL DE LA PERDIDA DE CAPACIDAD LABORAL O DEL ESTADO DE
+            INVALIDEZ PARA LOS EDUCADORES AFILIADOS AL FONDO DE PRESTACIONES SOCIALES DEL MAGISTERIO
+          </T>
+        </Td>
+      </Tr>
 
-        <View style={styles.textCell}>
-          <Text style={styles.topText}>
-            FORMATO PARA EL DICTAMEN MEDICO LABORAL DE LA PERDIDA DE CAPACIDAD LABORAL O DEL
-            ESTADO DE INVALIDEZ PARA LOS EDUCADORES AFILIADOS AL FONDO DE PRESTACIONES SOCIALES
-            DEL MAGISTERIO
-          </Text>
-        </View>
-      </View>
+      <Tr bg={TPL.blue} style={{ borderLeftWidth: BW }}>
+        <Td w={1} bg={TPL.blue}>
+          <T b size={8.5}>FORMULARIO DE DICTAMEN</T>
+        </Td>
+      </Tr>
 
-      <View style={styles.bandRow}>
-        <Text style={styles.bandText}>FORMULARIO DE DICTAMEN</Text>
-      </View>
+      <Tr bg={TPL.blue}>
+        <Td w={W.label} bg={TPL.blue}>
+          <T b align="left" size={8.2}>DICTAMEN NÚMERO:</T>
+        </Td>
+        <Td w={W.value} bg={TPL.blue}>
+          <T align="left" size={8.2}>{numero}</T>
+        </Td>
+      </Tr>
 
-      <View style={styles.metaRow}>
-        <View style={styles.cellLeft}>
-          <Text style={styles.label}>DICTAMEN NUMERO:</Text>
-        </View>
-        <View style={styles.cellRight}>
-          <Text style={styles.value}>{numero}</Text>
-        </View>
-      </View>
-
-      <View style={[styles.metaRow, { borderBottomWidth: 0 }]}>
-        <View style={styles.cellLeft}>
-          <Text style={styles.label}>FECHA DEL DICTAMEN</Text>
-        </View>
-        <View style={styles.cellRight}>
-          <Text style={styles.value}>{fecha}</Text>
-        </View>
-      </View>
+      <Tr bg={TPL.blue}>
+        <Td w={W.label} bg={TPL.blue}>
+          <T b align="left" size={8.2}>FECHA DEL DICTAMEN</T>
+        </Td>
+        <Td w={W.value} bg={TPL.blue}>
+          <T align="left" size={8.2}>{fecha}</T>
+        </Td>
+      </Tr>
     </View>
   );
 }

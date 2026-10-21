@@ -1,8 +1,7 @@
-﻿// /lib/react-pdf/blocks/TituloIIIPage1Block.tsx
+// /lib/react-pdf/blocks/TituloIIIPage1Block.tsx
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
-import { HeaderWithFirstRow } from '../components/Pagination';
+import { View } from '@react-pdf/renderer';
+import { Bar, RotText, Stack, Sub, T, Tbl, Td, Tr, TPL, BW, ROW_H } from '../components/Tpl';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -13,27 +12,11 @@ type DictamenLike = {
 
 type Props = { dictamen: DictamenLike };
 
-const BW = Number(pdfTheme?.sizes?.borderWidth ?? 0.85);
-const BC = pdfTheme.colors.border;
-
-const COLOR = {
-  bar: '#1F4E78',
-  head: '#DAE9F7',
-  left: '#DAE9F7',
-  white: '#FFFFFF',
-};
-
-const COL = {
-  criterio: 3,
-  factor: 5,
-  g: 3, // cada columna 0..IV
-} as const;
-
-const G_COLS = 5;
-const TOTAL = COL.criterio + COL.factor + COL.g * G_COLS; // 23
-
-// flex �?oestable�?� (evita redondeos por %)
-const flexW = (n: number) => ({ flexGrow: n, flexShrink: 1, flexBasis: 0 });
+// Proporciones de columnas de la plantilla (pt sobre 552,4 de ancho).
+const COL = { crit: 55, factor: 92.9, g: [106.4, 49.3, 84.3, 107.9, 57.9] } as const;
+const NIVELES = ['0', 'I', 'II', 'III', 'IV'] as const;
+const FACTOR_W = COL.factor + COL.g.reduce((sum, w) => sum + w, 0);
+const DESC_W = COL.crit + COL.factor + COL.g[0] + COL.g[1] + COL.g[2];
 
 // �o. convierte objetos/enums a texto útil
 function toText(v: unknown): string | null {
@@ -110,13 +93,14 @@ function normGravedad(v: unknown): '0' | 'I' | 'II' | 'III' | 'IV' | null {
 const RH = { sm: 18, md: 24, lg: 30, xl: 48 } as const;
 
 type RowDef = { keys: string[]; label: string; h: number };
-type GroupDef = { label: string; rows: RowDef[] };
+type GroupDef = { label: string; rot: string; rows: RowDef[] };
 const K = (...raws: string[]) => raws.map(normKey);
 
 // �o. Incluye la �?oúltima página�?� que mandaste (sensopercepción + motricidad)
 const GROUPS: GroupDef[] = [
   {
     label: 'DESCRIPCI\u00d3N DE FACTORES PSICOL\u00d3GICOS',
+    rot: 'DESCRIPCI\u00d3N DE\nFACTORES\nPSICOL\u00d3GICOS',
     rows: [
       { keys: K('ATENCION', 'ATENCI\u00d3N'), label: 'ATENCI\u00d3N', h: RH.sm },
       { keys: K('MEMORIA'), label: 'MEMORIA', h: RH.sm },
@@ -147,6 +131,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'DESCRIPCI\u00d3N DE RESPONSABILIDADES',
+    rot: 'DESCRIPCI\u00d3N DE\nRESPONSABILIDADES',
     rows: [
       { keys: K('TOMA_DECISIONES', 'TOMA DE DECISIONES'), label: 'TOMA DE\nDECISIONES', h: RH.md },
       {
@@ -182,6 +167,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'DESCRIPCI\u00d3N DE COMUNICACI\u00d3N',
+    rot: 'DESCRIPCI\u00d3N DE\nCOMUNICACI\u00d3N',
     rows: [
       { keys: K('COMUNICACION_ORAL', 'ORAL', 'COMUNICACION ORAL', 'COMUNICACI\u00d3N ORAL'), label: 'ORAL', h: RH.sm },
       { keys: K('COMUNICACION_GESTUAL', 'GESTUAL', 'COMUNICACION GESTUAL', 'COMUNICACI\u00d3N GESTUAL'), label: 'GESTUAL', h: RH.sm },
@@ -189,6 +175,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'DESCRIPCI\u00d3N DE CONOCIMIENTOS ACAD\u00c9MICOS',
+    rot: 'DESCRIPCI\u00d3N DE\nCONOCIMIENTOS\nACAD\u00c9MICOS',
     rows: [
       { keys: K('LECTURA', 'CONOCIMIENTOS ACADEMICOS LECTURA', 'CONOCIMIENTOS ACAD\u00c9MICOS LECTURA'), label: 'LECTURA', h: RH.sm },
       { keys: K('ESCRITURA', 'CONOCIMIENTOS ACADEMICOS ESCRITURA', 'CONOCIMIENTOS ACAD\u00c9MICOS ESCRITURA'), label: 'ESCRITURA', h: RH.sm },
@@ -197,6 +184,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'DESCRIPCI\u00d3N DE SENSOPERCEPCI\u00d3N',
+    rot: 'DESCRIPCI\u00d3N DE\nSENSOPERCEPCI\u00d3N',
     rows: [
       { keys: K('VISION', 'VISI\u00d3N'), label: 'VISI\u00d3N', h: RH.sm },
       { keys: K('PERCEPCION_COLOR', 'PERCEPCION DE COLORES', 'PERCEPCI\u00d3N DE COLORES'), label: 'PERCEPCI\u00d3N DE\nCOLORES', h: RH.sm },
@@ -226,6 +214,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'MOTRICIDAD GRUESA',
+    rot: 'MOTRICIDAD\nGRUESA',
     rows: [
       { keys: K('DESPLAZAMIENTO'), label: 'DESPLAZAMIENTO', h: RH.sm },
       { keys: K('TRANSPORTAR_PESO', 'TRANSPORTAR PESO'), label: 'TRANSPORTAR\nPESO', h: RH.md },
@@ -248,6 +237,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     label: 'DESCRIPCI\u00d3N DE MOTRICIDAD FINA',
+    rot: 'DESCRIPCI\u00d3N DE\nMOTRICIDAD FINA',
     rows: [
       { keys: K('AGARRE_MANO_LLENA', 'AGARRE A MANO LLENA'), label: 'AGARRE A MANO\nLLENA', h: RH.md },
       { keys: K('AGARRE_CILINDRICO', 'AGARRE CILINDRICO', 'AGARRE CIL\u00cdNDRICO'), label: 'AGARRE\nCIL\u00cdNDRICO', h: RH.md },
@@ -267,88 +257,59 @@ const GROUPS: GroupDef[] = [
   },
 ];
 
-// CHUNKS (para evitar “huecos”)
-const CHUNK_FIRST_H = 48; // deja el primero grande para que el texto rotado quepa
-const CHUNK_OTHER_H = 60;  // los siguientes más pequeños para aprovechar espacio
+// Las alturas son mínimos, no topes: la fila crece con el texto (sin overflow oculto).
+const FACTOR_FONT_SIZE = 7.2;
+const FACTOR_LINE_HEIGHT = 1.15;
+const FACTOR_VERTICAL_PADDING = 6;
 
-function chunkRows(rows: RowDef[], firstMaxH = CHUNK_FIRST_H, otherMaxH = CHUNK_OTHER_H) {
-  const out: RowDef[][] = [];
-  let cur: RowDef[] = [];
-  let h = 0;
-  let maxH = firstMaxH;
+function rowMinHeight(row: RowDef) {
+  const lines = row.label.split('\n').length;
+  return Math.max(ROW_H, Math.ceil(lines * FACTOR_FONT_SIZE * FACTOR_LINE_HEIGHT + FACTOR_VERTICAL_PADDING));
+}
 
-  for (const r of rows) {
-    if (cur.length && h + r.h > maxH) {
-      out.push(cur);
-      cur = [r];
-      h = r.h;
-      maxH = otherMaxH; // �o. después del primer corte, chunks más pequeños
-    } else {
-      cur.push(r);
-      h += r.h;
+// Largo (pt) que necesita el rótulo girado de un grupo, repartido en 2 renglones.
+const ROT_FONT_SIZE = 7;
+function rotLength(group: GroupDef) {
+  const longest = Math.max(...group.rot.split('\n').map((line) => line.length));
+  return Math.ceil(longest * ROT_FONT_SIZE * 0.66) + 10;
+}
+
+function groupMinHeight(group: GroupDef) {
+  const rowsHeight = group.rows.reduce((total, row) => total + rowMinHeight(row), 0);
+  return Math.max(rowsHeight, rotLength(group));
+}
+
+// Los grupos cortos van completos en una sola pieza. Los largos se parten en bloques de ~MAX_CHUNK_H
+// (cada uno con su celda CRITERIOS y su rótulo) para aprovechar el espacio al final de la hoja en
+// lugar de mover un grupo de 15 filas entero a la página siguiente.
+const MAX_CHUNK_H = 90;
+
+function splitGroup(group: GroupDef): GroupDef[] {
+  const minChunkH = rotLength(group);
+  const chunks: RowDef[][] = [];
+  let current: RowDef[] = [];
+  let height = 0;
+
+  for (const row of group.rows) {
+    current.push(row);
+    height += rowMinHeight(row);
+    if (height >= MAX_CHUNK_H) {
+      chunks.push(current);
+      current = [];
+      height = 0;
     }
   }
 
-  if (cur.length) out.push(cur);
-  return out;
+  if (current.length) {
+    // Un resto demasiado bajo para el rótulo girado se une al bloque anterior.
+    if (chunks.length && height < minChunkH) chunks[chunks.length - 1].push(...current);
+    else chunks.push(current);
+  }
+
+  return chunks.map((rows) => ({ ...group, rows }));
 }
 
-const styles = StyleSheet.create({
-  barRow: {
-    backgroundColor: COLOR.bar,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 16,
-    borderWidth: BW,
-    borderColor: BC,
-  },
-  barText: { fontSize: 8.2, fontWeight: 700, textTransform: 'uppercase', color: pdfTheme.colors.white },
-
-  tableBox: {
-    borderLeftWidth: BW,
-    borderRightWidth: BW,
-    borderLeftColor: BC,
-    borderRightColor: BC,
-  },
-
-  row: { flexDirection: 'row' },
-
-  cell: { paddingHorizontal: 6, paddingVertical: 3, justifyContent: 'center' },
-  cellL: { borderLeftWidth: BW, borderLeftColor: BC },
-  cellB: { borderBottomWidth: BW, borderBottomColor: BC },
-
-  headBg: { backgroundColor: COLOR.head },
-  leftBg: { backgroundColor: COLOR.left },
-  whiteBg: { backgroundColor: COLOR.white },
-
-  headText: { fontSize: 7.4, fontWeight: 700, textAlign: 'center' },
-  smallText: { fontSize: 7.2, textAlign: 'center', lineHeight: 1.12 },
-  xText: { fontSize: 8.2, fontWeight: 700, textAlign: 'center' },
-
-  topDescRow: {
-    flexDirection: 'row',
-    height: 48,
-    borderTopWidth: BW,
-    borderTopColor: BC,
-    borderBottomWidth: BW,
-    borderBottomColor: BC,
-  },
-  descCell: { backgroundColor: COLOR.head, paddingHorizontal: 6, paddingVertical: 6, justifyContent: 'center' },
-
-  procCol: { backgroundColor: COLOR.head, borderLeftWidth: BW, borderLeftColor: BC },
-  procTop: { height: 18, justifyContent: 'center', borderBottomWidth: BW, borderBottomColor: BC },
-  procBottom: { height: 30, justifyContent: 'center' },
-
-  criterioMerged: {
-    backgroundColor: COLOR.left,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rotWrap: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-  rotText: { fontSize: 7.0, fontWeight: 700, textAlign: 'center' },
-
-  sumText: { fontSize: 7.4, fontWeight: 700, textAlign: 'center' },
-});
+const PIECES = GROUPS.flatMap(splitGroup);
 
 export function TituloIIIPage1Block({ dictamen }: Props) {
   const proc = String(dictamen?.procedimientoPcl ?? 'A').toUpperCase() === 'B' ? 'B' : 'A';
@@ -456,197 +417,108 @@ export function TituloIIIPage1Block({ dictamen }: Props) {
     }
   }
 
-  const renderChunk = (groupLabel: string, rows: RowDef[], showLabel: boolean, isLastChunkOfGroup: boolean) => {
-    const h = rows.reduce((s, r) => s + r.h, 0);
+  const renderGroup = (group: GroupDef, index: number) => {
+    const minH = groupMinHeight(group);
 
+    // Un grupo = una sola pieza (wrap=false): si no cabe al final de la hoja pasa completo a la
+    // siguiente. La celda CRITERIOS y las filas de factores comparten el mismo contenedor, por lo
+    // que el "rowspan" siempre coincide con el número de filas.
     return (
-      <View style={styles.row} wrap={false}>
-        <View
-          style={[
-            styles.criterioMerged,
-            flexW(COL.criterio),
-            {
-              height: h,
-              borderBottomWidth: isLastChunkOfGroup ? BW : 0,
-              borderBottomColor: BC,
-            },
-          ]}
-        >
-          {showLabel ? (
-            <View style={styles.rotWrap}>
-              <Text style={styles.rotText}>{groupLabel}</Text>
-            </View>
-          ) : null}
-        </View>
+      <View
+        key={`${group.label}-${index}`}
+        wrap={false}
+        style={{
+          flexDirection: 'row',
+          borderTopWidth: BW,
+          borderBottomWidth: BW,
+          borderRightWidth: BW,
+          borderColor: TPL.ink,
+          marginTop: index === 0 ? 0 : -BW,
+          minHeight: minH,
+        }}
+      >
+        <Td w={COL.crit} total={COL.crit + FACTOR_W} bg={TPL.pale} px={0} style={{ position: 'relative' }}>
+          <RotText len={minH - 8} size={ROT_FONT_SIZE}>{group.rot}</RotText>
+        </Td>
 
-        <View style={[flexW(TOTAL - COL.criterio)]}>
-          {rows.map((r) => (
-            <View key={`${groupLabel}-${r.label}`} style={[styles.row, { height: r.h }]} wrap={false}>
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.factor)]}>
-                <Text style={styles.smallText}>{r.label}</Text>
-              </View>
-
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.g), { alignItems: 'center' }]}>
-                <Text style={styles.xText}>{mark(r.keys, '0')}</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.g), { alignItems: 'center' }]}>
-                <Text style={styles.xText}>{mark(r.keys, 'I')}</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.g), { alignItems: 'center' }]}>
-                <Text style={styles.xText}>{mark(r.keys, 'II')}</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.g), { alignItems: 'center' }]}>
-                <Text style={styles.xText}>{mark(r.keys, 'III')}</Text>
-              </View>
-              <View style={[styles.cell, styles.cellL, styles.whiteBg, styles.cellB, flexW(COL.g), { alignItems: 'center' }]}>
-                <Text style={styles.xText}>{mark(r.keys, 'IV')}</Text>
-              </View>
-            </View>
+        <Stack w={FACTOR_W} total={COL.crit + FACTOR_W}>
+          {group.rows.map((row, rowIndex) => (
+            <Sub key={`${group.label}-${row.label}-${rowIndex}`} first={rowIndex === 0} minH={rowMinHeight(row)}>
+              <Td w={COL.factor} bg={TPL.pale} px={2}>
+                <T size={FACTOR_FONT_SIZE}>{row.label}</T>
+              </Td>
+              {NIVELES.map((level, levelIndex) => (
+                <Td key={level} w={COL.g[levelIndex]} bg={TPL.white}>
+                  <T b size={8.2}>{mark(row.keys, level)}</T>
+                </Td>
+              ))}
+            </Sub>
           ))}
-        </View>
+        </Stack>
       </View>
     );
   };
 
-  const groupsChunked = GROUPS.map((g) => ({
-    label: g.label,
-    chunks: chunkRows(g.rows), // �o. usa first/other
-  }));
-  const firstChunk = groupsChunked[0]?.chunks?.[0] ?? null;
+  const renderLead = () => (
+    <>
+      <Bar bg={TPL.navy} color={TPL.white} minH={16} size={8.2}>TITULO III</Bar>
+
+      <Tr minH={34}>
+        <Td w={DESC_W} bg={TPL.pale} px={6}>
+          <T align="left" size={7.6}>
+            TITULO III: HERRAMIENTA PARA LA EVALUACIÓN DEL PUESTO DE TRABAJO, PERFIL DE DISCAPACIDAD, COMPETENCIA Y RESTRICCIONES
+            PARA LA ACTIVIDAD COMO EDUCADOR
+          </T>
+        </Td>
+        <Stack w={COL.g[3]}>
+          <Sub first minH={14}><Td w={1} bg={TPL.pale}><T>A</T></Td></Sub>
+          <Sub minH={18}><Td w={1} bg={TPL.pale}><T b size={8.2}>{cellA}</T></Td></Sub>
+        </Stack>
+        <Stack w={COL.g[4]}>
+          <Sub first minH={14}><Td w={1} bg={TPL.pale}><T>B</T></Td></Sub>
+          <Sub minH={18}><Td w={1} bg={TPL.pale}><T b size={8.2}>{cellB}</T></Td></Sub>
+        </Stack>
+      </Tr>
+
+      <Tr minH={22}>
+        <Td w={COL.crit + COL.factor} bg={TPL.pale}>
+          <T size={7}>ANÁLISIS OCUPACIONAL DEL USUARIO</T>
+        </Td>
+        <Td w={COL.g.reduce((sum, w) => sum + w, 0)} bg={TPL.pale}>
+          <T>GRAVEDAD</T>
+        </Td>
+      </Tr>
+
+      <Tr minH={16}>
+        <Td w={COL.crit} bg={TPL.pale}><T>CRITERIOS</T></Td>
+        <Td w={COL.factor} bg={TPL.pale}><T>FACTORES</T></Td>
+        {NIVELES.map((level, levelIndex) => (
+          <Td key={level} w={COL.g[levelIndex]} bg={TPL.pale}><T>{level}</T></Td>
+        ))}
+      </Tr>
+    </>
+  );
 
   return (
-    <View>
-      <HeaderWithFirstRow minPresenceAhead={24}>
-        <View style={styles.barRow} wrap={false}>
-          <Text style={styles.barText}>TITULO III</Text>
-        </View>
-
-        <View style={styles.tableBox}>
-          <View style={styles.topDescRow} wrap={false}>
-            <View style={[styles.descCell, flexW(TOTAL - COL.g * 2)]}>
-              <Text style={{ fontSize: 7.6, lineHeight: 1.15 }}>
-                TITULO III: HERRAMIENTA PARA LA EVALUACIÓN DEL PUESTO DE TRABAJO, PERFIL DE DISCAPACIDAD, COMPETENCIA Y RESTRICCIONES
-                PARA LA ACTIVIDAD COMO EDUCADOR
-              </Text>
-            </View>
-
-            <View style={[styles.procCol, flexW(COL.g)]} wrap={false}>
-              <View style={styles.procTop}>
-                <Text style={styles.headText}>A</Text>
-              </View>
-              <View style={styles.procBottom}>
-                <Text style={styles.xText}>{cellA}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.procCol, flexW(COL.g)]} wrap={false}>
-              <View style={styles.procTop}>
-                <Text style={styles.headText}>B</Text>
-              </View>
-              <View style={styles.procBottom}>
-                <Text style={styles.xText}>{cellB}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.row, styles.cellB]} wrap={false}>
-            <View style={[styles.cell, styles.headBg, flexW(COL.criterio + COL.factor)]}>
-              <Text style={styles.headText}>ANÁLISIS OCUPACIONAL DEL{'\n'}USUARIO</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g * G_COLS)]}>
-              <Text style={styles.headText}>GRAVEDAD</Text>
-            </View>
-          </View>
-
-          <View style={[styles.row, styles.cellB]} wrap={false}>
-            <View style={[styles.cell, styles.headBg, flexW(COL.criterio)]}>
-              <Text style={styles.headText}>CRITERIOS</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.factor)]}>
-              <Text style={styles.headText}>FACTORES</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-              <Text style={styles.headText}>0</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-              <Text style={styles.headText}>I</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-              <Text style={styles.headText}>II</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-              <Text style={styles.headText}>III</Text>
-            </View>
-            <View style={[styles.cell, styles.cellL, styles.headBg, flexW(COL.g)]}>
-              <Text style={styles.headText}>IV</Text>
-            </View>
-          </View>
-
-          {firstChunk ? renderChunk(groupsChunked[0].label, firstChunk, true, groupsChunked[0].chunks.length === 1) : null}
-        </View>
-      </HeaderWithFirstRow>
-
-      <View style={styles.tableBox}>
-        {groupsChunked.map((g, gi) =>
-          g.chunks.map((chunk, ci) => {
-            if (gi === 0 && ci === 0) return null;
-            return (
-              <React.Fragment key={`${g.label}-${ci}`}>
-                {renderChunk(g.label, chunk, ci === 0, ci === g.chunks.length - 1)}
-              </React.Fragment>
-            );
-          }),
-        )}
-
-        <View style={styles.row} wrap={false}>
-          {/* Columna CRITERIOS (vacía) */}
-          <View style={[styles.criterioMerged, styles.headBg, styles.cellB, flexW(COL.criterio), { height: RH.sm }]}>
-            <Text style={styles.sumText}>{' '}</Text>
-          </View>
-
-          {/* Bloque derecho: FACTORES + 0..IV */}
-          <View style={[flexW(TOTAL - COL.criterio)]}>
-            <View style={styles.row} wrap={false}>
-              <View
-                style={[
-                  styles.cell,
-                  styles.cellL,
-                  styles.headBg,
-                  styles.cellB,
-                  flexW(COL.factor),
-                  { height: RH.sm, alignItems: 'center' },
-                ]}
-              >
-                <Text style={styles.sumText}>SUMATORIA</Text>
-              </View>
-
-              {(['0', 'I', 'II', 'III', 'IV'] as const).map((k) => (
-                <View
-                  key={k}
-                  style={[
-                    styles.cell,
-                    styles.cellL,
-                    styles.whiteBg,
-                    styles.cellB,
-                    flexW(COL.g),
-                    { height: RH.sm, alignItems: 'center' },
-                  ]}
-                >
-                  <Text style={styles.smallText}>{sumMutable[k] ? String(sumMutable[k]) : ''}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
+    <Tbl>
+      {/* Barra + encabezado + primer grupo: nunca quedan solos al final de la hoja */}
+      <View wrap={false}>
+        {renderLead()}
+        {renderGroup(PIECES[0], 1)}
       </View>
-    </View>
+
+      {PIECES.slice(1).map((group, index) => renderGroup(group, index + 1))}
+
+      <View wrap={false}>
+        <Tr minH={16}>
+          <Td w={COL.crit + COL.factor} bg={TPL.white}><T b>SUMATORIA</T></Td>
+          {NIVELES.map((level, levelIndex) => (
+            <Td key={level} w={COL.g[levelIndex]} bg={TPL.white}>
+              <T>{sumMutable[level] ? String(sumMutable[level]) : ''}</T>
+            </Td>
+          ))}
+        </Tr>
+      </View>
+    </Tbl>
   );
 }
-
-
-
-
-
-
-
-

@@ -280,8 +280,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 11,
     color: '#000000',
-    borderWidth: 1,
-    borderColor: '#1f2933',
   },
   content: {
     flexGrow: 1,

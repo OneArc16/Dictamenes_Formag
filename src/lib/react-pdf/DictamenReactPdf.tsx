@@ -1,8 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { Document } from '@react-pdf/renderer';
 
 import { PageFrame } from './components/PageFrame';
-import { SectionBox } from './components/SectionBox';
 import { HeaderBlock } from './blocks/Header';
 import { AspectosGeneralesBlock } from './blocks/AspectosGenerales';
 import { CondicionSaludBlock, HallazgosClinicosBlock } from './blocks/CondicionHallazgos';
@@ -52,56 +51,31 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         <NotificacionPclPage dictamen={dictamen} logoSrc={finalLogoSrc} />
       ) : null}
       <PageFrame
-        safeBottom={34}
-        pageNumberBottom={20}
+        pageNumberBottom={34}
         pageNumberOffset={showNotificacionPcl ? 1 : 0}
         totalPagesOffset={showNotificacionPcl ? 1 : 0}
       >
+        {/* Solo en la página 1 (como la plantilla); las demás páginas no repiten el encabezado */}
         <HeaderBlock
           logoSrc={finalLogoSrc}
           numeroDictamen={dictamen?.numeroDictamen ?? String(dictamen?.id ?? '')}
           fechaDictamen={dictamen?.fechaDictamen ?? null}
         />
 
-        <SectionBox joinTop wrap={false} minPresenceAhead={24}>
-          <AspectosGeneralesBlock dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox joinTop wrap={false} minPresenceAhead={28}>
-          <IdentificacionEducadorBlock dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={8}>
-          <AntecedentesClinicosBlock dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={24} style={{ borderBottomWidth: 0 }}>
-          <DiagnosticosMotivoBlock dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={16} joinBottom>
-          <CondicionSaludBlock condicion={condicion} />
-        </SectionBox>
-
-        <SectionBox minPresenceAhead={16} joinTop>
-          <HallazgosClinicosBlock hallazgos={hallazgos} />
-        </SectionBox>
-
+        <AspectosGeneralesBlock dictamen={dictamen} />
+        <IdentificacionEducadorBlock dictamen={dictamen} />
+        <AntecedentesClinicosBlock dictamen={dictamen} />
+        <DiagnosticosMotivoBlock dictamen={dictamen} />
+        <CondicionSaludBlock condicion={condicion} />
+        <HallazgosClinicosBlock hallazgos={hallazgos} />
         <VariablesPerdidaCapacidadLaboralTituloIBlock dictamen={dictamen} />
         <TituloIICapitulo1Block dictamen={dictamen} />
         <TituloIICapitulo2Block dictamen={dictamen} />
         <TituloIIIPage1Block dictamen={dictamen} />
         <PorcentajePclBlock dictamen={dictamen} />
         <ProcedimientoBlock dictamen={dictamen} />
-
-        <SectionBox minPresenceAhead={6} joinBottom>
-          <SustentacionTextoPart dictamen={dictamen} />
-        </SectionBox>
-
-        <SectionBox joinTop minPresenceAhead={12}>
-          <SustentacionTablaOrigenPart dictamen={dictamen} />
-        </SectionBox>
-
+        <SustentacionTextoPart dictamen={dictamen} />
+        <SustentacionTablaOrigenPart dictamen={dictamen} />
         <FirmasJuntaBlock dictamen={dictamen} />
       </PageFrame>
     </Document>

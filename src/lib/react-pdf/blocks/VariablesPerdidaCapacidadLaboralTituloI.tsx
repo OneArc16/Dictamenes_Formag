@@ -1,9 +1,6 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { GridBand, GridCell, GridRow } from '../components/Grid';
-import { KeepTogether } from '../components/KeepTogether';
-import { HeaderWithFirstRow } from '../components/Pagination';
-import { pdfTheme } from '../theme';
+import React from 'react';
+import { View } from '@react-pdf/renderer';
+import { Bar, T, Tbl, Td, Tr, TPL } from '../components/Tpl';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -25,21 +22,9 @@ type Props = {
   dictamen: DictamenLike;
 };
 
-const COLOR = {
-  title: '#FCE4D6',
-  bar: pdfTheme.colors.templateBlue,
-  head: '#9BC2E6',
-  body: '#DAE9F7',
-};
-
-const COL = {
-  num: '5.8824%',
-  desc: '47.0588%',
-  cap: '11.7647%',
-  tabla: '17.6471%',
-  valor: '17.6471%',
-  beforeValor: '82.3529%',
-} as const;
+// Proporciones de columnas de la plantilla (pt sobre 552,4 de ancho).
+const COL = { num: 55, desc: 199.3, cap: 49.3, tabla: 84.3, valor: 165.7 } as const;
+const LABEL_W = COL.num + COL.desc + COL.cap + COL.tabla;
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' ? (value as UnknownRecord) : {};
@@ -86,144 +71,68 @@ function extractRows(dictamen: DictamenLike): DeficienciaRow[] {
 export function VariablesPerdidaCapacidadLaboralTituloIBlock({ dictamen }: Props) {
   const rows = extractRows(dictamen);
   const printableRows = rows.length ? rows : [null];
+
   const renderBodyRow = (row: DeficienciaRow | null, index: number) => (
-    <GridRow key={`titulo-i-${index}`} style={styles.bodyRow}>
-      <GridCell width={COL.num} backgroundColor={COLOR.body}>
-        <Text style={styles.indexText}>{index + 1}.</Text>
-      </GridCell>
-      <GridCell width={COL.desc} backgroundColor={COLOR.body}>
-        <Text style={styles.descriptionText}>{row?.descripcion ?? '—'}</Text>
-      </GridCell>
-      <GridCell width={COL.cap} backgroundColor={COLOR.body}>
-        <Text style={styles.valueText}>{row?.capitulo ?? '—'}</Text>
-      </GridCell>
-      <GridCell width={COL.tabla} backgroundColor={COLOR.body}>
-        <Text style={styles.valueText}>{row?.tabla ?? '—'}</Text>
-      </GridCell>
-      <GridCell width={COL.valor} backgroundColor={COLOR.body} isLast>
-        <Text style={styles.valueText}>{formatPercent(row?.valorDeficiencia)}</Text>
-      </GridCell>
-    </GridRow>
+    <Tr key={`titulo-i-${index}`} minH={16}>
+      <Td w={COL.num} bg={TPL.blue}>
+        <T b align="left">{index + 1}.</T>
+      </Td>
+      <Td w={COL.desc} bg={TPL.pale}>
+        <T style={{ textTransform: 'uppercase' }}>{row?.descripcion ?? '—'}</T>
+      </Td>
+      <Td w={COL.cap} bg={TPL.pale}>
+        <T>{row?.capitulo ?? '—'}</T>
+      </Td>
+      <Td w={COL.tabla} bg={TPL.pale}>
+        <T>{row?.tabla ?? '—'}</T>
+      </Td>
+      <Td w={COL.valor} bg={TPL.soft}>
+        <T>{formatPercent(row?.valorDeficiencia)}</T>
+      </Td>
+    </Tr>
   );
 
   return (
-    <View>
-      <HeaderWithFirstRow minPresenceAhead={24}>
-        <GridBand
-          backgroundColor={COLOR.title}
-          style={styles.titleBand}
-          joinBottom
-        >
-          4. Variables de la pérdida de la capacidad laboral
-        </GridBand>
-
-        <GridBand
-          backgroundColor={COLOR.bar}
-          textColor={pdfTheme.colors.white}
-        >
-          Titulo I
-        </GridBand>
-
-        <GridRow style={styles.headRow}>
-          <GridCell width={COL.num} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>{' '}</Text>
-          </GridCell>
-          <GridCell width={COL.desc} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>Descripción de la deficiencia(s)</Text>
-          </GridCell>
-          <GridCell width={COL.cap} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>Capítulo</Text>
-          </GridCell>
-          <GridCell width={COL.tabla} backgroundColor={COLOR.head}>
-            <Text style={styles.headText}>Tabla</Text>
-          </GridCell>
-          <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
-            <Text style={styles.headText}>Valor de la deficiencia (%)</Text>
-          </GridCell>
-        </GridRow>
+    <Tbl>
+      {/* Barras + encabezado + primera fila: nunca quedan solos al final de la hoja */}
+      <View wrap={false}>
+        <Bar bg={TPL.salmon}>4. Variables de la pérdida de la capacidad laboral</Bar>
+        <Bar bg={TPL.navy} color={TPL.white} minH={16} size={8.2}>TITULO I</Bar>
+        <Tr minH={16}>
+          <Td w={COL.num + COL.desc} bg={TPL.blue}>
+            <T b>Descripción de la Deficiencia (s)</T>
+          </Td>
+          <Td w={COL.cap} bg={TPL.blue}>
+            <T b>Capítulo</T>
+          </Td>
+          <Td w={COL.tabla} bg={TPL.blue}>
+            <T b>Tabla</T>
+          </Td>
+          <Td w={COL.valor} bg={TPL.blue}>
+            <T b>Valor de la deficiencia (%)</T>
+          </Td>
+        </Tr>
         {renderBodyRow(printableRows[0], 0)}
-      </HeaderWithFirstRow>
+      </View>
 
-      {printableRows.slice(1).map((row, index) => renderBodyRow(row, index + 1))}
+      {printableRows.slice(1).map((row, idx) => renderBodyRow(row, idx + 1))}
 
-      <KeepTogether minPresenceAhead={18}>
-          <GridRow style={styles.summaryRow}>
-            <GridCell width={COL.beforeValor} backgroundColor={COLOR.head} align="flex-start">
-              <Text style={styles.summaryLabelText}>
-                Suma con fórmula de valores combinados (75% o 50%):
-              </Text>
-            </GridCell>
-            <GridCell width={COL.valor} backgroundColor={COLOR.head} isLast>
-              <Text style={styles.summaryValueText}>{formatPercent(dictamen?.totalTitulo1)}</Text>
-            </GridCell>
-          </GridRow>
-        </KeepTogether>
-    </View>
+      <View wrap={false}>
+        <Tr minH={16}>
+          <Td w={LABEL_W} bg={TPL.blue}>
+            <T b align="left">Suma con fórmula de valores combinados (75% ó 50%):</T>
+          </Td>
+          <Td w={COL.valor} bg={TPL.soft}>
+            <T b>{formatPercent(dictamen?.totalTitulo1)}</T>
+          </Td>
+        </Tr>
+        <Tr minH={16}>
+          <Td w={LABEL_W} bg={TPL.blue}>
+            <T b align="right">Deficiencia</T>
+          </Td>
+          <Td w={COL.valor} bg={TPL.soft} />
+        </Tr>
+      </View>
+    </Tbl>
   );
 }
-
-const styles = StyleSheet.create({
-  titleBand: {
-    height: 18,
-  },
-  titleText: {
-    fontSize: 8.4,
-    fontWeight: 700,
-  },
-  barText: {
-    fontSize: 8,
-    fontWeight: 700,
-  },
-  headRow: {
-    minHeight: 18,
-  },
-  headText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  bodyRow: {
-    minHeight: 16,
-  },
-  indexText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-  },
-  descriptionText: {
-    fontSize: 7.6,
-    textTransform: 'uppercase',
-  },
-  valueText: {
-    fontSize: 7.6,
-    textAlign: 'center',
-  },
-  summaryRow: {
-    minHeight: 16,
-    borderTopWidth: pdfTheme.sizes.borderWidth,
-    borderTopColor: pdfTheme.colors.border,
-  },
-  summaryLabelText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'left',
-  },
-  summaryValueText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  footerRow: {
-    minHeight: 16,
-  },
-  footerLeftText: {
-    fontSize: 7.6,
-    fontWeight: 700,
-    textAlign: 'right',
-  },
-  footerRightText: {
-    fontSize: 7.6,
-    textAlign: 'left',
-  },
-});
-
-

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Text, View } from '@react-pdf/renderer';
+import { Bar, T, Td, Tr, TPL } from '../components/Tpl';
 
 type Props = {
   dictamen: any;
@@ -41,77 +42,6 @@ function asText(v: any): string {
   return String(v);
 }
 
-// Colores plantilla (Office)
-const COLOR = {
-  title: '#FCE4D6', // melocotÃ³n
-  blue: '#9BC2E6', // azul plantilla
-  blueLight: '#DAE9F7', // azul claro plantilla
-};
-
-// âœ… lÃ­neas internas mÃ¡s notorias
-const INNER_BORDER_W = 1;
-const INNER_BORDER_C = '#000000';
-
-const styles = StyleSheet.create({
-  titleRow: {
-    backgroundColor: COLOR.title,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 18,
-    borderBottomWidth: INNER_BORDER_W,
-    borderBottomColor: INNER_BORDER_C,
-  },
-  titleText: { fontSize: 8.4, fontWeight: 700, textTransform: 'uppercase' },
-
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: INNER_BORDER_W,
-    borderBottomColor: INNER_BORDER_C,
-  },
-  rowLast: { borderBottomWidth: 0 },
-
-  cell: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRightWidth: INNER_BORDER_W,
-    borderRightColor: INNER_BORDER_C,
-  },
-  cellLast: { borderRightWidth: 0 },
-
-  // textos
-  text: { fontSize: 7.7, lineHeight: 1.1 },
-  label: { fontWeight: 700, textTransform: 'uppercase' },
-  value: { fontWeight: 700 },
-
-  // alturas aproximadas del Word
-  h1: { height: 18 },
-  h2: { height: 16 },
-  h3: { height: 18 },
-  h4: { height: 18 },
-  h5: { height: 18 },
-});
-
-function Cell({
-  flex,
-  bg,
-  last,
-  children,
-  style,
-}: {
-  flex: number;
-  bg: string;
-  last?: boolean;
-  children: React.ReactNode;
-  style?: any;
-}) {
-  return (
-    <View style={[styles.cell, { flex, backgroundColor: bg }, last ? styles.cellLast : null, style]}>
-      {children}
-    </View>
-  );
-}
-
 function FieldInline({
   label,
   value,
@@ -123,10 +53,10 @@ function FieldInline({
 }) {
   const v = value == null || value === '' ? '—' : String(value);
   return (
-    <Text style={styles.text}>
-      <Text style={styles.label}>{label} </Text>
-      <Text style={styles.value}>{uppercaseValue ? v.toUpperCase() : v}</Text>
-    </Text>
+    <T align="left">
+      <Text style={{ fontWeight: 700 }}>{label} </Text>
+      <Text style={{ fontWeight: 700 }}>{uppercaseValue ? v.toUpperCase() : v}</Text>
+    </T>
   );
 }
 
@@ -200,108 +130,55 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
       : gradoEscalafon + nivelEscalafonNormalizado;
   const formaVinculacion = asText(u?.formaVinculacion);
 
+  const B = TPL.blue;
+  const L = TPL.light;
+
   return (
-    <View>
-      {/* TÃ­tulo */}
-      <View style={styles.titleRow}>
-        <Text style={styles.titleText}>2. IDENTIFICACIÓN DEL EDUCADOR</Text>
-      </View>
+    <View wrap={false}>
+      <Bar bg={TPL.salmon}>2. Identificación del educador</Bar>
 
-      {/* Row 1: Nombres / Apellidos (azul) */}
-      <View style={[styles.row, styles.h1]}>
-        <Cell flex={1} bg={COLOR.blue}>
-          <FieldInline label="Nombre(s):" value={nombres} />
-        </Cell>
-        <Cell flex={1} bg={COLOR.blue} last>
-          <FieldInline label="Apellidos(s):" value={apellidos} />
-        </Cell>
-      </View>
+      <Tr bg={B}>
+        <Td w={303.1} bg={B}><FieldInline label="Nombre (s):" value={nombres} /></Td>
+        <Td w={249.3} bg={B}><FieldInline label="Apellidos (s):" value={apellidos} /></Td>
+      </Tr>
 
-      {/* Row 2: Documento */}
-      <View style={[styles.row, styles.h2]}>
-        <Cell flex={2.4} bg={COLOR.blue}>
-          <Text style={styles.text}>
-            <Text style={styles.label}>Documento de Identidad:</Text>
-          </Text>
-        </Cell>
-        <Cell flex={1} bg={COLOR.blueLight} last>
-          <Text style={[styles.text, { textAlign: 'center' }]}>
-            <Text style={styles.value}>{String(documento)}</Text>
-          </Text>
-        </Cell>
-      </View>
+      <Tr>
+        <Td w={303.1} bg={B}><T b align="left">Documento de Identidad:</T></Td>
+        <Td w={249.3} bg={L}><T b>{String(documento)}</T></Td>
+      </Tr>
 
-      {/* Row 3: GÃ©nero / Escolaridad / Estado civil */}
-      <View style={[styles.row, styles.h3]}>
-        <Cell flex={1.05} bg={COLOR.blue}>
-          <FieldInline label="GÉNERO:" value={genero} />
-        </Cell>
-        <Cell flex={1.6} bg={COLOR.blue}>
-          <FieldInline label="Nivel de escolaridad:" value={escolaridad} />
-        </Cell>
-        <Cell flex={1.05} bg={COLOR.blueLight} last>
-          <FieldInline label="Estado civil:" value={estadoCivil} />
-        </Cell>
-      </View>
+      <Tr>
+        <Td w={147} bg={B}><FieldInline label="Género:" value={genero} /></Td>
+        <Td w={239.8} bg={L}><FieldInline label="Nivel de escolaridad:" value={escolaridad} /></Td>
+        <Td w={165.2} bg={L}><FieldInline label="Estado civil:" value={estadoCivil} /></Td>
+      </Tr>
 
-      {/* Row 4: Fecha nac / Edad */}
-      <View style={[styles.row, styles.h4]}>
-        <Cell flex={2.5} bg={COLOR.blue}>
-          <FieldInline
-            label="Fecha de nacimiento:"
-            value={formatDateDMY(fechaNac)}
-            uppercaseValue={false}
-          />
-        </Cell>
-        <Cell flex={1.2} bg={COLOR.blueLight} last>
-          <FieldInline
-            label="Edad:"
-            value={edadCalc == null ? '—' : `${edadCalc} años`}
-            uppercaseValue={false}
-          />
-        </Cell>
-      </View>
+      <Tr>
+        <Td w={303.1} bg={B}>
+          <FieldInline label="Fecha de nacimiento:" value={formatDateDMY(fechaNac)} uppercaseValue={false} />
+        </Td>
+        <Td w={83.6} bg={L}><T b align="right">Edad:</T></Td>
+        <Td w={165.2} bg={L}>
+          <T b align="left">{edadCalc == null ? '—' : `${edadCalc} años`}</T>
+        </Td>
+      </Tr>
 
-      {/* Row 5: DirecciÃ³n */}
-      <View style={[styles.row, styles.h5]}>
-        <Cell flex={1.6} bg={COLOR.blue}>
-          <Text style={styles.text}>
-            <Text style={styles.label}>DIRECCIÓN DEL CALIFICADO:</Text>
-          </Text>
-        </Cell>
-        <Cell flex={2.9} bg={COLOR.blueLight} last>
-          <Text style={styles.text}>
-            <Text style={styles.value}>{String(direccion).toUpperCase()}</Text>
-          </Text>
-        </Cell>
-      </View>
+      <Tr>
+        <Td w={303.1} bg={B}><T b align="left">Dirección del calificado:</T></Td>
+        <Td w={249.3} bg={L}><T b align="left">{String(direccion).toUpperCase()}</T></Td>
+      </Tr>
 
-      {/* Row 6: Zona / Municipio / Departamento */}
-      <View style={[styles.row, styles.h4]}>
-        <Cell flex={1.0} bg={COLOR.blue}>
-          <FieldInline label="Zona:" value={zona} />
-        </Cell>
-        <Cell flex={1.9} bg={COLOR.blue}>
-          <FieldInline label="Municipio:" value={municipio} />
-        </Cell>
-        <Cell flex={1.2} bg={COLOR.blueLight} last>
-          <FieldInline label="Departamento:" value={departamento} />
-        </Cell>
-      </View>
+      <Tr bg={B}>
+        <Td w={80} bg={B}><FieldInline label="Zona:" value={zona} /></Td>
+        <Td w={223.1} bg={B}><FieldInline label="Municipio:" value={municipio} /></Td>
+        <Td w={249.3} bg={B}><FieldInline label="Departamento:" value={departamento} /></Td>
+      </Tr>
 
-      {/* Row 7: Cargo / Grado / VinculaciÃ³n */}
-      <View style={[styles.row, styles.h4, styles.rowLast]}>
-        <Cell flex={1.35} bg={COLOR.blue}>
-          <FieldInline label="Cargo:" value={cargo} />
-        </Cell>
-        <Cell flex={1.25} bg={COLOR.blue}>
-          <FieldInline label="GRADO DE ESCALAFÓN:" value={escalafon} />
-        </Cell>
-        <Cell flex={1.5} bg={COLOR.blueLight} last>
-          <FieldInline label="FORMA DE VINCULACIÓN:" value={formaVinculacion} />
-        </Cell>
-      </View>
+      <Tr minH={22}>
+        <Td w={253.6} bg={B} valign="bottom"><FieldInline label="Cargo:" value={cargo} /></Td>
+        <Td w={133.2} bg={L} valign="top"><FieldInline label="Grado de escalafón:" value={escalafon} /></Td>
+        <Td w={165.5} bg={L} valign="top"><FieldInline label="Forma de vinculación" value={formaVinculacion} /></Td>
+      </Tr>
     </View>
   );
 }
-

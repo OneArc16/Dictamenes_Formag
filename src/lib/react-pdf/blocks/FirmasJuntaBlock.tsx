@@ -1,6 +1,6 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
+import React from 'react';
+import { Image, View } from '@react-pdf/renderer';
+import { BW, Bar, T, Tbl, Td, Tr, TPL } from '../components/Tpl';
 
 type JuntaMember = {
   nombreCompleto?: string | null;
@@ -16,15 +16,6 @@ type DictamenLike = {
 };
 
 type Props = { dictamen: DictamenLike };
-
-const BW = Number(pdfTheme?.sizes?.borderWidth ?? 0.85);
-const BC = pdfTheme.colors.border;
-
-const COLOR = {
-  blue: '#9BC2E6',
-  light: '#E0EDF8',
-  white: '#FFFFFF',
-};
 
 function chunk<T>(arr: T[], size: number) {
   const out: T[][] = [];
@@ -44,134 +35,52 @@ function formatNombreConTratamiento(it: JuntaMember | null | undefined) {
   return pref ? `${pref} ${nombre}` : nombre;
 }
 
-export default function FirmasJuntaBlock({ dictamen }: Props) {
-  const juntaRaw = Array.isArray(dictamen?.junta) ? dictamen.junta : [];
-  const junta = juntaRaw as JuntaMember[];
-  const cols = 3;
-  const rows = chunk(junta, cols);
+const COLS = 3;
+
+function Signer({ it }: { it?: JuntaMember }) {
+  const meta = [
+    it?.registroMedico ? `RM: ${it.registroMedico}` : '',
+    it?.licencia ? `Lic: ${it.licencia}` : '',
+  ]
+    .filter(Boolean)
+    .join('  ');
 
   return (
-    <View style={styles.box} minPresenceAhead={32}>
-      <View style={styles.header} wrap={false}>
-        <Text style={styles.headerText}>FIRMAS JUNTA MÉDICA</Text>
+    <Td w={1} bg={TPL.white} px={8} py={6} valign="top" style={{ borderLeftWidth: 0 }}>
+      <View style={{ height: 48, justifyContent: 'center', alignItems: 'center' }}>
+        {it?.firmaSrc ? <Image src={it.firmaSrc} style={{ width: '90%', height: 46, objectFit: 'contain' }} /> : null}
       </View>
-
-      <View style={styles.body}>
-        {rows.length === 0 ? (
-          <View style={styles.row} wrap={false}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={styles.card}>
-                <View style={styles.signArea} />
-                <View style={styles.line} />
-                <Text style={styles.name} />
-                <Text style={styles.meta} />
-              </View>
-            ))}
-          </View>
-        ) : (
-          rows.map((r, idx) => (
-            <View key={idx} style={styles.row} wrap={false}>
-              {Array.from({ length: cols }).map((_, j) => {
-                const it: JuntaMember | undefined = r[j];
-                return (
-                  <View key={j} style={styles.card}>
-                    <View style={styles.signArea}>
-                      {it?.firmaSrc ? <Image src={it.firmaSrc} style={styles.signImg} /> : null}
-                    </View>
-
-                    <View style={styles.line} />
-
-                    <Text style={styles.name}>{formatNombreConTratamiento(it)}</Text>
-
-                    {it?.especialidad ? <Text style={styles.specialty}>{it.especialidad}</Text> : null}
-
-                    <Text style={styles.meta}>
-                      {it?.registroMedico ? `RM: ${it.registroMedico}` : ''}
-                      {it?.registroMedico && it?.licencia ? '  ' : ''}
-                      {it?.licencia ? `Lic: ${it.licencia}` : ''}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          ))
-        )}
+      <View style={{ marginTop: 2, borderBottomWidth: 1, borderBottomColor: TPL.ink }} />
+      <View style={{ marginTop: 3 }}>
+        <T b size={7.5}>{formatNombreConTratamiento(it)}</T>
+        {it?.especialidad ? <T b size={7.2}>{it.especialidad}</T> : null}
+        {meta ? <T size={7}>{meta}</T> : null}
       </View>
-    </View>
+    </Td>
   );
 }
 
-const styles = StyleSheet.create({
-  box: {
-    width: '100%',
-    borderWidth: BW,
-    borderColor: BC,
-  },
-  header: {
-    backgroundColor: COLOR.blue,
-    borderBottomWidth: BW,
-    borderBottomColor: BC,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: { fontSize: 8, fontWeight: 700 },
+export default function FirmasJuntaBlock({ dictamen }: Props) {
+  const juntaRaw = Array.isArray(dictamen?.junta) ? dictamen.junta : [];
+  const junta = juntaRaw as JuntaMember[];
+  // Sin integrantes se imprimen 3 espacios en blanco.
+  const members: Array<JuntaMember | undefined> = junta.length ? junta : [undefined, undefined, undefined];
+  const rows = chunk(members, COLS);
 
-  body: {
-    backgroundColor: COLOR.white,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-
-  row: { flexDirection: 'row', width: '100%' },
-
-  card: {
-    width: '33.3333%',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-
-  signArea: {
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLOR.white,
-  },
-
-  signImg: {
-    width: '90%',
-    height: 46,
-    objectFit: 'contain',
-  },
-
-  line: {
-    marginTop: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: BC,
-  },
-
-  name: {
-    marginTop: 3,
-    fontSize: 7.5,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-
-  specialty: {
-    marginTop: 2,
-    fontSize: 7.2,
-    textAlign: 'center',
-    fontWeight: 600,
-  },
-
-  meta: {
-    marginTop: 2,
-    fontSize: 7,
-    textAlign: 'center',
-  },
-});
-
-
-
-
-
+  // La sección completa (título + todas las firmas) es una sola pieza: si no cabe en lo que queda
+  // de la hoja pasa entera a la siguiente, y ninguna firma queda separada de su nombre.
+  return (
+    <Tbl>
+      <View wrap={false}>
+        <Bar bg={TPL.blue} size={8}>FIRMAS JUNTA MÉDICA</Bar>
+        {rows.map((row, idx) => (
+          <Tr key={idx} minH={90} style={{ borderLeftWidth: BW }}>
+            {Array.from({ length: COLS }).map((_, j) => (
+              <Signer key={j} it={row[j]} />
+            ))}
+          </Tr>
+        ))}
+      </View>
+    </Tbl>
+  );
+}

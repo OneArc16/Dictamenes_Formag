@@ -5,22 +5,28 @@ import { pdfTheme } from '../theme';
 
 type Props = {
   children: React.ReactNode;
+  header?: React.ReactNode;
   safeBottom?: number;
   pageNumberBottom?: number;
   pageNumberOffset?: number;
   totalPagesOffset?: number;
+  renderPageNumber?: boolean;
 };
 
-const PAD = pdfTheme.page.padding;
+const PAGE_MARGINS = {
+  top: pdfTheme.page.paddingTop,
+  bottom: pdfTheme.page.paddingBottom,
+  left: pdfTheme.page.paddingLeft,
+  right: pdfTheme.page.paddingRight,
+};
 
 const styles = StyleSheet.create({
   page: {
     ...pdfTheme.page,
-    position: 'relative',
   },
   pageNumber: {
     position: 'absolute',
-    right: PAD,
+    right: PAGE_MARGINS.right,
     fontSize: 8,
     color: '#444',
   },
@@ -28,10 +34,12 @@ const styles = StyleSheet.create({
 
 export function PageFrame({
   children,
-  safeBottom = 12,
-  pageNumberBottom = 8,
+  header,
+  safeBottom = 0,
+  pageNumberBottom = 28.35,
   pageNumberOffset = 0,
   totalPagesOffset = 0,
+  renderPageNumber = true,
 }: Props) {
   return (
     <Page
@@ -39,28 +47,30 @@ export function PageFrame({
       style={[
         styles.page,
         {
-          paddingBottom: PAD + safeBottom,
+          paddingBottom: PAGE_MARGINS.bottom + safeBottom,
         },
       ]}
       wrap
     >
-      <Text
-        fixed
-        style={[
-          styles.pageNumber,
-          {
-            bottom: pageNumberBottom,
-          },
-        ]}
-        render={({ pageNumber, totalPages }) => {
-          const displayedPage = Math.max(1, pageNumber - pageNumberOffset);
-          const displayedTotal = Math.max(displayedPage, totalPages - totalPagesOffset);
-
-          return `Pagina ${displayedPage} de ${displayedTotal}`;
-        }}
-      />
-
+      {header}
       {children}
+      {renderPageNumber ? (
+        <Text
+          fixed
+          style={[
+            styles.pageNumber,
+            {
+              bottom: pageNumberBottom,
+            },
+          ]}
+          render={({ pageNumber, totalPages }) => {
+            const displayedPage = Math.max(1, pageNumber - pageNumberOffset);
+            const displayedTotal = Math.max(displayedPage, totalPages - totalPagesOffset);
+
+            return `Página ${displayedPage} de ${displayedTotal}`;
+          }}
+        />
+      ) : null}
     </Page>
   );
 }
