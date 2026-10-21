@@ -1,6 +1,5 @@
 import React from 'react';
 import { Image, View } from '@react-pdf/renderer';
-import { pdfTheme } from '../theme';
 import { T, Td, Tr, TPL, BW } from '../components/Tpl';
 
 type Props = {
@@ -9,8 +8,11 @@ type Props = {
   fechaDictamen?: string | Date | null;
 };
 
-// GTC 185: en la página 1 el encabezado arranca a 1,5 cm del borde superior.
+// En la página 1 el encabezado arranca a 1,5 cm del borde superior.
 const HEADER_TOP = 42.52;
+// Margen superior del contenido de todas las páginas (la norma GTC 185 pide 3 cm a partir de la
+// página 2; se subió a 1,5 cm para aprovechar el espacio). `DictamenReactPdf` lo aplica a la página.
+export const DICTAMEN_PAGE_TOP = 42.52;
 
 const W = {
   logo: 147,
@@ -41,7 +43,7 @@ export function HeaderBlock({ logoSrc, numeroDictamen, fechaDictamen }: Props) {
   const fecha = formatDateDMY(fechaDictamen);
 
   return (
-    <View wrap={false} style={{ marginTop: HEADER_TOP - pdfTheme.page.paddingTop }}>
+    <View wrap={false} style={{ marginTop: HEADER_TOP - DICTAMEN_PAGE_TOP }}>
       <Tr first minH={62} bg={TPL.white} style={{ borderLeftWidth: BW }}>
         <Td w={W.logo} bg={TPL.white} px={6} py={5}>
           {logoSrc ? <Image src={logoSrc} style={{ width: '100%', height: 52, objectFit: 'contain' }} /> : null}

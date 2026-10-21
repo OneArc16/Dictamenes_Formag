@@ -2,7 +2,7 @@ import React from 'react';
 import { Document } from '@react-pdf/renderer';
 
 import { PageFrame } from './components/PageFrame';
-import { HeaderBlock } from './blocks/Header';
+import { DICTAMEN_PAGE_TOP, HeaderBlock } from './blocks/Header';
 import { AspectosGeneralesBlock } from './blocks/AspectosGenerales';
 import { CondicionSaludBlock, HallazgosClinicosBlock } from './blocks/CondicionHallazgos';
 import { IdentificacionEducadorBlock } from './blocks/IdentificacionEducador';
@@ -51,6 +51,7 @@ export function DictamenReactPdf({ dictamen, logoSrc }: Props) {
         <NotificacionPclPage dictamen={dictamen} logoSrc={finalLogoSrc} />
       ) : null}
       <PageFrame
+        paddingTop={DICTAMEN_PAGE_TOP}
         pageNumberBottom={34}
         pageNumberOffset={showNotificacionPcl ? 1 : 0}
         totalPagesOffset={showNotificacionPcl ? 1 : 0}
