@@ -1,10 +1,11 @@
 'use client';
 
 import { RotateCcw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function ReabrirDocumentoDialog({
   dictamenId: number;
   onSuccess: (route: string) => void;
 }) {
+  const tooltipId = useId();
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Options | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
@@ -123,18 +125,19 @@ export function ReabrirDocumentoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !submitting && setOpen(next)}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          title="Reabrir documento"
-          aria-label="Reabrir documento"
-          className="h-9 w-9 rounded-full border-sky-200 text-sky-800 shadow-none hover:bg-sky-50 hover:text-sky-900"
-        >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-        </Button>
-      </DialogTrigger>
+      <Tooltip id={tooltipId} side="top" label="Reabrir documento">
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Reabrir documento"
+            className="h-9 w-9 rounded-full border-sky-200 text-sky-800 shadow-none hover:bg-sky-50 hover:text-sky-900"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </DialogTrigger>
+      </Tooltip>
       <DialogContent className="border-slate-200 bg-white sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Reabrir documento</DialogTitle>

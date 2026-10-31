@@ -5,6 +5,7 @@ import { Eye, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import {
   Table,
   TableBody,
@@ -198,16 +199,18 @@ export function RecomendacionesTable({
                     </TableCell>
                     <TableCell className="px-3 py-2 text-center">
                       <div className="inline-flex items-center justify-center gap-2">
+                        <Tooltip id={`recomendacion-${row.id}-ver-tooltip`} side="top" label="Ver recomendación">
                         <Button
                           type="button"
                           variant="outline"
                           size="icon"
-                          title="Ver recomendacion"
+                          aria-label="Ver recomendación"
                           className="h-8 w-8 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                           onClick={() => onOpenRecommendation(row.id)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4" aria-hidden="true" />
                         </Button>
+                        </Tooltip>
                         {renderActions ? renderActions(row) : null}
                       </div>
                     </TableCell>

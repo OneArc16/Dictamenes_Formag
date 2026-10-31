@@ -11,6 +11,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import {
   Table,
   TableBody,
@@ -225,15 +226,19 @@ export function DictamenTable({
                       <div className="inline-flex items-center justify-center gap-1.5">
                         {row.pclRoute || row.originRoute ? (
                           <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              title={
+                            <Tooltip
+                              id={`dictamen-${row.id}-pcl-tooltip`}
+                              side="top"
+                              label={
                                 row.canOpenPcl === false
                                   ? 'PCL disponible al finalizar el Formulario de Origen'
                                   : 'Abrir Dictamen PCL'
                               }
+                            >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
                               aria-label={
                                 row.canOpenPcl === false
                                   ? 'Dictamen PCL bloqueado hasta finalizar Origen'
@@ -245,30 +250,36 @@ export function DictamenTable({
                             >
                               <FileHeart className="h-4 w-4" aria-hidden="true" />
                             </Button>
+                            </Tooltip>
                             {row.originRoute ? (
+                              <Tooltip id={`dictamen-${row.id}-origen-tooltip`} side="top" label="Abrir Formulario de Origen">
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                title="Abrir Formulario de Origen"
                                 aria-label="Abrir Formulario de Origen"
                                 className="h-9 w-9 rounded-full border-emerald-300 bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-900"
                                 onClick={() => onOpenDictamen(row.id, row.originRoute ?? undefined)}
                               >
                                 <ClipboardPenLine className="h-4 w-4" aria-hidden="true" />
                               </Button>
+                              </Tooltip>
                             ) : null}
                           </>
                         ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            title={
+                          <Tooltip
+                            id={`dictamen-${row.id}-open-tooltip`}
+                            side="top"
+                            label={
                               row.etapa === 'FORMULARIO_ORIGEN'
                                 ? 'Abrir Formulario de Origen'
                                 : 'Abrir Dictamen PCL'
                             }
+                          >
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
                             aria-label={
                               row.etapa === 'FORMULARIO_ORIGEN'
                                 ? 'Abrir Formulario de Origen'
@@ -279,6 +290,7 @@ export function DictamenTable({
                           >
                             <ArrowRight className="h-4 w-4" aria-hidden="true" />
                           </Button>
+                          </Tooltip>
                         )}
                         {renderActions ? renderActions(row) : null}
                       </div>

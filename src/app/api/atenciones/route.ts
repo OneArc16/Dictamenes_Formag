@@ -34,6 +34,7 @@ export async function GET(req: Request) {
         inicioProgramado: true,
         finProgramado: true,
         activadaAt: true,
+        medicoId: true,
         medicoNombre: true,
         especialidadNombre: true,
         modalidadNombre: true,
@@ -68,6 +69,7 @@ export async function GET(req: Request) {
         cita.paciente.secretariaRef?.nombre ??
         cita.paciente.institucionEducativaRef?.secretaria?.nombre ??
         null,
+      medicoId: cita.medicoId,
       medicoNombre: cita.medicoNombre,
       especialidadNombre: cita.especialidadNombre,
       modalidadNombre: cita.modalidadNombre,

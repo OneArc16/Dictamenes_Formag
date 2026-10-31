@@ -3,6 +3,7 @@
 import React from 'react';
 import { Printer } from 'lucide-react';
 
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import { useCan } from '@/hooks/useCan';
 
 type Props = {
@@ -23,11 +24,11 @@ export default function ImprimirDictamenButton({
   if (!isCerrado || !canPrintDictamen) return null;
 
   return (
+    <Tooltip id={`dictamen-${dictamenId}-imprimir-tooltip`} side="top" label="Imprimir dictamen">
     <button
       type="button"
       disabled={disabled}
-      title="Imprimir"
-      aria-label="Imprimir"
+      aria-label="Imprimir dictamen"
       onClick={() => {
         if (disabled) return;
         window.open(`/api/dictamenes/${dictamenId}/pdf-react`, '_blank', 'noopener,noreferrer');
@@ -44,5 +45,6 @@ export default function ImprimirDictamenButton({
     >
       <Printer className="h-4 w-4" aria-hidden="true" />
     </button>
+    </Tooltip>
   );
 }

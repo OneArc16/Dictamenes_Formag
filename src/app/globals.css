@@ -29,12 +29,6 @@ button:focus-visible, a:focus-visible {
   outline: none;
 }
 
-.ui-tooltip:has(:focus-visible) .ui-tooltip-content {
-  visibility: visible;
-  transform: translateY(0) scale(1);
-  opacity: 1;
-}
-
 fieldset:disabled input,
 fieldset:disabled textarea,
 fieldset:disabled select {

@@ -1,10 +1,11 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { type LucideIcon, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,8 @@ export function ReabrirConMotivoDialog({
   emptyMotivosTitle = 'No hay motivos activos de reapertura',
   onConfirm,
 }: Props) {
+  const tooltipId = useId();
+  const triggerTooltip = triggerTitle ?? (motivosReapertura.length === 0 ? emptyMotivosTitle : triggerLabel);
   const [open, setOpen] = useState(false);
   const [selectedMotivoId, setSelectedMotivoId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,19 +109,20 @@ export function ReabrirConMotivoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => (!isSubmitting ? setOpen(nextOpen) : undefined)}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant={triggerVariant}
-          size={triggerSize}
-          className={triggerClassName}
-          disabled={triggerDisabled}
-          title={triggerTitle ?? (motivosReapertura.length === 0 ? emptyMotivosTitle : triggerLabel)}
-        >
-          <Icon className="h-4 w-4" />
-          {iconOnly ? <span className="sr-only">{triggerLabel}</span> : triggerLabel}
-        </Button>
-      </DialogTrigger>
+      <Tooltip id={tooltipId} side="top" label={triggerTooltip}>
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant={triggerVariant}
+            size={triggerSize}
+            className={triggerClassName}
+            disabled={triggerDisabled}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {iconOnly ? <span className="sr-only">{triggerLabel}</span> : triggerLabel}
+          </Button>
+        </DialogTrigger>
+      </Tooltip>
 
       <DialogContent className="sm:max-w-lg border-slate-200 bg-white shadow-2xl">
         <DialogHeader className="space-y-3">

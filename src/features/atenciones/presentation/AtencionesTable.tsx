@@ -1,8 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Stethoscope } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Tooltip } from '@/components/ui/icon-tooltip';
 import {
   Table,
   TableBody,
@@ -21,6 +24,7 @@ export type AtencionRow = {
   docenteDocumento: string;
   docenteNombre: string;
   secretaria: string | null;
+  medicoId: number;
   medicoNombre: string;
   especialidadNombre: string;
   modalidadNombre: string;
@@ -30,12 +34,14 @@ type AtencionesTableProps = {
   rows: AtencionRow[];
   loading: boolean;
   errorMessage?: string;
+  canAttend: (row: AtencionRow) => boolean;
+  onAttend: (row: AtencionRow) => void;
 };
 
 const TIME_ZONE = 'America/Bogota';
 const HEAD_CLASS = 'px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500';
 const CELL_CLASS = 'px-3 py-2 align-top text-[11px] text-slate-700';
-const COLUMNS = 9;
+const COLUMNS = 10;
 
 const dateFormatter = new Intl.DateTimeFormat('es-CO', {
   day: '2-digit',
@@ -92,7 +98,7 @@ function MessageRow({ children }: { children: ReactNode }) {
   );
 }
 
-export function AtencionesTable({ rows, loading, errorMessage }: AtencionesTableProps) {
+export function AtencionesTable({ rows, loading, errorMessage, canAttend, onAttend }: AtencionesTableProps) {
   return (
     <Card className="overflow-hidden rounded-xl border-slate-200 bg-white/95 shadow-sm">
       <Table>
@@ -107,6 +113,7 @@ export function AtencionesTable({ rows, loading, errorMessage }: AtencionesTable
             <TableHead className={HEAD_CLASS}>Especialidad</TableHead>
             <TableHead className={HEAD_CLASS}>Estado</TableHead>
             <TableHead className={HEAD_CLASS}>Medico</TableHead>
+            <TableHead className={`w-24 text-center ${HEAD_CLASS}`}>Acciones</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -135,6 +142,22 @@ export function AtencionesTable({ rows, loading, errorMessage }: AtencionesTable
                 <EstadoBadge row={row} />
               </TableCell>
               <TableCell className={CELL_CLASS}>{row.medicoNombre}</TableCell>
+              <TableCell className="px-3 py-2 text-center">
+                {row.estado === 'ACTIVADA' && canAttend(row) ? (
+                  <Tooltip id={`atencion-${row.id}-atender-tooltip`} side="top" label="Atender paciente">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={`Atender a ${row.docenteNombre}`}
+                    className="h-9 w-9 rounded-full border-emerald-300 bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-900"
+                    onClick={() => onAttend(row)}
+                  >
+                    <Stethoscope className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                  </Tooltip>
+                ) : null}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
