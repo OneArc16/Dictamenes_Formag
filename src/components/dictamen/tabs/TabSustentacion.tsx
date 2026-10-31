@@ -152,11 +152,6 @@ export default function TabSustentacion({ dictamenId, readOnly = false, initialT
       <div className="flex items-start justify-between gap-3 px-4 py-3 border-b bg-slate-50 rounded-t-xl">
         <div>
           <div className="text-sm font-semibold text-slate-900">Sustentación y observaciones</div>
-          <div className="mt-1 text-xs text-slate-500">
-            Escriba la sustentación clínica/ocupacional y cualquier observación relevante.
-            <br />
-            Se guarda en borrador local automáticamente (Dexie). Use <b>Guardar</b> para enviar a la BD.
-          </div>
         </div>
 
         {!readOnly && (
