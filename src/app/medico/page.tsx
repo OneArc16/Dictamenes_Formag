@@ -157,6 +157,9 @@ export default function MedicoPage() {
   } = useQuery<DictamenRow[]>({
     queryKey: ['dictamenes-medico', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
     enabled: medicoIds.length > 0,
+    // La etapa cambia dentro del expediente (p. ej. al finalizar Origen); al volver debe reflejarse.
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = new URLSearchParams();
 

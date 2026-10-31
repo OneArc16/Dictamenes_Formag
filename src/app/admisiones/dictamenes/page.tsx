@@ -92,6 +92,9 @@ export default function AdmisionesPage() {
 
   const dictamenesQuery = useQuery({
     queryKey: ['dictamenes-admisiones', { medicoIds, estado, fechaDesde, fechaHasta, documento }],
+    // La etapa cambia dentro del expediente (p. ej. al finalizar Origen); al volver debe reflejarse.
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = new URLSearchParams();
 
