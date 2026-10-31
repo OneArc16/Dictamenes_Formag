@@ -262,17 +262,34 @@ export const workScheduleSchema = z
 
   });
 
+export const SLOT_REASON_MIN = 5;
+export const SLOT_REASON_MAX = 500;
+
+/** Motivo obligatorio de cancelaciones y reversiones de cupos (queda en su historial). */
+function slotReasonSchema(action: string) {
+  return z
+    .string({ error: `Escribe el motivo de la ${action}.` })
+    .trim()
+    .min(SLOT_REASON_MIN, `Escribe el motivo de la ${action} (mínimo ${SLOT_REASON_MIN} caracteres).`)
+    .max(SLOT_REASON_MAX, `El motivo admite máximo ${SLOT_REASON_MAX} caracteres.`);
+}
+
 export const cancelSlotsSchema = z
   .object({
     cupoIds: z.array(z.number().int().positive()).max(500).default([]),
     medicoId: z.number().int().positive().optional(),
     desde: z.string().datetime({ offset: true }).optional(),
     hasta: z.string().datetime({ offset: true }).optional(),
-    motivo: z.string().trim().max(500).nullable().optional(),
+    motivo: slotReasonSchema('cancelación'),
   })
   .refine((value) => value.cupoIds.length > 0 || (value.medicoId && value.desde && value.hasta), {
     message: 'Selecciona cupos o indica médico y rango.',
   });
+
+export const restoreSlotSchema = z.object({
+  cupoId: z.number().int().positive(),
+  motivo: slotReasonSchema('reversión'),
+});
 
 export function validationMessage(error: z.ZodError) {
   return error.issues[0]?.message ?? 'Los datos enviados no son válidos.';

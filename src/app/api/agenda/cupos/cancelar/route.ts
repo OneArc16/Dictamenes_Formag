@@ -25,15 +25,32 @@ export async function POST(request: Request) {
       };
   const targets = await prisma.cupoMedico.findMany({ where: targetWhere, select: { id: true, estado: true } });
   const availableIds = targets.filter((slot) => slot.estado === 'DISPONIBLE').map((slot) => slot.id);
+  const actor = auditActor(auth.payload);
+  const motivo = parsed.data.motivo;
   const result = availableIds.length > 0
-    ? await prisma.cupoMedico.updateMany({
-        where: { id: { in: availableIds }, estado: 'DISPONIBLE' },
-        data: {
-          estado: 'CANCELADO',
-          canceladoAt: new Date(),
-          canceladoBy: auditActor(auth.payload),
-          motivoCancelacion: parsed.data.motivo ?? null,
-        },
+    ? await prisma.$transaction(async (tx) => {
+        const cancelledAt = new Date();
+        const updated = await tx.cupoMedico.updateMany({
+          where: { id: { in: availableIds }, estado: 'DISPONIBLE' },
+          data: { estado: 'CANCELADO', canceladoAt: cancelledAt, canceladoBy: actor, motivoCancelacion: motivo },
+        });
+        // Solo los que esta operación canceló (otra pudo tomar alguno entre la lectura y el update).
+        const cancelled = await tx.cupoMedico.findMany({
+          where: { id: { in: availableIds }, estado: 'CANCELADO', canceladoAt: cancelledAt },
+          select: { id: true },
+        });
+        await tx.cupoMedicoHistorial.createMany({
+          data: cancelled.map((slot) => ({
+            cupoMedicoId: slot.id,
+            tipoEvento: 'CANCELADO' as const,
+            estadoAnterior: 'DISPONIBLE' as const,
+            estadoNuevo: 'CANCELADO' as const,
+            motivo,
+            actorEmpleadoId: auth.auth.empleadoId,
+            actorNombre: actor,
+          })),
+        });
+        return updated;
       })
     : { count: 0 };
   return NextResponse.json({

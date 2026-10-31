@@ -118,10 +118,10 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
   const cancellation = useMutation<
     { cancelados: number; omitidos: number },
     Error,
-    number[]
+    { cupoIds: number[]; motivo: string }
   >({
-    mutationFn: (cupoIds) => agendaRequest('/api/agenda/cupos/cancelar', {
-      method: 'POST', body: JSON.stringify({ cupoIds, motivo: 'Cancelación desde el detalle de generación' }),
+    mutationFn: ({ cupoIds, motivo }) => agendaRequest('/api/agenda/cupos/cancelar', {
+      method: 'POST', body: JSON.stringify({ cupoIds, motivo }),
     }),
     onSuccess: async (data) => {
       setMessage(`${data.cancelados} cupos cancelados; ${data.omitidos} omitidos.`);
@@ -433,7 +433,7 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
         count={selectedCancellableIds.length}
         errorMessage={cancellation.error?.message}
         isPending={cancellation.isPending}
-        onConfirm={() => cancellation.mutate(selectedCancellableIds)}
+        onConfirm={(motivo) => cancellation.mutate({ cupoIds: selectedCancellableIds, motivo })}
         onOpenChange={handleCancelDialogOpenChange}
         open={cancelDialogOpen}
       />

@@ -245,6 +245,11 @@ enum EstadoCupoMedico {
   CANCELADO
 }
 
+enum TipoEventoCupoMedico {
+  CANCELADO
+  RESTAURADO
+}
+
 enum MedioSolicitudCita {
   PRESENCIAL
   TELEFONO
@@ -973,10 +978,11 @@ model CupoMedico {
   updatedAt          DateTime         @updatedAt
   createdBy          String           @db.VarChar(100)
 
-  generacionAgenda GeneracionAgenda @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
-  medico           Empleado         @relation("CupoMedicoEmpleado", fields: [medicoId], references: [id], onDelete: Restrict)
-  sede             Sede             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  generacionAgenda GeneracionAgenda      @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
+  medico           Empleado              @relation("CupoMedicoEmpleado", fields: [medicoId], references: [id], onDelete: Restrict)
+  sede             Sede                  @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   citas            Cita[]
+  historial        CupoMedicoHistorial[]
 
   @@index([medicoId, inicio])
   @@index([sedeId, inicio, estado])
@@ -1045,6 +1051,26 @@ model Cita {
   @@index([cupoMedicoId])
   @@index([citaOrigenId])
   @@map("citas")
+}
+
+/// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
+/// restaurarse varias veces; los campos cancelado* del cupo solo guardan el estado actual).
+model CupoMedicoHistorial {
+  id              Int                  @id @default(autoincrement())
+  cupoMedicoId    Int
+  tipoEvento      TipoEventoCupoMedico
+  estadoAnterior  EstadoCupoMedico
+  estadoNuevo     EstadoCupoMedico
+  motivo          String?              @db.VarChar(500)
+  actorEmpleadoId Int
+  actorNombre     String               @db.VarChar(100)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+  metadata        Json?
+
+  cupoMedico CupoMedico @relation(fields: [cupoMedicoId], references: [id], onDelete: Restrict)
+
+  @@index([cupoMedicoId, createdAt])
+  @@map("cupos_medicos_historial")
 }
 
 model CitaHistorial {

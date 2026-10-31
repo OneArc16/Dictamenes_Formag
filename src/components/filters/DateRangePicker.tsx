@@ -12,6 +12,8 @@ type Props = {
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
   className?: string;
+  /** Lado desde el que se abre el calendario; 'right' para pickers pegados al borde derecho. */
+  align?: 'left' | 'right';
 };
 
 function parseDateOnly(value: string): Date | undefined {
@@ -41,6 +43,7 @@ export function DateRangePicker({
   onFromChange,
   onToChange,
   className,
+  align = 'left',
 }: Props) {
   const [open, setOpen] = useState(false);
   const [desktop, setDesktop] = useState(false);
@@ -129,7 +132,7 @@ export function DateRangePicker({
         <div
           role="dialog"
           aria-label="Seleccionar rango de fechas"
-          className="absolute left-0 top-full z-50 mt-2 w-[min(44rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:p-5"
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-50 mt-2 w-[min(44rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:p-5`}
         >
           <DayPicker
             mode="range"
