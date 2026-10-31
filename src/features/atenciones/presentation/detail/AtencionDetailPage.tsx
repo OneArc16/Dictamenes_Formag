@@ -19,6 +19,7 @@ import { AtencionRightPanel } from './AtencionRightPanel';
 import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
+import { RemisionesTab } from './tabs/RemisionesTab';
 import { AnalisisPlanTab } from './tabs/AnalisisPlanTab';
 import { DiagnosticosTab } from './tabs/DiagnosticosTab';
 import { ExamenFisicoTab } from './tabs/ExamenFisicoTab';
@@ -34,6 +35,7 @@ const SIN_GINECOBSTETRICOS = {
 };
 import { useAtencionForm } from './useAtencionForm';
 import { useDiagnosticos } from './useDiagnosticos';
+import { useRemisiones } from './useRemisiones';
 import { useHallazgos } from './useHallazgos';
 import { useSignosVitales } from './useSignosVitales';
 
@@ -59,6 +61,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   const revision = useHallazgos('revision-sistemas', detalle.id, detalle.revisionSistemas, editable);
   const examen = useHallazgos('examen-fisico', detalle.id, detalle.examenFisico, editable);
   const diagnosticos = useDiagnosticos(detalle.id, detalle.diagnosticos, editable);
+  const remisiones = useRemisiones(detalle.id, detalle.remisiones);
 
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
   const statuses = [
@@ -204,6 +207,22 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                 />
               ),
               'analisis-plan': <AnalisisPlanTab form={form} readOnly={!editable} onChange={setField} />,
+              remisiones: (
+                <RemisionesTab
+                  remisiones={remisiones.remisiones}
+                  historial={detalle.remisionesHistorial}
+                  atajos={detalle.remisionAtajos}
+                  diagnosticos={diagnosticos.filas
+                    .filter((fila) => fila.cie10Codigo.trim())
+                    .map((fila) => ({ codigo: fila.cie10Codigo, label: fila.cie10Label || fila.cie10Codigo }))}
+                  readOnly={!editable}
+                  agregando={remisiones.agregar.isPending}
+                  quitandoId={remisiones.quitar.isPending ? (remisiones.quitar.variables ?? null) : null}
+                  onAgregar={(input) => remisiones.agregar.mutateAsync(input)}
+                  onQuitar={(id) => remisiones.quitar.mutate(id)}
+                  onIrADiagnosticos={() => setActiveTab('diagnosticos')}
+                />
+              ),
             }}
           />
         }

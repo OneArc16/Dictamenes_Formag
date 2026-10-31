@@ -12,7 +12,8 @@ type UseCie10SearchResult = {
   search: (query: string) => void;
 };
 
-export function useCie10Search(): UseCie10SearchResult {
+/** endpoint: búsqueda a usar; por defecto CIE10 (también sirve para CUPS, que responde igual). */
+export function useCie10Search(endpoint = '/api/cie10/search'): UseCie10SearchResult {
   const [options, setOptions] = useState<SearchableOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export function useCie10Search(): UseCie10SearchResult {
 
       try {
         const res = await fetch(
-          `/api/cie10/search?q=${encodeURIComponent(q)}&limit=40`,
+          `${endpoint}?q=${encodeURIComponent(q)}&limit=40`,
           { signal: controller.signal },
         );
 
@@ -73,8 +74,13 @@ export function useCie10Search(): UseCie10SearchResult {
         }
 
         setOptions(data.options ?? []);
-      } catch (err: any) {
-        if (err?.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (
+          err &&
+          typeof err === 'object' &&
+          'name' in err &&
+          err.name === 'AbortError'
+        ) {
           // búsqueda cancelada → no hacemos nada
           return;
         }
@@ -85,7 +91,7 @@ export function useCie10Search(): UseCie10SearchResult {
         setLoading(false);
       }
     }, 300); // debounce 300ms
-  }, []);
+  }, [endpoint]);
 
   return { options, loading, error, search };
 }

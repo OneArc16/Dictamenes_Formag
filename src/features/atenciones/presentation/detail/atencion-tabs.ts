@@ -10,6 +10,7 @@ export const ATENCION_TABS = [
   { id: 'examen-fisico', short: 'Examen', label: 'Examen físico' },
   { id: 'diagnosticos', short: 'Diagnósticos', label: 'Diagnósticos' },
   { id: 'analisis-plan', short: 'Análisis y plan', label: 'Análisis y plan' },
+  { id: 'remisiones', short: 'Remisiones', label: 'Remisiones' },
 ] as const;
 
 export type AtencionTabId = (typeof ATENCION_TABS)[number]['id'];

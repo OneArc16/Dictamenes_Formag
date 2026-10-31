@@ -780,6 +780,7 @@ model Usuario {
   antecedentesFamiliares    AntecedentesFamiliares?
   antecedentesGineco        AntecedentesGinecobstetricos?
   signosVitales             SignosVitales[]
+  remisiones                AtencionRemision[]
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1051,6 +1052,7 @@ model Cita {
   atencion           Atencion?
   signosVitales      SignosVitales?
   diagnosticos       AtencionDiagnostico[]
+  remisiones         AtencionRemision[]
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1190,6 +1192,55 @@ model AtencionDiagnostico {
   @@unique([citaId, cie10Codigo])
   @@index([cie10Codigo])
   @@map("atencion_diagnosticos")
+}
+
+/// Catálogo CUPS (Clasificación Única de Procedimientos en Salud). Se importa desde la fuente oficial.
+model Cups {
+  codigo String  @id @db.VarChar(10)
+  nombre String  @db.VarChar(500)
+  estado Boolean @default(true)
+
+  remisiones AtencionRemision[]
+  atajo      RemisionAtajo?
+
+  @@map("cups")
+}
+
+/// Servicios que se remiten con un clic desde la pestaña de remisiones (p. ej. control de medicina laboral).
+model RemisionAtajo {
+  cupsCodigo String  @id @db.VarChar(10)
+  etiqueta   String  @db.VarChar(80)
+  orden      Int     @default(0) @db.SmallInt
+  activo     Boolean @default(true)
+
+  cups Cups @relation(fields: [cupsCodigo], references: [codigo], onDelete: Restrict)
+
+  @@map("remision_atajos")
+}
+
+/// Remisiones ordenadas en una atención (un mismo servicio CUPS una sola vez por atención).
+model AtencionRemision {
+  id                 Int      @id @default(autoincrement())
+  citaId             Int
+  usuarioId          Int
+  cupsCodigo         String   @db.VarChar(10)
+  diagnosticoCodigo  String   @db.VarChar(10)
+  relacionado2Codigo String?  @db.VarChar(10)
+  relacionado3Codigo String?  @db.VarChar(10)
+  motivo             String?  @db.Text
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  createdBy          Int
+
+  cita         Cita    @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  cups         Cups    @relation(fields: [cupsCodigo], references: [codigo], onDelete: Restrict)
+  diagnostico  Cie10   @relation("RemisionDiagnostico", fields: [diagnosticoCodigo], references: [codigo], onDelete: Restrict)
+  relacionado2 Cie10?  @relation("RemisionRelacionado2", fields: [relacionado2Codigo], references: [codigo], onDelete: Restrict)
+  relacionado3 Cie10?  @relation("RemisionRelacionado3", fields: [relacionado3Codigo], references: [codigo], onDelete: Restrict)
+
+  @@unique([citaId, cupsCodigo])
+  @@index([usuarioId, createdAt])
+  @@map("atencion_remisiones")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
@@ -1472,6 +1523,9 @@ model Cie10 {
   dictamenDiagnosticos DictamenDiagnostico[]
   diagnosticosOrigen   DiagnosticoOrigen[]
   atencionDiagnosticos AtencionDiagnostico[]
+  remisionesPrincipal  AtencionRemision[]    @relation("RemisionDiagnostico")
+  remisionesRelac2     AtencionRemision[]    @relation("RemisionRelacionado2")
+  remisionesRelac3     AtencionRemision[]    @relation("RemisionRelacionado3")
 
   @@map("cie10")
 }
