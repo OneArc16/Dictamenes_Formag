@@ -6,6 +6,8 @@ export const ATENCION_TABS = [
   { id: 'antecedentes', label: 'Antecedentes' },
   { id: 'signos-vitales', label: 'Signos vitales' },
   { id: 'revision-sistemas', label: 'Revisión por sistemas' },
+  { id: 'examen-fisico', label: 'Examen físico' },
+  { id: 'diagnosticos', label: 'Diagnósticos' },
 ] as const;
 
 export type AtencionTabId = (typeof ATENCION_TABS)[number]['id'];
@@ -23,7 +25,7 @@ export function signoInputId(key: string) {
 }
 
 /** Todo lo que falta para poder finalizar la atención, en el orden de las pestañas. */
-export function atencionPendientesUi(form: AtencionForm, signos: SignosValues): Pendiente[] {
+export function atencionPendientesUi(form: AtencionForm, signos: SignosValues, tieneDiagnostico: boolean): Pendiente[] {
   return [
     ...atencionPendientes(form).map((item) => ({
       key: item.field,
@@ -37,5 +39,15 @@ export function atencionPendientesUi(form: AtencionForm, signos: SignosValues): 
       tab: 'signos-vitales' as const,
       inputId: signoInputId(field.key),
     })),
+    ...(tieneDiagnostico
+      ? []
+      : [
+          {
+            key: 'diagnostico-principal',
+            label: 'Diagnóstico principal',
+            tab: 'diagnosticos' as const,
+            inputId: 'diagnostico-0',
+          },
+        ]),
   ];
 }

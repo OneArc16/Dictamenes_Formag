@@ -2,7 +2,9 @@ import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization'
 import { prisma } from '@/lib/prisma';
 
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
-import { resolveRevisionSistemas, type RevisionSistemasDoc } from './revision-sistemas';
+import type { DiagnosticoAtencion } from '../domain/diagnosticos';
+import { getDiagnosticos } from './diagnosticos';
+import { resolveHallazgos, type HallazgosDoc } from './hallazgos';
 import { getSignosVitales, type SignosHistorialItem, type SignosVitalesToma } from './signos-vitales';
 import type { AtencionForm } from '../domain/atencion-form';
 import {
@@ -45,7 +47,9 @@ export type AtencionDetalle = {
   form: AtencionForm;
   antecedentesPersonales: AntecedentesPersonalesDoc;
   antecedentesFamiliares: AntecedentesFamiliaresDoc;
-  revisionSistemas: RevisionSistemasDoc;
+  revisionSistemas: HallazgosDoc;
+  examenFisico: HallazgosDoc;
+  diagnosticos: DiagnosticoAtencion[];
   mujer: boolean;
   signosVitales: SignosVitalesToma;
   /** Tomas de las demás atenciones del docente, de la más reciente a la más antigua. */
@@ -103,12 +107,14 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
       ? { datos: PARSE_ANTECEDENTES[kind](saved), version: 0, actualizadoEn: null, actualizadoPor: null }
       : getAntecedentes(kind, cita.usuarioId);
   const mujer = esMujer(cita.paciente.sexo);
-  const [antecedentesPersonales, antecedentesFamiliares, antecedentesGinecobstetricos, signos, revisionSistemas] = await Promise.all([
+  const [antecedentesPersonales, antecedentesFamiliares, antecedentesGinecobstetricos, signos, revisionSistemas, examenFisico, diagnosticos] = await Promise.all([
     load('personales', cita.atencion?.antecedentesPersonales),
     load('familiares', cita.atencion?.antecedentesFamiliares),
     mujer ? load('ginecobstetricos', cita.atencion?.antecedentesGineco) : null,
     getSignosVitales(cita.id, cita.usuarioId),
-    resolveRevisionSistemas(prisma, cita.id, cita.usuarioId),
+    resolveHallazgos(prisma, 'revision-sistemas', cita.id, cita.usuarioId),
+    resolveHallazgos(prisma, 'examen-fisico', cita.id, cita.usuarioId),
+    getDiagnosticos(cita.id),
   ]);
 
   const paciente = cita.paciente;
@@ -149,6 +155,8 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     antecedentesFamiliares,
     antecedentesGinecobstetricos,
     revisionSistemas,
+    examenFisico,
+    diagnosticos,
     mujer,
     signosVitales: signos.toma,
     signosHistorial: signos.historial,

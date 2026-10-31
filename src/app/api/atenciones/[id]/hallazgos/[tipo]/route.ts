@@ -1,0 +1,31 @@
+import { HALLAZGO_TIPOS, saveHallazgos, type HallazgoTipo } from '@/features/atenciones/application/hallazgos';
+import { saveHallazgosSchema } from '@/features/atenciones/domain/hallazgos';
+import { ReceptionError } from '@/features/reception/application/errors';
+import { requireMedicoApi } from '@/lib/auth/api-guards';
+import {
+  assertReceptionRequestIntegrity,
+  positiveQuery,
+  receptionError,
+  receptionJson,
+} from '@/lib/http/with-reception-api';
+
+export const runtime = 'nodejs';
+
+/** Guarda la revisión por sistemas o el examen físico de una atención en curso. */
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string; tipo: string }> }) {
+  try {
+    assertReceptionRequestIntegrity(request);
+    const auth = await requireMedicoApi('appointment.attend');
+    if (!auth.ok) {
+      throw new ReceptionError(auth.status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN', auth.error, auth.status);
+    }
+    const { id, tipo } = await params;
+    if (!(tipo in HALLAZGO_TIPOS)) throw new ReceptionError('NOT_FOUND', 'Sección no válida.', 404);
+    const citaId = positiveQuery(id, 'Cita');
+    const parsed = saveHallazgosSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) throw new ReceptionError('VALIDATION_ERROR', 'Revisa los datos ingresados.', 422);
+    return receptionJson(request, await saveHallazgos(auth.auth, tipo as HallazgoTipo, citaId, parsed.data.datos));
+  } catch (error) {
+    return receptionError(request, error);
+  }
+}

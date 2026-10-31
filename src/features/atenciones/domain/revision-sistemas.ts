@@ -1,11 +1,9 @@
-import { z } from 'zod';
+import { createHallazgosCatalog, type Hallazgos } from './hallazgos';
 
 /**
  * Revisión por sistemas: un texto por sistema que inicia con el hallazgo normal. Se guarda en cada
  * atención y se precarga con la última revisión del docente, como los antecedentes.
  */
-
-export const REVISION_TEXT_MAX = 1000;
 
 export const REVISION_SISTEMAS = [
   { key: 'general', label: 'General', normal: 'BUEN ESTADO GENERAL' },
@@ -42,61 +40,15 @@ export const REVISION_SISTEMAS = [
   { key: 'articular', label: 'Articular', normal: 'No refiere' },
   { key: 'pielFaneras', label: 'Piel y faneras', normal: 'No refiere prurito, edema, ictericia o descamación' },
   { key: 'otros', label: 'Otros', normal: 'No refiere' },
-] as const satisfies ReadonlyArray<{ key: string; label: string; normal: string; soloMujeres?: boolean }>;
+] as const;
+
+export const REVISION_CATALOG = createHallazgosCatalog(REVISION_SISTEMAS);
 
 export type SistemaKey = (typeof REVISION_SISTEMAS)[number]['key'];
+export type RevisionSistemas = Hallazgos<SistemaKey>;
 
-export type RevisionSistemas = {
-  sistemas: Record<SistemaKey, string>;
-  /** YYYY-MM-DD */
-  fecha: string | null;
-};
-
-const SISTEMA_KEYS = REVISION_SISTEMAS.map((item) => item.key) as SistemaKey[];
-export const NORMAL_BY_SISTEMA = Object.fromEntries(REVISION_SISTEMAS.map((item) => [item.key, item.normal])) as Record<
-  SistemaKey,
-  string
->;
-
-const schema = z.object({
-  sistemas: z
-    .record(z.string(), z.unknown())
-    .catch({})
-    .default({})
-    .transform(
-      (raw) =>
-        Object.fromEntries(
-          SISTEMA_KEYS.map((key) => {
-            const value = raw[key];
-            return [key, typeof value === 'string' ? value.trim().slice(0, REVISION_TEXT_MAX) : NORMAL_BY_SISTEMA[key]];
-          }),
-        ) as Record<SistemaKey, string>,
-    ),
-  fecha: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable()
-    .catch(null)
-    .default(null),
-});
-
-/** Lectura tolerante: lo que falte o no sea texto toma el hallazgo normal. */
-export function parseRevisionSistemas(value: unknown): RevisionSistemas {
-  return schema.parse(typeof value === 'object' && value ? value : {});
-}
-
-export const DEFAULT_REVISION_SISTEMAS = parseRevisionSistemas({});
-
-export const saveRevisionSistemasSchema = z.object({ datos: z.object({}).passthrough() }).strict();
-
-/** Distinto del texto normal (ignora mayúsculas y espacios): es lo que el médico registró como hallazgo. */
-export function sistemaModificado(key: SistemaKey, value: string) {
-  const normalize = (text: string) => text.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es-CO');
-  return normalize(value) !== normalize(NORMAL_BY_SISTEMA[key]);
-}
-
-export function countSistemasModificados(revision: RevisionSistemas, mujer: boolean) {
-  return REVISION_SISTEMAS.filter(
-    (item) => (mujer || !('soloMujeres' in item)) && sistemaModificado(item.key, revision.sistemas[item.key]),
-  ).length;
-}
+export const NORMAL_BY_SISTEMA = REVISION_CATALOG.normalByKey;
+export const parseRevisionSistemas = REVISION_CATALOG.parse;
+export const DEFAULT_REVISION_SISTEMAS = REVISION_CATALOG.defaults;
+export const sistemaModificado = REVISION_CATALOG.modificado;
+export const countSistemasModificados = REVISION_CATALOG.countModificados;

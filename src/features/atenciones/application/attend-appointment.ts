@@ -5,7 +5,7 @@ import { esMujer, parseAntecedentesGinecobstetricos } from '@/features/atencione
 import { parseAntecedentesPersonales } from '@/features/atenciones/domain/antecedentes-personales';
 import { atencionPendientes, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
 import { SIGNO_SELECT, signosFromRecord, signosPendientes } from '@/features/atenciones/domain/signos-vitales';
-import { resolveRevisionSistemas } from '@/features/atenciones/application/revision-sistemas';
+import { resolveHallazgos } from '@/features/atenciones/application/hallazgos';
 import { ReceptionError } from '@/features/reception/application/errors';
 import { markAppointmentAttendedInTransaction } from '@/features/reception/application/reception-service';
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
@@ -30,6 +30,7 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
         paciente: { select: { sexo: true } },
         atencion: { select: { motivoConsulta: true, enfermedadActual: true } },
         signosVitales: { select: SIGNO_SELECT },
+        _count: { select: { diagnosticos: true } },
       },
     });
     const blocker = attendBlocker(cita, auth);
@@ -40,6 +41,7 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
         enfermedadActual: cita.atencion?.enfermedadActual ?? '',
       }),
       ...signosPendientes(signosFromRecord(cita.signosVitales)),
+      ...(cita._count.diagnosticos === 0 ? [{ label: 'Diagnóstico principal' }] : []),
     ];
     if (pendientes.length > 0) {
       throw new ReceptionError(
@@ -63,7 +65,9 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
         antecedentesPersonales: parseAntecedentesPersonales(personales?.datos) as unknown as Prisma.InputJsonValue,
         antecedentesFamiliares: parseAntecedentesFamiliares(familiares?.datos) as unknown as Prisma.InputJsonValue,
         // Si no se tocó la revisión, queda registrada la precargada (heredada o normal).
-        revisionSistemas: (await resolveRevisionSistemas(tx, appointmentId, cita.usuarioId))
+        revisionSistemas: (await resolveHallazgos(tx, 'revision-sistemas', appointmentId, cita.usuarioId))
+          .datos as unknown as Prisma.InputJsonValue,
+        examenFisico: (await resolveHallazgos(tx, 'examen-fisico', appointmentId, cita.usuarioId))
           .datos as unknown as Prisma.InputJsonValue,
         antecedentesGineco: mujer
           ? (parseAntecedentesGinecobstetricos(gineco?.datos) as unknown as Prisma.InputJsonValue)

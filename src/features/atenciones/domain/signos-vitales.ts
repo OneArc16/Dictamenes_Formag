@@ -161,6 +161,28 @@ export const SIGNO_FIELDS = [
     required: false,
     group: 'perimetros',
   },
+  {
+    key: 'perimetroCintura',
+    label: 'Perímetro de cintura',
+    short: 'Cintura',
+    unit: 'cm',
+    min: 30,
+    max: 250,
+    decimals: 1,
+    required: false,
+    group: 'perimetros',
+  },
+  {
+    key: 'perimetroCadera',
+    label: 'Perímetro de cadera',
+    short: 'Cadera',
+    unit: 'cm',
+    min: 30,
+    max: 250,
+    decimals: 1,
+    required: false,
+    group: 'perimetros',
+  },
 ] as const satisfies ReadonlyArray<SignoField>;
 
 export type SignoKey = (typeof SIGNO_FIELDS)[number]['key'];
@@ -273,6 +295,12 @@ export function signosPendientes(values: SignosValues) {
 export function calcularImc(pesoKg: number | null, tallaCm: number | null) {
   if (pesoKg == null || tallaCm == null || tallaCm <= 0) return null;
   return Math.round((pesoKg / (tallaCm / 100) ** 2) * 100) / 100;
+}
+
+/** Índice cintura-cadera. */
+export function indiceCinturaCadera(cintura: number | null, cadera: number | null) {
+  if (cintura == null || cadera == null || cadera <= 0) return null;
+  return Math.round((cintura / cadera) * 100) / 100;
 }
 
 export function clasificarImc(imc: number | null) {

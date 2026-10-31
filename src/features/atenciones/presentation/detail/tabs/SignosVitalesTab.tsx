@@ -402,7 +402,7 @@ export function SignosVitalesTab({
               aria-hidden="true"
             />
           </summary>
-          <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-2.5 sm:grid-cols-4 lg:grid-cols-7">
             {perimetros.map((field) => (
               <div key={field.key}>
                 <label htmlFor={signoInputId(field.key)} className="text-[11px] font-semibold text-slate-700">

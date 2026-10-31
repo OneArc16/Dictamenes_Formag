@@ -1037,19 +1037,20 @@ model Cita {
   updatedAt               DateTime           @updatedAt
   updatedBy               Int
 
-  paciente           Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  cupoMedico         CupoMedico         @relation(fields: [cupoMedicoId], references: [id], onDelete: Restrict)
-  sede               Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
-  medico             Empleado           @relation("CitaMedico", fields: [medicoId], references: [id], onDelete: Restrict)
-  especialidad       EspecialidadMedica @relation(fields: [especialidadId], references: [id], onDelete: Restrict)
-  modalidad          ModalidadCita      @relation(fields: [modalidadId], references: [id], onDelete: Restrict)
-  creadoPor          Empleado           @relation("CitaCreadaPor", fields: [createdBy], references: [id], onDelete: Restrict)
-  citaOrigen         Cita?              @relation("CitaReprogramacion", fields: [citaOrigenId], references: [id], onDelete: Restrict)
-  citasReprogramadas Cita[]             @relation("CitaReprogramacion")
+  paciente           Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  cupoMedico         CupoMedico            @relation(fields: [cupoMedicoId], references: [id], onDelete: Restrict)
+  sede               Sede                  @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  medico             Empleado              @relation("CitaMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+  especialidad       EspecialidadMedica    @relation(fields: [especialidadId], references: [id], onDelete: Restrict)
+  modalidad          ModalidadCita         @relation(fields: [modalidadId], references: [id], onDelete: Restrict)
+  creadoPor          Empleado              @relation("CitaCreadaPor", fields: [createdBy], references: [id], onDelete: Restrict)
+  citaOrigen         Cita?                 @relation("CitaReprogramacion", fields: [citaOrigenId], references: [id], onDelete: Restrict)
+  citasReprogramadas Cita[]                @relation("CitaReprogramacion")
   historial          CitaHistorial[]
   documentos         DocumentoCita[]
   atencion           Atencion?
   signosVitales      SignosVitales?
+  diagnosticos       AtencionDiagnostico[]
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1071,6 +1072,8 @@ model Atencion {
   antecedentesGineco     Json?
   /// Revisión por sistemas de esta atención (se precarga con la última del docente).
   revisionSistemas       Json?
+  /// Examen físico de esta atención (se precarga con el último del docente).
+  examenFisico           Json?
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   createdBy              Int
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -1153,6 +1156,8 @@ model SignosVitales {
   perimetroToracico      Decimal? @db.Decimal(5, 1)
   perimetroAbdominal     Decimal? @db.Decimal(5, 1)
   perimetroMuslo         Decimal? @db.Decimal(5, 1)
+  perimetroCintura       Decimal? @db.Decimal(5, 1)
+  perimetroCadera        Decimal? @db.Decimal(5, 1)
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   createdBy              Int
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -1163,6 +1168,25 @@ model SignosVitales {
 
   @@index([usuarioId, createdAt])
   @@map("signos_vitales")
+}
+
+/// Diagnósticos CIE10 de una atención; orden 1 es el principal.
+model AtencionDiagnostico {
+  id          Int             @id @default(autoincrement())
+  citaId      Int
+  orden       Int             @db.SmallInt
+  cie10Codigo String          @db.VarChar(10)
+  tipo        TipoDiagnostico @default(IMPRESION_DIAGNOSTICA)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  createdBy   Int
+
+  cita  Cita  @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  cie10 Cie10 @relation(fields: [cie10Codigo], references: [codigo], onDelete: Restrict)
+
+  @@unique([citaId, orden])
+  @@unique([citaId, cie10Codigo])
+  @@index([cie10Codigo])
+  @@map("atencion_diagnosticos")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
@@ -1444,6 +1468,7 @@ model Cie10 {
   cie10Deficiencias    Cie10Deficiencia[]
   dictamenDiagnosticos DictamenDiagnostico[]
   diagnosticosOrigen   DiagnosticoOrigen[]
+  atencionDiagnosticos AtencionDiagnostico[]
 
   @@map("cie10")
 }

@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 import { ClinicalDocumentLayout } from '@/components/clinical-document/ClinicalDocumentLayout';
 import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
+import { EXAMEN_CATALOG } from '@/features/atenciones/domain/examen-fisico';
+import { REVISION_CATALOG } from '@/features/atenciones/domain/revision-sistemas';
 import { DEFAULT_ANTECEDENTES_GINECOBSTETRICOS } from '@/features/atenciones/domain/antecedentes-ginecobstetricos';
 
 import { AtencionCenterPanel } from './AtencionCenterPanel';
@@ -17,7 +19,9 @@ import { AtencionRightPanel } from './AtencionRightPanel';
 import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
-import { RevisionSistemasTab } from './tabs/RevisionSistemasTab';
+import { DiagnosticosTab } from './tabs/DiagnosticosTab';
+import { ExamenFisicoTab } from './tabs/ExamenFisicoTab';
+import { HallazgosTab } from './tabs/HallazgosTab';
 import { SignosVitalesTab } from './tabs/SignosVitalesTab';
 import { useAntecedentes } from './useAntecedentes';
 
@@ -28,7 +32,8 @@ const SIN_GINECOBSTETRICOS = {
   actualizadoPor: null,
 };
 import { useAtencionForm } from './useAtencionForm';
-import { useRevisionSistemas } from './useRevisionSistemas';
+import { useDiagnosticos } from './useDiagnosticos';
+import { useHallazgos } from './useHallazgos';
 import { useSignosVitales } from './useSignosVitales';
 
 export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetalle }) {
@@ -50,19 +55,40 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   );
 
   const signos = useSignosVitales(detalle.id, detalle.signosVitales, editable);
-  const revision = useRevisionSistemas(detalle.id, detalle.revisionSistemas, editable);
+  const revision = useHallazgos('revision-sistemas', detalle.id, detalle.revisionSistemas, editable);
+  const examen = useHallazgos('examen-fisico', detalle.id, detalle.examenFisico, editable);
+  const diagnosticos = useDiagnosticos(detalle.id, detalle.diagnosticos, editable);
 
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
-  const statuses = [status, personales.status, familiares.status, gineco.status, signos.status, revision.status];
+  const statuses = [
+    status,
+    personales.status,
+    familiares.status,
+    gineco.status,
+    signos.status,
+    revision.status,
+    examen.status,
+    diagnosticos.status,
+  ];
   const saveStatus = (['error', 'saving', 'saved'] as const).find((value) => statuses.includes(value)) ?? 'idle';
-  const saveError = error ?? personales.error ?? familiares.error ?? gineco.error ?? signos.error ?? revision.error;
+  const saveError =
+    error ??
+    personales.error ??
+    familiares.error ??
+    gineco.error ??
+    signos.error ??
+    revision.error ??
+    examen.error ??
+    diagnosticos.error;
   const flushAll = async () =>
     (await flush()) &&
     (await personales.flush()) &&
     (await familiares.flush()) &&
     (await gineco.flush()) &&
     (await signos.flush()) &&
-    (await revision.flush());
+    (await revision.flush()) &&
+    (await examen.flush()) &&
+    (await diagnosticos.flush());
 
   const refresh = () => startTransition(() => router.refresh());
 
@@ -127,7 +153,9 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                 />
               ),
               'revision-sistemas': (
-                <RevisionSistemasTab
+                <HallazgosTab
+                  catalog={REVISION_CATALOG}
+                  idPrefix="revision"
                   revision={revision.datos}
                   mujer={detalle.mujer}
                   readOnly={!editable}
@@ -138,13 +166,42 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   onChange={revision.update}
                 />
               ),
+              'examen-fisico': (
+                <ExamenFisicoTab
+                  signos={signos.values}
+                  onEditSignos={() => setActiveTab('signos-vitales')}
+                  catalog={EXAMEN_CATALOG}
+                  idPrefix="examen"
+                  revision={examen.datos}
+                  mujer={detalle.mujer}
+                  readOnly={!editable}
+                  origen={examen.origen}
+                  heredadaDe={examen.heredadaDe}
+                  status={examen.status}
+                  error={examen.error}
+                  onChange={examen.update}
+                />
+              ),
+              diagnosticos: (
+                <DiagnosticosTab
+                  filas={diagnosticos.filas}
+                  readOnly={!editable}
+                  status={diagnosticos.status}
+                  error={diagnosticos.error}
+                  onChange={diagnosticos.update}
+                />
+              ),
             }}
           />
         }
         right={
           <AtencionRightPanel
             detalle={detalle}
-            pendientes={atencionPendientesUi(form, signos.values)}
+            pendientes={atencionPendientesUi(
+              form,
+              signos.values,
+              diagnosticos.filas.some((fila) => fila.cie10Codigo.trim()),
+            )}
             saveStatus={saveStatus}
             saveError={saveError}
             onGoToTab={setActiveTab}
