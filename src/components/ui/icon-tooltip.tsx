@@ -22,13 +22,13 @@ export function Tooltip({
   align = 'center',
 }: TooltipProps) {
   return (
-    <div className="ui-tooltip group relative inline-flex">
+    <div className="ui-tooltip group/tooltip relative inline-flex">
       {children}
       <span
         id={id}
         role="tooltip"
         className={cn(
-          'ui-tooltip-content pointer-events-none invisible absolute top-full z-50 mt-2 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-medium leading-4 text-white opacity-0 shadow-sm ring-1 ring-white/10 transition-[opacity,transform,visibility] duration-150 ease-out translate-y-1 scale-95 group-hover:visible group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 motion-reduce:transition-none',
+          'ui-tooltip-content pointer-events-none invisible absolute top-full z-50 mt-2 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-medium leading-4 text-white opacity-0 shadow-sm ring-1 ring-white/10 transition-[opacity,transform,visibility] duration-150 ease-out translate-y-1 scale-95 group-hover/tooltip:visible group-hover/tooltip:translate-y-0 group-hover/tooltip:scale-100 group-hover/tooltip:opacity-100 motion-reduce:transition-none',
           alignmentClass[align],
         )}
       >
