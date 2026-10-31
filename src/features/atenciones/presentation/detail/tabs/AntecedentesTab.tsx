@@ -7,12 +7,17 @@ import {
   countRefiereFamiliares,
   type AntecedentesFamiliares,
 } from '@/features/atenciones/domain/antecedentes-familiares';
+import {
+  countRefiereGineco,
+  type AntecedentesGinecobstetricos,
+} from '@/features/atenciones/domain/antecedentes-ginecobstetricos';
 import type { AntecedentesPersonales } from '@/features/atenciones/domain/antecedentes-personales';
 
 import { formatAtencionFecha, formatAtencionHora } from '../../AtencionesTable';
 import type { useAntecedentes } from '../useAntecedentes';
 import type { SaveStatus } from '../useAutosave';
 import { AntecedentesFamiliaresForm } from './AntecedentesFamiliaresForm';
+import { AntecedentesGinecobstetricosForm } from './AntecedentesGinecobstetricosForm';
 import { AntecedentesPersonalesForm, countPersonalesRefiere } from './AntecedentesPersonalesForm';
 
 type AntecedentesState<T> = ReturnType<typeof useAntecedentes<T>>;
@@ -20,6 +25,7 @@ type AntecedentesState<T> = ReturnType<typeof useAntecedentes<T>>;
 const KINDS: Array<{ id: AntecedenteKind; label: string }> = [
   { id: 'personales', label: 'Personales' },
   { id: 'familiares', label: 'Familiares' },
+  { id: 'ginecobstetricos', label: 'Ginecobstétricos' },
 ];
 
 const SAVE_LABEL: Record<Exclude<SaveStatus, 'idle'>, string> = {
@@ -31,20 +37,33 @@ const SAVE_LABEL: Record<Exclude<SaveStatus, 'idle'>, string> = {
 export function AntecedentesTab({
   personales,
   familiares,
+  ginecobstetricos,
   readOnly,
   snapshot,
 }: {
   personales: AntecedentesState<AntecedentesPersonales>;
   familiares: AntecedentesState<AntecedentesFamiliares>;
+  /** null si la docente no es mujer: la opción no se muestra. */
+  ginecobstetricos: AntecedentesState<AntecedentesGinecobstetricos> | null;
   readOnly: boolean;
   /** Muestra la copia guardada al finalizar la atención. */
   snapshot: boolean;
 }) {
   const [kind, setKind] = useState<AntecedenteKind>('personales');
   const [onlyRefiere, setOnlyRefiere] = useState(false);
-  const current = kind === 'personales' ? personales : familiares;
+  const kinds = KINDS.filter((option) => option.id !== 'ginecobstetricos' || ginecobstetricos);
+  const current =
+    kind === 'ginecobstetricos' && ginecobstetricos
+      ? ginecobstetricos
+      : kind === 'familiares'
+        ? familiares
+        : personales;
   const total =
-    kind === 'personales' ? countPersonalesRefiere(personales.datos) : countRefiereFamiliares(familiares.datos);
+    kind === 'ginecobstetricos' && ginecobstetricos
+      ? countRefiereGineco(ginecobstetricos.datos)
+      : kind === 'familiares'
+        ? countRefiereFamiliares(familiares.datos)
+        : countPersonalesRefiere(personales.datos);
   const saveLabel =
     readOnly || current.status === 'idle'
       ? null
@@ -68,7 +87,7 @@ export function AntecedentesTab({
           aria-label="Tipo de antecedentes"
           className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5"
         >
-          {KINDS.map((option) => {
+          {kinds.map((option) => {
             const active = option.id === kind;
             return (
               <button
@@ -107,19 +126,26 @@ export function AntecedentesTab({
         </p>
       ) : null}
 
-      {kind === 'personales' ? (
-        <AntecedentesPersonalesForm
-          antecedentes={personales.datos}
+      {kind === 'ginecobstetricos' && ginecobstetricos ? (
+        <AntecedentesGinecobstetricosForm
+          antecedentes={ginecobstetricos.datos}
           readOnly={readOnly}
           onlyRefiere={onlyRefiere}
-          onChange={personales.update}
+          onChange={ginecobstetricos.update}
         />
-      ) : (
+      ) : kind === 'familiares' ? (
         <AntecedentesFamiliaresForm
           antecedentes={familiares.datos}
           readOnly={readOnly}
           onlyRefiere={onlyRefiere}
           onChange={familiares.update}
+        />
+      ) : (
+        <AntecedentesPersonalesForm
+          antecedentes={personales.datos}
+          readOnly={readOnly}
+          onlyRefiere={onlyRefiere}
+          onChange={personales.update}
         />
       )}
     </div>

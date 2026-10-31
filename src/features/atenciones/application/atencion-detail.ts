@@ -1,12 +1,14 @@
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
+import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { AtencionForm } from '../domain/atencion-form';
 import {
   PARSE_ANTECEDENTES,
   getAntecedentes,
   type AntecedenteKind,
   type AntecedentesFamiliaresDoc,
+  type AntecedentesGinecobstetricosDoc,
   type AntecedentesPersonalesDoc,
 } from './antecedentes';
 
@@ -41,6 +43,8 @@ export type AtencionDetalle = {
   form: AtencionForm;
   antecedentesPersonales: AntecedentesPersonalesDoc;
   antecedentesFamiliares: AntecedentesFamiliaresDoc;
+  /** Solo para docentes mujeres. */
+  antecedentesGinecobstetricos: AntecedentesGinecobstetricosDoc | null;
   /** La atención finalizada muestra la copia guardada al cerrarla, no los antecedentes actuales. */
   antecedentesDeEstaAtencion: boolean;
   /** Puede editar al docente, diligenciar y finalizar la atención. */
@@ -57,7 +61,13 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     where: { id: citaId },
     include: {
       atencion: {
-        select: { motivoConsulta: true, enfermedadActual: true, antecedentesPersonales: true, antecedentesFamiliares: true },
+        select: {
+          motivoConsulta: true,
+          enfermedadActual: true,
+          antecedentesPersonales: true,
+          antecedentesFamiliares: true,
+          antecedentesGineco: true,
+        },
       },
       paciente: {
         include: {
@@ -85,9 +95,11 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     snapshot
       ? { datos: PARSE_ANTECEDENTES[kind](saved), version: 0, actualizadoEn: null, actualizadoPor: null }
       : getAntecedentes(kind, cita.usuarioId);
-  const [antecedentesPersonales, antecedentesFamiliares] = await Promise.all([
+  const mujer = esMujer(cita.paciente.sexo);
+  const [antecedentesPersonales, antecedentesFamiliares, antecedentesGinecobstetricos] = await Promise.all([
     load('personales', cita.atencion?.antecedentesPersonales),
     load('familiares', cita.atencion?.antecedentesFamiliares),
+    mujer ? load('ginecobstetricos', cita.atencion?.antecedentesGineco) : null,
   ]);
 
   const paciente = cita.paciente;
@@ -126,6 +138,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     },
     antecedentesPersonales,
     antecedentesFamiliares,
+    antecedentesGinecobstetricos,
     antecedentesDeEstaAtencion: snapshot,
     canAttend: hasAbility(auth, 'appointment.attend') && attendBlocker(cita, auth) === null,
   };

@@ -6,17 +6,27 @@ import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization'
 import { prisma } from '@/lib/prisma';
 
 import { parseAntecedentesFamiliares, type AntecedentesFamiliares } from '../domain/antecedentes-familiares';
+import {
+  esMujer,
+  parseAntecedentesGinecobstetricos,
+  type AntecedentesGinecobstetricos,
+} from '../domain/antecedentes-ginecobstetricos';
 import { parseAntecedentesPersonales, type AntecedentesPersonales } from '../domain/antecedentes-personales';
 import { attendBlocker } from './attend-appointment';
 
-export const ANTECEDENTE_KINDS = ['personales', 'familiares'] as const;
+export const ANTECEDENTE_KINDS = ['personales', 'familiares', 'ginecobstetricos'] as const;
 export type AntecedenteKind = (typeof ANTECEDENTE_KINDS)[number];
 
-type DatosByKind = { personales: AntecedentesPersonales; familiares: AntecedentesFamiliares };
+type DatosByKind = {
+  personales: AntecedentesPersonales;
+  familiares: AntecedentesFamiliares;
+  ginecobstetricos: AntecedentesGinecobstetricos;
+};
 
 export const PARSE_ANTECEDENTES: { [K in AntecedenteKind]: (value: unknown) => DatosByKind[K] } = {
   personales: parseAntecedentesPersonales,
   familiares: parseAntecedentesFamiliares,
+  ginecobstetricos: parseAntecedentesGinecobstetricos,
 };
 
 export type AntecedentesDoc<T> = {
@@ -28,6 +38,7 @@ export type AntecedentesDoc<T> = {
 };
 export type AntecedentesPersonalesDoc = AntecedentesDoc<AntecedentesPersonales>;
 export type AntecedentesFamiliaresDoc = AntecedentesDoc<AntecedentesFamiliares>;
+export type AntecedentesGinecobstetricosDoc = AntecedentesDoc<AntecedentesGinecobstetricos>;
 
 type Db = Prisma.TransactionClient | typeof prisma;
 type StoredRecord = { datos: Prisma.JsonValue; version: number; updatedAt: Date; updatedBy: number };
@@ -48,7 +59,12 @@ type AntecedentesTable = {
 };
 
 function table(db: Db, kind: AntecedenteKind): AntecedentesTable {
-  return (kind === 'personales' ? db.antecedentesPersonales : db.antecedentesFamiliares) as unknown as AntecedentesTable;
+  const tables = {
+    personales: db.antecedentesPersonales,
+    familiares: db.antecedentesFamiliares,
+    ginecobstetricos: db.antecedentesGinecobstetricos,
+  };
+  return tables[kind] as unknown as AntecedentesTable;
 }
 
 async function toDoc<K extends AntecedenteKind>(
@@ -93,10 +109,13 @@ export async function saveAntecedentes<K extends AntecedenteKind>(
   return prisma.$transaction(async (tx) => {
     const cita = await tx.cita.findUnique({
       where: { id: citaId },
-      select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true },
+      select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true, paciente: { select: { sexo: true } } },
     });
     const blocker = attendBlocker(cita, auth);
     if (blocker || !cita) throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
+    if (kind === 'ginecobstetricos' && !esMujer(cita.paciente.sexo)) {
+      throw new ReceptionError('VALIDATION_ERROR', 'Los antecedentes ginecobstétricos solo aplican a mujeres.', 422);
+    }
 
     const records = table(tx, kind);
     const current = await records.findUnique({ where: { usuarioId: cita.usuarioId }, select: RECORD_SELECT });

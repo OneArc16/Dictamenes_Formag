@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { ClinicalDocumentLayout } from '@/components/clinical-document/ClinicalDocumentLayout';
 import { ActualizarDocenteModal } from '@/components/docentes/ActualizarDocenteModal';
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
+import { DEFAULT_ANTECEDENTES_GINECOBSTETRICOS } from '@/features/atenciones/domain/antecedentes-ginecobstetricos';
 
 import { AtencionCenterPanel } from './AtencionCenterPanel';
 import { AtencionLeftPanel } from './AtencionLeftPanel';
@@ -17,6 +18,13 @@ import { ATENCION_TABS, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
 import { useAntecedentes } from './useAntecedentes';
+
+const SIN_GINECOBSTETRICOS = {
+  datos: DEFAULT_ANTECEDENTES_GINECOBSTETRICOS,
+  version: 0,
+  actualizadoEn: null,
+  actualizadoPor: null,
+};
 import { useAtencionForm } from './useAtencionForm';
 
 export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetalle }) {
@@ -28,12 +36,21 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   const { form, setField, status, error, flush } = useAtencionForm(detalle.id, detalle.form, editable);
   const personales = useAntecedentes('personales', detalle.id, detalle.antecedentesPersonales, editable);
   const familiares = useAntecedentes('familiares', detalle.id, detalle.antecedentesFamiliares, editable);
+  // Los hooks no pueden ser condicionales: sin ginecobstétricos (no es mujer) queda inactivo.
+  const mujer = detalle.antecedentesGinecobstetricos !== null;
+  const gineco = useAntecedentes(
+    'ginecobstetricos',
+    detalle.id,
+    detalle.antecedentesGinecobstetricos ?? SIN_GINECOBSTETRICOS,
+    editable && mujer,
+  );
 
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
-  const statuses = [status, personales.status, familiares.status];
+  const statuses = [status, personales.status, familiares.status, gineco.status];
   const saveStatus = (['error', 'saving', 'saved'] as const).find((value) => statuses.includes(value)) ?? 'idle';
-  const saveError = error ?? personales.error ?? familiares.error;
-  const flushAll = async () => (await flush()) && (await personales.flush()) && (await familiares.flush());
+  const saveError = error ?? personales.error ?? familiares.error ?? gineco.error;
+  const flushAll = async () =>
+    (await flush()) && (await personales.flush()) && (await familiares.flush()) && (await gineco.flush());
 
   const refresh = () => startTransition(() => router.refresh());
 
@@ -78,6 +95,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                 <AntecedentesTab
                   personales={personales}
                   familiares={familiares}
+                  ginecobstetricos={mujer ? gineco : null}
                   readOnly={!editable}
                   snapshot={detalle.antecedentesDeEstaAtencion}
                 />

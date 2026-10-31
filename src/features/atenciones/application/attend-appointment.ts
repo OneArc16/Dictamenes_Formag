@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 import { parseAntecedentesFamiliares } from '@/features/atenciones/domain/antecedentes-familiares';
+import { esMujer, parseAntecedentesGinecobstetricos } from '@/features/atenciones/domain/antecedentes-ginecobstetricos';
 import { parseAntecedentesPersonales } from '@/features/atenciones/domain/antecedentes-personales';
 import { atencionPendientes, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
 import { ReceptionError } from '@/features/reception/application/errors';
@@ -33,6 +34,7 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
         activadaAt: true,
         medicoId: true,
         usuarioId: true,
+        paciente: { select: { sexo: true } },
         atencion: { select: { motivoConsulta: true, enfermedadActual: true } },
       },
     });
@@ -50,15 +52,22 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
       );
     }
     // La historia de esta atención conserva los antecedentes tal como estaban al finalizarla.
-    const [personales, familiares] = await Promise.all([
+    const mujer = esMujer(cita.paciente.sexo);
+    const [personales, familiares, gineco] = await Promise.all([
       tx.antecedentesPersonales.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
       tx.antecedentesFamiliares.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
+      mujer
+        ? tx.antecedentesGinecobstetricos.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } })
+        : null,
     ]);
     await tx.atencion.update({
       where: { citaId: appointmentId },
       data: {
         antecedentesPersonales: parseAntecedentesPersonales(personales?.datos) as unknown as Prisma.InputJsonValue,
         antecedentesFamiliares: parseAntecedentesFamiliares(familiares?.datos) as unknown as Prisma.InputJsonValue,
+        antecedentesGineco: mujer
+          ? (parseAntecedentesGinecobstetricos(gineco?.datos) as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
         updatedBy: auth.empleadoId,
       },
     });

@@ -773,11 +773,12 @@ model Usuario {
   municipio    Municipio?    @relation("MunicipioUsuarios", fields: [codigoMunicipio], references: [codigo])
 
   dictamenes                Dictamen[]
-  versionesFormularioOrigen VersionFormularioOrigen[] @relation("UsuarioSnapshotFormularioOrigen")
-  recomendacionesLaborales  RecomendacionLaboral[]    @relation("UsuarioRecomendacionesLaborales")
+  versionesFormularioOrigen VersionFormularioOrigen[]     @relation("UsuarioSnapshotFormularioOrigen")
+  recomendacionesLaborales  RecomendacionLaboral[]        @relation("UsuarioRecomendacionesLaborales")
   citas                     Cita[]
   antecedentesPersonales    AntecedentesPersonales?
   antecedentesFamiliares    AntecedentesFamiliares?
+  antecedentesGineco        AntecedentesGinecobstetricos?
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1065,6 +1066,7 @@ model Atencion {
   /// Copia de los antecedentes del docente al finalizar: la historia conserva lo que había en esta atención.
   antecedentesPersonales Json?
   antecedentesFamiliares Json?
+  antecedentesGineco     Json?
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   createdBy              Int
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -1109,6 +1111,24 @@ model AntecedentesFamiliares {
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
 
   @@map("antecedentes_familiares")
+}
+
+/// Antecedentes ginecobstétricos de la docente (solo aplica a mujeres). Únicos por docente y compartidos entre sus atenciones.
+model AntecedentesGinecobstetricos {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique
+  datos     Json
+  version   Int      @default(1)
+  /// Atención desde la que se actualizaron por última vez.
+  citaId    Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdBy Int
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  updatedBy Int
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@map("antecedentes_ginecobstetricos")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
