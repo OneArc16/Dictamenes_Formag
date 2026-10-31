@@ -19,6 +19,7 @@ import { AtencionRightPanel } from './AtencionRightPanel';
 import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
+import { AnalisisPlanTab } from './tabs/AnalisisPlanTab';
 import { DiagnosticosTab } from './tabs/DiagnosticosTab';
 import { ExamenFisicoTab } from './tabs/ExamenFisicoTab';
 import { HallazgosTab } from './tabs/HallazgosTab';
@@ -90,6 +91,16 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
     (await examen.flush()) &&
     (await diagnosticos.flush());
 
+  const pendientes = atencionPendientesUi(
+    form,
+    signos.values,
+    diagnosticos.filas.some((fila) => fila.cie10Codigo.trim()),
+  );
+  const pendientesPorPestana = pendientes.reduce<Partial<Record<AtencionTabId, number>>>(
+    (acc, item) => ({ ...acc, [item.tab]: (acc[item.tab] ?? 0) + 1 }),
+    {},
+  );
+
   const refresh = () => startTransition(() => router.refresh());
 
   return (
@@ -127,6 +138,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
           <AtencionCenterPanel
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            pendientes={editable ? pendientesPorPestana : {}}
             panels={{
               'motivo-consulta': <MotivoConsultaTab form={form} readOnly={!editable} onChange={setField} />,
               antecedentes: (
@@ -191,17 +203,14 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   onChange={diagnosticos.update}
                 />
               ),
+              'analisis-plan': <AnalisisPlanTab form={form} readOnly={!editable} onChange={setField} />,
             }}
           />
         }
         right={
           <AtencionRightPanel
             detalle={detalle}
-            pendientes={atencionPendientesUi(
-              form,
-              signos.values,
-              diagnosticos.filas.some((fila) => fila.cie10Codigo.trim()),
-            )}
+            pendientes={pendientes}
             saveStatus={saveStatus}
             saveError={saveError}
             onGoToTab={setActiveTab}

@@ -1066,6 +1066,9 @@ model Atencion {
   citaId                 Int      @unique
   motivoConsulta         String?  @db.Text
   enfermedadActual       String?  @db.Text
+  analisis               String?  @db.Text
+  plan                   String?  @db.Text
+  tratamiento            String?  @db.Text
   /// Copia de los antecedentes del docente al finalizar: la historia conserva lo que había en esta atención.
   antecedentesPersonales Json?
   antecedentesFamiliares Json?

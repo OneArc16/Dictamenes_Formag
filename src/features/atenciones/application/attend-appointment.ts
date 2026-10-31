@@ -3,7 +3,12 @@ import { Prisma } from '@prisma/client';
 import { parseAntecedentesFamiliares } from '@/features/atenciones/domain/antecedentes-familiares';
 import { esMujer, parseAntecedentesGinecobstetricos } from '@/features/atenciones/domain/antecedentes-ginecobstetricos';
 import { parseAntecedentesPersonales } from '@/features/atenciones/domain/antecedentes-personales';
-import { atencionPendientes, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
+import {
+  ATENCION_FORM_SELECT,
+  atencionFormFromRecord,
+  atencionPendientes,
+  type AtencionForm,
+} from '@/features/atenciones/domain/atencion-form';
 import { SIGNO_SELECT, signosFromRecord, signosPendientes } from '@/features/atenciones/domain/signos-vitales';
 import { resolveHallazgos } from '@/features/atenciones/application/hallazgos';
 import { ReceptionError } from '@/features/reception/application/errors';
@@ -19,68 +24,72 @@ export const ATENCIONES_ENCOUNTER_SOURCE = 'ATENCIONES';
 export { attendBlocker } from './attend-blocker';
 
 export async function attendAppointment(auth: AuthorizationContext, appointmentId: number) {
-  return prisma.$transaction(async (tx) => {
-    const cita = await tx.cita.findUnique({
-      where: { id: appointmentId },
-      select: {
-        estado: true,
-        activadaAt: true,
-        medicoId: true,
-        usuarioId: true,
-        paciente: { select: { sexo: true } },
-        atencion: { select: { motivoConsulta: true, enfermedadActual: true } },
-        signosVitales: { select: SIGNO_SELECT },
-        _count: { select: { diagnosticos: true } },
-      },
-    });
-    const blocker = attendBlocker(cita, auth);
-    if (blocker || !cita) throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
-    const pendientes = [
-      ...atencionPendientes({
-        motivoConsulta: cita.atencion?.motivoConsulta ?? '',
-        enfermedadActual: cita.atencion?.enfermedadActual ?? '',
-      }),
-      ...signosPendientes(signosFromRecord(cita.signosVitales)),
-      ...(cita._count.diagnosticos === 0 ? [{ label: 'Diagnóstico principal' }] : []),
-    ];
-    if (pendientes.length > 0) {
-      throw new ReceptionError(
-        'ATENCION_INCOMPLETA',
-        `Completa antes de finalizar: ${pendientes.map((item) => item.label).join(', ')}.`,
-        422,
-      );
-    }
-    // La historia de esta atención conserva los antecedentes tal como estaban al finalizarla.
-    const mujer = esMujer(cita.paciente.sexo);
-    const [personales, familiares, gineco] = await Promise.all([
-      tx.antecedentesPersonales.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
-      tx.antecedentesFamiliares.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
-      mujer
-        ? tx.antecedentesGinecobstetricos.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } })
-        : null,
-    ]);
-    await tx.atencion.update({
-      where: { citaId: appointmentId },
-      data: {
-        antecedentesPersonales: parseAntecedentesPersonales(personales?.datos) as unknown as Prisma.InputJsonValue,
-        antecedentesFamiliares: parseAntecedentesFamiliares(familiares?.datos) as unknown as Prisma.InputJsonValue,
-        // Si no se tocó la revisión, queda registrada la precargada (heredada o normal).
-        revisionSistemas: (await resolveHallazgos(tx, 'revision-sistemas', appointmentId, cita.usuarioId))
-          .datos as unknown as Prisma.InputJsonValue,
-        examenFisico: (await resolveHallazgos(tx, 'examen-fisico', appointmentId, cita.usuarioId))
-          .datos as unknown as Prisma.InputJsonValue,
-        antecedentesGineco: mujer
-          ? (parseAntecedentesGinecobstetricos(gineco?.datos) as unknown as Prisma.InputJsonValue)
-          : Prisma.DbNull,
-        updatedBy: auth.empleadoId,
-      },
-    });
-    return markAppointmentAttendedInTransaction(tx, auth, appointmentId, {
-      source: ATENCIONES_ENCOUNTER_SOURCE,
-      id: `cita-${appointmentId}`,
-      occurredAt: new Date(),
-    });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  return prisma.$transaction(
+    async (tx) => {
+      const cita = await tx.cita.findUnique({
+        where: { id: appointmentId },
+        select: {
+          estado: true,
+          activadaAt: true,
+          medicoId: true,
+          usuarioId: true,
+          paciente: { select: { sexo: true } },
+          atencion: { select: ATENCION_FORM_SELECT },
+          signosVitales: { select: SIGNO_SELECT },
+          _count: { select: { diagnosticos: true } },
+        },
+      });
+      const blocker = attendBlocker(cita, auth);
+      if (blocker || !cita)
+        throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
+      const pendientes = [
+        ...atencionPendientes(atencionFormFromRecord(cita.atencion)),
+        ...signosPendientes(signosFromRecord(cita.signosVitales)),
+        ...(cita._count.diagnosticos === 0 ? [{ label: 'Diagnóstico principal' }] : []),
+      ];
+      if (pendientes.length > 0) {
+        throw new ReceptionError(
+          'ATENCION_INCOMPLETA',
+          `Completa antes de finalizar: ${pendientes.map((item) => item.label).join(', ')}.`,
+          422,
+        );
+      }
+      // La historia de esta atención conserva los antecedentes tal como estaban al finalizarla.
+      const mujer = esMujer(cita.paciente.sexo);
+      const [personales, familiares, gineco] = await Promise.all([
+        tx.antecedentesPersonales.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
+        tx.antecedentesFamiliares.findUnique({ where: { usuarioId: cita.usuarioId }, select: { datos: true } }),
+        mujer
+          ? tx.antecedentesGinecobstetricos.findUnique({
+              where: { usuarioId: cita.usuarioId },
+              select: { datos: true },
+            })
+          : null,
+      ]);
+      await tx.atencion.update({
+        where: { citaId: appointmentId },
+        data: {
+          antecedentesPersonales: parseAntecedentesPersonales(personales?.datos) as unknown as Prisma.InputJsonValue,
+          antecedentesFamiliares: parseAntecedentesFamiliares(familiares?.datos) as unknown as Prisma.InputJsonValue,
+          // Si no se tocó la revisión, queda registrada la precargada (heredada o normal).
+          revisionSistemas: (await resolveHallazgos(tx, 'revision-sistemas', appointmentId, cita.usuarioId))
+            .datos as unknown as Prisma.InputJsonValue,
+          examenFisico: (await resolveHallazgos(tx, 'examen-fisico', appointmentId, cita.usuarioId))
+            .datos as unknown as Prisma.InputJsonValue,
+          antecedentesGineco: mujer
+            ? (parseAntecedentesGinecobstetricos(gineco?.datos) as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+          updatedBy: auth.empleadoId,
+        },
+      });
+      return markAppointmentAttendedInTransaction(tx, auth, appointmentId, {
+        source: ATENCIONES_ENCOUNTER_SOURCE,
+        id: `cita-${appointmentId}`,
+        occurredAt: new Date(),
+      });
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 export async function saveAtencion(auth: AuthorizationContext, appointmentId: number, patch: Partial<AtencionForm>) {
@@ -98,12 +107,8 @@ export async function saveAtencion(auth: AuthorizationContext, appointmentId: nu
       where: { citaId: appointmentId },
       create: { citaId: appointmentId, ...patch, createdBy: auth.empleadoId, updatedBy: auth.empleadoId },
       update: { ...patch, updatedBy: auth.empleadoId },
-      select: { motivoConsulta: true, enfermedadActual: true, updatedAt: true },
+      select: { ...ATENCION_FORM_SELECT, updatedAt: true },
     });
-    return {
-      motivoConsulta: saved.motivoConsulta ?? '',
-      enfermedadActual: saved.enfermedadActual ?? '',
-      updatedAt: saved.updatedAt.toISOString(),
-    };
+    return { ...atencionFormFromRecord(saved), updatedAt: saved.updatedAt.toISOString() };
   });
 }

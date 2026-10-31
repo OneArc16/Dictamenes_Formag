@@ -2,12 +2,14 @@ import { atencionPendientes, type AtencionForm } from '@/features/atenciones/dom
 import { signosPendientes, type SignosValues } from '@/features/atenciones/domain/signos-vitales';
 
 export const ATENCION_TABS = [
-  { id: 'motivo-consulta', label: 'Motivo de consulta' },
-  { id: 'antecedentes', label: 'Antecedentes' },
-  { id: 'signos-vitales', label: 'Signos vitales' },
-  { id: 'revision-sistemas', label: 'Revisión por sistemas' },
-  { id: 'examen-fisico', label: 'Examen físico' },
-  { id: 'diagnosticos', label: 'Diagnósticos' },
+  // short: lo que se ve en la pestaña para que todas quepan; label: el nombre completo.
+  { id: 'motivo-consulta', short: 'Motivo', label: 'Motivo de consulta' },
+  { id: 'antecedentes', short: 'Antecedentes', label: 'Antecedentes' },
+  { id: 'signos-vitales', short: 'Signos', label: 'Signos vitales' },
+  { id: 'revision-sistemas', short: 'Revisión', label: 'Revisión por sistemas' },
+  { id: 'examen-fisico', short: 'Examen', label: 'Examen físico' },
+  { id: 'diagnosticos', short: 'Diagnósticos', label: 'Diagnósticos' },
+  { id: 'analisis-plan', short: 'Análisis y plan', label: 'Análisis y plan' },
 ] as const;
 
 export type AtencionTabId = (typeof ATENCION_TABS)[number]['id'];
@@ -15,10 +17,16 @@ export type AtencionTabId = (typeof ATENCION_TABS)[number]['id'];
 /** Algo obligatorio sin diligenciar: dónde está y qué control enfocar para completarlo. */
 export type Pendiente = { key: string; label: string; tab: AtencionTabId; inputId: string };
 
-const FIELD_INPUT_ID: Record<keyof AtencionForm, string> = {
-  motivoConsulta: 'atencion-motivo-consulta',
-  enfermedadActual: 'atencion-enfermedad-actual',
+/** Pestaña y control de cada campo de texto de la atención. */
+export const FIELD_LOCATION: Record<keyof AtencionForm, { tab: AtencionTabId; inputId: string }> = {
+  motivoConsulta: { tab: 'motivo-consulta', inputId: 'atencion-motivo-consulta' },
+  enfermedadActual: { tab: 'motivo-consulta', inputId: 'atencion-enfermedad-actual' },
+  analisis: { tab: 'analisis-plan', inputId: 'atencion-analisis' },
+  plan: { tab: 'analisis-plan', inputId: 'atencion-plan' },
+  tratamiento: { tab: 'analisis-plan', inputId: 'atencion-tratamiento' },
 };
+
+const TAB_ORDER = ATENCION_TABS.map((tab) => tab.id) as AtencionTabId[];
 
 export function signoInputId(key: string) {
   return `signo-${key}`;
@@ -26,13 +34,8 @@ export function signoInputId(key: string) {
 
 /** Todo lo que falta para poder finalizar la atención, en el orden de las pestañas. */
 export function atencionPendientesUi(form: AtencionForm, signos: SignosValues, tieneDiagnostico: boolean): Pendiente[] {
-  return [
-    ...atencionPendientes(form).map((item) => ({
-      key: item.field,
-      label: item.label,
-      tab: 'motivo-consulta' as const,
-      inputId: FIELD_INPUT_ID[item.field],
-    })),
+  const pendientes: Pendiente[] = [
+    ...atencionPendientes(form).map((item) => ({ key: item.field, label: item.label, ...FIELD_LOCATION[item.field] })),
     ...signosPendientes(signos).map((field) => ({
       key: field.key,
       label: field.label,
@@ -50,4 +53,5 @@ export function atencionPendientesUi(form: AtencionForm, signos: SignosValues, t
           },
         ]),
   ];
+  return pendientes.sort((a, b) => TAB_ORDER.indexOf(a.tab) - TAB_ORDER.indexOf(b.tab));
 }

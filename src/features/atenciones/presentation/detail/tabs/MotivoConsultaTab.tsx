@@ -1,7 +1,7 @@
 import { FormField, inputClassName } from '@/features/formulario-origen/presentation/FormField';
 import { ATENCION_TEXT_MAX, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
 
-function CharacterCount({ id, value }: { id: string; value: string }) {
+export function CharacterCount({ id, value }: { id: string; value: string }) {
   return (
     <p id={id} className="mt-1 text-right text-xs text-slate-500">
       {value.length.toLocaleString('es-CO')} / {ATENCION_TEXT_MAX.toLocaleString('es-CO')}

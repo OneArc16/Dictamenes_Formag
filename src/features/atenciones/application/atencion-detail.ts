@@ -6,7 +6,7 @@ import type { DiagnosticoAtencion } from '../domain/diagnosticos';
 import { getDiagnosticos } from './diagnosticos';
 import { resolveHallazgos, type HallazgosDoc } from './hallazgos';
 import { getSignosVitales, type SignosHistorialItem, type SignosVitalesToma } from './signos-vitales';
-import type { AtencionForm } from '../domain/atencion-form';
+import { ATENCION_FORM_SELECT, atencionFormFromRecord, type AtencionForm } from '../domain/atencion-form';
 import {
   PARSE_ANTECEDENTES,
   getAntecedentes,
@@ -73,8 +73,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     include: {
       atencion: {
         select: {
-          motivoConsulta: true,
-          enfermedadActual: true,
+          ...ATENCION_FORM_SELECT,
           antecedentesPersonales: true,
           antecedentesFamiliares: true,
           antecedentesGineco: true,
@@ -107,7 +106,15 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
       ? { datos: PARSE_ANTECEDENTES[kind](saved), version: 0, actualizadoEn: null, actualizadoPor: null }
       : getAntecedentes(kind, cita.usuarioId);
   const mujer = esMujer(cita.paciente.sexo);
-  const [antecedentesPersonales, antecedentesFamiliares, antecedentesGinecobstetricos, signos, revisionSistemas, examenFisico, diagnosticos] = await Promise.all([
+  const [
+    antecedentesPersonales,
+    antecedentesFamiliares,
+    antecedentesGinecobstetricos,
+    signos,
+    revisionSistemas,
+    examenFisico,
+    diagnosticos,
+  ] = await Promise.all([
     load('personales', cita.atencion?.antecedentesPersonales),
     load('familiares', cita.atencion?.antecedentesFamiliares),
     mujer ? load('ginecobstetricos', cita.atencion?.antecedentesGineco) : null,
@@ -147,10 +154,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
       especialidadNombre: item.especialidadNombre,
       medicoNombre: item.medicoNombre,
     })),
-    form: {
-      motivoConsulta: cita.atencion?.motivoConsulta ?? '',
-      enfermedadActual: cita.atencion?.enfermedadActual ?? '',
-    },
+    form: atencionFormFromRecord(cita.atencion),
     antecedentesPersonales,
     antecedentesFamiliares,
     antecedentesGinecobstetricos,
