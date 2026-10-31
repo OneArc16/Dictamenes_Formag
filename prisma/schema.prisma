@@ -776,6 +776,8 @@ model Usuario {
   versionesFormularioOrigen VersionFormularioOrigen[] @relation("UsuarioSnapshotFormularioOrigen")
   recomendacionesLaborales  RecomendacionLaboral[]    @relation("UsuarioRecomendacionesLaborales")
   citas                     Cita[]
+  antecedentesPersonales    AntecedentesPersonales?
+  antecedentesFamiliares    AntecedentesFamiliares?
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1044,6 +1046,7 @@ model Cita {
   citasReprogramadas Cita[]             @relation("CitaReprogramacion")
   historial          CitaHistorial[]
   documentos         DocumentoCita[]
+  atencion           Atencion?
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1051,6 +1054,61 @@ model Cita {
   @@index([cupoMedicoId])
   @@index([citaOrigenId])
   @@map("citas")
+}
+
+/// Registro clínico que el médico diligencia al atender una cita (uno por cita).
+model Atencion {
+  id                     Int      @id @default(autoincrement())
+  citaId                 Int      @unique
+  motivoConsulta         String?  @db.Text
+  enfermedadActual       String?  @db.Text
+  /// Copia de los antecedentes del docente al finalizar: la historia conserva lo que había en esta atención.
+  antecedentesPersonales Json?
+  antecedentesFamiliares Json?
+  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+  createdBy              Int
+  updatedAt              DateTime @updatedAt @db.Timestamptz(3)
+  updatedBy              Int
+
+  cita Cita @relation(fields: [citaId], references: [id], onDelete: Restrict)
+
+  @@map("atenciones")
+}
+
+/// Antecedentes personales del docente. Son únicos por docente y se comparten entre sus atenciones.
+model AntecedentesPersonales {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique
+  datos     Json
+  version   Int      @default(1)
+  /// Atención desde la que se actualizaron por última vez.
+  citaId    Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdBy Int
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  updatedBy Int
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@map("antecedentes_personales")
+}
+
+/// Antecedentes familiares del docente. Son únicos por docente y se comparten entre sus atenciones.
+model AntecedentesFamiliares {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique
+  datos     Json
+  version   Int      @default(1)
+  /// Atención desde la que se actualizaron por última vez.
+  citaId    Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdBy Int
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  updatedBy Int
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@map("antecedentes_familiares")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y

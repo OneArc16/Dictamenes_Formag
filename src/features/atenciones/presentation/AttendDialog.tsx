@@ -15,14 +15,24 @@ import { Button } from '@/components/ui/button';
 import { formatAtencionFecha, formatAtencionHora, type AtencionRow } from './AtencionesTable';
 
 type AttendDialogProps = {
-  row: AtencionRow | null;
+  row: Pick<AtencionRow, 'docenteNombre' | 'docenteDocumento' | 'inicioProgramado' | 'especialidadNombre'> | null;
+  title?: string;
+  confirmLabel?: string;
   errorMessage?: string;
   isPending: boolean;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
 };
 
-export default function AttendDialog({ row, errorMessage, isPending, onConfirm, onOpenChange }: AttendDialogProps) {
+export default function AttendDialog({
+  row,
+  title = '¿Atender al paciente?',
+  confirmLabel = 'Marcar como atendido',
+  errorMessage,
+  isPending,
+  onConfirm,
+  onOpenChange,
+}: AttendDialogProps) {
   return (
     <AlertDialog open={row !== null} onOpenChange={onOpenChange}>
       <AlertDialogContent className="w-[calc(100%_-_2rem)] max-w-md gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-[0_24px_80px_rgba(15,23,42,0.24)] motion-reduce:duration-0">
@@ -31,7 +41,7 @@ export default function AttendDialog({ row, errorMessage, isPending, onConfirm, 
             <Stethoscope className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <AlertDialogTitle className="text-base font-semibold text-slate-950">¿Atender al paciente?</AlertDialogTitle>
+            <AlertDialogTitle className="text-base font-semibold text-slate-950">{title}</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-600">
               La cita quedará marcada como atendida.
             </AlertDialogDescription>
@@ -77,7 +87,7 @@ export default function AttendDialog({ row, errorMessage, isPending, onConfirm, 
             ) : (
               <Stethoscope aria-hidden="true" />
             )}
-            {isPending ? 'Guardando…' : 'Marcar como atendido'}
+            {isPending ? 'Guardando…' : confirmLabel}
           </Button>
         </div>
       </AlertDialogContent>

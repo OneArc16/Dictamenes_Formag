@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { DictamenExportButton, type DictamenExportRow } from '@/components/DictamenExportButton';
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -17,7 +16,6 @@ import {
   formatAtencionHora,
   type AtencionRow,
 } from '@/features/atenciones/presentation/AtencionesTable';
-import AttendDialog from '@/features/atenciones/presentation/AttendDialog';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { useCan } from '@/hooks/useCan';
 
@@ -32,7 +30,6 @@ const REFRESH_INTERVAL_MS = 30_000;
 export default function AtencionesPage() {
   const { data: me } = useAuthMe();
   const { can: canAttendAppointments } = useCan('appointment.attend');
-  const queryClient = useQueryClient();
 
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
@@ -40,7 +37,6 @@ export default function AtencionesPage() {
   const [estado, setEstado] = useState<EstadoAtencionFiltro>('ACTIVADAS');
   // undefined = médico por defecto, null = todos los médicos
   const [medicoId, setMedicoId] = useState<number | null | undefined>(undefined);
-  const [attending, setAttending] = useState<AtencionRow | null>(null);
 
   const medicosQuery = useQuery<MedicosOptionsResponse>({
     queryKey: ['medicos-options-atenciones'],
@@ -98,22 +94,6 @@ export default function AtencionesPage() {
 
   const rows = useMemo(() => atencionesQuery.data ?? [], [atencionesQuery.data]);
 
-  const attend = useMutation({
-    mutationFn: async (row: AtencionRow) => {
-      const response = await fetch(`/api/atenciones/${row.id}/atender`, { method: 'POST', credentials: 'include' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.message ?? 'No fue posible marcar la atención.');
-      }
-      return row;
-    },
-    onSuccess: (row) => {
-      toast.success(`${row.docenteNombre} quedó atendido.`);
-      setAttending(null);
-      void queryClient.invalidateQueries({ queryKey: ['atenciones'] });
-    },
-  });
-
   // El médico solo atiende a sus pacientes; el servidor aplica la misma regla.
   const canAttend = (row: AtencionRow) =>
     canAttendAppointments && (me?.role !== 'MEDICO' || String(row.medicoId) === me.id);
@@ -158,22 +138,6 @@ export default function AtencionesPage() {
         loading={atencionesQuery.isLoading}
         errorMessage={atencionesQuery.isError ? atencionesQuery.error.message : undefined}
         canAttend={canAttend}
-        onAttend={(row) => {
-          attend.reset();
-          setAttending(row);
-        }}
-      />
-
-      <AttendDialog
-        row={attending}
-        isPending={attend.isPending}
-        errorMessage={attend.isError ? attend.error.message : undefined}
-        onConfirm={() => {
-          if (attending) attend.mutate(attending);
-        }}
-        onOpenChange={(open) => {
-          if (!open && !attend.isPending) setAttending(null);
-        }}
       />
     </ModulePageLayout>
   );

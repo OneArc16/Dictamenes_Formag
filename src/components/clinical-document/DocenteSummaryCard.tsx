@@ -13,9 +13,11 @@ type Props = {
     institucion?: string | null;
   };
   onEdit?: () => void;
+  /** Las atenciones no son dictámenes: ocultan la línea "Tipo de dictamen". */
+  showTipoDictamen?: boolean;
 };
 
-export function DocenteSummaryCard({ docente, onEdit }: Props) {
+export function DocenteSummaryCard({ docente, onEdit, showTipoDictamen = true }: Props) {
   return (
     <section className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -30,16 +32,18 @@ export function DocenteSummaryCard({ docente, onEdit }: Props) {
             {docente.tipoDocumento} {docente.documento}
           </p>
 
-          <p className="mt-1 text-xs text-slate-600">
-            Tipo de dictamen:{' '}
-            <span className="font-medium text-slate-700">
-              {docente.tipoDictamen === 'RECALIFICACION'
-                ? 'Recalificación'
-                : docente.tipoDictamen
-                  ? 'Primera vez'
-                  : '—'}
-            </span>
-          </p>
+          {showTipoDictamen ? (
+            <p className="mt-1 text-xs text-slate-600">
+              Tipo de dictamen:{' '}
+              <span className="font-medium text-slate-700">
+                {docente.tipoDictamen === 'RECALIFICACION'
+                  ? 'Recalificación'
+                  : docente.tipoDictamen
+                    ? 'Primera vez'
+                    : '—'}
+              </span>
+            </p>
+          ) : null}
 
           <p className="mt-1 text-xs text-slate-600">
             Edad:{' '}

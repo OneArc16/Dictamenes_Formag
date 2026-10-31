@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Stethoscope } from 'lucide-react';
+import { Eye, Stethoscope } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -35,7 +36,6 @@ type AtencionesTableProps = {
   loading: boolean;
   errorMessage?: string;
   canAttend: (row: AtencionRow) => boolean;
-  onAttend: (row: AtencionRow) => void;
 };
 
 const TIME_ZONE = 'America/Bogota';
@@ -98,7 +98,7 @@ function MessageRow({ children }: { children: ReactNode }) {
   );
 }
 
-export function AtencionesTable({ rows, loading, errorMessage, canAttend, onAttend }: AtencionesTableProps) {
+export function AtencionesTable({ rows, loading, errorMessage, canAttend }: AtencionesTableProps) {
   return (
     <Card className="overflow-hidden rounded-xl border-slate-200 bg-white/95 shadow-sm">
       <Table>
@@ -143,20 +143,35 @@ export function AtencionesTable({ rows, loading, errorMessage, canAttend, onAtte
               </TableCell>
               <TableCell className={CELL_CLASS}>{row.medicoNombre}</TableCell>
               <TableCell className="px-3 py-2 text-center">
-                {row.estado === 'ACTIVADA' && canAttend(row) ? (
-                  <Tooltip id={`atencion-${row.id}-atender-tooltip`} side="top" label="Atender paciente">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label={`Atender a ${row.docenteNombre}`}
-                    className="h-9 w-9 rounded-full border-emerald-300 bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-900"
-                    onClick={() => onAttend(row)}
-                  >
-                    <Stethoscope className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                  </Tooltip>
-                ) : null}
+                <div className="inline-flex items-center justify-center gap-1.5">
+                  {row.estado === 'ACTIVADA' && canAttend(row) ? (
+                    <Tooltip id={`atencion-${row.id}-atender-tooltip`} side="top" label="Atender paciente">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full border-emerald-300 bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-900"
+                      >
+                        <Link href={`/atenciones/${row.id}`} aria-label={`Atender a ${row.docenteNombre}`}>
+                          <Stethoscope className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip id={`atencion-${row.id}-ver-tooltip`} side="top" label="Ver atención">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full border-blue-200 text-blue-700 shadow-none hover:bg-blue-50 hover:text-blue-800"
+                      >
+                        <Link href={`/atenciones/${row.id}`} aria-label={`Ver la atención de ${row.docenteNombre}`}>
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    </Tooltip>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}
