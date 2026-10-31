@@ -12,7 +12,7 @@ import {
   type AntecedentesGinecobstetricos,
 } from '../domain/antecedentes-ginecobstetricos';
 import { parseAntecedentesPersonales, type AntecedentesPersonales } from '../domain/antecedentes-personales';
-import { attendBlocker } from './attend-appointment';
+import { attendBlocker } from './attend-blocker';
 
 export const ANTECEDENTE_KINDS = ['personales', 'familiares', 'ginecobstetricos'] as const;
 export type AntecedenteKind = (typeof ANTECEDENTE_KINDS)[number];

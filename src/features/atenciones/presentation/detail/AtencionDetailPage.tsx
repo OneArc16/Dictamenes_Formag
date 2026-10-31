@@ -14,9 +14,11 @@ import { DEFAULT_ANTECEDENTES_GINECOBSTETRICOS } from '@/features/atenciones/dom
 import { AtencionCenterPanel } from './AtencionCenterPanel';
 import { AtencionLeftPanel } from './AtencionLeftPanel';
 import { AtencionRightPanel } from './AtencionRightPanel';
-import { ATENCION_TABS, type AtencionTabId } from './atencion-tabs';
+import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
+import { RevisionSistemasTab } from './tabs/RevisionSistemasTab';
+import { SignosVitalesTab } from './tabs/SignosVitalesTab';
 import { useAntecedentes } from './useAntecedentes';
 
 const SIN_GINECOBSTETRICOS = {
@@ -26,6 +28,8 @@ const SIN_GINECOBSTETRICOS = {
   actualizadoPor: null,
 };
 import { useAtencionForm } from './useAtencionForm';
+import { useRevisionSistemas } from './useRevisionSistemas';
+import { useSignosVitales } from './useSignosVitales';
 
 export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetalle }) {
   const router = useRouter();
@@ -45,12 +49,20 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
     editable && mujer,
   );
 
+  const signos = useSignosVitales(detalle.id, detalle.signosVitales, editable);
+  const revision = useRevisionSistemas(detalle.id, detalle.revisionSistemas, editable);
+
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
-  const statuses = [status, personales.status, familiares.status, gineco.status];
+  const statuses = [status, personales.status, familiares.status, gineco.status, signos.status, revision.status];
   const saveStatus = (['error', 'saving', 'saved'] as const).find((value) => statuses.includes(value)) ?? 'idle';
-  const saveError = error ?? personales.error ?? familiares.error ?? gineco.error;
+  const saveError = error ?? personales.error ?? familiares.error ?? gineco.error ?? signos.error ?? revision.error;
   const flushAll = async () =>
-    (await flush()) && (await personales.flush()) && (await familiares.flush()) && (await gineco.flush());
+    (await flush()) &&
+    (await personales.flush()) &&
+    (await familiares.flush()) &&
+    (await gineco.flush()) &&
+    (await signos.flush()) &&
+    (await revision.flush());
 
   const refresh = () => startTransition(() => router.refresh());
 
@@ -100,13 +112,39 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   snapshot={detalle.antecedentesDeEstaAtencion}
                 />
               ),
+              'signos-vitales': (
+                <SignosVitalesTab
+                  form={signos.form}
+                  values={signos.values}
+                  errors={signos.errors}
+                  historial={detalle.signosHistorial}
+                  readOnly={!editable}
+                  status={signos.status}
+                  error={signos.error}
+                  tomadoEn={signos.tomadoEn}
+                  tomadoPor={signos.tomadoPor}
+                  onChange={signos.setField}
+                />
+              ),
+              'revision-sistemas': (
+                <RevisionSistemasTab
+                  revision={revision.datos}
+                  mujer={detalle.mujer}
+                  readOnly={!editable}
+                  origen={revision.origen}
+                  heredadaDe={revision.heredadaDe}
+                  status={revision.status}
+                  error={revision.error}
+                  onChange={revision.update}
+                />
+              ),
             }}
           />
         }
         right={
           <AtencionRightPanel
             detalle={detalle}
-            form={form}
+            pendientes={atencionPendientesUi(form, signos.values)}
             saveStatus={saveStatus}
             saveError={saveError}
             onGoToTab={setActiveTab}

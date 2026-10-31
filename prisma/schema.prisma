@@ -779,6 +779,7 @@ model Usuario {
   antecedentesPersonales    AntecedentesPersonales?
   antecedentesFamiliares    AntecedentesFamiliares?
   antecedentesGineco        AntecedentesGinecobstetricos?
+  signosVitales             SignosVitales[]
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1048,6 +1049,7 @@ model Cita {
   historial          CitaHistorial[]
   documentos         DocumentoCita[]
   atencion           Atencion?
+  signosVitales      SignosVitales?
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1067,6 +1069,8 @@ model Atencion {
   antecedentesPersonales Json?
   antecedentesFamiliares Json?
   antecedentesGineco     Json?
+  /// Revisión por sistemas de esta atención (se precarga con la última del docente).
+  revisionSistemas       Json?
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   createdBy              Int
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -1129,6 +1133,36 @@ model AntecedentesGinecobstetricos {
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
 
   @@map("antecedentes_ginecobstetricos")
+}
+
+/// Signos vitales tomados en una atención (uno por cita). usuarioId permite consultar el historial del docente.
+model SignosVitales {
+  id                     Int      @id @default(autoincrement())
+  citaId                 Int      @unique
+  usuarioId              Int
+  presionSistolica       Int?     @db.SmallInt
+  presionDiastolica      Int?     @db.SmallInt
+  frecuenciaCardiaca     Int?     @db.SmallInt
+  frecuenciaRespiratoria Int?     @db.SmallInt
+  temperatura            Decimal? @db.Decimal(4, 1)
+  saturacion             Int?     @db.SmallInt
+  pesoKg                 Decimal? @db.Decimal(5, 2)
+  tallaCm                Decimal? @db.Decimal(5, 1)
+  perimetroCefalico      Decimal? @db.Decimal(5, 1)
+  perimetroBraquial      Decimal? @db.Decimal(5, 1)
+  perimetroToracico      Decimal? @db.Decimal(5, 1)
+  perimetroAbdominal     Decimal? @db.Decimal(5, 1)
+  perimetroMuslo         Decimal? @db.Decimal(5, 1)
+  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+  createdBy              Int
+  updatedAt              DateTime @updatedAt @db.Timestamptz(3)
+  updatedBy              Int
+
+  cita    Cita    @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, createdAt])
+  @@map("signos_vitales")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y

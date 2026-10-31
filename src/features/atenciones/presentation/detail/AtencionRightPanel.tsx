@@ -7,12 +7,11 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
-import { atencionPendientes, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
 
 import { formatAtencionFecha, formatAtencionHora } from '../AtencionesTable';
 import AttendDialog from '../AttendDialog';
 import { AtencionEstadoBadge } from './AtencionEstadoBadge';
-import { FIELD_INPUT_ID, TAB_BY_FIELD, type AtencionTabId } from './atencion-tabs';
+import type { AtencionTabId, Pendiente } from './atencion-tabs';
 import type { SaveStatus } from './useAutosave';
 
 const SAVE_LABEL: Record<SaveStatus, string> = {
@@ -24,7 +23,7 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
 
 export function AtencionRightPanel({
   detalle,
-  form,
+  pendientes,
   saveStatus,
   saveError,
   onGoToTab,
@@ -32,7 +31,7 @@ export function AtencionRightPanel({
   onFinalized,
 }: {
   detalle: AtencionDetalle;
-  form: AtencionForm;
+  pendientes: Pendiente[];
   saveStatus: SaveStatus;
   saveError: string | null;
   onGoToTab: (tab: AtencionTabId) => void;
@@ -40,7 +39,6 @@ export function AtencionRightPanel({
   onFinalized: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const pendientes = atencionPendientes(form);
   const editable = detalle.estado === 'ACTIVADA' && detalle.canAttend;
 
   const finalize = useMutation({
@@ -82,18 +80,16 @@ export function AtencionRightPanel({
                   <AlertCircle className="h-4 w-4" aria-hidden="true" />
                   Falta diligenciar
                 </p>
-                <ul className="mt-1 space-y-1">
+                <ul className="mt-1">
                   {pendientes.map((item) => (
-                    <li key={item.field}>
+                    <li key={item.key}>
                       <button
                         type="button"
                         onClick={() => {
-                          onGoToTab(TAB_BY_FIELD[item.field]);
-                          window.requestAnimationFrame(() =>
-                            document.getElementById(FIELD_INPUT_ID[item.field])?.focus(),
-                          );
+                          onGoToTab(item.tab);
+                          window.requestAnimationFrame(() => document.getElementById(item.inputId)?.focus());
                         }}
-                        className="min-h-11 w-full rounded-lg px-2 text-left text-xs font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+                        className="min-h-8 w-full rounded-lg px-2 text-left text-xs font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
                       >
                         {item.label}
                       </button>
