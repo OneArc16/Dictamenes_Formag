@@ -355,7 +355,7 @@ export async function calculateAgenda(
   }
 
   const totalCandidates = doctorCalculations.reduce((sum, item) => sum + item.candidates.length, 0);
-  if (totalCandidates > 25_000) errors.add('La operación supera 25.000 candidatos. Divide el periodo o los médicos.');
+  if (totalCandidates > 25_000) errors.add('La operación supera 25.000 cupos libres. Divide el periodo o los médicos.');
   const totalConflicts = doctorCalculations.reduce((sum, item) => sum + item.conflicts, 0);
   if (totalConflicts > 0) errors.add('Existen cupos superpuestos con otra duración. Ajusta el periodo o cancela la disponibilidad previa.');
   const zone = schedules[0]?.zonaHoraria ?? 'America/Bogota';

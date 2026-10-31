@@ -175,7 +175,7 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
       compactHero
       stats={[
         { label: 'Médicos', value: String(generation.totalMedicos) },
-        { label: 'Candidatos', value: String(generation.totalCandidatos) },
+        { label: 'Cupos libres', value: String(generation.totalCandidatos) },
         { label: 'Creados', value: String(generation.totalCreados) },
         { label: 'Omitidos', value: String(generation.totalOmitidos) },
       ]}

@@ -76,7 +76,7 @@ function PreviewContent({
   ];
   const metrics = [
     { label: 'Médicos', value: preview.totalMedicos, tone: 'slate' },
-    { label: 'Candidatos', value: preview.totalCandidatos, tone: 'slate' },
+    { label: 'Cupos libres', value: preview.totalCandidatos, tone: 'slate' },
     { label: 'Nuevos', value: preview.totalNuevos, tone: 'emerald' },
     { label: 'Omitidos', value: preview.totalOmitidos, tone: 'slate' },
     { label: 'Conflictos', value: preview.totalConflictos, tone: 'amber' },
