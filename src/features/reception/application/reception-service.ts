@@ -1,6 +1,6 @@
 import { Prisma, type EstadoCita, type MedioSolicitudCita } from '@prisma/client';
 
-import { dateInTimeZone } from '@/features/agenda/domain/date-time';
+import { dateInTimeZone, localDateTimeToUtc } from '@/features/agenda/domain/date-time';
 import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
@@ -10,6 +10,13 @@ import { patientSexFromDatabase, patientSexToDatabase } from '../domain/patient-
 import { ReceptionError } from './errors';
 
 const BOGOTA = 'America/Bogota';
+
+/** Rango UTC [00:00, 00:00 del día siguiente) de un día calendario en Bogotá. */
+export function bogotaDayRange(date: string) {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return { gte: localDateTimeToUtc(date, '00:00', BOGOTA), lt: localDateTimeToUtc(next.toISOString().slice(0, 10), '00:00', BOGOTA) };
+}
 
 export function patientProjection(patient: {
   id: number; identificacion: string; tipoIdentificacion: string; primerNombre: string;
@@ -234,22 +241,23 @@ export async function availableDates(auth: AuthorizationContext, siteId: number,
 
 export async function availableDoctors(auth: AuthorizationContext, siteId: number, specialtyId: number, date: string) {
   await assertReceptionSite(auth, siteId);
+  // El día se filtra en la base: antes se tomaban N cupos futuros y se filtraba el día después,
+  // así que en sedes con muchos cupos los días lejanos quedaban sin médicos.
   const slots = await prisma.cupoMedico.findMany({
-    where: { sedeId: siteId, estado: 'DISPONIBLE', inicio: { gt: new Date() }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId } } } },
-    select: { medico: { select: { id: true, primerNombre: true, segundoNombre: true, primerApellido: true, segundoApellido: true } }, inicio: true }, take: 1000,
+    where: { sedeId: siteId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId } } } },
+    select: { medico: { select: { id: true, primerNombre: true, segundoNombre: true, primerApellido: true, segundoApellido: true } } },
+    distinct: ['medicoId'],
   });
-  const doctors = new Map<number, { id: number; name: string }>();
-  for (const slot of slots) if (dateInTimeZone(slot.inicio, BOGOTA) === date) doctors.set(slot.medico.id, { id: slot.medico.id, name: employeeFullName(slot.medico) });
-  return [...doctors.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return slots.map((slot) => ({ id: slot.medico.id, name: employeeFullName(slot.medico) })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function availableSlots(auth: AuthorizationContext, siteId: number, specialtyId: number, doctorId: number, date: string) {
   await assertReceptionSite(auth, siteId);
   const slots = await prisma.cupoMedico.findMany({
-    where: { sedeId: siteId, medicoId: doctorId, estado: 'DISPONIBLE', inicio: { gt: new Date() }, medico: { especialidades: { some: { especialidadId: specialtyId } } } },
-    select: { id: true, inicio: true, fin: true }, orderBy: { inicio: 'asc' }, take: 100,
+    where: { sedeId: siteId, medicoId: doctorId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { especialidades: { some: { especialidadId: specialtyId } } } },
+    select: { id: true, inicio: true, fin: true }, orderBy: { inicio: 'asc' },
   });
-  return slots.filter((slot) => dateInTimeZone(slot.inicio, BOGOTA) === date).map((slot) => ({ id: slot.id, inicio: slot.inicio.toISOString(), fin: slot.fin.toISOString() }));
+  return slots.map((slot) => ({ id: slot.id, inicio: slot.inicio.toISOString(), fin: slot.fin.toISOString() }));
 }
 
 async function slotCommandContext(tx: Prisma.TransactionClient, command: ScheduleAppointmentCommand, auth: AuthorizationContext) {

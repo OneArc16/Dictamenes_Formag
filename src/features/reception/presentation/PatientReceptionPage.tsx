@@ -194,6 +194,9 @@ function PatientDataForm({
   const [positionSearch, setPositionSearch] = useState('');
   const [institutionSearch, setInstitutionSearch] = useState('');
   const [laborSectionOpen, setLaborSectionOpen] = useState(true);
+  // El recorte (overflow-hidden) solo hace falta mientras se anima o está cerrado; abierto, recortaría
+  // las listas desplegables de sus campos (secretaría, institución…) por debajo de la tarjeta.
+  const [laborSectionSettled, setLaborSectionSettled] = useState(true);
   const isFideicomisos = options?.eps.find((item) => item.value === draft.epsCode)?.isFideicomisos ?? false;
   const positions = useQuery({
     queryKey: ['reception-profile-positions', positionSearch],
@@ -340,7 +343,10 @@ function PatientDataForm({
             className="h-9 gap-2 px-3 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             aria-expanded={laborSectionOpen}
             aria-controls="labor-data-panel"
-            onClick={() => setLaborSectionOpen((current) => !current)}
+            onClick={() => {
+              setLaborSectionSettled(false);
+              setLaborSectionOpen((current) => !current);
+            }}
           >
             {laborSectionOpen ? 'Ocultar' : 'Desplegar'}
             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ease-out ${laborSectionOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -349,7 +355,10 @@ function PatientDataForm({
       </CardHeader>
       <div
         id="labor-data-panel"
-        className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ${laborSectionOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${laborSectionOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'} ${laborSectionOpen && laborSectionSettled ? 'overflow-visible' : 'overflow-hidden'}`}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === 'grid-template-rows') setLaborSectionSettled(true);
+        }}
       >
         <div className="min-h-0">
           <CardContent className="p-3">
@@ -679,13 +688,28 @@ export default function PatientReceptionPage() {
   const act = useMutation({ mutationFn: ({ id, version, action }: { id: number; version: number; action: 'activate' | 'cancel' }) => api(`/api/reception/appointments/${id}/${action}`, { method: 'POST', body: JSON.stringify(action === 'cancel' ? { expectedVersion: version, reasonCode: cancelReason } : { expectedVersion: version }) }), onSuccess: () => { toast.success('La cita fue actualizada.'); setCancelReason(''); queryClient.invalidateQueries({ queryKey: ['reception-history', patient?.id] }); }, onError: (error: Error) => toast.error(error.message) });
   const reminder = useMutation({
     mutationFn: async ({ appointmentId, target }: { appointmentId: number; target: Window | null }) => {
-      const document = await api<{ id: string }>(`/api/reception/appointments/${appointmentId}/reminder-documents`, { method: 'POST', body: '{}' });
-      const url = `/api/reception/appointments/${appointmentId}/reminder-documents/${document.id}/content`;
-      if (target) target.location.assign(url);
-      else window.location.assign(url);
+      try {
+        const document = await api<{ id: string }>(`/api/reception/appointments/${appointmentId}/reminder-documents`, { method: 'POST', body: '{}' });
+        const url = `/api/reception/appointments/${appointmentId}/reminder-documents/${document.id}/content`;
+        if (target && !target.closed) target.location.assign(url);
+        else if (!window.open(url, '_blank')) throw new Error('El navegador bloqueó la pestaña del recordatorio. Permite las ventanas emergentes para este sitio.');
+      } catch (error) {
+        // No dejar una pestaña en blanco abierta si el recordatorio no se pudo generar.
+        target?.close();
+        throw error;
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // La pestaña se abre en el clic (si se abriera tras la petición, el navegador la bloquearía) y luego
+  // recibe el PDF. Sin 'noopener': con él window.open devuelve null y el PDF reemplazaba esta página;
+  // el vínculo con la página se corta a mano.
+  const openReminder = (appointmentId: number) => {
+    const target = window.open('', '_blank');
+    if (target) target.opener = null;
+    reminder.mutate({ appointmentId, target });
+  };
 
   const resetForSite = (value: number) => { setSiteId(value); setSpecialtyId(null); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
   const selectSpecialty = (value: number) => { setSpecialtyId(value); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
@@ -725,7 +749,7 @@ export default function PatientReceptionPage() {
           {item.estado === 'ASIGNADA' ? <>
             <AppointmentIconAction id={`appointment-${item.id}-activate`} label={item.activadaAt ? 'Cita activada' : 'Activar cita'} tone="success" icon={<CircleCheck aria-hidden="true" />} disabled={!!item.activadaAt || act.isPending} onClick={() => act.mutate({ id: item.id, version: item.lockVersion, action: 'activate' })} />
             <AppointmentIconAction id={`appointment-${item.id}-reschedule`} label="Reprogramar cita" tone="primary" icon={<CalendarClock aria-hidden="true" />} onClick={() => { setRescheduling(item); setRescheduleReason(''); selectSpecialty(item.especialidadId); }} />
-            {canPrintReminder ? <AppointmentIconAction id={`appointment-${item.id}-print`} label={reminder.isPending ? 'Generando recordatorio' : 'Imprimir recordatorio'} icon={<Printer aria-hidden="true" />} disabled={reminder.isPending} onClick={() => reminder.mutate({ appointmentId: item.id, target: window.open('', '_blank', 'noopener') })} /> : null}
+            {canPrintReminder ? <AppointmentIconAction id={`appointment-${item.id}-print`} label={reminder.isPending ? 'Generando recordatorio' : 'Imprimir recordatorio'} icon={<Printer aria-hidden="true" />} disabled={reminder.isPending} onClick={() => openReminder(item.id)} /> : null}
             <AppointmentIconAction id={`appointment-${item.id}-cancel`} label="Cancelar cita" tone="danger" icon={<CalendarX2 aria-hidden="true" />} disabled={act.isPending} onClick={() => { setCancelReason(''); setCancelling(item); }} />
           </> : null}
         </div></article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent>
@@ -748,7 +772,7 @@ export default function PatientReceptionPage() {
           {datePickerExpanded ? <div className="appointment-date-popover__panel">
             {specialtyId ? <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <AvailabilityCalendar selected={selectedDate} availableDates={dates.data ?? []} range={range} isLoading={dates.isLoading} onSelect={(date) => { setSelectedDate(date); setDoctorId(null); setSlotId(null); if (date) setDatePickerExpanded(false); }} />
-              <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+              <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
                 <span className="min-w-0 truncate">{selectedDate ? `Fecha seleccionada: ${new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: 'America/Bogota' }).format(selectedDate)}` : 'Selecciona una fecha disponible para continuar.'}</span>
                 <Button variant="outline" className="h-10 shrink-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100" onClick={() => setDatePickerExpanded(false)}>Cerrar</Button>
               </div>
@@ -819,7 +843,11 @@ export default function PatientReceptionPage() {
               {slots.isLoading ? <p className="appointment-time-slots__empty">Consultando horarios disponibles…</p> : slots.data?.length ? slots.data.map((slot) => {
                 const selectedSlot = slotId === slot.id;
                 return <button key={slot.id} type="button" className={`appointment-time-slot${selectedSlot ? ' is-selected' : ''}`} aria-pressed={selectedSlot} onClick={() => setSlotId(slot.id)}><strong>{formatTime(slot.inicio)}</strong><span>{selectedSlot ? 'Hora elegida' : 'Disponible'}</span></button>;
-              }) : <p className="appointment-time-slots__empty">Selecciona un médico para consultar sus horarios.</p>}
+              }) : <p className="appointment-time-slots__empty" role={slots.isError ? 'alert' : undefined}>
+                {!doctorId ? 'Selecciona un médico para consultar sus horarios.'
+                  : slots.isError ? (slots.error instanceof Error ? slots.error.message : 'No se pudieron consultar los horarios.')
+                  : 'Este médico no tiene horarios disponibles en la fecha elegida.'}
+              </p>}
             </div>
           </fieldset>
         </div>
