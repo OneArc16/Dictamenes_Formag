@@ -604,7 +604,7 @@ function DocenteModal({
 
     try {
       await updateDocente(form);
-      showToast('success', 'Datos del docente actualizados correctamente');
+      showToast('success', 'Docente guardado correctamente');
     } catch (err) {
       console.error('Error actualizando datos del docente:', err);
       showToast(
@@ -760,6 +760,7 @@ function DocenteModal({
               saving={saving}
               submitLabel={submitLabel}
               showDocumentChoices={!isRecommendationMode}
+              allowOrigen={form.tipoDictamen !== 'RECALIFICACION'}
               onClear={handleLimpiar}
               onCancel={onClose}
               onUpdate={handleActualizarDatos}

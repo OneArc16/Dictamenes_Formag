@@ -36,7 +36,7 @@ export function DocenteSummaryCard({ docente, onEdit }: Props) {
               {docente.tipoDictamen === 'RECALIFICACION'
                 ? 'Recalificación'
                 : docente.tipoDictamen
-                  ? 'Calificación'
+                  ? 'Primera vez'
                   : '—'}
             </span>
           </p>

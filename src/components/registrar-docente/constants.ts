@@ -78,7 +78,7 @@ export const ESCOLARIDAD_OPTIONS = [
 ];
 
 export const TIPO_DICTAMEN_OPTIONS = [
-  { value: 'CALIFICACION', label: 'Calificacion' },
+  { value: 'CALIFICACION', label: 'Primera vez' },
   { value: 'RECALIFICACION', label: 'Recalificacion' },
 ];
 

@@ -161,4 +161,13 @@ export const registrarCasoDictamenSchema = z.object({
       fechaVinculacion: isoDateSchema.or(z.literal('')).optional().default(''),
     })
     .passthrough(),
-});
+})
+  .superRefine((value, ctx) => {
+    if (value.form.tipoDictamen === 'RECALIFICACION' && value.documentoInicial === 'ORIGEN') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['documentoInicial'],
+        message: 'Una recalificación solo puede iniciar con el Dictamen PCL.',
+      });
+    }
+  });

@@ -6,6 +6,7 @@ type Props = {
   saving: boolean;
   submitLabel: string;
   showDocumentChoices?: boolean;
+  allowOrigen?: boolean;
   onClear: () => void;
   onCancel: () => void;
   onUpdate: () => void;
@@ -15,6 +16,7 @@ export function FormActions({
   saving,
   submitLabel,
   showDocumentChoices = false,
+  allowOrigen = true,
   onClear,
   onCancel,
   onUpdate,
@@ -27,9 +29,11 @@ export function FormActions({
             ¿Con cuál documento deseas comenzar?
           </legend>
           <p className="text-xs leading-5 text-slate-600">
-            El expediente se abrirá directamente en la opción seleccionada.
+            {allowOrigen
+              ? 'El expediente se abrirá directamente en la opción seleccionada.'
+              : 'Las recalificaciones inician directamente con el Dictamen PCL.'}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className={allowOrigen ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3'}>
             <Button
               type="submit"
               name="documentoInicial"
@@ -40,16 +44,18 @@ export function FormActions({
               <FileHeart className="h-5 w-5" aria-hidden="true" />
               {saving ? 'Creando expediente…' : 'Iniciar Dictamen PCL'}
             </Button>
-            <Button
-              type="submit"
-              name="documentoInicial"
-              value="ORIGEN"
-              disabled={saving}
-              className="min-h-12 rounded-xl bg-emerald-600 px-4 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-            >
-              <ClipboardPenLine className="h-5 w-5" aria-hidden="true" />
-              {saving ? 'Creando expediente…' : 'Iniciar Formulario de Origen'}
-            </Button>
+            {allowOrigen ? (
+              <Button
+                type="submit"
+                name="documentoInicial"
+                value="ORIGEN"
+                disabled={saving}
+                className="min-h-12 rounded-xl bg-emerald-600 px-4 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              >
+                <ClipboardPenLine className="h-5 w-5" aria-hidden="true" />
+                {saving ? 'Creando expediente…' : 'Iniciar Formulario de Origen'}
+              </Button>
+            ) : null}
           </div>
         </fieldset>
       ) : null}
@@ -70,7 +76,7 @@ export function FormActions({
             disabled={saving}
             className="rounded-lg"
           >
-            {saving ? 'Guardando...' : 'Actualizar datos'}
+            {saving ? 'Guardando...' : 'Guardar docente'}
           </Button>
           {!showDocumentChoices ? (
             <Button

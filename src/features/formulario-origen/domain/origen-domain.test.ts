@@ -61,6 +61,31 @@ test('acepta elegir PCL u Origen como documento inicial', () => {
   assert.equal(documentoInicialSchema.parse(undefined), 'ORIGEN');
 });
 
+test('una recalificación solo puede iniciar con el Dictamen PCL', () => {
+  const buildInput = (tipoDictamen: string, documentoInicial: string) => ({
+    operacionId: '3f1c2a9e-8b7d-4c6e-9a5f-1d2e3c4b5a69',
+    documentoInicial,
+    form: {
+      tipoDocumento: 'CC',
+      numeroDocumento: '12345678',
+      fechaNacimiento: '',
+      primerNombre: 'ANA',
+      primerApellido: 'PEREZ',
+      sexo: 'F',
+      codigoEps: 'EPS001',
+      formaVinculacion: 'PROPIEDAD',
+      gradoEscalafon: '2',
+      nivelEscalafon: 'A',
+      cargoDocenteId: null,
+      tipoDictamen,
+    },
+  });
+
+  assert.equal(registrarCasoDictamenSchema.safeParse(buildInput('CALIFICACION', 'ORIGEN')).success, true);
+  assert.equal(registrarCasoDictamenSchema.safeParse(buildInput('RECALIFICACION', 'PCL')).success, true);
+  assert.equal(registrarCasoDictamenSchema.safeParse(buildInput('RECALIFICACION', 'ORIGEN')).success, false);
+});
+
 test('acepta y limita la actividad extralaboral opcional', () => {
   const parsed = descripcionOrigenSchema.parse({
     descripcion: 'Descripción del cargo.',
