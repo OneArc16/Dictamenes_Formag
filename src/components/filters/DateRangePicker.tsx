@@ -132,7 +132,7 @@ export function DateRangePicker({
         <div
           role="dialog"
           aria-label="Seleccionar rango de fechas"
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-50 mt-2 w-[min(44rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:p-5`}
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:p-4`}
         >
           <DayPicker
             mode="range"
@@ -157,7 +157,7 @@ export function DateRangePicker({
           />
 
           {from || to ? (
-            <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
+            <div className="mt-3 flex justify-end border-t border-slate-100 pt-2">
               <button
                 type="button"
                 onClick={clear}

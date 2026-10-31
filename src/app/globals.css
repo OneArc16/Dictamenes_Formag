@@ -51,13 +51,13 @@ fieldset:disabled button {
 .date-range-day-picker {
   --rdp-accent-color: #2563eb;
   --rdp-accent-background-color: #dbeafe;
-  --rdp-day-height: 40px;
-  --rdp-day-width: 40px;
-  --rdp-day_button-height: 36px;
-  --rdp-day_button-width: 36px;
-  --rdp-months-gap: 2.5rem;
-  --rdp-nav_button-height: 2.25rem;
-  --rdp-nav_button-width: 2.25rem;
+  --rdp-day-height: 34px;
+  --rdp-day-width: 34px;
+  --rdp-day_button-height: 30px;
+  --rdp-day_button-width: 30px;
+  --rdp-months-gap: 1.75rem;
+  --rdp-nav_button-height: 1.875rem;
+  --rdp-nav_button-width: 1.875rem;
   margin-inline: auto;
   color: #334155;
 }
@@ -71,7 +71,7 @@ fieldset:disabled button {
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #0f172a;
 }
@@ -98,13 +98,13 @@ fieldset:disabled button {
 
 .date-range-day-picker .rdp-weekday {
   color: #334155;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   opacity: 1;
 }
 
 .date-range-day-picker .rdp-day_button {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   transition:
     background-color 140ms ease,
     color 140ms ease;

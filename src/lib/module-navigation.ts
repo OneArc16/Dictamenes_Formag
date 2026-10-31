@@ -8,6 +8,7 @@ export type NavigationIconKey =
   | NavigationModuleKey
   | 'dictamenes'
   | 'recomendaciones'
+  | 'atenciones'
   | 'dashboard'
   | 'employees'
   | 'profiles'
@@ -62,9 +63,9 @@ export const MODULE_DEFINITIONS = [
     key: 'medicina-laboral',
     label: 'Medicina Laboral',
     href: '/medicina-laboral',
-    description: 'Gestión de dictámenes y recomendaciones laborales para docentes.',
+    description: 'Gestión de dictámenes, recomendaciones laborales y atenciones de docentes.',
     iconKey: 'medicina-laboral',
-    routePrefixes: ['/medicina-laboral', '/medico', '/recomendaciones'],
+    routePrefixes: ['/medicina-laboral', '/medico', '/recomendaciones', '/atenciones'],
     requiredAnyAbilities: [
       'module.medico.access',
       'module.recomendaciones.access',
@@ -84,6 +85,13 @@ export const MODULE_DEFINITIONS = [
         href: '/recomendaciones',
         iconKey: 'recomendaciones',
         requiredAbility: 'module.recomendaciones.access',
+      },
+      {
+        key: 'atenciones',
+        label: 'Atenciones',
+        href: '/atenciones',
+        iconKey: 'atenciones',
+        requiredAbility: 'module.medico.access',
       },
     ],
   },

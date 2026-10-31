@@ -54,7 +54,7 @@ test('filtra los submódulos de Medicina Laboral por permiso', () => {
     getVisibleSecondaryNavigation(medicinaLaboral, {
       permissions: ['module.medico.access'],
     }).map((item) => item.key),
-    ['dictamenes'],
+    ['dictamenes', 'atenciones'],
   );
   assert.deepEqual(
     getVisibleSecondaryNavigation(medicinaLaboral, {
@@ -69,7 +69,7 @@ test('filtra los submódulos de Medicina Laboral por permiso', () => {
         'module.recomendaciones.access',
       ],
     }).map((item) => item.key),
-    ['dictamenes', 'recomendaciones'],
+    ['dictamenes', 'recomendaciones', 'atenciones'],
   );
 });
 
@@ -101,6 +101,10 @@ test('resuelve Medicina Laboral como módulo activo en sus rutas profundas', () 
   );
   assert.equal(
     getCurrentModule('/recomendaciones/42')?.key,
+    'medicina-laboral',
+  );
+  assert.equal(
+    getCurrentModule('/atenciones')?.key,
     'medicina-laboral',
   );
   assert.equal(
@@ -176,6 +180,19 @@ test('marca únicamente el submódulo activo de Medicina Laboral', () => {
       medicinaLaboral,
     ),
     true,
+  );
+
+  const atenciones = medicinaLaboral.secondaryNavigation.find(
+    (item) => item.key === 'atenciones',
+  );
+  assert.ok(atenciones);
+  assert.equal(
+    isSecondaryNavigationActive('/atenciones', atenciones, medicinaLaboral),
+    true,
+  );
+  assert.equal(
+    isSecondaryNavigationActive('/atenciones', dictamenes, medicinaLaboral),
+    false,
   );
 });
 
