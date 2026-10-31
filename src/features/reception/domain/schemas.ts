@@ -82,3 +82,7 @@ export const cancelSchema = appointmentActionSchema.extend({
 
 export type ScheduleAppointmentCommand = z.infer<typeof appointmentSchema>;
 export type PatientProfileCommand = z.infer<typeof patientProfileSchema>;
+
+/** Alta de un docente: los mismos datos del perfil, sin versión (aún no existe). */
+export const createPatientSchema = patientProfileSchema.omit({ expectedProfileVersion: true }).strict();
+export type CreatePatientCommand = z.infer<typeof createPatientSchema>;

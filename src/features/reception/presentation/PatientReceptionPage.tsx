@@ -4,7 +4,7 @@ import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DayPicker } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
-import { ArrowRight, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarX2, ChevronDown, CircleCheck, Clock3, History, ListFilter, Printer, Save, Search, ShieldAlert, UserRound, X } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarX2, ChevronDown, CircleCheck, Clock3, History, ListFilter, Printer, Save, Search, ShieldAlert, UserPlus, UserRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -150,6 +150,7 @@ const HISTORY_STATE_OPTIONS = [
 
 function PatientDataForm({
   patient,
+  creating,
   documentNumber,
   documentType,
   draft,
@@ -159,7 +160,6 @@ function PatientDataForm({
   validProfile,
   searching,
   saving,
-  notFound,
   ambiguousDocumentTypes,
   onDocumentNumberChange,
   onDocumentTypeChange,
@@ -169,6 +169,8 @@ function PatientDataForm({
   onClear,
 }: {
   patient: Patient | null;
+  /** El documento no existe y se están llenando los datos para crearlo. */
+  creating: boolean;
   documentNumber: string;
   documentType: string;
   draft: PatientProfileDraft;
@@ -178,7 +180,6 @@ function PatientDataForm({
   validProfile: boolean;
   searching: boolean;
   saving: boolean;
-  notFound: boolean;
   ambiguousDocumentTypes: string[];
   onDocumentNumberChange: (value: string) => void;
   onDocumentTypeChange: (value: string) => void;
@@ -200,12 +201,12 @@ function PatientDataForm({
   const isFideicomisos = options?.eps.find((item) => item.value === draft.epsCode)?.isFideicomisos ?? false;
   const positions = useQuery({
     queryKey: ['reception-profile-positions', positionSearch],
-    enabled: !!patient && positionSearch.trim().length >= 3,
+    enabled: (!!patient || creating) && positionSearch.trim().length >= 3,
     queryFn: () => api<SearchOption[]>(`/api/reception/patient-profile-options/positions?q=${encodeURIComponent(positionSearch.trim())}`),
   });
   const institutions = useQuery({
     queryKey: ['reception-profile-institutions', draft.secretariatId, draft.municipalityCode, institutionSearch],
-    enabled: !!patient && isFideicomisos && !!draft.secretariatId && institutionSearch.trim().length >= 3,
+    enabled: (!!patient || creating) && isFideicomisos && !!draft.secretariatId && institutionSearch.trim().length >= 3,
     queryFn: () => {
       const params = new URLSearchParams({ secretariatId: draft.secretariatId, q: institutionSearch.trim() });
       if (draft.municipalityCode) params.set('municipalityCode', draft.municipalityCode);
@@ -237,19 +238,21 @@ function PatientDataForm({
       : available;
   }, [draft.institutionId, institutions.data, patient]);
   const emailInvalid = !!draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email);
-  const fieldDisabled = !patient || !canEdit || saving;
+  const fieldDisabled = !(patient || creating) || !canEdit || saving;
   const selectClassName = 'h-8 w-full rounded-md border border-slate-300 bg-white px-2.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500';
   const laborSelectClassName = 'h-10 w-full rounded-md border border-slate-300 bg-white px-2.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500';
   const labelClassName = 'mb-0.5 block text-[10px] font-medium leading-4 text-slate-700';
   const formGridClassName = 'grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 xl:grid-cols-12 [&>*]:min-w-0';
 
   const saveButtonLabel = saving
-    ? 'Guardando cambios'
+    ? creating ? 'Creando docente' : 'Guardando cambios'
     : !validProfile
       ? 'Completa identificación, sexo, ubicación, EPS y verifica el correo.'
-      : profileChanged
-        ? 'Guardar cambios'
-        : 'Sin cambios por guardar';
+      : creating
+        ? 'Crear docente'
+        : profileChanged
+          ? 'Guardar cambios'
+          : 'Sin cambios por guardar';
   const clearButtonLabel = 'Limpiar formulario';
 
   return <div className="space-y-4">
@@ -257,7 +260,7 @@ function PatientDataForm({
       <CardHeader className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4 text-sky-700" /> Datos de identificación, ubicación y contacto</CardTitle>
-          {patient && canEdit ? <div className="flex items-center gap-2">
+          {(patient || creating) && canEdit ? <div className="flex items-center gap-2">
             <Tooltip id="patient-clear-profile-tooltip" label={clearButtonLabel} align="right">
               <Button
                 type="button"
@@ -280,10 +283,10 @@ function PatientDataForm({
                 className="h-10 w-10 shrink-0 border-slate-300 bg-white text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:bg-slate-100 disabled:text-slate-400"
                 aria-label={saveButtonLabel}
                 aria-describedby="patient-save-profile-tooltip"
-                disabled={!profileChanged || !validProfile || saving}
+                disabled={(!creating && !profileChanged) || !validProfile || saving}
                 onClick={onSave}
               >
-                <Save className="h-4 w-4" aria-hidden="true" />
+                {creating ? <UserPlus className="h-4 w-4" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
               </Button>
             </Tooltip>
           </div> : null}
@@ -298,11 +301,10 @@ function PatientDataForm({
             <label className="xl:col-span-3" htmlFor="patient-document-type"><span className={labelClassName}>Tipo de documento</span><select id="patient-document-type" value={documentType} onChange={(event) => onDocumentTypeChange(event.target.value)} disabled={saving} className={selectClassName}><option value="">Sin especificar</option>{DOCUMENT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             <label className="xl:col-span-3" htmlFor="document-number"><span className={labelClassName}>Número de documento</span><div className="flex items-stretch rounded-md shadow-sm"><Input id="document-number" value={documentNumber} onChange={(event) => onDocumentNumberChange(event.target.value)} disabled={saving} inputMode="numeric" autoComplete="off" className="h-8 min-w-0 w-full rounded-r-none border-r-0 focus:z-10" /><Button type="submit" variant="outline" className="h-8 shrink-0 rounded-l-none border-slate-300 px-3 text-[11px] font-semibold" disabled={!documentNumber.trim() || searching || saving}><Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{searching ? 'Buscando…' : 'Buscar'}</span></Button></div></label>
             <label className="xl:col-span-3" htmlFor="patient-birth-date"><span className={labelClassName}>Fecha de nacimiento</span><Input id="patient-birth-date" type="date" value={draft.birthDate} onChange={(event) => onDraftChange('birthDate', event.target.value)} disabled={fieldDisabled} className="h-8" /></label>
-            <label className="xl:col-span-1" htmlFor="patient-age"><span className={labelClassName}>Edad</span><Input id="patient-age" value={ageFromBirthDate(draft.birthDate)} readOnly disabled={!patient} className="h-8 bg-slate-50 text-slate-700" /></label>
+            <label className="xl:col-span-1" htmlFor="patient-age"><span className={labelClassName}>Edad</span><Input id="patient-age" value={ageFromBirthDate(draft.birthDate)} readOnly disabled={!(patient || creating)} className="h-8 bg-slate-50 text-slate-700" /></label>
             <label className="xl:col-span-1" htmlFor="patient-sex"><span className={labelClassName}>Sexo</span><select id="patient-sex" value={draft.sex} onChange={(event) => onDraftChange('sex', event.target.value)} disabled={fieldDisabled} className={selectClassName}><option value="">Selecciona</option><option value="M">Masculino</option><option value="F">Femenino</option><option value="O">Otro</option></select></label>
             <label className="xl:col-span-1" htmlFor="patient-category"><span className={labelClassName}>Categoría</span><select id="patient-category" value={draft.category} onChange={(event) => onDraftChange('category', event.target.value)} disabled={fieldDisabled} className={selectClassName}><option value="">Selecciona</option>{CATEGORIA_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </form>
-        {notFound ? <p className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status" aria-live="polite" aria-atomic="true"><ShieldAlert className="h-4 w-4 shrink-0" />El paciente no existe. Debes crearlo antes de agendar una cita.</p> : null}
         {ambiguousDocumentTypes.length ? <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900" role="status">El número existe con varios tipos de documento ({ambiguousDocumentTypes.join(', ')}). Selecciona uno y vuelve a buscar.</p> : null}
           <fieldset className="space-y-2" disabled={fieldDisabled}><legend className="sr-only">Datos básicos editables</legend>
           <div className={formGridClassName}>
@@ -585,7 +587,6 @@ export default function PatientReceptionPage() {
   const [documentType, setDocumentType] = useState('');
   const [ambiguousDocumentTypes, setAmbiguousDocumentTypes] = useState<string[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [notFound, setNotFound] = useState(false);
   const [draft, setDraft] = useState<PatientProfileDraft>(() => emptyPatientDraft());
   const [siteId, setSiteId] = useState<number | null>(null);
   const [specialtyId, setSpecialtyId] = useState<number | null>(null);
@@ -596,6 +597,7 @@ export default function PatientReceptionPage() {
   const [modalityId, setModalityId] = useState<number | null>(null);
   const [rescheduling, setRescheduling] = useState<HistoryItem | null>(null);
   const [cancelling, setCancelling] = useState<HistoryItem | null>(null);
+  const [creating, setCreating] = useState(false);
   const [rescheduleConfirmationOpen, setRescheduleConfirmationOpen] = useState(false);
   const [datePickerExpanded, setDatePickerExpanded] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
@@ -611,9 +613,9 @@ export default function PatientReceptionPage() {
   const search = useMutation({
     mutationFn: () => api<{ kind: 'result'; patient: Patient | null } | { kind: 'ambiguous'; documentTypes: string[] }>('/api/reception/patients/search', { method: 'POST', body: JSON.stringify({ documentNumber, ...(documentType ? { documentType } : {}) }) }),
     onSuccess: (result) => {
-      if (result.kind === 'ambiguous') { setPatient(null); setDraft(emptyPatientDraft()); setNotFound(false); setAmbiguousDocumentTypes(result.documentTypes); toast.error('Selecciona el tipo de documento para continuar.'); return; }
+      if (result.kind === 'ambiguous') { setPatient(null); setCreating(false); setDraft(emptyPatientDraft()); setAmbiguousDocumentTypes(result.documentTypes); toast.error('Selecciona el tipo de documento para continuar.'); return; }
       setAmbiguousDocumentTypes([]);
-      setPatient(result.patient); setNotFound(!result.patient);
+      setPatient(result.patient);
       if (result.patient) {
         setDocumentNumber(result.patient.documentNumber);
         setDocumentType(result.patient.documentType);
@@ -621,7 +623,15 @@ export default function PatientReceptionPage() {
         if (!nextDraft.telefono.trim() && nextDraft.celular.trim()) nextDraft.telefono = nextDraft.celular;
         setDraft(nextDraft);
       }
-      else setDraft(emptyPatientDraft());
+      else {
+        // Documento nuevo: quien puede editar pacientes lo crea aquí mismo.
+        setCreating(canEditPatient);
+        setDraft({ ...emptyPatientDraft(), zone: 'U', countryCode: 'COL' });
+        toast(canEditPatient ? 'El paciente no existe. Completa sus datos para crearlo.' : 'El paciente no existe. Debes crearlo antes de agendar una cita.', {
+          icon: <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />,
+          duration: 5000,
+        });
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -656,8 +666,8 @@ export default function PatientReceptionPage() {
   const profileChanged = patient && (documentNumber !== patient.documentNumber || documentType !== patient.documentType || JSON.stringify(draft) !== JSON.stringify(patientDraft(patient)));
   const validProfile = documentType.length === 2 && !!documentNumber.trim() && !!draft.firstName.trim() && !!draft.lastName.trim() && !!draft.sex && !!draft.epsCode && !!draft.zone && !!draft.countryCode && (!draft.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) && (!draft.birthDate || !!ageFromBirthDate(draft.birthDate));
   const saveProfile = useMutation({
-    mutationFn: () => api<Patient>(`/api/reception/patients/${patient!.id}/profile`, { method: 'PATCH', body: JSON.stringify({
-      expectedProfileVersion: patient!.profileVersion, documentType, documentNumber,
+    mutationFn: () => api<Patient>(creating ? '/api/reception/patients' : `/api/reception/patients/${patient!.id}/profile`, { method: creating ? 'POST' : 'PATCH', body: JSON.stringify({
+      ...(creating ? {} : { expectedProfileVersion: patient!.profileVersion }), documentType, documentNumber,
       firstName: draft.firstName, middleName: draft.middleName || null,
       lastName: draft.lastName, secondLastName: draft.secondLastName || null,
       birthDate: draft.birthDate || null, sex: draft.sex, epsCode: draft.epsCode,
@@ -672,7 +682,7 @@ export default function PatientReceptionPage() {
       employmentType: draft.employmentType, civilStatus: draft.civilStatus || null,
       salaryGrade: draft.salaryGrade, salaryLevel: draft.salaryLevel,
     }) }),
-    onSuccess: (updated) => { setPatient(updated); setDocumentNumber(updated.documentNumber); setDocumentType(updated.documentType); setDraft(patientDraft(updated)); toast.success('Datos del paciente guardados.'); },
+    onSuccess: (updated) => { setPatient(updated); setDocumentNumber(updated.documentNumber); setDocumentType(updated.documentType); setDraft(patientDraft(updated)); toast.success(creating ? 'Docente creado. Ya puedes agendarle una cita.' : 'Datos del paciente guardados.'); setCreating(false); },
     onError: (error: Error) => toast.error(error.message),
   });
   const book = useMutation({
@@ -715,12 +725,12 @@ export default function PatientReceptionPage() {
   const selectSpecialty = (value: number) => { setSpecialtyId(value); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
   const canBook = !!patient && hasMainPhoneContact && !!effectiveSiteId && !!specialtyId && !!selectedDate && !!doctorId && !!slotId && (!!rescheduling ? !!rescheduleReason : !!modalityId);
   return <ModulePageLayout moduleKey="admisiones" hideHero>
-    <PatientDataForm patient={patient} documentNumber={documentNumber} documentType={documentType} draft={draft} options={profileOptions.data} canEdit={canEditPatient} profileChanged={!!profileChanged} validProfile={validProfile} searching={search.isPending} saving={saveProfile.isPending} notFound={notFound} ambiguousDocumentTypes={ambiguousDocumentTypes} onDocumentNumberChange={(value) => { setDocumentNumber(value); setNotFound(false); setAmbiguousDocumentTypes([]); }} onDocumentTypeChange={(value) => { setDocumentType(value); setNotFound(false); }} onDraftChange={(field, value) => setDraft((current) => ({ ...current, [field]: value }))} onSearch={() => { setNotFound(false); void search.mutateAsync(); }} onSave={() => saveProfile.mutate()} onClear={() => {
+    <PatientDataForm patient={patient} creating={creating} documentNumber={documentNumber} documentType={documentType} draft={draft} options={profileOptions.data} canEdit={canEditPatient} profileChanged={!!profileChanged} validProfile={validProfile} searching={search.isPending} saving={saveProfile.isPending} ambiguousDocumentTypes={ambiguousDocumentTypes} onDocumentNumberChange={(value) => { setDocumentNumber(value); setAmbiguousDocumentTypes([]); }} onDocumentTypeChange={(value) => setDocumentType(value)} onDraftChange={(field, value) => setDraft((current) => ({ ...current, [field]: value }))} onSearch={() => { setCreating(false); void search.mutateAsync(); }} onSave={() => saveProfile.mutate()} onClear={() => {
       setPatient(null);
       setDocumentNumber('');
       setDocumentType('');
       setDraft(emptyPatientDraft());
-      setNotFound(false);
+      setCreating(false);
       setAmbiguousDocumentTypes([]);
       setSelectedDate(undefined);
       setDoctorId(null);

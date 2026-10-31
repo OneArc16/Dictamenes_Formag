@@ -5,7 +5,7 @@ import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-d
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
-import type { PatientProfileCommand, ScheduleAppointmentCommand } from '../domain/schemas';
+import type { CreatePatientCommand, PatientProfileCommand, ScheduleAppointmentCommand } from '../domain/schemas';
 import { patientSexFromDatabase, patientSexToDatabase } from '../domain/patient-profile';
 import { ReceptionError } from './errors';
 
@@ -118,16 +118,10 @@ export async function updatePatientContact(
   return prisma.$transaction((tx) => updatePatientContactInTransaction(tx, patientId, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-export async function updatePatientProfileInTransaction(
-  tx: Prisma.TransactionClient,
-  patientId: number,
-  input: PatientProfileCommand,
-) {
-  const existing = await tx.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
-  if (!existing) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
-
+/** Valida el perfil contra los catálogos y lo traduce a columnas de usuarios (crear o actualizar). */
+async function patientProfileData(tx: Prisma.TransactionClient, input: CreatePatientCommand, patientId: number | null) {
   const [duplicate, eps, department, municipality, country, neighborhood, position, secretariat, institution] = await Promise.all([
-    tx.usuario.findFirst({ where: { identificacion: input.documentNumber, tipoIdentificacion: input.documentType, id: { not: patientId } }, select: { id: true } }),
+    tx.usuario.findFirst({ where: { identificacion: input.documentNumber, tipoIdentificacion: input.documentType, ...(patientId ? { id: { not: patientId } } : {}) }, select: { id: true } }),
     tx.eps.findUnique({ where: { codigo: input.epsCode }, select: { codigo: true } }),
     input.departmentCode ? tx.departamento.findUnique({ where: { codigo: input.departmentCode }, select: { codigo: true } }) : Promise.resolve(null),
     input.municipalityCode ? tx.municipio.findUnique({ where: { codigo: input.municipalityCode }, select: { codigo: true, codigoDepartamento: true } }) : Promise.resolve(null),
@@ -155,51 +149,84 @@ export async function updatePatientProfileInTransaction(
   const birthDate = input.birthDate ? new Date(`${input.birthDate}T00:00:00.000Z`) : null;
   const employmentStartDate = input.employmentStartDate ? new Date(`${input.employmentStartDate}T00:00:00.000Z`) : null;
   const age = birthDate ? Math.max(0, Math.floor((Date.now() - birthDate.getTime()) / 31_556_952_000)) : null;
+  return {
+    identificacion: input.documentNumber,
+    tipoIdentificacion: input.documentType,
+    primerNombre: input.firstName.toLocaleUpperCase('es-CO'),
+    segundoNombre: input.middleName?.toLocaleUpperCase('es-CO') ?? null,
+    primerApellido: input.lastName.toLocaleUpperCase('es-CO'),
+    segundoApellido: input.secondLastName?.toLocaleUpperCase('es-CO') ?? null,
+    fechaNacimiento: birthDate,
+    edad: age,
+    unidadEdad: 'A',
+    sexo: patientSexToDatabase(input.sex),
+    codigoEps: input.epsCode,
+    codigoDepartamento: input.departmentCode,
+    codigoMunicipio: input.municipalityCode,
+    barrio: neighborhood?.nombre ?? input.neighborhood,
+    barrioId: neighborhood?.id ?? null,
+    zonaResidencia: input.zone,
+    residenciaPais: input.countryCode,
+    categoria: input.category,
+    celular: input.celular,
+    telefono: input.telefono,
+    email: input.email,
+    direccion: input.direccion,
+    cargoDocenteId: input.teacherPositionId,
+    escolaridad: input.education,
+    fechaVinculacion: employmentStartDate,
+    secretariaId: input.secretariatId,
+    institucionEducativaId: input.institutionId,
+    formaVinculacion: input.employmentType.toLocaleUpperCase('es-CO'),
+    estadoCivil: input.civilStatus,
+    gradoEscalafon: input.salaryGrade.toLocaleUpperCase('es-CO'),
+    nivelEscalafon: input.salaryLevel === 'NO_APLICA' ? '0' : input.salaryLevel,
+  } satisfies Prisma.UsuarioUncheckedUpdateInput;
+}
+
+function documentConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+    ? new ReceptionError('PATIENT_DOCUMENT_CONFLICT', 'Ya existe otro paciente con este tipo y número de documento.', 409)
+    : error;
+}
+
+export async function updatePatientProfileInTransaction(
+  tx: Prisma.TransactionClient,
+  patientId: number,
+  input: PatientProfileCommand,
+) {
+  const existing = await tx.usuario.findUnique({ where: { id: patientId }, select: { id: true } });
+  if (!existing) throw new ReceptionError('PATIENT_NOT_FOUND', 'El paciente ya no existe.', 404);
+  const data = await patientProfileData(tx, input, patientId);
   try {
-    const result = await tx.usuario.updateMany({
-      where: { id: patientId, profileVersion: input.expectedProfileVersion },
-      data: {
-        identificacion: input.documentNumber,
-        tipoIdentificacion: input.documentType,
-        primerNombre: input.firstName.toLocaleUpperCase('es-CO'),
-        segundoNombre: input.middleName?.toLocaleUpperCase('es-CO') ?? null,
-        primerApellido: input.lastName.toLocaleUpperCase('es-CO'),
-        segundoApellido: input.secondLastName?.toLocaleUpperCase('es-CO') ?? null,
-        fechaNacimiento: birthDate,
-        edad: age,
-        unidadEdad: 'A',
-        sexo: patientSexToDatabase(input.sex),
-        codigoEps: input.epsCode,
-        codigoDepartamento: input.departmentCode,
-        codigoMunicipio: input.municipalityCode,
-        barrio: neighborhood?.nombre ?? input.neighborhood,
-        barrioId: neighborhood?.id ?? null,
-        zonaResidencia: input.zone,
-        residenciaPais: input.countryCode,
-        categoria: input.category,
-        celular: input.celular,
-        telefono: input.telefono,
-        email: input.email,
-        direccion: input.direccion,
-        cargoDocenteId: input.teacherPositionId,
-        escolaridad: input.education,
-        fechaVinculacion: employmentStartDate,
-        secretariaId: input.secretariatId,
-        institucionEducativaId: input.institutionId,
-        formaVinculacion: input.employmentType.toLocaleUpperCase('es-CO'),
-        estadoCivil: input.civilStatus,
-        gradoEscalafon: input.salaryGrade.toLocaleUpperCase('es-CO'),
-        nivelEscalafon: input.salaryLevel === 'NO_APLICA' ? '0' : input.salaryLevel,
-      },
-    });
+    const result = await tx.usuario.updateMany({ where: { id: patientId, profileVersion: input.expectedProfileVersion }, data });
     if (result.count !== 1) throw new ReceptionError('STALE_PROFILE_VERSION', 'Los datos del paciente cambiaron. Vuelve a buscarlo antes de guardar.', 409);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      throw new ReceptionError('PATIENT_DOCUMENT_CONFLICT', 'Ya existe otro paciente con este tipo y número de documento.', 409);
-    }
-    throw error;
+    throw documentConflict(error);
   }
   return getPatient(patientId, tx);
+}
+
+/** Registra un docente nuevo desde recepción con los mismos datos y validaciones del perfil. */
+export async function createPatientInTransaction(tx: Prisma.TransactionClient, input: CreatePatientCommand, actorName: string) {
+  const data = await patientProfileData(tx, input, null);
+  try {
+    const created = await tx.usuario.create({
+      data: {
+        ...data,
+        // Valores fijos de los docentes, igual que el registro desde Dictámenes.
+        carnet: input.documentNumber,
+        tipoUsuario: 'DO',
+        sector: 'EDUCATIVO',
+        createdBy: actorName.slice(0, 100),
+        updatedBy: actorName.slice(0, 100),
+      },
+      select: { id: true },
+    });
+    return getPatient(created.id, tx);
+  } catch (error) {
+    throw documentConflict(error);
+  }
 }
 
 export async function receptionContext(auth: AuthorizationContext) {
