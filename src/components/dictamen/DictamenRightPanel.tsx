@@ -170,8 +170,12 @@ export default function DictamenRightPanel({
     compute();
 
     const unsubscribe = qc.getQueryCache().subscribe((event) => {
-      const queryKey = event?.query?.queryKey;
-      if (Array.isArray(queryKey) && queryKey[0] === 'dictamen' && Number(queryKey[1]) === resolvedDictamenId) {
+      // Solo el detalle ['dictamen', id] define si está cerrado. Otras queries con el mismo prefijo
+      // (p. ej. ['dictamen', id, 'sustentacion']) se registran durante el render de su componente,
+      // y reaccionar a ese evento actualizaría este panel en medio de ese render.
+      if (event.type !== 'updated' && event.type !== 'removed') return;
+      const queryKey = event.query.queryKey;
+      if (queryKey.length === 2 && queryKey[0] === 'dictamen' && Number(queryKey[1]) === resolvedDictamenId) {
         compute();
       }
     });
