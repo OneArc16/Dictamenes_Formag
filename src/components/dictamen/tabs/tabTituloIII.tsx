@@ -364,9 +364,9 @@ export default function TabTituloIII({
   const counts = summary?.counts ?? { CERO: 0, I: 0, II: 0, III: 0, IV: 0 };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+    <div className="grid grid-cols-1 min-[1800px]:grid-cols-[minmax(0,1fr)_360px] gap-4">
       {/* ================= MAIN ================= */}
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <Card>
           <CardHeader
             title="Título III — Análisis ocupacional del educador"
@@ -455,8 +455,8 @@ export default function TabTituloIII({
 
                 <div className="px-4 pt-2 pb-4">
                   <div className="overflow-x-auto">
-                    <div className="min-w-[720px]">
-                      <div className="grid grid-cols-[1fr_110px_380px_120px] gap-3 px-2 py-2 text-xs font-medium text-slate-500">
+                    <div className="min-w-[560px]">
+                      <div className="grid grid-cols-[minmax(0,1fr)_60px_200px_100px] gap-3 px-2 py-2 text-xs font-medium text-slate-500">
                         <div>Factor</div>
                         <div>N/A</div>
                         <div>Gravedad</div>
@@ -475,7 +475,7 @@ export default function TabTituloIII({
                         return (
                           <div
                             key={factor}
-                            className="grid grid-cols-[1fr_110px_380px_120px] gap-3 px-2 py-3 items-center"
+                            className="grid grid-cols-[minmax(0,1fr)_60px_200px_100px] gap-3 px-2 py-3 items-center"
                           >
                             <div className="text-sm font-medium text-slate-900">{FACTOR_LABELS[factor]}</div>
 
@@ -527,7 +527,7 @@ export default function TabTituloIII({
       </div>
 
       {/* ================= SUMMARY ================= */}
-      <div className="space-y-4 lg:sticky lg:top-4 h-fit">
+      <div className="space-y-4 min-[1800px]:sticky min-[1800px]:top-4 h-fit">
         <Card>
           <CardHeader title="Resumen" right={<Badge>{(data.naFactors?.length ?? 0)} N/A</Badge>} />
           <div className="p-4">

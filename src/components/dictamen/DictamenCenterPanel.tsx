@@ -95,7 +95,7 @@ export default function DictamenCenterPanel({
 
   return (
     <div className="bg-white border shadow-sm rounded-xl">
-      <div className="relative z-10 flex px-4 border-b bg-slate-50">
+      <div className="relative z-10 flex px-4 overflow-x-auto border-b bg-slate-50">
         {(
           [
             ['ANTECEDENTES', 'Antecedentes'],
@@ -133,7 +133,7 @@ export default function DictamenCenterPanel({
               }}
               disabled={disabled}
               title={disabled ? disabledTitle : undefined}
-              className={`relative border-b-2 px-3 py-2 text-xs font-medium ${
+              className={`relative shrink-0 border-b-2 px-3 py-2 text-xs font-medium ${
                 active
                   ? 'border-blue-600 text-blue-700'
                   : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
@@ -164,7 +164,7 @@ export default function DictamenCenterPanel({
         {activeTab === 'HISTORIAL' ? (
           <TabHistorial historial={dictamen.historial ?? []} />
         ) : (
-          <fieldset disabled={effectiveReadOnly} className={effectiveReadOnly ? 'opacity-95' : ''}>
+          <fieldset disabled={effectiveReadOnly} className={effectiveReadOnly ? 'min-w-0 opacity-95' : 'min-w-0'}>
             {activeTab === 'ANTECEDENTES' && (
               <TabAntecedentes
                 dictamenId={dictamen.id}

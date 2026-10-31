@@ -91,7 +91,7 @@ function EmptyHistoryState() {
 function FieldValue({ value }: { value: string | null }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+      <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-6 text-slate-700">
         {value ?? '—'}
       </p>
     </div>
@@ -161,15 +161,15 @@ export default function TabHistorial({ historial }: { historial: DictamenHistori
                       {cambio.etiqueta}
                     </p>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-1.5">
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="min-w-0 space-y-1.5">
                         <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
                           Antes
                         </p>
                         <FieldValue value={cambio.anterior} />
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="min-w-0 space-y-1.5">
                         <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
                           Despues
                         </p>

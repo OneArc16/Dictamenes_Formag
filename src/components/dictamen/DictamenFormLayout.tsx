@@ -19,30 +19,29 @@ export function DictamenFormLayout({
   return (
     <section className="mt-4">
       {/*
-        Escritorio (lg):
-
-        - Izquierda: 320px fijos
-        - Centro:    2.4fr
-        - Derecha:   210px aprox
-
-        En móvil sigue apilado.
+        - Móvil / tablet (< lg): todo apilado (datos, formulario, totales).
+        - Laptop (lg a 2xl): 2 columnas. Datos y totales a la izquierda, formulario a la derecha.
+          Los totales quedan fijos (sticky) debajo de los datos.
+        - Escritorio grande (2xl+): 3 columnas, datos | formulario | totales.
       */}
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,2.4fr)_210px] items-start">
+      <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] 2xl:grid-cols-[320px_minmax(0,1fr)_240px] 2xl:grid-rows-1">
         {/* Panel izquierdo */}
-        <aside className={`space-y-4 lg:sticky ${stickyTopClassName} self-start`}>
+        <aside className={`min-w-0 self-start lg:col-start-1 lg:row-start-1 2xl:sticky ${stickyTopClassName}`}>
           {/* Si el panel es más alto que la pantalla, que tenga scroll propio */}
-          <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1 space-y-5">
+          <div className="space-y-5 2xl:max-h-[calc(100vh-1rem)] 2xl:overflow-auto 2xl:pr-1">
             {left}
           </div>
         </aside>
 
         {/* Panel central (formulario) */}
-        <main className="min-w-0">{center}</main>
+        <main className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 2xl:row-span-1">{center}</main>
 
         {/* Panel derecho */}
         {right && (
-          <aside className={`hidden lg:block lg:sticky ${stickyTopClassName} self-start`}>
-            <div className="max-h-[calc(100vh-1rem)] overflow-auto pr-1 space-y-5">
+          <aside
+            className={`min-w-0 self-start lg:sticky lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-start-1 ${stickyTopClassName}`}
+          >
+            <div className="space-y-5 lg:max-h-[calc(100vh-1rem)] lg:overflow-auto lg:pr-1">
               {right}
             </div>
           </aside>
