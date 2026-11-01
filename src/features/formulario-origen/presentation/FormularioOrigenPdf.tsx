@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
   supportName: { fontSize: 7.4, lineHeight: 1.2, textAlign: 'center' },
   diagnosisNumber: { backgroundColor: BLUE, fontWeight: 700 },
   longText: { fontSize: 7.6, lineHeight: 1.35, textAlign: 'center' },
+  sustentacionText: { fontSize: 7.6, lineHeight: 1.35, textAlign: 'left' },
   classificationLabel: { fontSize: 7.6, fontWeight: 700, textAlign: 'center' },
   signaturesHeader: {
     minHeight: 14,
@@ -274,6 +275,10 @@ export function wrapLongPdfTokens(input: unknown, maxTokenLength = 36) {
   const chunkPattern = new RegExp(`.{1,${maxTokenLength}}`, 'g');
   return value.replace(tokenPattern, (token) => token.match(chunkPattern)?.join('\n') ?? token);
 }
+
+/** Lets long unbroken values fill the full line width and only wrap at the cell edge. */
+const softWrapLongTokens = (input: unknown) =>
+  show(input).replace(/\S{20,}/g, (token) => token.match(/.{1,10}/g)?.join('\u200B') ?? token);
 
 const upper = (input: unknown) => wrapLongPdfTokens(show(input).toLocaleUpperCase('es-CO'));
 
@@ -827,16 +832,6 @@ function PageOne({
             </View>
           </Cell>
         </View>
-
-        <View wrap={false}>
-          <SectionTitle>6. FUNDAMENTOS DE LA CALIFICACIÓN</SectionTitle>
-          <SectionTitle>6.1 RELACIÓN DE DOCUMENTOS</SectionTitle>
-          <View style={styles.row}>
-            <Cell width="33%" align="center" bold fontSize={6.5}>DOCUMENTO</Cell>
-            <Cell width="15%" align="center" bold fontSize={6.5}>FECHA</Cell>
-            <Cell width="52%" align="center" bold fontSize={6.5}>SE TUVO EN CUENTA</Cell>
-          </View>
-        </View>
       </View>
     </Page>
   );
@@ -849,6 +844,15 @@ function PageTwo({ data }: { data: FormularioOrigenSnapshot }) {
     <>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.table}>
+        <View wrap={false} minPresenceAhead={40}>
+          <SectionTitle>6. FUNDAMENTOS DE LA CALIFICACIÓN</SectionTitle>
+          <SectionTitle>6.1 RELACIÓN DE DOCUMENTOS</SectionTitle>
+          <View style={styles.row}>
+            <Cell width="33%" align="center" bold fontSize={6.5}>DOCUMENTO</Cell>
+            <Cell width="15%" align="center" bold fontSize={6.5}>FECHA</Cell>
+            <Cell width="52%" align="center" bold fontSize={6.5}>SE TUVO EN CUENTA</Cell>
+          </View>
+        </View>
           {supportRows(data).map((support, index) => (
             <SupportRow key={`${support.tipo}-${index}`} support={support} />
           ))}
@@ -862,17 +866,17 @@ function PageTwo({ data }: { data: FormularioOrigenSnapshot }) {
             <Text style={styles.sectionTitleText}>CONCEPTO</Text>
           </View>
           <View style={styles.row}>
-            <Cell width="100%" minHeight={56} align="center" padding={7}>
-              <Text style={styles.longText}>{wrapLongPdfTokens(show(data.sustentacion?.concepto))}</Text>
+            <Cell width="100%" minHeight={56} align="left" padding={7}>
+              <Text style={styles.sustentacionText}>{softWrapLongTokens(data.sustentacion?.concepto)}</Text>
             </Cell>
           </View>
           <View style={[styles.sectionTitle, { minHeight: 33 }]}>
             <Text style={styles.sectionTitleText}>7.1. FUNDAMENTOS DE DERECHO</Text>
           </View>
           <View style={styles.row}>
-            <Cell width="100%" minHeight={55} align="center" padding={7}>
-              <Text style={styles.longText}>
-                {wrapLongPdfTokens(show(data.sustentacion?.fundamentosDerecho))}
+            <Cell width="100%" minHeight={55} align="left" padding={7}>
+              <Text style={styles.sustentacionText}>
+                {softWrapLongTokens(data.sustentacion?.fundamentosDerecho)}
               </Text>
             </Cell>
           </View>

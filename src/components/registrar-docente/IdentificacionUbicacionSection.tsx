@@ -206,7 +206,7 @@ export function IdentificacionUbicacionSection({
         </Field>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Field label="Zona">
           <SelectInput
             name="zona"
@@ -219,6 +219,17 @@ export function IdentificacionUbicacionSection({
 
         <Field label="Teléfono de contacto">
           <TextInput name="telefono" value={form.telefono} onChange={onFieldChange} />
+        </Field>
+
+        <Field label="Correo electrónico">
+          <TextInput
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={onFieldChange}
+            maxLength={100}
+            autoComplete="off"
+          />
         </Field>
 
         <Field label="País">

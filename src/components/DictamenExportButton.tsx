@@ -9,6 +9,7 @@ export type DictamenExportRow = {
   secretaria: string;
   documento: string;
   docente: string;
+  tipoDictamen?: string;
   estado: string;
   medico: string;
 };
@@ -34,6 +35,7 @@ export function DictamenExportButton({
         'secretaria',
         'Documento',
         'Docente',
+        'Tipo de dictamen',
         'Estado',
         'Médico',
       ];
@@ -46,6 +48,7 @@ export function DictamenExportButton({
           r.secretaria ?? '',
           r.documento ?? '',
           r.docente ?? '',
+          r.tipoDictamen ?? '',
           r.estado ?? '',
           r.medico ?? '',
         ]

@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma';
 import { formatDateOnly, getDiaSemanaBogota, parseColombiaDate } from '../domain/date';
 import { buildNumeroDictamen } from '../domain/numero-dictamen';
 import { calculateSectionProgress, validateFormularioOrigen } from '../domain/validation';
+import { canAccessOrigin } from '../domain/policies';
 import { ApplicationError } from './errors';
 import {
   getActiveOriginJuntaSnapshot,
@@ -237,6 +238,13 @@ async function requireOrigin(
       'ORIGIN_NOT_FOUND',
       'El expediente no tiene Formulario de Origen.',
       404,
+    );
+  }
+  if (!canAccessOrigin(record.dictamen.tipoDictamen)) {
+    throw new ApplicationError(
+      'ORIGIN_NOT_AVAILABLE',
+      'Las recalificaciones inician directamente en el Dictamen PCL.',
+      409,
     );
   }
   assertAccess(record, auth, editable);

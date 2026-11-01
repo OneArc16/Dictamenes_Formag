@@ -460,6 +460,7 @@ function DocenteModal({
         municipio: readString(d, ['municipio'], form.municipio),
         zona: readString(d, ['zonaResidencia', 'zona'], form.zona),
         telefono: readString(d, ['telefono'], form.telefono),
+        email: readString(d, ['email'], form.email),
         pais: form.pais,
         codigoEps: codigoEpsRes == null ? form.codigoEps : String(codigoEpsRes),
         categoria: readString(d, ['categoria'], form.categoria),

@@ -13,6 +13,7 @@ export type NavigationIconKey =
   | 'employees'
   | 'profiles'
   | 'reopen'
+  | 'sites'
   | 'notifications'
   | 'audit'
   | 'agenda-list'
@@ -184,6 +185,13 @@ export const MODULE_DEFINITIONS = [
         href: '/admin/perfiles',
         iconKey: 'profiles',
         requiredAbility: 'admin.perfiles.read',
+      },
+      {
+        key: 'sites',
+        label: 'Sedes',
+        href: '/admin/sedes',
+        iconKey: 'sites',
+        requiredAbility: 'admin.sedes.read',
       },
       {
         key: 'reopen-reasons',

@@ -7,6 +7,12 @@ export type OriginPolicyInput = {
   pclRequiereRevision?: boolean;
 };
 
+export type TipoDictamenPolicy = 'CALIFICACION' | 'RECALIFICACION';
+
+export function canAccessOrigin(tipoDictamen: TipoDictamenPolicy): boolean {
+  return tipoDictamen === 'CALIFICACION';
+}
+
 export function canAccessPcl(input: OriginPolicyInput): boolean {
   return (
     input.flujoVersion === 'LEGACY' ||

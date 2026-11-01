@@ -227,7 +227,7 @@ export async function GET(req: Request) {
         ? `/medico/dictamen/${dictamen.id}/origen`
         : `/medico/dictamen/${dictamen.id}`,
       pclRoute: `/medico/dictamen/${dictamen.id}`,
-      originRoute: dictamen.formularioOrigen
+      originRoute: dictamen.tipoDictamen === 'CALIFICACION' && dictamen.formularioOrigen
         ? `/medico/dictamen/${dictamen.id}/origen`
         : null,
       canOpenPcl: pclAccessible || !dictamen.estado,

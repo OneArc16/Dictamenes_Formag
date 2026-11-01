@@ -100,6 +100,12 @@ function getStageLabel(stage: DictamenRow['etapa']) {
   return 'Dictamen PCL';
 }
 
+function getTipoDictamenLabel(tipoDictamen: DictamenRow['tipoDictamen']) {
+  if (tipoDictamen === 'RECALIFICACION') return 'Recalificación';
+  if (tipoDictamen === 'CALIFICACION') return 'Primera vez';
+  return 'Sin definir';
+}
+
 function getRowClassName(row: DictamenRow) {
   if (String(row.estado ?? '').toUpperCase() === 'REABIERTO') {
     return 'border-sky-100 bg-sky-50/30 hover:bg-sky-50/50';
@@ -138,6 +144,7 @@ export function DictamenTable({
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Secretaria</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Docente</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Tipo</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Etapa</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Estado</TableHead>
             <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Medico</TableHead>
@@ -148,7 +155,7 @@ export function DictamenTable({
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={9} className="px-3 py-6 text-center text-xs text-slate-500">
+              <TableCell colSpan={10} className="px-3 py-6 text-center text-xs text-slate-500">
                 Cargando dictamenes...
               </TableCell>
             </TableRow>
@@ -156,7 +163,7 @@ export function DictamenTable({
 
           {!loading && rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="px-3 py-6 text-center text-xs text-slate-500">
+              <TableCell colSpan={10} className="px-3 py-6 text-center text-xs text-slate-500">
                 No hay dictamenes para los filtros seleccionados.
               </TableCell>
             </TableRow>
@@ -184,6 +191,9 @@ export function DictamenTable({
                     </TableCell>
                     <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
                       {row.docenteNombre || '-'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
+                      {getTipoDictamenLabel(row.tipoDictamen)}
                     </TableCell>
                     <TableCell className="px-3 py-2 align-top text-[11px] text-slate-700">
                       <span className="font-medium">{getStageLabel(row.etapa)}</span>

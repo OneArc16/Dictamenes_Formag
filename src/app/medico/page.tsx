@@ -21,6 +21,7 @@ type DictamenApiRow = {
   docenteDocumento: string | null;
   docenteNombre: string | null;
   secretaria: string | null;
+  tipoDictamen: 'CALIFICACION' | 'RECALIFICACION' | string | null;
   estado: string | null;
   medicoNombre: string | null;
   fueReabierto: boolean;
@@ -69,6 +70,12 @@ function formatFechaExport(value: unknown): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   const formatted = String(value);
   return formatted.includes('T') ? formatted.split('T')[0] : formatted;
+}
+
+function formatTipoDictamen(value: string | null | undefined): string {
+  if (value === 'RECALIFICACION') return 'Recalificación';
+  if (value === 'CALIFICACION') return 'Primera vez';
+  return '';
 }
 
 export default function MedicoPage() {
@@ -187,6 +194,7 @@ export default function MedicoPage() {
         docenteDocumento: dictamen.docenteDocumento,
         docenteNombre: dictamen.docenteNombre,
         secretaria: dictamen.secretaria,
+        tipoDictamen: dictamen.tipoDictamen,
         estado: dictamen.estado ?? undefined,
         medicoNombre: dictamen.medicoNombre,
         fueReabierto: dictamen.fueReabierto,
@@ -214,6 +222,7 @@ export default function MedicoPage() {
         secretaria: row.secretaria ?? '',
         documento: row.docenteDocumento ?? '',
         docente: row.docenteNombre ?? '',
+        tipoDictamen: formatTipoDictamen(row.tipoDictamen),
         estado: row.estado ?? '',
         medico: row.medicoNombre ?? '',
       })),

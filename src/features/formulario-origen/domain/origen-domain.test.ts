@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getDiaSemanaBogota, isValidIsoDate } from './date';
 import { buildNumeroDictamen } from './numero-dictamen';
-import { canAccessPcl, canEditPcl, getVisibleCaseState } from './policies';
+import { canAccessOrigin, canAccessPcl, canEditPcl, getVisibleCaseState } from './policies';
 import { calculateSectionProgress, validateFormularioOrigen } from './validation';
 import { getReopeningTargets } from './reopening';
 import { hasCaseScope } from '@/lib/auth/case-scope';
@@ -51,6 +51,11 @@ test('protege PCL para el flujo nuevo y conserva LEGACY', () => {
     ),
     true,
   );
+});
+
+test('las recalificaciones no habilitan el Formulario de Origen', () => {
+  assert.equal(canAccessOrigin('CALIFICACION'), true);
+  assert.equal(canAccessOrigin('RECALIFICACION'), false);
 });
 
 test('acepta elegir PCL u Origen como documento inicial', () => {

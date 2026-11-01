@@ -34,6 +34,8 @@ const permissions = [
   { codigo: 'admin.perfiles.manage', nombre: 'Gestionar perfiles', modulo: 'admin' },
   { codigo: 'admin.motivos_reapertura.read', nombre: 'Ver motivos de reapertura', modulo: 'admin' },
   { codigo: 'admin.motivos_reapertura.manage', nombre: 'Gestionar motivos de reapertura', modulo: 'admin' },
+  { codigo: 'admin.sedes.read', nombre: 'Ver sedes', modulo: 'admin' },
+  { codigo: 'admin.sedes.manage', nombre: 'Gestionar sedes', modulo: 'admin' },
   { codigo: 'admin.notificadores_pcl.read', nombre: 'Ver notificadores PCL', modulo: 'admin' },
   { codigo: 'admin.notificadores_pcl.manage', nombre: 'Gestionar notificadores PCL', modulo: 'admin' },
   { codigo: 'admin.auditoria.read', nombre: 'Ver auditoria', modulo: 'admin' },

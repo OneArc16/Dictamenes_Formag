@@ -18,6 +18,7 @@ export const emptyForm: DocenteForm = {
   municipio: '',
   zona: '',
   telefono: '',
+  email: '',
   pais: 'COLOMBIA',
   codigoEps: '',
   categoria: '',

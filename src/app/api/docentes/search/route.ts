@@ -63,6 +63,7 @@ export async function GET(req: Request) {
         edad: true,
         telefono: true,
         celular: true,
+        email: true,
         direccion: true,
 
         estadoCivil: true,
@@ -168,6 +169,7 @@ export async function GET(req: Request) {
         sexo: mapSexoToFrontend(u.sexo),
         edad: u.edad,
         telefono,
+        email: u.email,
         direccion: u.direccion,
 
         estadoCivil: u.estadoCivil,

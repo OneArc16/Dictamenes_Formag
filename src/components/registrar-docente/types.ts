@@ -14,6 +14,7 @@ export type DocenteForm = {
   municipio: string;
   zona: string;
   telefono: string;
+  email: string;
   pais: string;
   codigoEps: string;
   categoria: string;

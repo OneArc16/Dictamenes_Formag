@@ -9,6 +9,7 @@ import { getModuleByKey, getVisibleSecondaryNavigation } from '@/lib/module-navi
 const DESCRIPTIONS: Record<string, string> = {
   employees: 'Crea y administra los empleados, su sede, su firma y su perfil.',
   profiles: 'Define los perfiles y los permisos de cada uno.',
+  sites: 'Crea y administra las sedes de atención y su estado.',
   'reopen-reasons': 'Motivos para reabrir dictámenes y recomendaciones.',
   'pcl-notifiers': 'Empleados que notifican los dictámenes PCL en cada sede.',
   audit: 'Consulta y exporta el registro de acciones del sistema.',
