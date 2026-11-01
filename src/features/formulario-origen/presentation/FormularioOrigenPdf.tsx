@@ -266,7 +266,16 @@ const styles = StyleSheet.create({
 const show = (input: unknown, fallback = '') =>
   String(input ?? '').trim() || fallback;
 
-const upper = (input: unknown) => show(input).toLocaleUpperCase('es-CO');
+/** Splits long unbroken values so React PDF can keep them inside their table cell. */
+export function wrapLongPdfTokens(input: unknown, maxTokenLength = 36) {
+  const value = String(input ?? '').trim();
+  if (!value || !Number.isInteger(maxTokenLength) || maxTokenLength < 1) return value;
+  const tokenPattern = new RegExp(`\\S{${maxTokenLength + 1},}`, 'g');
+  const chunkPattern = new RegExp(`.{1,${maxTokenLength}}`, 'g');
+  return value.replace(tokenPattern, (token) => token.match(chunkPattern)?.join('\n') ?? token);
+}
+
+const upper = (input: unknown) => wrapLongPdfTokens(show(input).toLocaleUpperCase('es-CO'));
 
 function zoneDisplay(input: unknown) {
   const value = upper(input);
@@ -343,7 +352,7 @@ function Cell({
       ]}
     >
       {typeof children === 'string' || typeof children === 'number' ? (
-        <Text style={fontSize ? { fontSize } : undefined}>{children}</Text>
+        <Text style={fontSize ? { fontSize } : undefined}>{wrapLongPdfTokens(children)}</Text>
       ) : (
         children
       )}
@@ -434,7 +443,7 @@ function SupportRow({
     ? 'N.A.'
     : notProvided
       ? 'NO APORTADO'
-      : show(support.seTuvoEnCuenta);
+      : wrapLongPdfTokens(show(support.seTuvoEnCuenta));
   const minHeight =
     support.tipo === 'EPICRISIS_RESUMEN_HISTORIA' ||
     support.tipo === 'INVESTIGACION_ACCIDENTE'
@@ -757,7 +766,7 @@ function PageOne({
             <Text>DESCRIPCIÓN DE LAS TAREAS DEL CARGO</Text>
           </View>
           <View style={styles.largeDescriptionValue}>
-            <Text style={styles.descriptionText}>{show(data.descripcion)}</Text>
+            <Text style={styles.descriptionText}>{wrapLongPdfTokens(show(data.descripcion))}</Text>
           </View>
         </View>
 
@@ -854,7 +863,7 @@ function PageTwo({ data }: { data: FormularioOrigenSnapshot }) {
           </View>
           <View style={styles.row}>
             <Cell width="100%" minHeight={56} align="center" padding={7}>
-              <Text style={styles.longText}>{show(data.sustentacion?.concepto)}</Text>
+              <Text style={styles.longText}>{wrapLongPdfTokens(show(data.sustentacion?.concepto))}</Text>
             </Cell>
           </View>
           <View style={[styles.sectionTitle, { minHeight: 33 }]}>
@@ -863,7 +872,7 @@ function PageTwo({ data }: { data: FormularioOrigenSnapshot }) {
           <View style={styles.row}>
             <Cell width="100%" minHeight={55} align="center" padding={7}>
               <Text style={styles.longText}>
-                {show(data.sustentacion?.fundamentosDerecho)}
+                {wrapLongPdfTokens(show(data.sustentacion?.fundamentosDerecho))}
               </Text>
             </Cell>
           </View>

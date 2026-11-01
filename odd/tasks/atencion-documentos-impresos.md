@@ -18,6 +18,7 @@ Acceptance criteria:
 - Document endpoints enforce authenticated reception access, attended-appointment scope, and inline PDF responses.
 - A single remisión action opens a selector when there are two or more remisiones; selecting one prints only that remisión, while a single remisión opens directly.
 - The admissions dictamen table shows an origin print action only when a finalized Formulario de Origen version exists and the user can read it.
+- Origin PDF values containing a long unbroken token wrap inside their table cell instead of overflowing the printed form.
 
 ## Tasks
 
@@ -37,3 +38,4 @@ L7: User correction: "no me referia asi, si hay dos o mas remisiones este abra u
 L8: User report: the remisión selector overflowed horizontally for long CUPS labels. The option buttons now occupy the modal width and allow their descriptive text to wrap.
 L9: User report: choosing a remisión closed the selector modal. The option action now opens the selected PDF in a new tab while keeping the modal available until the user explicitly closes it.
 L10: User request: "Falta el boton para imprimir los origenes". The admissions dictamen query now exposes whether a finalized Formulario de Origen version exists, and eligible rows display a green origin-print action that opens its inline PDF in a new tab.
+L11: User report: printed Formulario de Origen data overflowed its table cell when a value had no spaces. The PDF formatter now inserts line breaks in long unbroken tokens, with regression coverage for the formatter.
