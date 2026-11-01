@@ -16,6 +16,7 @@ import { deriveAgendaWorkDates } from './agenda-creation-work-dates';
 import { AgendaCreationActions } from './AgendaCreationActions';
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import { AgendaCreationHeader } from './AgendaCreationHeader';
+import { AgendaModalityPicker } from './AgendaModalityPicker';
 import { AgendaDateExclusionDialog } from './AgendaDateExclusionDialog';
 import { AgendaDateSelector } from './AgendaDateSelector';
 import { AgendaDoctorCombobox } from './AgendaDoctorCombobox';
@@ -133,9 +134,10 @@ function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }:
     >
       <Card className="border-slate-200 bg-white shadow-sm">
         <CardContent className="space-y-4 p-4 sm:p-5">
-          <AgendaCreationHeader
-            context={context}
-            siteOptions={siteOptions}
+          <AgendaCreationHeader context={context} siteOptions={siteOptions} modalityId={modality.id} />
+
+          <AgendaModalityPicker
+            siteId={context.site.id}
             modalities={modalities}
             modalityId={modality.id}
             disabled={fieldsDisabled}

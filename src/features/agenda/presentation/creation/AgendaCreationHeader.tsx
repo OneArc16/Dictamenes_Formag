@@ -1,10 +1,9 @@
 'use client';
 
-import { Building2, CalendarDays, Clock3, MonitorSmartphone } from 'lucide-react';
+import { Building2, CalendarDays, Clock3 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import type { AgendaCreationContext } from '@/features/agenda/application/agenda-creation-context';
-import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 
 type ReadyContext = Extract<AgendaCreationContext, { status: 'ready' }>;
 type AgendaSiteOption = { id: number; name: string };
@@ -12,21 +11,14 @@ type AgendaSiteOption = { id: number; name: string };
 export function AgendaCreationHeader({
   context,
   siteOptions = [],
-  modalities,
   modalityId,
-  disabled = false,
 }: {
   context: ReadyContext;
   siteOptions?: AgendaSiteOption[];
-  modalities: AgendaModality[];
   modalityId: number;
-  disabled?: boolean;
 }) {
   const router = useRouter();
   const canSelectSite = siteOptions.length > 1;
-  // Cada modalidad es una agenda distinta: cambiarla reinicia el formulario.
-  const goTo = (siteId: number, nextModalityId: number) =>
-    router.replace(`/agenda/crear?sedeId=${siteId}&modalidadId=${nextModalityId}`, { scroll: false });
 
   return (
     <section
@@ -57,7 +49,7 @@ export function AgendaCreationHeader({
                   onChange={(event) => {
                     const siteId = Number(event.target.value);
                     if (Number.isInteger(siteId) && siteId > 0) {
-                      goTo(siteId, modalityId);
+                      router.replace(`/agenda/crear?sedeId=${siteId}&modalidadId=${modalityId}`, { scroll: false });
                     }
                   }}
                   className="mt-0.5 min-h-10 max-w-full bg-white pr-9 text-sm font-semibold text-sky-900"
@@ -80,32 +72,6 @@ export function AgendaCreationHeader({
           </div>
         </div>
       </div>
-      <fieldset className="min-w-0 self-start sm:self-auto">
-        <legend className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-sky-950">
-          <MonitorSmartphone className="h-4 w-4 text-sky-700" aria-hidden="true" />
-          Modalidad de la agenda
-        </legend>
-        <div className="flex flex-wrap gap-1.5">
-          {modalities.map((modality) => (
-            <button
-              key={modality.id}
-              type="button"
-              aria-pressed={modality.id === modalityId}
-              disabled={disabled}
-              onClick={() => {
-                if (modality.id !== modalityId) goTo(context.site.id, modality.id);
-              }}
-              className={`min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors disabled:opacity-60 ${
-                modality.id === modalityId
-                  ? 'border-sky-700 bg-sky-700 text-white'
-                  : 'border-sky-100 bg-white text-sky-900 hover:bg-sky-100'
-              }`}
-            >
-              {modality.nombre}
-            </button>
-          ))}
-        </div>
-      </fieldset>
       <div className="flex min-h-10 items-center gap-2 self-start rounded-lg border border-sky-100 bg-white px-3 text-xs font-medium text-slate-600 sm:self-auto">
         <Clock3 className="h-4 w-4 text-sky-700" aria-hidden="true" />
         Zona horaria: Bogotá
