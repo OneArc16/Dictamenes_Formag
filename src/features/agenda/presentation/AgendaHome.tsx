@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarPlus2, History, LayoutList } from 'lucide-react';
+import { CalendarPlus2, LayoutList } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -8,7 +8,6 @@ import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
-import AgendaGenerationsList from './AgendaGenerationsList';
 import { AgendaModalityPicker } from './AgendaModalityPicker';
 import AgendaSlotsBoard from './AgendaSlotsBoard';
 
@@ -50,9 +49,6 @@ export default function AgendaHome({
             <TabsTrigger value="cupos" className={triggerClass}>
               <LayoutList className="h-4 w-4" aria-hidden="true" /> Cupos
             </TabsTrigger>
-            <TabsTrigger value="generaciones" className={triggerClass}>
-              <History className="h-4 w-4" aria-hidden="true" /> Generaciones
-            </TabsTrigger>
           </TabsList>
           <AgendaModalityPicker
             modalities={modalities}
@@ -63,9 +59,6 @@ export default function AgendaHome({
         </div>
         <TabsContent value="cupos" className="mt-0">
           <AgendaSlotsBoard canCancel={canCancel} modalityId={modalityId} />
-        </TabsContent>
-        <TabsContent value="generaciones" className="mt-0">
-          <AgendaGenerationsList canCreate={canCreate} modalityId={modalityId} />
         </TabsContent>
       </Tabs>
     </ModulePageLayout>
