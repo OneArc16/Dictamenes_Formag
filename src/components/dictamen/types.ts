@@ -77,6 +77,7 @@ export interface DictamenRow {
   docenteDocumento?: string | null;
   docenteNombre?: string | null;
   secretaria?: string | null;
+  tipoDictamen?: 'CALIFICACION' | 'RECALIFICACION' | string | null;
   estado?: DictamenEstado | string;
   medicoNombre?: string | null;
   fueReabierto?: boolean;
@@ -90,6 +91,7 @@ export interface DictamenRow {
   canOpenPcl?: boolean;
   pclBloqueado?: boolean;
   canReopen?: boolean;
+  canPrintOrigin?: boolean;
 }
 
 

@@ -17,6 +17,7 @@ Acceptance criteria:
 - Opening an action preserves the reception page and opens the printable document in a new tab.
 - Document endpoints enforce authenticated reception access, attended-appointment scope, and inline PDF responses.
 - A single remisión action opens a selector when there are two or more remisiones; selecting one prints only that remisión, while a single remisión opens directly.
+- The admissions dictamen table shows an origin print action only when a finalized Formulario de Origen version exists and the user can read it.
 
 ## Tasks
 
@@ -35,3 +36,4 @@ L6: User correction: "hagamos algo para que ls remisiones salgan en dos hojas di
 L7: User correction: "no me referia asi, si hay dos o mas remisiones este abra un modal para seleccionar cual imprimir". The UI now opens a modal for two or more remisiones and sends the selected remisionId to the PDF endpoint; one remisión still opens directly.
 L8: User report: the remisión selector overflowed horizontally for long CUPS labels. The option buttons now occupy the modal width and allow their descriptive text to wrap.
 L9: User report: choosing a remisión closed the selector modal. The option action now opens the selected PDF in a new tab while keeping the modal available until the user explicitly closes it.
+L10: User request: "Falta el boton para imprimir los origenes". The admissions dictamen query now exposes whether a finalized Formulario de Origen version exists, and eligible rows display a green origin-print action that opens its inline PDF in a new tab.

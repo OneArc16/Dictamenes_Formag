@@ -143,6 +143,15 @@ export async function GET(req: Request) {
             nombre: true,
           },
         },
+        formularioOrigen: {
+          select: {
+            versiones: {
+              select: { id: true },
+              orderBy: { numeroVersion: 'desc' },
+              take: 1,
+            },
+          },
+        },
       },
       orderBy: [{ fechaDictamen: 'desc' }, { id: 'desc' }],
       take: 500,
@@ -163,6 +172,7 @@ export async function GET(req: Request) {
       reabiertaEn: dictamen.reabiertoEn ? dictamen.reabiertoEn.toISOString() : null,
       reabiertaPorNombre: buildNombreCompleto(dictamen.reabiertoPor),
       motivoReapertura: dictamen.motivoReapertura?.nombre ?? null,
+      canPrintOrigin: (dictamen.formularioOrigen?.versiones.length ?? 0) > 0,
     }));
 
     return NextResponse.json({ ok: true, rows });

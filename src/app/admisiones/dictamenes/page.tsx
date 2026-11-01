@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DictamenExportButton, type DictamenExportRow } from '@/components/DictamenExportButton';
 import AdmisionesBanner from '@/components/admisiones/AdmisionesBanner';
 import ImprimirDictamenButton from '@/components/admisiones/dictamenes/ImprimirDictamenButton';
+import ImprimirOrigenButton from '@/components/admisiones/dictamenes/ImprimirOrigenButton';
 import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
 import { DictamenFiltersBar, type MedicoOption } from '@/components/dictamen/DictamenFiltersBar';
 import { DictamenTable } from '@/components/dictamen/DictamenTable';
@@ -27,6 +28,7 @@ type DictamenApiRow = {
   reabiertaEn: string | null;
   reabiertaPorNombre: string | null;
   motivoReapertura: string | null;
+  canPrintOrigin: boolean;
 };
 
 type MotivosReaperturaResponse = {
@@ -127,6 +129,7 @@ export default function AdmisionesPage() {
         reabiertaEn: dictamen.reabiertaEn,
         reabiertaPorNombre: dictamen.reabiertaPorNombre,
         motivoReapertura: dictamen.motivoReapertura,
+        canPrintOrigin: dictamen.canPrintOrigin,
       })) as DictamenRow[];
     },
     placeholderData: (previous) => previous,
@@ -195,6 +198,7 @@ export default function AdmisionesPage() {
 
           return (
             <div className="flex items-center gap-2">
+              <ImprimirOrigenButton dictamenId={row.id} canPrintOrigin={row.canPrintOrigin === true} />
               <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
               {canReopenDictamen && isCerrado && motivosReapertura.length > 0 ? (
                 <ReabrirDictamenButton
