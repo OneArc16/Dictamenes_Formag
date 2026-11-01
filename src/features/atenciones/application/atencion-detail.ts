@@ -3,8 +3,10 @@ import { prisma } from '@/lib/prisma';
 
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { DiagnosticoAtencion } from '../domain/diagnosticos';
+import type { Evolucion } from '../domain/evoluciones';
 import type { Remision, RemisionAtajo } from '../domain/remisiones';
 import { getDiagnosticos } from './diagnosticos';
+import { getEvoluciones } from './evoluciones';
 import { getRemisiones } from './remisiones';
 import { resolveHallazgos, type HallazgosDoc } from './hallazgos';
 import { getSignosVitales, type SignosHistorialItem, type SignosVitalesToma } from './signos-vitales';
@@ -55,6 +57,9 @@ export type AtencionDetalle = {
   remisiones: Remision[];
   remisionesHistorial: Remision[];
   remisionAtajos: RemisionAtajo[];
+  evoluciones: Evolucion[];
+  /** Evoluciones del docente en otras atenciones, de la más reciente a la más antigua. */
+  evolucionesHistorial: Evolucion[];
   mujer: boolean;
   signosVitales: SignosVitalesToma;
   /** Tomas de las demás atenciones del docente, de la más reciente a la más antigua. */
@@ -120,6 +125,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     examenFisico,
     diagnosticos,
     remisiones,
+    evoluciones,
   ] = await Promise.all([
     load('personales', cita.atencion?.antecedentesPersonales),
     load('familiares', cita.atencion?.antecedentesFamiliares),
@@ -129,6 +135,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     resolveHallazgos(prisma, 'examen-fisico', cita.id, cita.usuarioId),
     getDiagnosticos(cita.id),
     getRemisiones(cita.id, cita.usuarioId),
+    getEvoluciones(cita.id, cita.usuarioId),
   ]);
 
   const paciente = cita.paciente;
@@ -171,6 +178,8 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     remisiones: remisiones.remisiones,
     remisionesHistorial: remisiones.historial,
     remisionAtajos: remisiones.atajos,
+    evoluciones: evoluciones.evoluciones,
+    evolucionesHistorial: evoluciones.historial,
     mujer,
     signosVitales: signos.toma,
     signosHistorial: signos.historial,

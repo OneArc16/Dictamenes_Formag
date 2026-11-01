@@ -19,6 +19,7 @@ import { AtencionRightPanel } from './AtencionRightPanel';
 import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
+import { EvolucionesTab } from './tabs/EvolucionesTab';
 import { RemisionesTab } from './tabs/RemisionesTab';
 import { AnalisisPlanTab } from './tabs/AnalisisPlanTab';
 import { DiagnosticosTab } from './tabs/DiagnosticosTab';
@@ -35,6 +36,7 @@ const SIN_GINECOBSTETRICOS = {
 };
 import { useAtencionForm } from './useAtencionForm';
 import { useDiagnosticos } from './useDiagnosticos';
+import { useEvoluciones } from './useEvoluciones';
 import { useRemisiones } from './useRemisiones';
 import { useHallazgos } from './useHallazgos';
 import { useSignosVitales } from './useSignosVitales';
@@ -62,6 +64,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   const examen = useHallazgos('examen-fisico', detalle.id, detalle.examenFisico, editable);
   const diagnosticos = useDiagnosticos(detalle.id, detalle.diagnosticos, editable);
   const remisiones = useRemisiones(detalle.id, detalle.remisiones);
+  const evoluciones = useEvoluciones(detalle.id, detalle.evoluciones);
 
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
   const statuses = [
@@ -221,6 +224,17 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   onAgregar={(input) => remisiones.agregar.mutateAsync(input)}
                   onQuitar={(id) => remisiones.quitar.mutate(id)}
                   onIrADiagnosticos={() => setActiveTab('diagnosticos')}
+                />
+              ),
+              evoluciones: (
+                <EvolucionesTab
+                  evoluciones={evoluciones.evoluciones}
+                  historial={detalle.evolucionesHistorial}
+                  readOnly={!editable}
+                  agregando={evoluciones.agregar.isPending}
+                  quitandoId={evoluciones.quitar.isPending ? (evoluciones.quitar.variables ?? null) : null}
+                  onAgregar={(input) => evoluciones.agregar.mutateAsync(input)}
+                  onQuitar={(id) => evoluciones.quitar.mutate(id)}
                 />
               ),
             }}

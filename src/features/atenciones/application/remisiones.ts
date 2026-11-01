@@ -2,11 +2,11 @@ import { Prisma } from '@prisma/client';
 
 import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { ReceptionError } from '@/features/reception/application/errors';
-import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
+import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
 import type { CreateRemisionCommand, Remision, RemisionAtajo } from '../domain/remisiones';
-import { attendBlocker } from './attend-blocker';
+import { editableCita } from './editable-cita';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -72,20 +72,6 @@ export async function getRemisiones(citaId: number, usuarioId: number) {
       cupsNombre: atajo.cups.nombre,
     })),
   };
-}
-
-async function editableCita(tx: Prisma.TransactionClient, auth: AuthorizationContext, citaId: number) {
-  if (!hasAbility(auth, 'appointment.attend')) {
-    throw new ReceptionError('FORBIDDEN', 'No tienes permiso clínico para atender citas.', 403);
-  }
-  const cita = await tx.cita.findUnique({
-    where: { id: citaId },
-    select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true },
-  });
-  const blocker = attendBlocker(cita, auth);
-  if (blocker || !cita)
-    throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
-  return cita;
 }
 
 export async function createRemision(auth: AuthorizationContext, citaId: number, input: CreateRemisionCommand) {
