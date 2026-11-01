@@ -9,7 +9,6 @@ import { prisma } from '@/lib/prisma';
 import {
   fechaFinIncapacidad,
   formatNumeroInterno,
-  validarProrroga,
   type CreateIncapacidadCommand,
   type Incapacidad,
 } from '../domain/incapacidades';
@@ -27,9 +26,6 @@ const INCAPACIDAD_SELECT = {
   numeroInterno: true,
   categoria: true,
   prorroga: true,
-  prorrogaDe: { select: { id: true, numeroInterno: true } },
-  prorrogaExternaNumero: true,
-  prorrogaExternaFin: true,
   cita: { select: { diagnosticos: { orderBy: { orden: 'asc' }, select: { cie10: { select: { codigo: true, nombre: true } } } } } },
   fechaInicio: true,
   fechaFin: true,
@@ -56,11 +52,6 @@ async function toIncapacidades(db: Db, rows: IncapacidadRow[]): Promise<Incapaci
       numeroInterno: row.numeroInterno,
       categoria: row.categoria,
       prorroga: row.prorroga,
-      prorrogaDe: row.prorrogaDe,
-      prorrogaExterna:
-        row.prorrogaExternaNumero && row.prorrogaExternaFin
-          ? { numero: row.prorrogaExternaNumero, fechaFin: dateOnly(row.prorrogaExternaFin) }
-          : null,
       diagnosticos: row.cita.diagnosticos.map((item) => item.cie10),
       fechaInicio: dateOnly(row.fechaInicio),
       fechaFin: dateOnly(row.fechaFin),
@@ -113,20 +104,6 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
     }
 
     const fechaFin = fechaFinIncapacidad(input.fechaInicio, input.dias);
-    if (input.prorrogaDeId) {
-      const anterior = await tx.atencionIncapacidad.findFirst({
-        where: { id: input.prorrogaDeId, usuarioId: cita.usuarioId },
-        select: { fechaFin: true },
-      });
-      if (!anterior) throw new ReceptionError('NOT_FOUND', 'La incapacidad que se prorroga no existe.', 404);
-      const motivo = validarProrroga(dateOnly(anterior.fechaFin), input.fechaInicio);
-      if (motivo) throw new ReceptionError('PRORROGA_INVALIDA', motivo, 422);
-    }
-    if (input.prorrogaExterna) {
-      const motivo = validarProrroga(input.prorrogaExterna.fechaFin, input.fechaInicio);
-      if (motivo) throw new ReceptionError('PRORROGA_INVALIDA', motivo, 422);
-    }
-
     // El lock de numeración también serializa esta verificación de cruces.
     const numeroInterno = await siguienteNumeroInterno(tx);
     const cruce = await tx.atencionIncapacidad.findFirst({
@@ -152,9 +129,6 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
         numeroInterno,
         categoria: input.categoria,
         prorroga: input.prorroga,
-        prorrogaDeId: input.prorrogaDeId ?? null,
-        prorrogaExternaNumero: input.prorrogaExterna?.numero ?? null,
-        prorrogaExternaFin: input.prorrogaExterna ? parseDateOnly(input.prorrogaExterna.fechaFin) : null,
         fechaInicio: parseDateOnly(input.fechaInicio),
         fechaFin: parseDateOnly(fechaFin),
         dias: input.dias,
@@ -167,14 +141,10 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
   });
 }
 
-/** Solo quien la expidió puede quitarla, con la atención abierta y si nadie la prorroga. */
+/** Solo quien la expidió puede quitarla, y solo con la atención abierta. */
 export async function deleteIncapacidad(auth: AuthorizationContext, citaId: number, incapacidadId: number) {
   return prisma.$transaction(async (tx) => {
     await editableCita(tx, auth, citaId);
-    const prorrogas = await tx.atencionIncapacidad.count({ where: { prorrogaDeId: incapacidadId } });
-    if (prorrogas > 0) {
-      throw new ReceptionError('INCAPACIDAD_PRORROGADA', 'No se puede quitar: otra incapacidad la prorroga.', 409);
-    }
     const deleted = await tx.atencionIncapacidad.deleteMany({
       where: { id: incapacidadId, citaId, createdBy: auth.empleadoId },
     });

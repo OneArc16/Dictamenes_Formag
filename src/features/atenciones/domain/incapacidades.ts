@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { differenceInCalendarDays, parseDateOnly } from '@/features/agenda/domain/date-time';
+import { parseDateOnly } from '@/features/agenda/domain/date-time';
 
 export const CATEGORIAS_INCAPACIDAD = [
   { value: 'ENFERMEDAD_GENERAL', label: 'Enfermedad general' },
@@ -24,22 +24,11 @@ export function categoriaLabel(categoria: CategoriaIncapacidad) {
 
 export const INCAPACIDAD_DIAS_MAX = 180;
 export const INCAPACIDAD_OBSERVACIONES_MAX = 2000;
-/** Interrupción máxima entre una incapacidad y su prórroga (Decreto 1427 de 2022). */
-export const PRORROGA_INTERRUPCION_MAX_DIAS = 30;
 
 export const createIncapacidadSchema = z
   .object({
     categoria: z.enum(CATEGORIA_VALUES, { error: 'Selecciona la categoría.' }),
     prorroga: z.boolean(),
-    prorrogaDeId: z.number().int().positive().optional(),
-    /** Incapacidad anterior expedida fuera del sistema (otra entidad). */
-    prorrogaExterna: z
-      .object({
-        numero: z.string().trim().min(1, 'Escribe el número de la incapacidad anterior.').max(40),
-        fechaFin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha de fin de la incapacidad anterior no es válida.'),
-      })
-      .strict()
-      .optional(),
     fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha de inicio no es válida.'),
     dias: z
       .number({ error: 'Escribe los días de incapacidad.' })
@@ -48,17 +37,7 @@ export const createIncapacidadSchema = z
       .max(INCAPACIDAD_DIAS_MAX, `La incapacidad admite máximo ${INCAPACIDAD_DIAS_MAX} días.`),
     observaciones: z.string().trim().max(INCAPACIDAD_OBSERVACIONES_MAX).optional(),
   })
-  .strict()
-  .refine(
-    (value) => {
-      const anteriores = Number(value.prorrogaDeId !== undefined) + Number(value.prorrogaExterna !== undefined);
-      return value.prorroga ? anteriores === 1 : anteriores === 0;
-    },
-    {
-      message: 'Selecciona la incapacidad que se prorroga.',
-      path: ['prorrogaDeId'],
-    },
-  );
+  .strict();
 
 export type CreateIncapacidadCommand = z.infer<typeof createIncapacidadSchema>;
 
@@ -68,8 +47,6 @@ export type Incapacidad = {
   numeroInterno: string;
   categoria: CategoriaIncapacidad;
   prorroga: boolean;
-  prorrogaDe: { id: number; numeroInterno: string } | null;
-  prorrogaExterna: { numero: string; fechaFin: string } | null;
   /** Diagnósticos de la atención en que se expidió; el primero es el principal. */
   diagnosticos: Array<{ codigo: string; nombre: string }>;
   fechaInicio: string;
@@ -89,20 +66,6 @@ function addDays(date: string, days: number) {
 /** El día de inicio cuenta como primer día de incapacidad. */
 export function fechaFinIncapacidad(fechaInicio: string, dias: number) {
   return addDays(fechaInicio, dias - 1);
-}
-
-export function siguienteDia(fecha: string) {
-  return addDays(fecha, 1);
-}
-
-/** Null si la prórroga es válida; si no, el motivo. */
-export function validarProrroga(finAnterior: string, inicio: string): string | null {
-  const diferencia = differenceInCalendarDays(finAnterior, inicio);
-  if (diferencia < 1) return 'La prórroga debe empezar después de que termine la incapacidad anterior.';
-  if (diferencia - 1 > PRORROGA_INTERRUPCION_MAX_DIAS) {
-    return `Entre la incapacidad anterior y la prórroga no puede haber más de ${PRORROGA_INTERRUPCION_MAX_DIAS} días.`;
-  }
-  return null;
 }
 
 type Rango = { fechaInicio: string; fechaFin: string };

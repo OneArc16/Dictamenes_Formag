@@ -12,8 +12,6 @@ import {
   categoriaLabel,
   fechaFinIncapacidad,
   incapacidadesSeCruzan,
-  siguienteDia,
-  validarProrroga,
   type CategoriaIncapacidad,
   type CreateIncapacidadCommand,
   type Incapacidad,
@@ -41,18 +39,10 @@ function hoy() {
   return dateInTimeZone(new Date(), 'America/Bogota');
 }
 
-function opcionIncapacidad(incapacidad: Incapacidad) {
-  return `${incapacidad.numeroInterno} · ${categoriaLabel(incapacidad.categoria)} · ${formatFecha(incapacidad.fechaInicio)} a ${formatFecha(incapacidad.fechaFin)}`;
-}
-
 function emptyForm() {
   return {
     categoria: '' as CategoriaIncapacidad | '',
     prorroga: false,
-    origenProrroga: 'SISTEMA' as 'SISTEMA' | 'EXTERNA',
-    prorrogaDeId: null as number | null,
-    externaNumero: '',
-    externaFin: '',
     fechaInicio: hoy(),
     dias: '',
     observaciones: '',
@@ -79,13 +69,10 @@ function IncapacidadCard({
             <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
               {categoriaLabel(incapacidad.categoria)}
             </span>
-            {incapacidad.prorrogaDe || incapacidad.prorrogaExterna ? (
+            {incapacidad.prorroga ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                 <Repeat2 className="h-3 w-3" aria-hidden="true" />
-                Prórroga de{' '}
-                {incapacidad.prorrogaDe
-                  ? incapacidad.prorrogaDe.numeroInterno
-                  : `${incapacidad.prorrogaExterna?.numero} (externa, fin ${formatFecha(incapacidad.prorrogaExterna?.fechaFin ?? '')})`}
+                Prórroga
               </span>
             ) : null}
           </div>
@@ -159,24 +146,15 @@ export function IncapacidadesTab({
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
-  // Todas las incapacidades conocidas del docente: se pueden prorrogar y no se deben cruzar.
+  // Incapacidades conocidas del docente: la nueva no se puede cruzar con ellas.
   const delDocente = useMemo(
     () => [...incapacidades, ...historial].sort((a, b) => b.fechaFin.localeCompare(a.fechaFin)),
     [incapacidades, historial],
   );
-  const anterior = delDocente.find((item) => item.id === form.prorrogaDeId) ?? null;
 
   const dias = Number(form.dias);
   const diasValidos = Number.isInteger(dias) && dias >= 1 && dias <= INCAPACIDAD_DIAS_MAX;
   const fechaFin = diasValidos && form.fechaInicio ? fechaFinIncapacidad(form.fechaInicio, dias) : null;
-  const finAnterior = !form.prorroga
-    ? null
-    : form.origenProrroga === 'SISTEMA'
-      ? (anterior?.fechaFin ?? null)
-      : form.externaFin || null;
-  const avisoProrroga = finAnterior && form.fechaInicio ? validarProrroga(finAnterior, form.fechaInicio) : null;
-  const prorrogaCompleta =
-    form.origenProrroga === 'SISTEMA' ? Boolean(anterior) : Boolean(form.externaNumero.trim() && form.externaFin);
   const cruce =
     fechaFin && form.fechaInicio
       ? delDocente.find((item) => incapacidadesSeCruzan(item, { fechaInicio: form.fechaInicio, fechaFin }))
@@ -186,46 +164,8 @@ export function IncapacidadesTab({
     Boolean(form.categoria) &&
     diagnosticos.length > 0 &&
     Boolean(fechaFin) &&
-    (!form.prorroga || prorrogaCompleta) &&
-    !avisoProrroga &&
     !cruce &&
     !agregando;
-
-  const elegirTipo = (prorroga: boolean) =>
-    setForm((current) => ({
-      ...current,
-      prorroga,
-      // Sin incapacidades del docente en el sistema, la prórroga solo puede ser de una externa.
-      origenProrroga: delDocente.length > 0 ? 'SISTEMA' : 'EXTERNA',
-      prorrogaDeId: null,
-      externaNumero: '',
-      externaFin: '',
-      fechaInicio: prorroga ? current.fechaInicio : hoy(),
-    }));
-
-  const elegirOrigen = (origenProrroga: 'SISTEMA' | 'EXTERNA') =>
-    setForm((current) => ({ ...current, origenProrroga, prorrogaDeId: null, externaNumero: '', externaFin: '' }));
-
-  const elegirFinExterna = (fecha: string) =>
-    setForm((current) => ({
-      ...current,
-      externaFin: fecha,
-      fechaInicio: /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? siguienteDia(fecha) : current.fechaInicio,
-    }));
-
-  const elegirAnterior = (id: number | null) => {
-    const seleccion = delDocente.find((item) => item.id === id);
-    setForm((current) =>
-      seleccion
-        ? {
-            ...current,
-            prorrogaDeId: seleccion.id,
-            categoria: seleccion.categoria,
-            fechaInicio: siguienteDia(seleccion.fechaFin),
-          }
-        : { ...current, prorrogaDeId: null },
-    );
-  };
 
   const expedir = async () => {
     if (!puedeExpedir || !form.categoria) return;
@@ -233,12 +173,6 @@ export function IncapacidadesTab({
       await onAgregar({
         categoria: form.categoria,
         prorroga: form.prorroga,
-        ...(form.prorroga && form.origenProrroga === 'SISTEMA' && form.prorrogaDeId
-          ? { prorrogaDeId: form.prorrogaDeId }
-          : {}),
-        ...(form.prorroga && form.origenProrroga === 'EXTERNA'
-          ? { prorrogaExterna: { numero: form.externaNumero.trim(), fechaFin: form.externaFin } }
-          : {}),
         fechaInicio: form.fechaInicio,
         dias,
         observaciones: form.observaciones.trim() || undefined,
@@ -304,7 +238,7 @@ export function IncapacidadesTab({
                     key={option.label}
                     type="button"
                     aria-pressed={form.prorroga === option.value}
-                    onClick={() => elegirTipo(option.value)}
+                    onClick={() => set('prorroga', option.value)}
                     className={`min-h-9 rounded-md text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                       form.prorroga === option.value ? 'bg-sky-700 text-white' : 'text-slate-700 hover:bg-slate-100'
                     }`}
@@ -321,89 +255,6 @@ export function IncapacidadesTab({
                 Se asigna automáticamente al expedir
               </p>
             </div>
-
-            {form.prorroga ? (
-              <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3 md:col-span-3">
-                <fieldset>
-                  <legend className={labelClass}>
-                    Incapacidad que se prorroga <span className="text-rose-700">*</span>
-                  </legend>
-                  <div className="mt-1 inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
-                    {[
-                      { value: 'SISTEMA' as const, label: 'Del sistema', disabled: delDocente.length === 0 },
-                      { value: 'EXTERNA' as const, label: 'Externa (otra entidad)', disabled: false },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={form.origenProrroga === option.value}
-                        disabled={option.disabled}
-                        title={option.disabled ? 'El docente no tiene incapacidades registradas en el sistema.' : undefined}
-                        onClick={() => elegirOrigen(option.value)}
-                        className={`min-h-8 rounded-md px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                          form.origenProrroga === option.value ? 'bg-sky-700 text-white' : 'text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-
-                {form.origenProrroga === 'SISTEMA' ? (
-                  <div>
-                    <label htmlFor="incapacidad-prorroga-de" className="sr-only">
-                      Incapacidad del sistema que se prorroga
-                    </label>
-                    <select
-                      id="incapacidad-prorroga-de"
-                      value={form.prorrogaDeId ?? ''}
-                      onChange={(event) => elegirAnterior(event.target.value ? Number(event.target.value) : null)}
-                      className={inputClassName}
-                    >
-                      <option value="">Selecciona la incapacidad anterior</option>
-                      {delDocente.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {opcionIncapacidad(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="incapacidad-externa-numero" className={labelClass}>
-                        N° de la incapacidad anterior <span className="text-rose-700">*</span>
-                      </label>
-                      <input
-                        id="incapacidad-externa-numero"
-                        value={form.externaNumero}
-                        maxLength={40}
-                        onChange={(event) => set('externaNumero', event.target.value)}
-                        className={`${inputClassName} mt-1`}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="incapacidad-externa-fin" className={labelClass}>
-                        Fecha de fin de la anterior <span className="text-rose-700">*</span>
-                      </label>
-                      <input
-                        id="incapacidad-externa-fin"
-                        type="date"
-                        value={form.externaFin}
-                        onChange={(event) => elegirFinExterna(event.target.value)}
-                        className={`${inputClassName} mt-1`}
-                      />
-                    </div>
-                  </div>
-                )}
-                {finAnterior ? (
-                  <p className="text-[11px] text-slate-600">
-                    Se propone iniciar el día siguiente al fin de la anterior ({formatFecha(finAnterior)}).
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
 
             <div>
               <label htmlFor="incapacidad-inicio" className={labelClass}>
@@ -456,9 +307,9 @@ export function IncapacidadesTab({
             </div>
           </div>
 
-          {avisoProrroga || cruce ? (
+          {cruce ? (
             <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-              {avisoProrroga ?? `Las fechas se cruzan con la incapacidad ${cruce?.numeroInterno} del docente.`}
+              Las fechas se cruzan con la incapacidad {cruce.numeroInterno} del docente.
             </p>
           ) : null}
 

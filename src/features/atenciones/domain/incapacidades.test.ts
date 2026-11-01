@@ -7,9 +7,7 @@ import {
   fechaFinIncapacidad,
   formatNumeroInterno,
   incapacidadesSeCruzan,
-  siguienteDia,
   totalDias,
-  validarProrroga,
 } from './incapacidades';
 
 const base = {
@@ -29,44 +27,20 @@ test('la incapacidad exige categoría, fecha de inicio y días', () => {
   assert.equal(createIncapacidadSchema.safeParse({ ...base, dias: 2.5 }).success, false);
 });
 
+test('la prórroga es solo una marca sí o no', () => {
+  assert.equal(createIncapacidadSchema.parse({ ...base, prorroga: true }).prorroga, true);
+  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorroga: undefined }).success, false);
+  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaDeId: 4 }).success, false);
+});
+
 test('los diagnósticos vienen de la atención: la incapacidad no recibe uno propio', () => {
   assert.equal(createIncapacidadSchema.safeParse({ ...base, diagnosticoCodigo: 'M545' }).success, false);
-});
-
-test('la prórroga exige la incapacidad que prorroga y la inicial no la admite', () => {
-  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorroga: true }).success, false);
-  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaDeId: 4 }).success, true);
-  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorrogaDeId: 4 }).success, false);
-});
-
-test('la prórroga puede ser de una incapacidad externa con su número y fecha de fin', () => {
-  const externa = { numero: ' EPS-123 ', fechaFin: '2026-10-31' };
-  const parsed = createIncapacidadSchema.parse({ ...base, prorroga: true, prorrogaExterna: externa });
-  assert.deepEqual(parsed.prorrogaExterna, { numero: 'EPS-123', fechaFin: '2026-10-31' });
-  assert.equal(
-    createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaExterna: { numero: '', fechaFin: '2026-10-31' } }).success,
-    false,
-  );
-  // O una del sistema o una externa, nunca ambas; y la inicial no admite ninguna.
-  assert.equal(
-    createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaDeId: 4, prorrogaExterna: externa }).success,
-    false,
-  );
-  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorrogaExterna: externa }).success, false);
 });
 
 test('la fecha de fin cuenta el día de inicio', () => {
   assert.equal(fechaFinIncapacidad('2026-11-05', 1), '2026-11-05');
   assert.equal(fechaFinIncapacidad('2026-11-05', 3), '2026-11-07');
   assert.equal(fechaFinIncapacidad('2026-11-30', 2), '2026-12-01');
-  assert.equal(siguienteDia('2026-12-31'), '2027-01-01');
-});
-
-test('la prórroga empieza después de la anterior y sin interrupción mayor a 30 días', () => {
-  assert.equal(validarProrroga('2026-11-07', '2026-11-08'), null);
-  assert.equal(validarProrroga('2026-11-07', '2026-12-08'), null);
-  assert.match(validarProrroga('2026-11-07', '2026-12-09') ?? '', /30 días/);
-  assert.match(validarProrroga('2026-11-07', '2026-11-07') ?? '', /después/);
 });
 
 test('detecta incapacidades del docente que se cruzan en fechas', () => {
