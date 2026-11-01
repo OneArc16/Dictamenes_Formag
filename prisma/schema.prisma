@@ -1291,7 +1291,6 @@ model AtencionIncapacidad {
   categoria         CategoriaIncapacidad
   prorroga          Boolean              @default(false)
   prorrogaDeId      Int?
-  diagnosticoCodigo String               @db.VarChar(10)
   fechaInicio       DateTime             @db.Date
   fechaFin          DateTime             @db.Date
   dias              Int                  @db.SmallInt
@@ -1301,7 +1300,6 @@ model AtencionIncapacidad {
 
   cita        Cita                  @relation(fields: [citaId], references: [id], onDelete: Restrict)
   usuario     Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  diagnostico Cie10                 @relation(fields: [diagnosticoCodigo], references: [codigo], onDelete: Restrict)
   prorrogaDe  AtencionIncapacidad?  @relation("IncapacidadProrroga", fields: [prorrogaDeId], references: [id], onDelete: Restrict)
   prorrogas   AtencionIncapacidad[] @relation("IncapacidadProrroga")
 
@@ -1594,7 +1592,6 @@ model Cie10 {
   remisionesPrincipal  AtencionRemision[]    @relation("RemisionDiagnostico")
   remisionesRelac2     AtencionRemision[]    @relation("RemisionRelacionado2")
   remisionesRelac3     AtencionRemision[]    @relation("RemisionRelacionado3")
-  incapacidades        AtencionIncapacidad[]
 
   @@map("cie10")
 }
