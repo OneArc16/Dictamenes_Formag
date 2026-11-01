@@ -195,6 +195,91 @@ async function upsertDocente(tx: Tx, input: Input, actor: AuthorizationContext) 
   });
 }
 
+export type AbrirCasoDictamenParams = {
+  usuarioId: number;
+  identificacion: string;
+  /** Médico responsable: el caso aparece en su panel de Dictamen. */
+  empleadoId: number;
+  tipoDictamen: TipoDictamen;
+  documentoInicial: 'PCL' | 'ORIGEN';
+  operacionId?: string;
+  /** Remisión a junta médica que originó el caso, si viene de una atención. */
+  remisionId?: number;
+};
+
+/**
+ * Abre el expediente del docente (un solo caso activo por docente) con su formulario de
+ * origen en borrador; si arranca en PCL, también queda numerado e iniciado.
+ */
+export async function abrirCasoDictamen(tx: Tx, params: AbrirCasoDictamenParams) {
+  const activeCase = await tx.dictamen.findFirst({
+    where: { usuarioId: params.usuarioId, estado: true },
+    select: { id: true },
+  });
+  if (activeCase) {
+    throw new ApplicationError(
+      'ACTIVE_CASE_EXISTS',
+      `El docente ya tiene un expediente activo (#${activeCase.id}).`,
+      409,
+    );
+  }
+
+  const sedeId = await resolveSede(tx, params.empleadoId, params.usuarioId);
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const date = parseColombiaDate(today);
+  const originNumber = buildNumeroDictamen(today, params.identificacion);
+  const startsWithPcl = params.documentoInicial === 'PCL';
+
+  const dictamen = await tx.dictamen.create({
+    data: {
+      usuarioId: params.usuarioId,
+      empleadoId: params.empleadoId,
+      sedeId,
+      fechaDictamen: date,
+      procedimientoPcl: 'A',
+      tipoDictamen: params.tipoDictamen,
+      flujoVersion: 'ORIGEN_PREVIO',
+      operacionId: params.operacionId,
+      remisionId: params.remisionId,
+      ...(startsWithPcl
+        ? {
+            numeroDictamen: originNumber,
+            pclIniciadoEn: new Date(),
+          }
+        : {}),
+      formularioOrigen: {
+        create: {
+          fechaDictamenOrigen: date,
+          numeroDictamenOrigen: originNumber,
+          historial: {
+            create: {
+              actorId: params.empleadoId,
+              tipo: 'CREACION',
+              estadoNuevo: 'BORRADOR',
+              cambios: {
+                ...(params.operacionId ? { operacionId: params.operacionId } : {}),
+                ...(params.remisionId ? { remisionId: params.remisionId } : {}),
+                documentoInicial: params.documentoInicial,
+              },
+            },
+          },
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return {
+    dictamenId: dictamen.id,
+    route: buildInitialRoute(dictamen.id, params.documentoInicial),
+  };
+}
+
 export async function registrarCasoDictamen(
   input: Input,
   auth: AuthorizationContext,
@@ -217,74 +302,15 @@ export async function registrarCasoDictamen(
   try {
     return await prisma.$transaction(async (tx) => {
       const docente = await upsertDocente(tx, input, auth);
-      const activeCase = await tx.dictamen.findFirst({
-        where: {
-          usuarioId: docente.id,
-          estado: true,
-        },
-        select: { id: true },
+      const caso = await abrirCasoDictamen(tx, {
+        usuarioId: docente.id,
+        identificacion: docente.identificacion,
+        empleadoId: auth.empleadoId,
+        tipoDictamen: input.form.tipoDictamen as TipoDictamen,
+        documentoInicial: input.documentoInicial,
+        operacionId: input.operacionId,
       });
-      if (activeCase) {
-        throw new ApplicationError(
-          'ACTIVE_CASE_EXISTS',
-          `El docente ya tiene un expediente activo (#${activeCase.id}).`,
-          409,
-        );
-      }
-
-      const sedeId = await resolveSede(tx, auth.empleadoId, docente.id);
-      const today = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Bogota',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(new Date());
-      const date = parseColombiaDate(today);
-      const originNumber = buildNumeroDictamen(today, docente.identificacion);
-      const startsWithPcl = input.documentoInicial === 'PCL';
-
-      const dictamen = await tx.dictamen.create({
-        data: {
-          usuarioId: docente.id,
-          empleadoId: auth.empleadoId,
-          sedeId,
-          fechaDictamen: date,
-          procedimientoPcl: 'A',
-          tipoDictamen: input.form.tipoDictamen as TipoDictamen,
-          flujoVersion: 'ORIGEN_PREVIO',
-          operacionId: input.operacionId,
-          ...(startsWithPcl
-            ? {
-                numeroDictamen: originNumber,
-                pclIniciadoEn: new Date(),
-              }
-            : {}),
-          formularioOrigen: {
-            create: {
-              fechaDictamenOrigen: date,
-              numeroDictamenOrigen: originNumber,
-              historial: {
-                create: {
-                  actorId: auth.empleadoId,
-                  tipo: 'CREACION',
-                  estadoNuevo: 'BORRADOR',
-                  cambios: {
-                    operacionId: input.operacionId,
-                    documentoInicial: input.documentoInicial,
-                  },
-                },
-              },
-            },
-          },
-        },
-        select: { id: true },
-      });
-
-      return {
-        dictamenId: dictamen.id,
-        route: buildInitialRoute(dictamen.id, input.documentoInicial),
-        replayed: false,
-      };
+      return { ...caso, replayed: false };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });

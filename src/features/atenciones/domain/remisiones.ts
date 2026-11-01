@@ -2,6 +2,24 @@ import { z } from 'zod';
 
 export const REMISION_MOTIVO_MAX = 2000;
 
+/** Participación en junta médica por medicina especializada: abre un caso en el panel de Dictamen. */
+export const CUPS_JUNTA_MEDICA = '890502';
+
+export const TIPOS_JUNTA = [
+  { value: 'CALIFICACION', label: 'Primera vez' },
+  { value: 'RECALIFICACION', label: 'Recalificación' },
+] as const;
+
+export type TipoJunta = (typeof TIPOS_JUNTA)[number]['value'];
+
+export function esJuntaMedica(cupsCodigo: string) {
+  return cupsCodigo.trim().toUpperCase() === CUPS_JUNTA_MEDICA;
+}
+
+export function tipoJuntaLabel(tipo: TipoJunta) {
+  return TIPOS_JUNTA.find((item) => item.value === tipo)?.label ?? tipo;
+}
+
 const codigo = z
   .string()
   .trim()
@@ -16,8 +34,13 @@ export const createRemisionSchema = z
     relacionado2Codigo: codigo.nullable().optional(),
     relacionado3Codigo: codigo.nullable().optional(),
     motivo: z.string().trim().max(REMISION_MOTIVO_MAX).optional(),
+    tipoDictamen: z.enum(['CALIFICACION', 'RECALIFICACION']).optional(),
   })
   .strict()
+  .refine((value) => (esJuntaMedica(value.cupsCodigo) ? value.tipoDictamen !== undefined : value.tipoDictamen === undefined), {
+    message: 'Indica si la junta médica es primera vez o recalificación.',
+    path: ['tipoDictamen'],
+  })
   .refine((value) => {
     const codigos = [value.diagnosticoCodigo, value.relacionado2Codigo, value.relacionado3Codigo].filter(Boolean);
     return new Set(codigos).size === codigos.length;
@@ -31,9 +54,15 @@ export type Remision = {
   cups: { codigo: string; nombre: string };
   diagnosticos: Array<{ codigo: string; nombre: string }>;
   motivo: string | null;
+  /** Solo en la junta médica: primera vez o recalificación, y el caso que abrió en Dictamen. */
+  tipoDictamen: TipoJunta | null;
+  dictamenId: number | null;
   fecha: string;
   medicoNombre: string | null;
 };
+
+/** Remisión recién creada; en junta médica dice si abrió el caso en Dictamen o por qué no. */
+export type RemisionCreada = Remision & { aviso: string | null };
 
 export type RemisionAtajo = { cupsCodigo: string; etiqueta: string; cupsNombre: string };
 

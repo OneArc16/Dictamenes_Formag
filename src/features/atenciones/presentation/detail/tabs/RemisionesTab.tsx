@@ -1,17 +1,22 @@
 'use client';
 
-import { CheckCircle2, ChevronDown, LoaderCircle, Plus, Send, Trash2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, FileSearch, LoaderCircle, Plus, Repeat2, Send, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { Cie10DiagnosticoSelect } from '@/components/forms/Cie10DiagnosticoSelect';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { inputClassName } from '@/features/formulario-origen/presentation/FormField';
 import {
   REMISION_MOTIVO_MAX,
+  esJuntaMedica,
   estadoAtajos,
+  tipoJuntaLabel,
   type CreateRemisionCommand,
   type Remision,
   type RemisionAtajo,
+  type TipoJunta,
 } from '@/features/atenciones/domain/remisiones';
 
 import { formatAtencionFecha, formatAtencionHora } from '../../AtencionesTable';
@@ -44,6 +49,21 @@ function RemisionCard({
             </span>
             {remision.cups.nombre}
           </p>
+          {remision.tipoDictamen ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-800">
+                {tipoJuntaLabel(remision.tipoDictamen)}
+              </span>
+              {remision.dictamenId ? (
+                <Link
+                  href="/medico"
+                  className="text-[11px] font-semibold text-sky-800 underline-offset-2 hover:underline"
+                >
+                  Caso #{remision.dictamenId} en Dictamen
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {remision.diagnosticos.map((dx, index) => (
               <span
@@ -106,6 +126,10 @@ export function RemisionesTab({
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [highlightId, setHighlightId] = useState<number | null>(null);
+  const [juntaPendiente, setJuntaPendiente] = useState<{
+    input: CreateRemisionCommand;
+    limpiarFormulario: boolean;
+  } | null>(null);
   const principal = diagnosticos[0]?.codigo ?? '';
   // La remisión lleva los diagnósticos de la atención: el principal y, si hay, el 2.º y el 3.º como relacionados.
   const diagnosticosRemision = {
@@ -130,21 +154,35 @@ export function RemisionesTab({
       toast.error('Registra primero el diagnóstico principal en la pestaña Diagnósticos.');
       return;
     }
-    void onAgregar({ cupsCodigo: atajo.cupsCodigo, ...diagnosticosRemision });
+    solicitar({ cupsCodigo: atajo.cupsCodigo, ...diagnosticosRemision }, false);
   };
 
-  const agregar = async () => {
+  const enviar = async (input: CreateRemisionCommand, limpiarFormulario: boolean) => {
     try {
-      await onAgregar({
-        cupsCodigo: form.cupsCodigo,
-        ...diagnosticosRemision,
-        motivo: form.motivo.trim() || undefined,
-      });
-      setForm(EMPTY_FORM);
+      await onAgregar(input);
+      if (limpiarFormulario) setForm(EMPTY_FORM);
     } catch {
       // El aviso de error ya se mostró; se conserva lo escrito para corregirlo.
     }
   };
+
+  // La junta médica pregunta primero si es primera vez o recalificación (abre el caso en Dictamen).
+  const solicitar = (input: CreateRemisionCommand, limpiarFormulario: boolean) => {
+    if (esJuntaMedica(input.cupsCodigo)) setJuntaPendiente({ input, limpiarFormulario });
+    else void enviar(input, limpiarFormulario);
+  };
+
+  const elegirTipoJunta = (tipoDictamen: TipoJunta) => {
+    if (!juntaPendiente) return;
+    setJuntaPendiente(null);
+    void enviar({ ...juntaPendiente.input, tipoDictamen }, juntaPendiente.limpiarFormulario);
+  };
+
+  const agregar = () =>
+    solicitar(
+      { cupsCodigo: form.cupsCodigo, ...diagnosticosRemision, motivo: form.motivo.trim() || undefined },
+      true,
+    );
 
   return (
     <div className="space-y-5">
@@ -231,7 +269,7 @@ export function RemisionesTab({
               <div className="flex justify-end md:col-span-2">
                 <button
                   type="button"
-                  onClick={() => void agregar()}
+                  onClick={agregar}
                   disabled={!form.cupsCodigo || !principal || yaRemitido || agregando}
                   className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-sky-800 px-4 text-sm font-semibold text-white transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -264,7 +302,7 @@ export function RemisionesTab({
                 remision={remision}
                 highlighted={highlightId === remision.id}
                 quitando={quitandoId === remision.id}
-                onQuitar={readOnly ? undefined : () => onQuitar(remision.id)}
+                onQuitar={readOnly || remision.dictamenId ? undefined : () => onQuitar(remision.id)}
               />
             ))}
           </ul>
@@ -293,6 +331,34 @@ export function RemisionesTab({
           )}
         </div>
       </details>
+
+      <Dialog open={juntaPendiente !== null} onOpenChange={(open) => (open ? null : setJuntaPendiente(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Junta médica</DialogTitle>
+            <DialogDescription>
+              ¿Es primera vez o recalificación? El caso se abrirá en tu panel de Dictamen para hacer la PCL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              { value: 'CALIFICACION' as const, icon: FileSearch, detalle: 'Inicia en el Formulario de Origen.' },
+              { value: 'RECALIFICACION' as const, icon: Repeat2, detalle: 'Inicia directo en la PCL.' },
+            ].map((opcion) => (
+              <button
+                key={opcion.value}
+                type="button"
+                onClick={() => elegirTipoJunta(opcion.value)}
+                className="flex flex-col items-start gap-1 rounded-xl border border-slate-200 p-3 text-left transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              >
+                <opcion.icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                <span className="text-sm font-semibold text-slate-900">{tipoJuntaLabel(opcion.value)}</span>
+                <span className="text-xs text-slate-600">{opcion.detalle}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

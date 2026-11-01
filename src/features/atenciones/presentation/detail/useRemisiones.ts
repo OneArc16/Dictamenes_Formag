@@ -4,7 +4,12 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-import type { CreateRemisionCommand, Remision } from '@/features/atenciones/domain/remisiones';
+import {
+  tipoJuntaLabel,
+  type CreateRemisionCommand,
+  type Remision,
+  type RemisionCreada,
+} from '@/features/atenciones/domain/remisiones';
 
 async function remisionRequest<T>(url: string, init: RequestInit, fallback: string): Promise<T> {
   const response = await fetch(url, {
@@ -23,14 +28,22 @@ export function useRemisiones(citaId: number, initial: Remision[]) {
 
   const agregar = useMutation({
     mutationFn: (input: CreateRemisionCommand) =>
-      remisionRequest<Remision>(
+      remisionRequest<RemisionCreada>(
         `/api/atenciones/${citaId}/remisiones`,
         { method: 'POST', body: JSON.stringify(input) },
         'No se pudo agregar la remisión.',
       ),
-    onSuccess: (remision) => {
+    onSuccess: ({ aviso, ...remision }) => {
       setRemisiones((current) => [...current, remision]);
-      toast.success(`Remisión agregada: ${remision.cups.nombre}`);
+      if (remision.dictamenId && remision.tipoDictamen) {
+        toast.success(
+          `Remisión agregada. Se abrió el caso #${remision.dictamenId} (${tipoJuntaLabel(remision.tipoDictamen)}) en tu panel de Dictamen.`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success(`Remisión agregada: ${remision.cups.nombre}`);
+      }
+      if (aviso) toast(aviso, { icon: '⚠️', duration: 7000 });
     },
     onError: (error: Error) => toast.error(error.message),
   });

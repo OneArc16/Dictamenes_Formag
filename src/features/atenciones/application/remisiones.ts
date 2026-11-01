@@ -5,7 +5,16 @@ import { ReceptionError } from '@/features/reception/application/errors';
 import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
-import type { CreateRemisionCommand, Remision, RemisionAtajo } from '../domain/remisiones';
+import { ApplicationError } from '@/features/formulario-origen/application/errors';
+import { abrirCasoDictamen } from '@/features/formulario-origen/application/registrar-caso-dictamen';
+
+import {
+  esJuntaMedica,
+  type CreateRemisionCommand,
+  type Remision,
+  type RemisionAtajo,
+  type RemisionCreada,
+} from '../domain/remisiones';
 import { editableCita } from './editable-cita';
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -16,6 +25,8 @@ const REMISION_SELECT = {
   id: true,
   citaId: true,
   motivo: true,
+  tipoDictamen: true,
+  dictamen: { select: { id: true } },
   createdAt: true,
   createdBy: true,
   cups: { select: { codigo: true, nombre: true } },
@@ -41,6 +52,8 @@ async function toRemisiones(db: Db, rows: RemisionRow[]): Promise<Remision[]> {
         (item): item is { codigo: string; nombre: string } => item !== null,
       ),
       motivo: row.motivo,
+      tipoDictamen: row.tipoDictamen,
+      dictamenId: row.dictamen?.id ?? null,
       fecha: row.createdAt.toISOString(),
       medicoNombre: empleado ? employeeFullName(empleado) : null,
     };
@@ -74,49 +87,94 @@ export async function getRemisiones(citaId: number, usuarioId: number) {
   };
 }
 
-export async function createRemision(auth: AuthorizationContext, citaId: number, input: CreateRemisionCommand) {
-  return prisma.$transaction(async (tx) => {
-    const cita = await editableCita(tx, auth, citaId);
-    const cups = await tx.cups.findFirst({
-      where: { codigo: input.cupsCodigo, estado: true },
-      select: { codigo: true },
-    });
-    if (!cups)
-      throw new ReceptionError('CUPS_INVALID', `El servicio CUPS ${input.cupsCodigo} no existe o está inactivo.`, 422);
-    const diagnosticos = [input.diagnosticoCodigo, input.relacionado2Codigo, input.relacionado3Codigo].filter(
-      (value): value is string => Boolean(value),
-    );
-    const vigentes = await tx.cie10.count({ where: { codigo: { in: diagnosticos }, estado: true } });
-    if (vigentes !== diagnosticos.length)
-      throw new ReceptionError('CIE10_INVALID', 'Algún diagnóstico no existe o está inactivo.', 422);
-
-    try {
-      const created = await tx.atencionRemision.create({
-        data: {
-          citaId,
-          usuarioId: cita.usuarioId,
-          cupsCodigo: input.cupsCodigo,
-          diagnosticoCodigo: input.diagnosticoCodigo,
-          relacionado2Codigo: input.relacionado2Codigo ?? null,
-          relacionado3Codigo: input.relacionado3Codigo ?? null,
-          motivo: input.motivo || null,
-          createdBy: auth.empleadoId,
-        },
-        select: REMISION_SELECT,
+export async function createRemision(
+  auth: AuthorizationContext,
+  citaId: number,
+  input: CreateRemisionCommand,
+): Promise<RemisionCreada> {
+  const junta = esJuntaMedica(input.cupsCodigo);
+  return prisma.$transaction(
+    async (tx) => {
+      const cita = await editableCita(tx, auth, citaId);
+      const cups = await tx.cups.findFirst({
+        where: { codigo: input.cupsCodigo, estado: true },
+        select: { codigo: true },
       });
-      return (await toRemisiones(tx, [created]))[0];
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ReceptionError('REMISION_DUPLICADA', 'Este servicio ya está remitido en la atención.', 409);
+      if (!cups)
+        throw new ReceptionError('CUPS_INVALID', `El servicio CUPS ${input.cupsCodigo} no existe o está inactivo.`, 422);
+      const diagnosticos = [input.diagnosticoCodigo, input.relacionado2Codigo, input.relacionado3Codigo].filter(
+        (value): value is string => Boolean(value),
+      );
+      const vigentes = await tx.cie10.count({ where: { codigo: { in: diagnosticos }, estado: true } });
+      if (vigentes !== diagnosticos.length)
+        throw new ReceptionError('CIE10_INVALID', 'Algún diagnóstico no existe o está inactivo.', 422);
+
+      let created;
+      try {
+        created = await tx.atencionRemision.create({
+          data: {
+            citaId,
+            usuarioId: cita.usuarioId,
+            cupsCodigo: input.cupsCodigo,
+            diagnosticoCodigo: input.diagnosticoCodigo,
+            relacionado2Codigo: input.relacionado2Codigo ?? null,
+            relacionado3Codigo: input.relacionado3Codigo ?? null,
+            motivo: input.motivo || null,
+            tipoDictamen: input.tipoDictamen ?? null,
+            createdBy: auth.empleadoId,
+          },
+          select: REMISION_SELECT,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ReceptionError('REMISION_DUPLICADA', 'Este servicio ya está remitido en la atención.', 409);
+        }
+        throw error;
       }
-      throw error;
-    }
-  });
+
+      let aviso: string | null = null;
+      if (junta && input.tipoDictamen) {
+        // La junta abre el caso en el panel de Dictamen del médico que atiende.
+        const docente = await tx.usuario.findUniqueOrThrow({
+          where: { id: cita.usuarioId },
+          select: { identificacion: true },
+        });
+        try {
+          const caso = await abrirCasoDictamen(tx, {
+            usuarioId: cita.usuarioId,
+            identificacion: docente.identificacion,
+            empleadoId: auth.empleadoId,
+            tipoDictamen: input.tipoDictamen,
+            // La recalificación arranca directo en PCL; la primera vez, en el formulario de origen.
+            documentoInicial: input.tipoDictamen === 'RECALIFICACION' ? 'PCL' : 'ORIGEN',
+            remisionId: created.id,
+          });
+          created = { ...created, dictamen: { id: caso.dictamenId } };
+        } catch (error) {
+          if (!(error instanceof ApplicationError)) throw error;
+          if (error.code !== 'ACTIVE_CASE_EXISTS') throw new ReceptionError(error.code, error.message, error.status);
+          aviso = `${error.message} No se abrió un caso nuevo en Dictamen.`;
+        }
+      }
+
+      return { ...(await toRemisiones(tx, [created]))[0], aviso };
+    },
+    // Serializable evita abrir dos casos activos para el mismo docente al mismo tiempo.
+    junta ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined,
+  );
 }
 
 export async function deleteRemision(auth: AuthorizationContext, citaId: number, remisionId: number) {
   return prisma.$transaction(async (tx) => {
     await editableCita(tx, auth, citaId);
+    const caso = await tx.dictamen.findUnique({ where: { remisionId }, select: { id: true } });
+    if (caso) {
+      throw new ReceptionError(
+        'REMISION_CON_DICTAMEN',
+        `Esta remisión abrió el caso #${caso.id} en Dictamen; gestiónalo desde el panel de Dictamen.`,
+        409,
+      );
+    }
     const deleted = await tx.atencionRemision.deleteMany({ where: { id: remisionId, citaId } });
     if (deleted.count === 0) throw new ReceptionError('NOT_FOUND', 'La remisión ya no existe.', 404);
     return { id: remisionId };
