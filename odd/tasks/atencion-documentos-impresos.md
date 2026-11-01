@@ -34,3 +34,4 @@ L5: Verification: focused ESLint passed; `git diff --check` passed; 15 focused d
 L6: User correction: "hagamos algo para que ls remisiones salgan en dos hojas diferentes, no en la misma hoja, sin tener que poner dos botones diferentes". The single remisión action now inserts a page break before every remisión after the first.
 L7: User correction: "no me referia asi, si hay dos o mas remisiones este abra un modal para seleccionar cual imprimir". The UI now opens a modal for two or more remisiones and sends the selected remisionId to the PDF endpoint; one remisión still opens directly.
 L8: User report: the remisión selector overflowed horizontally for long CUPS labels. The option buttons now occupy the modal width and allow their descriptive text to wrap.
+L9: User report: choosing a remisión closed the selector modal. The option action now opens the selected PDF in a new tab while keeping the modal available until the user explicitly closes it.
