@@ -248,40 +248,40 @@ export async function assertReceptionSite(auth: AuthorizationContext, siteId: nu
   if (!site) throw new ReceptionError('SITE_FORBIDDEN', 'La sede seleccionada no está activa.', 403);
 }
 
-export async function availableSpecialties(auth: AuthorizationContext, siteId: number) {
+export async function availableSpecialties(auth: AuthorizationContext, siteId: number, modalityId: number) {
   await assertReceptionSite(auth, siteId);
   const rows = await prisma.especialidadMedica.findMany({
-    where: { estado: true, empleados: { some: { empleado: { activo: true, idSede: siteId, cuposMedicos: { some: { estado: 'DISPONIBLE', inicio: { gt: new Date() } } } } } } },
+    where: { estado: true, empleados: { some: { empleado: { activo: true, idSede: siteId, cuposMedicos: { some: { sedeId: siteId, modalidadId: modalityId, estado: 'DISPONIBLE', inicio: { gt: new Date() } } } } } } },
     select: { id: true, nombre: true }, orderBy: { nombre: 'asc' },
   });
   return rows;
 }
 
-export async function availableDates(auth: AuthorizationContext, siteId: number, specialtyId: number, from: Date, to: Date) {
+export async function availableDates(auth: AuthorizationContext, siteId: number, specialtyId: number, from: Date, to: Date, modalityId: number) {
   await assertReceptionSite(auth, siteId);
   const slots = await prisma.cupoMedico.findMany({
-    where: { sedeId: siteId, estado: 'DISPONIBLE', inicio: { gt: new Date(), gte: from, lt: to }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId, especialidad: { estado: true } } } } },
+    where: { sedeId: siteId, modalidadId: modalityId, estado: 'DISPONIBLE', inicio: { gt: new Date(), gte: from, lt: to }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId, especialidad: { estado: true } } } } },
     select: { inicio: true }, distinct: ['inicio'], orderBy: { inicio: 'asc' }, take: 1000,
   });
   return [...new Set(slots.map((slot) => dateInTimeZone(slot.inicio, BOGOTA)))];
 }
 
-export async function availableDoctors(auth: AuthorizationContext, siteId: number, specialtyId: number, date: string) {
+export async function availableDoctors(auth: AuthorizationContext, siteId: number, specialtyId: number, date: string, modalityId: number) {
   await assertReceptionSite(auth, siteId);
   // El día se filtra en la base: antes se tomaban N cupos futuros y se filtraba el día después,
   // así que en sedes con muchos cupos los días lejanos quedaban sin médicos.
   const slots = await prisma.cupoMedico.findMany({
-    where: { sedeId: siteId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId } } } },
+    where: { sedeId: siteId, modalidadId: modalityId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { activo: true, especialidades: { some: { especialidadId: specialtyId } } } },
     select: { medico: { select: { id: true, primerNombre: true, segundoNombre: true, primerApellido: true, segundoApellido: true } } },
     distinct: ['medicoId'],
   });
   return slots.map((slot) => ({ id: slot.medico.id, name: employeeFullName(slot.medico) })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function availableSlots(auth: AuthorizationContext, siteId: number, specialtyId: number, doctorId: number, date: string) {
+export async function availableSlots(auth: AuthorizationContext, siteId: number, specialtyId: number, doctorId: number, date: string, modalityId: number) {
   await assertReceptionSite(auth, siteId);
   const slots = await prisma.cupoMedico.findMany({
-    where: { sedeId: siteId, medicoId: doctorId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { especialidades: { some: { especialidadId: specialtyId } } } },
+    where: { sedeId: siteId, medicoId: doctorId, modalidadId: modalityId, estado: 'DISPONIBLE', inicio: { gt: new Date(), ...bogotaDayRange(date) }, medico: { especialidades: { some: { especialidadId: specialtyId } } } },
     select: { id: true, inicio: true, fin: true }, orderBy: { inicio: 'asc' },
   });
   return slots.map((slot) => ({ id: slot.id, inicio: slot.inicio.toISOString(), fin: slot.fin.toISOString() }));
@@ -299,6 +299,8 @@ async function slotCommandContext(tx: Prisma.TransactionClient, command: Schedul
   const specialty = slot.medico.especialidades[0]?.especialidad;
   if (!slot.sede.estado || !slot.medico.activo || !specialty?.estado) throw new ReceptionError('SLOT_NOT_AVAILABLE', 'El cupo ya no está disponible.', 409);
   if (!modality) throw new ReceptionError('INVALID_MODALITY', 'La modalidad ya no está activa.', 422);
+  // La cita hereda la agenda (modalidad) del cupo; no se puede mezclar.
+  if (slot.modalidadId !== modality.id) throw new ReceptionError('SLOT_MODALITY_MISMATCH', 'El cupo pertenece a la agenda de otra modalidad.', 409);
   return { slot, modality, specialty };
 }
 
@@ -373,7 +375,7 @@ export async function appointmentHistory(patientId: number, statuses: EstadoCita
       ...(decoded ? { OR: [{ inicioProgramado: { lt: new Date(decoded.inicioProgramado) } }, { inicioProgramado: new Date(decoded.inicioProgramado), id: { lt: decoded.id } }] } : {}),
     },
     orderBy: [{ inicioProgramado: 'desc' }, { id: 'desc' }], take: pageSize + 1,
-    select: { id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true, especialidadId: true, especialidadNombre: true, modalidadNombre: true, medioSolicitud: true, activadaAt: true, lockVersion: true },
+    select: { id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true, especialidadId: true, especialidadNombre: true, modalidadId: true, modalidadNombre: true, medioSolicitud: true, activadaAt: true, lockVersion: true },
   });
   const items = rows.slice(0, pageSize);
   const last = items.at(-1);
@@ -436,6 +438,7 @@ export async function rescheduleAppointmentInTransaction(tx: Prisma.TransactionC
     await assertReceptionSite(auth, replacementSlot.sedeId);
     const specialty = replacementSlot.medico.especialidades[0]?.especialidad;
     if (!replacementSlot.sede.estado || !replacementSlot.medico.activo || !specialty?.estado) throw new ReceptionError('SLOT_NOT_AVAILABLE', 'El nuevo cupo ya no está disponible.', 409);
+    if (replacementSlot.modalidadId !== original.modalidadId) throw new ReceptionError('SLOT_MODALITY_MISMATCH', 'El nuevo cupo pertenece a la agenda de otra modalidad.', 409);
     const claim = await tx.cupoMedico.updateMany({ where: { id: newSlotId, estado: 'DISPONIBLE' }, data: { estado: 'ASIGNADO' } });
     if (!claim.count) throw new ReceptionError('SLOT_NOT_AVAILABLE', 'El nuevo cupo acaba de ser asignado.', 409);
     const changed = await tx.cita.updateMany({ where: { id: original.id, lockVersion: expectedVersion, estado: 'ASIGNADA' }, data: { estado: 'REPROGRAMADA', updatedBy: auth.empleadoId, lockVersion: { increment: 1 } } });

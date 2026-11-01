@@ -62,7 +62,7 @@ type Option = { id: number; nombre: string };
 type Doctor = { id: number; name: string };
 type Slot = { id: number; inicio: string; fin: string };
 type AppointmentReason = { codigo: string; nombre: string };
-type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number };
+type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number };
 type HistoryPage = { items: HistoryItem[]; nextCursor: string | null };
 type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 type MovementPage = { items: Movement[]; nextCursor: string | null };
@@ -596,6 +596,8 @@ export default function PatientReceptionPage() {
   const [medium, setMedium] = useState('PRESENCIAL');
   const [modalityId, setModalityId] = useState<number | null>(null);
   const [rescheduling, setRescheduling] = useState<HistoryItem | null>(null);
+  // Cada modalidad es una agenda distinta: al reprogramar se conserva la de la cita original.
+  const bookingModalityId = rescheduling ? rescheduling.modalidadId : modalityId;
   const [cancelling, setCancelling] = useState<HistoryItem | null>(null);
   const [creating, setCreating] = useState(false);
   const [rescheduleConfirmationOpen, setRescheduleConfirmationOpen] = useState(false);
@@ -635,11 +637,11 @@ export default function PatientReceptionPage() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const specialties = useQuery({ queryKey: ['reception-specialties', effectiveSiteId], enabled: !!effectiveSiteId, queryFn: () => api<Option[]>(`/api/reception/specialties?siteId=${effectiveSiteId}`) });
-  const dates = useQuery({ queryKey: ['reception-dates', effectiveSiteId, specialtyId], enabled: !!effectiveSiteId && !!specialtyId, queryFn: () => api<string[]>(`/api/reception/availability/dates?siteId=${effectiveSiteId}&specialtyId=${specialtyId}&from=${dateKey(range.start)}&to=${dateKey(range.end)}`) });
+  const specialties = useQuery({ queryKey: ['reception-specialties', effectiveSiteId, bookingModalityId], enabled: !!effectiveSiteId && !!bookingModalityId, queryFn: () => api<Option[]>(`/api/reception/specialties?siteId=${effectiveSiteId}&modalityId=${bookingModalityId}`) });
+  const dates = useQuery({ queryKey: ['reception-dates', effectiveSiteId, bookingModalityId, specialtyId], enabled: !!effectiveSiteId && !!bookingModalityId && !!specialtyId, queryFn: () => api<string[]>(`/api/reception/availability/dates?siteId=${effectiveSiteId}&modalityId=${bookingModalityId}&specialtyId=${specialtyId}&from=${dateKey(range.start)}&to=${dateKey(range.end)}`) });
   const selectedDateKey = selectedDate ? dateKey(selectedDate) : null;
-  const doctors = useQuery({ queryKey: ['reception-doctors', effectiveSiteId, specialtyId, selectedDateKey], enabled: !!effectiveSiteId && !!specialtyId && !!selectedDateKey, queryFn: () => api<Doctor[]>(`/api/reception/doctors?siteId=${effectiveSiteId}&specialtyId=${specialtyId}&date=${selectedDateKey}`) });
-  const slots = useQuery({ queryKey: ['reception-slots', effectiveSiteId, specialtyId, doctorId, selectedDateKey], enabled: !!effectiveSiteId && !!specialtyId && !!doctorId && !!selectedDateKey, queryFn: () => api<Slot[]>(`/api/reception/slots?siteId=${effectiveSiteId}&specialtyId=${specialtyId}&doctorId=${doctorId}&date=${selectedDateKey}`) });
+  const doctors = useQuery({ queryKey: ['reception-doctors', effectiveSiteId, bookingModalityId, specialtyId, selectedDateKey], enabled: !!effectiveSiteId && !!bookingModalityId && !!specialtyId && !!selectedDateKey, queryFn: () => api<Doctor[]>(`/api/reception/doctors?siteId=${effectiveSiteId}&modalityId=${bookingModalityId}&specialtyId=${specialtyId}&date=${selectedDateKey}`) });
+  const slots = useQuery({ queryKey: ['reception-slots', effectiveSiteId, bookingModalityId, specialtyId, doctorId, selectedDateKey], enabled: !!effectiveSiteId && !!bookingModalityId && !!specialtyId && !!doctorId && !!selectedDateKey, queryFn: () => api<Slot[]>(`/api/reception/slots?siteId=${effectiveSiteId}&modalityId=${bookingModalityId}&specialtyId=${specialtyId}&doctorId=${doctorId}&date=${selectedDateKey}`) });
   const modalities = useQuery({ queryKey: ['reception-modalities'], queryFn: () => api<Option[]>('/api/reception/modalities') });
   const cancelReasons = useQuery({ queryKey: ['reception-reasons', 'CANCELACION'], queryFn: () => api<AppointmentReason[]>('/api/reception/appointment-reasons?type=CANCELACION') });
   const rescheduleReasons = useQuery({ queryKey: ['reception-reasons', 'REPROGRAMACION'], queryFn: () => api<AppointmentReason[]>('/api/reception/appointment-reasons?type=REPROGRAMACION') });
@@ -776,8 +778,8 @@ export default function PatientReceptionPage() {
           <p>El paciente no tiene teléfono registrado. Se usará el celular principal <strong>{draft.telefono}</strong> como teléfono para agendar la cita.</p>
         </div> : null}
         <label className="block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Sede de atención</span><select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={effectiveSiteId ?? ''} disabled={!context.data?.canSelectSite} onChange={(event) => resetForSite(Number(event.target.value))}><option value="">Selecciona una sede</option>{context.data?.sites.map((site) => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select></label>
-        {!rescheduling ? <label className="block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Modalidad</span><select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={modalityId ?? ''} onChange={(event) => setModalityId(Number(event.target.value))}><option value="">Selecciona</option>{modalities.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label> : null}
-        <label className="block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Especialidad</span><select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={specialtyId ?? ''} disabled={!effectiveSiteId || specialties.isLoading} onChange={(event) => selectSpecialty(Number(event.target.value))}><option value="">Selecciona una especialidad</option>{specialties.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+        {!rescheduling ? <label className="block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Modalidad</span><select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={modalityId ?? ''} onChange={(event) => { setModalityId(Number(event.target.value) || null); setSpecialtyId(null); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); }}><option value="">Selecciona</option>{modalities.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label> : null}
+        <label className="block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Especialidad</span><select className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={specialtyId ?? ''} disabled={!effectiveSiteId || !bookingModalityId || specialties.isLoading} onChange={(event) => selectSpecialty(Number(event.target.value))}><option value="">{bookingModalityId ? 'Selecciona una especialidad' : 'Primero elige la modalidad'}</option>{specialties.data?.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <div className="appointment-date-popover block text-sm font-medium"><span className="mb-1 block text-[11px] font-medium text-slate-700">Fecha de cita</span><AppointmentDateField selected={selectedDate} disabled={!specialtyId} onOpen={() => setDatePickerExpanded((current) => !current)} />
           {datePickerExpanded ? <div className="appointment-date-popover__panel">
             {specialtyId ? <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">

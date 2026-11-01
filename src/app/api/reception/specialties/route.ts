@@ -3,5 +3,5 @@ import { positiveQuery, receptionAuth, receptionError, receptionJson } from '@/l
 
 export async function GET(request: Request) {
   const auth = await receptionAuth(request); if (!auth.ok) return auth.response;
-  try { const siteId = positiveQuery(new URL(request.url).searchParams.get('siteId'), 'Sede'); return receptionJson(request, await availableSpecialties(auth.auth, siteId)); } catch (error) { return receptionError(request, error); }
+  try { const query = new URL(request.url).searchParams; const siteId = positiveQuery(query.get('siteId'), 'Sede'); return receptionJson(request, await availableSpecialties(auth.auth, siteId, positiveQuery(query.get('modalityId'), 'Modalidad'))); } catch (error) { return receptionError(request, error); }
 }
