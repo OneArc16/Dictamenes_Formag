@@ -5,7 +5,7 @@ import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization'
 import { prisma } from '@/lib/prisma';
 
 import type { DiagnosticoAtencion, TipoDiagnostico } from '../domain/diagnosticos';
-import { attendBlocker } from './attend-blocker';
+import { editBlocker } from './attend-blocker';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -36,7 +36,7 @@ export async function saveDiagnosticos(
       where: { id: citaId },
       select: { estado: true, activadaAt: true, medicoId: true },
     });
-    const blocker = attendBlocker(cita, auth);
+    const blocker = editBlocker(cita, auth);
     if (blocker || !cita)
       throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
 

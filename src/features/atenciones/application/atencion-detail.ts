@@ -22,7 +22,7 @@ import {
   type AntecedentesPersonalesDoc,
 } from './antecedentes';
 
-import { attendBlocker } from './attend-blocker';
+import { attendBlocker, editBlocker } from './attend-blocker';
 
 const PREVIOUS_ATTENTIONS = 5;
 
@@ -77,6 +77,7 @@ export type AtencionDetalle = {
   antecedentesDeEstaAtencion: boolean;
   /** Puede editar al docente, diligenciar y finalizar la atención. */
   canAttend: boolean;
+  canEdit: boolean;
 };
 
 function fullName(...parts: Array<string | null | undefined>) {
@@ -197,5 +198,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     signosHistorial: signos.historial,
     antecedentesDeEstaAtencion: snapshot,
     canAttend: hasAbility(auth, 'appointment.attend') && attendBlocker(cita, auth) === null,
+    /** Puede modificarla: antes de finalizar como atender; finalizada, solo el médico que la atendió. */
+    canEdit: hasAbility(auth, 'appointment.attend') && editBlocker(cita, auth) === null,
   };
 }

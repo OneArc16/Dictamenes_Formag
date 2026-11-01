@@ -13,3 +13,14 @@ export function attendBlocker(cita: AttendCandidate | null, auth: Pick<Authoriza
     return 'Solo el médico asignado puede atender a este paciente.';
   return null;
 }
+
+/**
+ * Motivo por el que no se puede editar la atención, o null si se puede. Antes de finalizar
+ * aplica lo mismo que atender; ya finalizada, solo la edita el médico que la atendió.
+ */
+export function editBlocker(cita: AttendCandidate | null, auth: Pick<AuthorizationContext, 'role' | 'empleadoId'>) {
+  if (cita?.estado === 'ATENDIDA') {
+    return cita.medicoId === auth.empleadoId ? null : 'Solo el médico que atendió puede editar esta atención.';
+  }
+  return attendBlocker(cita, auth);
+}

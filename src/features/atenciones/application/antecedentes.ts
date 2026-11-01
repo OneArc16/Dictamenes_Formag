@@ -12,7 +12,7 @@ import {
   type AntecedentesGinecobstetricos,
 } from '../domain/antecedentes-ginecobstetricos';
 import { parseAntecedentesPersonales, type AntecedentesPersonales } from '../domain/antecedentes-personales';
-import { attendBlocker } from './attend-blocker';
+import { editBlocker } from './attend-blocker';
 
 export const ANTECEDENTE_KINDS = ['personales', 'familiares', 'ginecobstetricos'] as const;
 export type AntecedenteKind = (typeof ANTECEDENTE_KINDS)[number];
@@ -57,6 +57,13 @@ type AntecedentesTable = {
     select: typeof RECORD_SELECT;
   }): Promise<StoredRecord>;
 };
+
+/** Campo de la atención con la copia de cada antecedente tomada al finalizarla. */
+const SNAPSHOT_FIELD = {
+  personales: 'antecedentesPersonales',
+  familiares: 'antecedentesFamiliares',
+  ginecobstetricos: 'antecedentesGineco',
+} as const satisfies Record<AntecedenteKind, keyof Prisma.AtencionUpdateInput>;
 
 function table(db: Db, kind: AntecedenteKind): AntecedentesTable {
   const tables = {
@@ -111,10 +118,29 @@ export async function saveAntecedentes<K extends AntecedenteKind>(
       where: { id: citaId },
       select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true, paciente: { select: { sexo: true } } },
     });
-    const blocker = attendBlocker(cita, auth);
+    const blocker = editBlocker(cita, auth);
     if (blocker || !cita) throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
     if (kind === 'ginecobstetricos' && !esMujer(cita.paciente.sexo)) {
       throw new ReceptionError('VALIDATION_ERROR', 'Los antecedentes ginecobstétricos solo aplican a mujeres.', 422);
+    }
+
+    // Atención finalizada: se corrige la copia guardada al cerrarla, sin tocar los antecedentes
+    // actuales del docente (pueden haber cambiado en atenciones posteriores).
+    if (cita.estado === 'ATENDIDA') {
+      await tx.atencion.update({
+        where: { citaId },
+        data: { [SNAPSHOT_FIELD[kind]]: value, updatedBy: auth.empleadoId },
+      });
+      const empleado = await tx.empleado.findUnique({
+        where: { id: auth.empleadoId },
+        select: { primerNombre: true, segundoNombre: true, primerApellido: true, segundoApellido: true },
+      });
+      return {
+        datos: PARSE_ANTECEDENTES[kind](datos) as DatosByKind[K],
+        version: 0,
+        actualizadoEn: new Date().toISOString(),
+        actualizadoPor: empleado ? employeeFullName(empleado) : null,
+      };
     }
 
     const records = table(tx, kind);

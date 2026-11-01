@@ -114,10 +114,25 @@ export function AtencionRightPanel({
 
         <div className="mt-4 border-t border-slate-100 pt-4">
           {detalle.estado === 'ATENDIDA' ? (
-            <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Atención finalizada
-            </p>
+            <>
+              <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                Atención finalizada
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                {detalle.canEdit
+                  ? 'Como médico que la atendió, puedes corregirla; los cambios se guardan automáticamente.'
+                  : 'Solo el médico que la atendió puede modificarla.'}
+              </p>
+              {detalle.canEdit ? (
+                <p
+                  role="status"
+                  className={`mt-1 text-[11px] leading-5 ${saveStatus === 'error' ? 'text-rose-700' : 'text-slate-500'}`}
+                >
+                  {saveStatus === 'error' && saveError ? saveError : SAVE_LABEL[saveStatus]}
+                </p>
+              ) : null}
+            </>
           ) : detalle.canAttend ? (
             <button
               type="button"

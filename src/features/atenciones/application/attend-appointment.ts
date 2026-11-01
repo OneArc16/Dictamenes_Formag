@@ -15,13 +15,13 @@ import { ReceptionError } from '@/features/reception/application/errors';
 import { markAppointmentAttendedInTransaction } from '@/features/reception/application/reception-service';
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 
-import { attendBlocker } from './attend-blocker';
+import { attendBlocker, editBlocker } from './attend-blocker';
 import { prisma } from '@/lib/prisma';
 
 /** Origen con el que el módulo de Atenciones registra el encuentro clínico de la cita. */
 export const ATENCIONES_ENCOUNTER_SOURCE = 'ATENCIONES';
 
-export { attendBlocker } from './attend-blocker';
+export { attendBlocker, editBlocker } from './attend-blocker';
 
 export async function attendAppointment(auth: AuthorizationContext, appointmentId: number) {
   return prisma.$transaction(
@@ -101,7 +101,7 @@ export async function saveAtencion(auth: AuthorizationContext, appointmentId: nu
       where: { id: appointmentId },
       select: { estado: true, activadaAt: true, medicoId: true },
     });
-    const blocker = attendBlocker(cita, auth);
+    const blocker = editBlocker(cita, auth);
     if (blocker) throw new ReceptionError('INVALID_TRANSITION', blocker, cita ? 409 : 404);
     const saved = await tx.atencion.upsert({
       where: { citaId: appointmentId },

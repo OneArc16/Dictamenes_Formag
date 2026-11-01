@@ -6,7 +6,7 @@ import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization'
 import { prisma } from '@/lib/prisma';
 
 import { EMPTY_SIGNOS, SIGNO_SELECT, signosFromRecord, type SignosValues } from '../domain/signos-vitales';
-import { attendBlocker } from './attend-blocker';
+import { editBlocker } from './attend-blocker';
 
 const HISTORY_LIMIT = 20;
 
@@ -75,7 +75,7 @@ export async function saveSignosVitales(auth: AuthorizationContext, citaId: numb
       where: { id: citaId },
       select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true },
     });
-    const blocker = attendBlocker(cita, auth);
+    const blocker = editBlocker(cita, auth);
     if (blocker || !cita) throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
 
     const saved = await tx.signosVitales.upsert({

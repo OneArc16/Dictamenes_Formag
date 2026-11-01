@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { ReceptionError } from '@/features/reception/application/errors';
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 
-import { attendBlocker } from './attend-blocker';
+import { editBlocker } from './attend-blocker';
 
 /** Cita en atención que el médico autenticado puede modificar; si no, lanza el error del bloqueo. */
 export async function editableCita(tx: Prisma.TransactionClient, auth: AuthorizationContext, citaId: number) {
@@ -14,7 +14,7 @@ export async function editableCita(tx: Prisma.TransactionClient, auth: Authoriza
     where: { id: citaId },
     select: { estado: true, activadaAt: true, medicoId: true, usuarioId: true },
   });
-  const blocker = attendBlocker(cita, auth);
+  const blocker = editBlocker(cita, auth);
   if (blocker || !cita)
     throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
   return cita;

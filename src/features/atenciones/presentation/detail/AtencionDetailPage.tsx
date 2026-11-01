@@ -49,7 +49,8 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   const [, startTransition] = useTransition();
   const [showEditDocente, setShowEditDocente] = useState(false);
   const [activeTab, setActiveTab] = useState<AtencionTabId>(ATENCION_TABS[0].id);
-  const editable = detalle.estado === 'ACTIVADA' && detalle.canAttend;
+  // Antes de finalizar, quien puede atender; finalizada, solo el médico que la atendió.
+  const editable = detalle.canEdit;
   const { form, setField, status, error, flush } = useAtencionForm(detalle.id, detalle.form, editable);
   const personales = useAntecedentes('personales', detalle.id, detalle.antecedentesPersonales, editable);
   const familiares = useAntecedentes('familiares', detalle.id, detalle.antecedentesFamiliares, editable);

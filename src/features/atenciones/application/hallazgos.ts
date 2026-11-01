@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { EXAMEN_CATALOG } from '../domain/examen-fisico';
 import type { Hallazgos } from '../domain/hallazgos';
 import { REVISION_CATALOG } from '../domain/revision-sistemas';
-import { attendBlocker } from './attend-blocker';
+import { editBlocker } from './attend-blocker';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -63,7 +63,7 @@ export async function saveHallazgos(auth: AuthorizationContext, tipo: HallazgoTi
       where: { id: citaId },
       select: { estado: true, activadaAt: true, medicoId: true },
     });
-    const blocker = attendBlocker(cita, auth);
+    const blocker = editBlocker(cita, auth);
     if (blocker || !cita)
       throw new ReceptionError('INVALID_TRANSITION', blocker ?? 'La cita no existe.', cita ? 409 : 404);
     const json = { [column]: value as unknown as Prisma.InputJsonValue };
