@@ -2,13 +2,14 @@ import {
   getAgendaCreationContext,
   getAgendaCreationContextForSite,
 } from '@/features/agenda/application/agenda-creation-context';
+import { listActiveModalities } from '@/features/agenda/infrastructure/modalities';
 import AgendaCreationForm from '@/features/agenda/presentation/creation/AgendaCreationForm';
 import { requireAbility } from '@/lib/auth/guards';
 import { hasAbility } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
 type CreateAgendaPageProps = {
-  searchParams?: Promise<{ sedeId?: string }>;
+  searchParams?: Promise<{ sedeId?: string; modalidadId?: string }>;
 };
 
 export default async function CreateAgendaPage({ searchParams }: CreateAgendaPageProps) {
@@ -22,7 +23,8 @@ export default async function CreateAgendaPage({ searchParams }: CreateAgendaPag
         select: { id: true, nombre: true },
       })
     : [];
-  const requestedSiteId = Number((await searchParams)?.sedeId);
+  const params = await searchParams;
+  const requestedSiteId = Number(params?.sedeId);
   const selectedSiteId = sites.some((site) => site.id === requestedSiteId)
     ? requestedSiteId
     : assignedContext.status === 'ready'
@@ -33,12 +35,18 @@ export default async function CreateAgendaPage({ searchParams }: CreateAgendaPag
       ? await getAgendaCreationContextForSite(selectedSiteId)
       : assignedContext;
   const siteOptions = sites.map((site) => ({ id: site.id, name: site.nombre }));
+  const modalities = await listActiveModalities();
+  const requestedModalityId = Number(params?.modalidadId);
+  const modality = modalities.find((item) => item.id === requestedModalityId) ?? modalities[0];
+  if (!modality) throw new Error('No hay modalidades de atención activas.');
 
   return (
     <AgendaCreationForm
-      key={context.status === 'ready' ? context.site.id : 'agenda-creation-blocked'}
+      key={context.status === 'ready' ? `${context.site.id}-${modality.id}` : 'agenda-creation-blocked'}
       context={context}
       siteOptions={canSelectSite ? siteOptions : undefined}
+      modalities={modalities}
+      modality={modality}
     />
   );
 }

@@ -16,19 +16,24 @@ export async function GET(
   }
 
   const medicoId = Number((await context.params).id);
-  const sedeId = Number(new URL(request.url).searchParams.get('sedeId'));
+  const url = new URL(request.url);
+  const sedeId = Number(url.searchParams.get('sedeId'));
+  const modalidadId = Number(url.searchParams.get('modalidadId'));
   if (!Number.isInteger(medicoId) || medicoId <= 0) {
     return NextResponse.json({ ok: false, error: 'El médico no es válido.' }, { status: 400 });
   }
   if (!Number.isInteger(sedeId) || sedeId <= 0) {
     return NextResponse.json({ ok: false, error: 'La sede no es válida.' }, { status: 400 });
   }
+  if (!Number.isInteger(modalidadId) || modalidadId <= 0) {
+    return NextResponse.json({ ok: false, error: 'La modalidad no es válida.' }, { status: 400 });
+  }
 
   try {
     await assertAgendaCreationScope(auth.auth.empleadoId, sedeId, undefined, {
       canSelectSite: hasAbility(auth.auth, 'agenda.site.select'),
     });
-    const schedule = await getEffectiveWorkSchedule(sedeId, medicoId);
+    const schedule = await getEffectiveWorkSchedule(sedeId, modalidadId, medicoId);
     return NextResponse.json({ ok: true, schedule });
   } catch (error) {
     return agendaErrorResponse(error, 'No se pudo consultar el horario efectivo.');

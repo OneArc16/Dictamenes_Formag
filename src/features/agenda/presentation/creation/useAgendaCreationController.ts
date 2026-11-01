@@ -34,7 +34,7 @@ type ConfirmationVariables = PreviewVariables & {
   previewFingerprint: string;
 };
 
-export function useAgendaCreationController(context: ReadyContext) {
+export function useAgendaCreationController(context: ReadyContext, modalityId: number) {
   const router = useRouter();
   const [state, dispatch] = useReducer(
     agendaCreationReducer,
@@ -92,7 +92,7 @@ export function useAgendaCreationController(context: ReadyContext) {
   });
 
   const calculate = () => {
-    const payload = buildAgendaCreationPayload(context.site.id, state);
+    const payload = buildAgendaCreationPayload(context.site.id, modalityId, state);
     const validation = validateAgendaCreationPayload(payload, context);
     if (!validation.valid) {
       dispatch({
@@ -120,7 +120,7 @@ export function useAgendaCreationController(context: ReadyContext) {
 
     const variables: ConfirmationVariables = {
       revision: state.revision,
-      payload: buildAgendaCreationPayload(context.site.id, state),
+      payload: buildAgendaCreationPayload(context.site.id, modalityId, state),
       idempotencyKey: state.process.idempotencyKey,
       previewFingerprint: state.process.preview.fingerprint,
     };

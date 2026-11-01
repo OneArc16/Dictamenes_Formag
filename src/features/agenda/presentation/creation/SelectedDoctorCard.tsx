@@ -15,6 +15,7 @@ import { DoctorScheduleSummary } from './DoctorScheduleSummary';
 
 type SelectedDoctorCardProps = {
   siteId: number;
+  modalityId: number;
   doctor: AgendaDoctorOption;
   preview?: AgendaPreviewDoctor;
   scheduleOverride?: DoctorDateScheduleOverride[];
@@ -38,6 +39,7 @@ type SelectedDoctorCardProps = {
 
 export function SelectedDoctorCard({
   siteId,
+  modalityId,
   doctor,
   preview,
   scheduleOverride,
@@ -103,6 +105,7 @@ export function SelectedDoctorCard({
         <div className="flex items-center justify-end gap-1.5">
           <AgendaDoctorScheduleDialog
             siteId={siteId}
+            modalityId={modalityId}
             doctorId={doctor.id}
             doctorName={doctor.nombre}
             override={scheduleOverride}

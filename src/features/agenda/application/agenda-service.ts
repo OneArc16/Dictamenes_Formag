@@ -24,7 +24,10 @@ import type {
 import { listSchedulableDoctors } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { prisma } from '@/lib/prisma';
 
-type AgendaDatabase = Pick<PrismaClient, 'sede' | 'empleado' | 'horarioLaboral' | 'cupoMedico'>;
+type AgendaDatabase = Pick<
+  PrismaClient,
+  'sede' | 'empleado' | 'horarioLaboral' | 'cupoMedico' | 'modalidadCita'
+>;
 
 type ScheduleRow = Prisma.HorarioLaboralGetPayload<{
   include: { bloques: true };
@@ -33,6 +36,7 @@ type ScheduleRow = Prisma.HorarioLaboralGetPayload<{
 type ExistingSlot = {
   id: number;
   medicoId: number;
+  modalidadId: number;
   inicio: Date;
   fin: Date;
 };
@@ -72,6 +76,7 @@ function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGeneratio
   }
   return {
     sedeId: input.sedeId,
+    modalidadId: input.modalidadId,
     medicoIds,
     fechaInicial: input.fechaInicial,
     fechaFinal: input.fechaFinal,
@@ -116,7 +121,16 @@ function createFingerprint(input: AgendaGenerationInput, scheduleVersions: strin
     .digest('hex');
 }
 
-function classifyCandidates(candidates: SlotCandidate[], existing: ExistingSlot[], now: Date) {
+/**
+ * Un cupo idéntico de la misma modalidad se omite; cualquier cruce con otro
+ * cupo del médico, incluido uno idéntico de otra modalidad, es conflicto.
+ */
+function classifyCandidates(
+  candidates: SlotCandidate[],
+  existing: ExistingSlot[],
+  now: Date,
+  modalidadId: number,
+) {
   const newSlots: SlotCandidate[] = [];
   let omitted = 0;
   let conflicts = 0;
@@ -129,7 +143,10 @@ function classifyCandidates(candidates: SlotCandidate[], existing: ExistingSlot[
 
     const doctorSlots = existing.filter((slot) => slot.medicoId === candidate.medicoId);
     const exact = doctorSlots.some(
-      (slot) => slot.inicio.getTime() === candidate.inicio.getTime() && slot.fin.getTime() === candidate.fin.getTime(),
+      (slot) =>
+        slot.modalidadId === modalidadId &&
+        slot.inicio.getTime() === candidate.inicio.getTime() &&
+        slot.fin.getTime() === candidate.fin.getTime(),
     );
     if (exact) {
       omitted += 1;
@@ -193,6 +210,12 @@ export async function calculateAgenda(
   });
   if (!sede) throw new AgendaApplicationError('La sede seleccionada no está activa.', 404);
 
+  const modalidad = await db.modalidadCita.findFirst({
+    where: { id: input.modalidadId, estado: true },
+    select: { id: true, nombre: true },
+  });
+  if (!modalidad) throw new AgendaApplicationError('La modalidad seleccionada no está activa.', 404);
+
   const doctors = await listSchedulableDoctors(
     { sedeId: input.sedeId, medicoIds: input.medicoIds, limit: 50 },
     db,
@@ -206,6 +229,7 @@ export async function calculateAgenda(
   const schedules = await db.horarioLaboral.findMany({
     where: {
       sedeId: input.sedeId,
+      modalidadId: input.modalidadId,
       activo: true,
       OR: [{ medicoId: null }, { medicoId: { in: input.medicoIds } }],
     },
@@ -221,7 +245,7 @@ export async function calculateAgenda(
       inicio: { lt: to },
       fin: { gt: from },
     },
-    select: { id: true, medicoId: true, inicio: true, fin: true },
+    select: { id: true, medicoId: true, modalidadId: true, inicio: true, fin: true },
   });
 
   const globalExclusions = new Set(input.fechasExcluidas);
@@ -261,7 +285,9 @@ export async function calculateAgenda(
     const resolved = resolveEffectiveSchedule(schedules, medicoId);
     if (resolved.error) doctorErrors.add(resolved.error);
     if (!resolved.schedule) {
-      doctorErrors.add('No existe un horario laboral activo para el médico ni para su sede.');
+      doctorErrors.add(
+        `No existe un horario laboral activo de ${modalidad.nombre.toLowerCase()} para el médico ni para su sede.`,
+      );
     }
     const schedule = resolved.schedule;
     const customDates = customSchedulesByDoctor.get(medicoId);
@@ -316,7 +342,7 @@ export async function calculateAgenda(
     if (candidates.length > 25_000) {
       doctorErrors.add('La cantidad de cupos excede el límite operativo de 25.000. Divide la generación.');
     }
-    const classification = classifyCandidates(candidates, existing, now);
+    const classification = classifyCandidates(candidates, existing, now, input.modalidadId);
     const uniqueSchedules = [...usedSchedules.values()];
     const primarySchedule = uniqueSchedules[0] ?? null;
     const names = uniqueSchedules.map((schedule) => schedule.nombre);
@@ -357,13 +383,15 @@ export async function calculateAgenda(
   const totalCandidates = doctorCalculations.reduce((sum, item) => sum + item.candidates.length, 0);
   if (totalCandidates > 25_000) errors.add('La operación supera 25.000 cupos libres. Divide el periodo o los médicos.');
   const totalConflicts = doctorCalculations.reduce((sum, item) => sum + item.conflicts, 0);
-  if (totalConflicts > 0) errors.add('Existen cupos superpuestos con otra duración. Ajusta el periodo o cancela la disponibilidad previa.');
+  if (totalConflicts > 0) errors.add('Existen cupos superpuestos con otra duración o con la agenda de otra modalidad. Ajusta el periodo o cancela la disponibilidad previa.');
   const zone = schedules[0]?.zonaHoraria ?? 'America/Bogota';
 
   const preview: AgendaPreview = {
     fingerprint: createFingerprint(input, [...scheduleVersions]),
     sedeId: sede.id,
     sedeNombre: sede.nombre,
+    modalidadId: modalidad.id,
+    modalidadNombre: modalidad.nombre,
     fechaInicial: input.fechaInicial,
     fechaFinal: input.fechaFinal,
     duracionMinutos: input.duracionMinutos,
@@ -431,6 +459,7 @@ export async function confirmAgendaGeneration(
         const generation = await tx.generacionAgenda.create({
           data: {
             sedeId: normalized.sedeId,
+            modalidadId: normalized.modalidadId,
             fechaInicial: parseDateOnly(normalized.fechaInicial),
             fechaFinal: parseDateOnly(normalized.fechaFinal),
             duracionMinutos: normalized.duracionMinutos,
@@ -487,6 +516,7 @@ export async function confirmAgendaGeneration(
               generacionAgendaId: generation.id,
               medicoId: slot.medicoId,
               sedeId: slot.sedeId,
+              modalidadId: normalized.modalidadId,
               inicio: slot.inicio,
               fin: slot.fin,
               duracionMinutos: slot.duracionMinutos,

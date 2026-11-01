@@ -28,6 +28,7 @@ export type SlotCandidate = {
 
 export type AgendaGenerationInput = {
   sedeId: number;
+  modalidadId: number;
   medicoIds: number[];
   fechaInicial: DateOnly;
   fechaFinal: DateOnly;
@@ -83,6 +84,8 @@ export type AgendaPreview = {
   fingerprint: string;
   sedeId: number;
   sedeNombre: string;
+  modalidadId: number;
+  modalidadNombre: string;
   fechaInicial: DateOnly;
   fechaFinal: DateOnly;
   duracionMinutos: number;

@@ -7,6 +7,7 @@ function uniqueSorted(values: string[]) {
 
 export function buildAgendaCreationPayload(
   siteId: number,
+  modalityId: number,
   state: AgendaCreationState,
 ): AgendaGenerationInput {
   const selectedDoctorIds = new Set(state.selectedDoctors.map((doctor) => doctor.id));
@@ -15,6 +16,7 @@ export function buildAgendaCreationPayload(
 
   return {
     sedeId: siteId,
+    modalidadId: modalityId,
     medicoIds: [...selectedDoctorIds].sort((left, right) => left - right),
     fechaInicial: state.startDate,
     fechaFinal: state.endDate,

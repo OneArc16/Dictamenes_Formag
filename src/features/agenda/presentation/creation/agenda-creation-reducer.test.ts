@@ -38,6 +38,8 @@ const preview: AgendaPreview = {
   fingerprint: 'fingerprint-1234567890',
   sedeId: 3,
   sedeNombre: 'Sede Norte',
+  modalidadId: 2,
+  modalidadNombre: 'Teleconsulta',
   fechaInicial: '2026-07-28',
   fechaFinal: '2026-08-03',
   duracionMinutos: 30,
@@ -234,8 +236,9 @@ test('el constructor de payload normaliza y descarta exclusiones inválidas', ()
     },
   };
 
-  assert.deepEqual(buildAgendaCreationPayload(context.site.id, state), {
+  assert.deepEqual(buildAgendaCreationPayload(context.site.id, 2, state), {
     sedeId: 3,
+    modalidadId: 2,
     medicoIds: [12],
     fechaInicial: '2026-07-28',
     fechaFinal: '2026-08-03',
@@ -264,7 +267,7 @@ test('personaliza y restablece la duración de un médico sin cambiar la general
   assert.equal(state.durationMinutes, 30);
   assert.equal(state.doctorDurationOverrides[doctor.id], 45);
   assert.deepEqual(
-    buildAgendaCreationPayload(context.site.id, state).duracionesPorMedico,
+    buildAgendaCreationPayload(context.site.id, 2, state).duracionesPorMedico,
     [{ medicoId: doctor.id, duracionMinutos: 45 }],
   );
 
@@ -305,7 +308,7 @@ test('personaliza y restablece el horario de un médico sin alterar otros datos'
       bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
     },
   ]);
-  assert.deepEqual(buildAgendaCreationPayload(context.site.id, state).horariosPersonalizados, [
+  assert.deepEqual(buildAgendaCreationPayload(context.site.id, 2, state).horariosPersonalizados, [
     {
       medicoId: doctor.id,
       fechas: [
@@ -381,7 +384,7 @@ test('la validación de presentación rechaza fechas pasadas', () => {
     endDate: '2026-07-30',
   };
   const result = validateAgendaCreationPayload(
-    buildAgendaCreationPayload(context.site.id, state),
+    buildAgendaCreationPayload(context.site.id, 2, state),
     context,
   );
 
@@ -408,7 +411,7 @@ test('la validación rechaza bloques personalizados superpuestos', () => {
     },
   };
   const result = validateAgendaCreationPayload(
-    buildAgendaCreationPayload(context.site.id, state),
+    buildAgendaCreationPayload(context.site.id, 2, state),
     context,
   );
 

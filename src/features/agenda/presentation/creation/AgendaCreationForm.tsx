@@ -14,6 +14,7 @@ import {
 } from '@/features/agenda/domain/date-time';
 import { deriveAgendaWorkDates } from './agenda-creation-work-dates';
 import { AgendaCreationActions } from './AgendaCreationActions';
+import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import { AgendaCreationHeader } from './AgendaCreationHeader';
 import { AgendaDateExclusionDialog } from './AgendaDateExclusionDialog';
 import { AgendaDateSelector } from './AgendaDateSelector';
@@ -32,10 +33,12 @@ const DOCTOR_SEARCH_INPUT_ID = 'agenda-doctor-search';
 type ReadyAgendaCreationFormProps = {
   context: Extract<AgendaCreationContext, { status: 'ready' }>;
   siteOptions?: { id: number; name: string }[];
+  modalities: AgendaModality[];
+  modality: AgendaModality;
 };
 
-function ReadyAgendaCreationForm({ context, siteOptions }: ReadyAgendaCreationFormProps) {
-  const controller = useAgendaCreationController(context);
+function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }: ReadyAgendaCreationFormProps) {
+  const controller = useAgendaCreationController(context, modality.id);
   const doctorSearch = useAgendaDoctorSearch(context.site.id);
   const activeDoctors = useAgendaActiveDoctors(context.site.id);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -58,6 +61,7 @@ function ReadyAgendaCreationForm({ context, siteOptions }: ReadyAgendaCreationFo
   );
   const effectiveSchedules = useAgendaEffectiveSchedules(
     context.site.id,
+    modality.id,
     selectedDoctorIds,
   );
 
@@ -130,7 +134,13 @@ function ReadyAgendaCreationForm({ context, siteOptions }: ReadyAgendaCreationFo
     >
       <Card className="border-slate-200 bg-white shadow-sm">
         <CardContent className="space-y-4 p-4 sm:p-5">
-          <AgendaCreationHeader context={context} siteOptions={siteOptions} />
+          <AgendaCreationHeader
+            context={context}
+            siteOptions={siteOptions}
+            modalities={modalities}
+            modalityId={modality.id}
+            disabled={fieldsDisabled}
+          />
 
           {state.formError ? (
             <div
@@ -235,6 +245,7 @@ function ReadyAgendaCreationForm({ context, siteOptions }: ReadyAgendaCreationFo
 
           <SelectedDoctorsSection
             siteId={context.site.id}
+            modalityId={modality.id}
             doctors={state.selectedDoctors}
             periodDates={periodDates}
             globallyExcludedDates={state.excludedDates}
@@ -315,12 +326,21 @@ function BlockedAgendaCreationForm({
 export default function AgendaCreationForm({
   context,
   siteOptions,
+  modalities,
+  modality,
 }: {
   context: AgendaCreationContext;
   siteOptions?: { id: number; name: string }[];
+  modalities: AgendaModality[];
+  modality: AgendaModality;
 }) {
   return context.status === 'ready' ? (
-    <ReadyAgendaCreationForm context={context} siteOptions={siteOptions} />
+    <ReadyAgendaCreationForm
+      context={context}
+      siteOptions={siteOptions}
+      modalities={modalities}
+      modality={modality}
+    />
   ) : (
     <BlockedAgendaCreationForm context={context} />
   );

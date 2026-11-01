@@ -40,9 +40,11 @@ before(async () => {
       idSede: site.id,
     },
   });
+  const presencial = await prisma.modalidadCita.findUniqueOrThrow({ where: { codigo: 'PRESENCIAL' } });
   await createWorkSchedule(
     {
       sedeId: site.id,
+      modalidadId: presencial.id,
       nombre: 'Jornada partida',
       zonaHoraria: 'America/Bogota',
       bloques: [
@@ -61,8 +63,10 @@ after(async () => {
 test('preview, confirmación idempotente y restricción de superposición', { skip: !enabled }, async () => {
   const site = await prisma.sede.findFirstOrThrow({ where: { nombre: 'Sede agenda test' } });
   const doctor = await prisma.empleado.findFirstOrThrow({ where: { usuario: 'agenda-integration-doctor' } });
+  const presencial = await prisma.modalidadCita.findUniqueOrThrow({ where: { codigo: 'PRESENCIAL' } });
   const input = {
     sedeId: site.id,
+    modalidadId: presencial.id,
     medicoIds: [doctor.id],
     fechaInicial: '2030-02-04',
     fechaFinal: '2030-02-04',
@@ -109,6 +113,7 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
         generacionAgendaId: first.generacionId,
         medicoId: doctor.id,
         sedeId: site.id,
+        modalidadId: presencial.id,
         inicio: new Date(firstSlot.inicio.getTime() + 15 * 60_000),
         fin: new Date(firstSlot.fin.getTime() + 15 * 60_000),
         duracionMinutos: 30,
@@ -136,6 +141,7 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
     {
       sedeId: site.id,
       medicoId: doctor.id,
+      modalidadId: presencial.id,
       nombre: 'Horario particular corto',
       zonaHoraria: 'America/Bogota',
       bloques: [{ diaSemana: 1, horaInicio: '09:00', horaFin: '11:00' }],
@@ -187,4 +193,66 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   });
   assert.equal(customDuration.preview.totalNuevos, 2);
   assert.equal(customDuration.preview.medicos[0].duracionMinutos, 60);
+});
+
+test('agendas separadas por modalidad sin cruces del mismo médico', { skip: !enabled }, async () => {
+  const site = await prisma.sede.findFirstOrThrow({ where: { nombre: 'Sede agenda test' } });
+  const doctor = await prisma.empleado.findFirstOrThrow({ where: { usuario: 'agenda-integration-doctor' } });
+  const teleconsulta = await prisma.modalidadCita.findUniqueOrThrow({ where: { codigo: 'TELECONSULTA' } });
+  const input = {
+    sedeId: site.id,
+    modalidadId: teleconsulta.id,
+    medicoIds: [doctor.id],
+    fechaInicial: '2030-02-04',
+    fechaFinal: '2030-02-04',
+    duracionMinutos: 30,
+    duracionesPorMedico: [],
+    fechasExcluidas: [],
+    fechasHabilitadas: [],
+    exclusionesPorMedico: [],
+    horariosPersonalizados: [],
+  };
+
+  // Los horarios presenciales no sirven para la agenda de teleconsulta.
+  const withoutSchedule = await calculateAgenda(input);
+  assert.equal(withoutSchedule.preview.totalNuevos, 0);
+  assert.equal(withoutSchedule.preview.bloqueado, true);
+
+  // El médico ya tiene horario particular presencial; uno de teleconsulta convive con él.
+  const teleSchedule = {
+    sedeId: site.id,
+    medicoId: doctor.id,
+    modalidadId: teleconsulta.id,
+    nombre: 'Teleconsulta tarde',
+    zonaHoraria: 'America/Bogota',
+    bloques: [{ diaSemana: 1, horaInicio: '17:00', horaFin: '18:00' }],
+  };
+  await createWorkSchedule(teleSchedule, 'integration-test');
+  await assert.rejects(createWorkSchedule(teleSchedule, 'integration-test'), /Ya existe un horario activo/);
+
+  const preview = await calculateAgenda(input);
+  assert.equal(preview.preview.modalidadId, teleconsulta.id);
+  assert.equal(preview.preview.totalNuevos, 2);
+  assert.equal(preview.preview.bloqueado, false);
+  const generation = await confirmAgendaGeneration(
+    { ...input, idempotencyKey: crypto.randomUUID(), previewFingerprint: preview.preview.fingerprint },
+    'integration-test',
+  );
+  const stored = await prisma.generacionAgenda.findUniqueOrThrow({ where: { id: generation.generacionId } });
+  assert.equal(stored.modalidadId, teleconsulta.id);
+  assert.equal(
+    await prisma.cupoMedico.count({ where: { generacionAgendaId: generation.generacionId, modalidadId: teleconsulta.id } }),
+    2,
+  );
+
+  // Un cupo idéntico a uno presencial existente es conflicto, no se omite.
+  const crossing = await calculateAgenda({
+    ...input,
+    horariosPersonalizados: [
+      { medicoId: doctor.id, fechas: [{ fecha: '2030-02-04', bloques: [{ horaInicio: '08:00', horaFin: '09:00' }] }] },
+    ],
+  });
+  assert.equal(crossing.preview.totalConflictos, 2);
+  assert.equal(crossing.preview.totalOmitidos, 0);
+  assert.equal(crossing.preview.bloqueado, true);
 });

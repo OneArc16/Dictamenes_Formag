@@ -5,6 +5,7 @@ import { agendaGenerationSchema } from './validation';
 
 const validInput = {
   sedeId: 3,
+  modalidadId: 1,
   medicoIds: [12],
   fechaInicial: '2026-07-28',
   fechaFinal: '2026-08-03',
@@ -116,4 +117,10 @@ test('rechaza duraciones particulares duplicadas o de médicos no seleccionados'
 
   assert.equal(duplicated.success, false);
   assert.equal(unselected.success, false);
+});
+
+test('exige la modalidad de la agenda', () => {
+  const result = agendaGenerationSchema.safeParse({ ...validInput, modalidadId: undefined });
+  assert.equal(result.success, false);
+  assert.match(JSON.stringify(result.error?.issues), /Selecciona la modalidad/);
 });
