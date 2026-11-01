@@ -23,7 +23,6 @@ import { formatAtencionFecha, formatAtencionHora } from '../../AtencionesTable';
 
 type DiagnosticoOpcion = { codigo: string; label: string };
 
-const DIAS_RAPIDOS = [1, 2, 3, 5, 7, 15, 30];
 const labelClass = 'text-[11px] font-semibold text-slate-700';
 
 /** AAAA-MM-DD → DD/MM/AAAA sin pasar por zona horaria. */
@@ -43,15 +42,14 @@ function hoy() {
 }
 
 function opcionIncapacidad(incapacidad: Incapacidad) {
-  return `${incapacidad.numeroInterno} · ${categoriaLabel(incapacidad.categoria)} · ${formatFecha(incapacidad.fechaInicio)} a ${formatFecha(incapacidad.fechaFin)} · ${incapacidad.diagnostico.codigo}`;
+  return `${incapacidad.numeroInterno} · ${categoriaLabel(incapacidad.categoria)} · ${formatFecha(incapacidad.fechaInicio)} a ${formatFecha(incapacidad.fechaFin)}`;
 }
 
-function emptyForm(diagnosticoCodigo: string) {
+function emptyForm() {
   return {
     categoria: '' as CategoriaIncapacidad | '',
     prorroga: false,
     prorrogaDeId: null as number | null,
-    diagnosticoCodigo,
     fechaInicio: hoy(),
     dias: '',
     observaciones: '',
@@ -92,9 +90,16 @@ function IncapacidadCard({
               · {incapacidad.dias} {incapacidad.dias === 1 ? 'día' : 'días'}
             </span>
           </p>
-          <p className="text-xs text-slate-700">
-            <span className="font-semibold">{incapacidad.diagnostico.codigo}</span> · {incapacidad.diagnostico.nombre}
-          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {incapacidad.diagnosticos.map((dx, index) => (
+              <span
+                key={dx.codigo}
+                className={`rounded-full px-2 py-0.5 text-[11px] ${index === 0 ? 'bg-sky-50 font-semibold text-sky-800' : 'bg-slate-100 text-slate-600'}`}
+              >
+                {dx.codigo} · {dx.nombre}
+              </span>
+            ))}
+          </div>
           {incapacidad.observaciones ? (
             <p className="whitespace-pre-line text-xs text-slate-600">{incapacidad.observaciones}</p>
           ) : null}
@@ -144,8 +149,7 @@ export function IncapacidadesTab({
   onQuitar: (incapacidadId: number) => void;
   onIrADiagnosticos: () => void;
 }) {
-  const principal = diagnosticos[0]?.codigo ?? '';
-  const [form, setForm] = useState(() => emptyForm(principal));
+  const [form, setForm] = useState(emptyForm);
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -155,11 +159,6 @@ export function IncapacidadesTab({
     [incapacidades, historial],
   );
   const anterior = delDocente.find((item) => item.id === form.prorrogaDeId) ?? null;
-  const diagnosticoActual = form.diagnosticoCodigo || principal;
-  const opcionesDiagnostico =
-    anterior && !diagnosticos.some((item) => item.codigo === anterior.diagnostico.codigo)
-      ? [...diagnosticos, { codigo: anterior.diagnostico.codigo, label: `${anterior.diagnostico.codigo} · ${anterior.diagnostico.nombre}` }]
-      : diagnosticos;
 
   const dias = Number(form.dias);
   const diasValidos = Number.isInteger(dias) && dias >= 1 && dias <= INCAPACIDAD_DIAS_MAX;
@@ -172,7 +171,7 @@ export function IncapacidadesTab({
 
   const puedeExpedir =
     Boolean(form.categoria) &&
-    Boolean(diagnosticoActual) &&
+    diagnosticos.length > 0 &&
     Boolean(fechaFin) &&
     (!form.prorroga || Boolean(anterior)) &&
     !avisoProrroga &&
@@ -190,7 +189,6 @@ export function IncapacidadesTab({
             ...current,
             prorrogaDeId: seleccion.id,
             categoria: seleccion.categoria,
-            diagnosticoCodigo: seleccion.diagnostico.codigo,
             fechaInicio: siguienteDia(seleccion.fechaFin),
           }
         : { ...current, prorrogaDeId: null },
@@ -204,12 +202,11 @@ export function IncapacidadesTab({
         categoria: form.categoria,
         prorroga: form.prorroga,
         ...(form.prorroga && form.prorrogaDeId ? { prorrogaDeId: form.prorrogaDeId } : {}),
-        diagnosticoCodigo: diagnosticoActual,
         fechaInicio: form.fechaInicio,
         dias,
         observaciones: form.observaciones.trim() || undefined,
       });
-      setForm(emptyForm(principal));
+      setForm(emptyForm());
     } catch {
       // El aviso de error ya se mostró; se conserva lo escrito para corregirlo.
     }
@@ -228,7 +225,7 @@ export function IncapacidadesTab({
           <h3 id="incapacidad-nueva" className="text-xs font-semibold uppercase tracking-wide text-slate-600">
             Nueva incapacidad
           </h3>
-          {diagnosticos.length === 0 && !form.prorroga ? (
+          {diagnosticos.length === 0 ? (
             <p className="mt-2 text-xs text-amber-800">
               Para expedir una incapacidad, registra primero los diagnósticos de la atención.{' '}
               <button type="button" onClick={onIrADiagnosticos} className="font-semibold underline">
@@ -317,26 +314,6 @@ export function IncapacidadesTab({
               </div>
             ) : null}
 
-            <div className="md:col-span-3">
-              <label htmlFor="incapacidad-diagnostico" className={labelClass}>
-                Diagnóstico <span className="text-rose-700">*</span>
-              </label>
-              <select
-                id="incapacidad-diagnostico"
-                value={diagnosticoActual}
-                onChange={(event) => set('diagnosticoCodigo', event.target.value)}
-                className={`${inputClassName} mt-1`}
-              >
-                {opcionesDiagnostico.length === 0 ? <option value="">Sin diagnósticos</option> : null}
-                {opcionesDiagnostico.map((item, index) => (
-                  <option key={item.codigo} value={item.codigo}>
-                    {item.label}
-                    {index === 0 && diagnosticos[0]?.codigo === item.codigo ? ' (principal)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label htmlFor="incapacidad-inicio" className={labelClass}>
                 Fecha de inicio <span className="text-rose-700">*</span>
@@ -364,23 +341,6 @@ export function IncapacidadesTab({
                 onChange={(event) => set('dias', event.target.value)}
                 className={`${inputClassName} mt-1`}
               />
-              <div className="mt-1.5 flex flex-wrap gap-1" role="group" aria-label="Días frecuentes">
-                {DIAS_RAPIDOS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={dias === value}
-                    onClick={() => set('dias', String(value))}
-                    className={`min-h-7 rounded-md border px-2 text-[11px] font-semibold transition-colors ${
-                      dias === value
-                        ? 'border-sky-700 bg-sky-700 text-white'
-                        : 'border-slate-300 bg-white text-slate-700 hover:border-sky-400'
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div>
@@ -422,7 +382,7 @@ export function IncapacidadesTab({
                   del {formatFechaLarga(form.fechaInicio)} al {formatFechaLarga(fechaFin)}
                 </>
               ) : (
-                'Completa categoría, diagnóstico, fecha de inicio y días.'
+                'Completa categoría, fecha de inicio y días.'
               )}
             </p>
             <button

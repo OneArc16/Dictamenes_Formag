@@ -32,12 +32,6 @@ export const createIncapacidadSchema = z
     categoria: z.enum(CATEGORIA_VALUES, { error: 'Selecciona la categoría.' }),
     prorroga: z.boolean(),
     prorrogaDeId: z.number().int().positive().optional(),
-    diagnosticoCodigo: z
-      .string({ error: 'Selecciona el diagnóstico.' })
-      .trim()
-      .min(1, 'Selecciona el diagnóstico.')
-      .max(10)
-      .transform((value) => value.toUpperCase()),
     fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha de inicio no es válida.'),
     dias: z
       .number({ error: 'Escribe los días de incapacidad.' })
@@ -61,7 +55,8 @@ export type Incapacidad = {
   categoria: CategoriaIncapacidad;
   prorroga: boolean;
   prorrogaDe: { id: number; numeroInterno: string } | null;
-  diagnostico: { codigo: string; nombre: string };
+  /** Diagnósticos de la atención en que se expidió; el primero es el principal. */
+  diagnosticos: Array<{ codigo: string; nombre: string }>;
   fechaInicio: string;
   fechaFin: string;
   dias: number;

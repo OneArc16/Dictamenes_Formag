@@ -28,7 +28,7 @@ const INCAPACIDAD_SELECT = {
   categoria: true,
   prorroga: true,
   prorrogaDe: { select: { id: true, numeroInterno: true } },
-  diagnostico: { select: { codigo: true, nombre: true } },
+  cita: { select: { diagnosticos: { orderBy: { orden: 'asc' }, select: { cie10: { select: { codigo: true, nombre: true } } } } } },
   fechaInicio: true,
   fechaFin: true,
   dias: true,
@@ -55,7 +55,7 @@ async function toIncapacidades(db: Db, rows: IncapacidadRow[]): Promise<Incapaci
       categoria: row.categoria,
       prorroga: row.prorroga,
       prorrogaDe: row.prorrogaDe,
-      diagnostico: row.diagnostico,
+      diagnosticos: row.cita.diagnosticos.map((item) => item.cie10),
       fechaInicio: dateOnly(row.fechaInicio),
       fechaFin: dateOnly(row.fechaFin),
       dias: row.dias,
@@ -100,11 +100,11 @@ async function siguienteNumeroInterno(tx: Prisma.TransactionClient) {
 export async function createIncapacidad(auth: AuthorizationContext, citaId: number, input: CreateIncapacidadCommand) {
   return prisma.$transaction(async (tx) => {
     const cita = await editableCita(tx, auth, citaId);
-    const diagnostico = await tx.cie10.findFirst({
-      where: { codigo: input.diagnosticoCodigo, estado: true },
-      select: { codigo: true },
-    });
-    if (!diagnostico) throw new ReceptionError('CIE10_INVALID', 'El diagnóstico no existe o está inactivo.', 422);
+    // La incapacidad lleva todos los diagnósticos de la atención.
+    const diagnosticos = await tx.atencionDiagnostico.count({ where: { citaId } });
+    if (diagnosticos === 0) {
+      throw new ReceptionError('DIAGNOSTICO_REQUERIDO', 'Registra primero los diagnósticos de la atención.', 422);
+    }
 
     const fechaFin = fechaFinIncapacidad(input.fechaInicio, input.dias);
     if (input.prorrogaDeId) {
@@ -143,7 +143,6 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
         categoria: input.categoria,
         prorroga: input.prorroga,
         prorrogaDeId: input.prorrogaDeId ?? null,
-        diagnosticoCodigo: input.diagnosticoCodigo,
         fechaInicio: parseDateOnly(input.fechaInicio),
         fechaFin: parseDateOnly(fechaFin),
         dias: input.dias,
