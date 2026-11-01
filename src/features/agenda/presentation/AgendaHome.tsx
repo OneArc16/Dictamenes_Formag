@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarPlus2, History, LayoutList, MonitorSmartphone } from 'lucide-react';
+import { CalendarPlus2, History, LayoutList } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import AgendaGenerationsList from './AgendaGenerationsList';
+import { AgendaModalityPicker } from './AgendaModalityPicker';
 import AgendaSlotsBoard from './AgendaSlotsBoard';
 
 const triggerClass =
@@ -43,25 +44,9 @@ export default function AgendaHome({
         ) : undefined
       }
     >
-      <fieldset className="mb-4">
-        <legend className="mb-2 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-          <MonitorSmartphone className="h-4 w-4 text-sky-700" aria-hidden="true" /> Agenda
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {modalities.map((modality) => (
-            <Button
-              key={modality.id}
-              type="button"
-              variant={modality.id === modalityId ? 'default' : 'outline'}
-              aria-pressed={modality.id === modalityId}
-              onClick={() => setModalityId(modality.id)}
-              className="min-h-11 rounded-xl"
-            >
-              {modality.nombre}
-            </Button>
-          ))}
-        </div>
-      </fieldset>
+      <div className="mb-4">
+        <AgendaModalityPicker modalities={modalities} modalityId={modalityId} onSelect={setModalityId} />
+      </div>
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList className="h-auto rounded-xl bg-slate-100 p-1">
           <TabsTrigger value="cupos" className={triggerClass}>

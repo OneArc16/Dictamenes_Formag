@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef } from 'react';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -16,7 +17,7 @@ import { deriveAgendaWorkDates } from './agenda-creation-work-dates';
 import { AgendaCreationActions } from './AgendaCreationActions';
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import { AgendaCreationHeader } from './AgendaCreationHeader';
-import { AgendaModalityPicker } from './AgendaModalityPicker';
+import { AgendaModalityPicker } from '../AgendaModalityPicker';
 import { AgendaDateExclusionDialog } from './AgendaDateExclusionDialog';
 import { AgendaDateSelector } from './AgendaDateSelector';
 import { AgendaDoctorCombobox } from './AgendaDoctorCombobox';
@@ -39,6 +40,7 @@ type ReadyAgendaCreationFormProps = {
 };
 
 function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }: ReadyAgendaCreationFormProps) {
+  const router = useRouter();
   const controller = useAgendaCreationController(context, modality.id);
   const doctorSearch = useAgendaDoctorSearch(context.site.id);
   const activeDoctors = useAgendaActiveDoctors(context.site.id);
@@ -137,10 +139,12 @@ function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }:
           <AgendaCreationHeader context={context} siteOptions={siteOptions} modalityId={modality.id} />
 
           <AgendaModalityPicker
-            siteId={context.site.id}
             modalities={modalities}
             modalityId={modality.id}
             disabled={fieldsDisabled}
+            onSelect={(modalityId) =>
+              router.replace(`/agenda/crear?sedeId=${context.site.id}&modalidadId=${modalityId}`, { scroll: false })
+            }
           />
 
           {state.formError ? (

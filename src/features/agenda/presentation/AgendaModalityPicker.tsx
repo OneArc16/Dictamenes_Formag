@@ -1,7 +1,6 @@
 'use client';
 
 import { Building2, CalendarDays, Video } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 
@@ -10,19 +9,18 @@ const MODALITY_DETAILS: Record<string, { icon: typeof Building2; description: st
   TELECONSULTA: { icon: Video, description: 'Atención a distancia, sin desplazamiento a la sede.' },
 };
 
-/** Primer paso de la agenda: cada modalidad es una agenda distinta con sus propios cupos. */
+/** Selector compacto de agenda: cada modalidad es una agenda distinta con sus propios cupos. */
 export function AgendaModalityPicker({
-  siteId,
   modalities,
   modalityId,
+  onSelect,
   disabled = false,
 }: {
-  siteId: number;
   modalities: AgendaModality[];
-  modalityId: number;
+  modalityId: number | null;
+  onSelect: (modalityId: number) => void;
   disabled?: boolean;
 }) {
-  const router = useRouter();
 
   return (
     <section
@@ -50,9 +48,7 @@ export function AgendaModalityPicker({
               title={details?.description}
               disabled={disabled}
               onClick={() => {
-                if (!selected) {
-                  router.replace(`/agenda/crear?sedeId=${siteId}&modalidadId=${modality.id}`, { scroll: false });
-                }
+                if (!selected) onSelect(modality.id);
               }}
               className={`inline-flex min-h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none ${
                 selected ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'
