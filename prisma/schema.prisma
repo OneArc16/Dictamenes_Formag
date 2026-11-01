@@ -870,6 +870,7 @@ model HorarioLaboral {
   id          Int      @id @default(autoincrement())
   sedeId      Int
   medicoId    Int?
+  modalidadId Int
   nombre      String   @db.VarChar(120)
   zonaHoraria String   @default("America/Bogota") @db.VarChar(80)
   activo      Boolean  @default(true)
@@ -880,11 +881,13 @@ model HorarioLaboral {
 
   sede         Sede                     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   medico       Empleado?                @relation("HorarioLaboralMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+  modalidad    ModalidadCita            @relation(fields: [modalidadId], references: [id], onDelete: Restrict)
   bloques      HorarioLaboralBloque[]
   generaciones GeneracionAgendaMedico[]
 
   @@index([sedeId, activo])
   @@index([medicoId, activo])
+  @@index([modalidadId])
   @@map("horarios_laborales")
 }
 
@@ -907,6 +910,7 @@ model HorarioLaboralBloque {
 model GeneracionAgenda {
   id              Int                    @id @default(autoincrement())
   sedeId          Int
+  modalidadId     Int
   fechaInicial    DateTime               @db.Date
   fechaFinal      DateTime               @db.Date
   duracionMinutos Int                    @db.SmallInt
@@ -924,11 +928,13 @@ model GeneracionAgenda {
   createdBy       String                 @db.VarChar(100)
 
   sede            Sede                            @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  modalidad       ModalidadCita                   @relation(fields: [modalidadId], references: [id], onDelete: Restrict)
   medicos         GeneracionAgendaMedico[]
   fechasExcluidas GeneracionAgendaFechaExcluida[]
   cupos           CupoMedico[]
 
   @@index([sedeId, createdAt])
+  @@index([modalidadId])
   @@map("generaciones_agenda")
 }
 
@@ -972,6 +978,7 @@ model CupoMedico {
   generacionAgendaId Int
   medicoId           Int
   sedeId             Int
+  modalidadId        Int
   inicio             DateTime         @db.Timestamptz(3)
   fin                DateTime         @db.Timestamptz(3)
   duracionMinutos    Int              @db.SmallInt
@@ -986,11 +993,13 @@ model CupoMedico {
   generacionAgenda GeneracionAgenda      @relation(fields: [generacionAgendaId], references: [id], onDelete: Restrict)
   medico           Empleado              @relation("CupoMedicoEmpleado", fields: [medicoId], references: [id], onDelete: Restrict)
   sede             Sede                  @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  modalidad        ModalidadCita         @relation(fields: [modalidadId], references: [id], onDelete: Restrict)
   citas            Cita[]
   historial        CupoMedicoHistorial[]
 
   @@index([medicoId, inicio])
   @@index([sedeId, inicio, estado])
+  @@index([sedeId, modalidadId, inicio, estado])
   @@index([generacionAgendaId])
   @@map("cupos_medicos")
 }
@@ -1006,7 +1015,10 @@ model ModalidadCita {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  citas Cita[]
+  citas        Cita[]
+  horarios     HorarioLaboral[]
+  generaciones GeneracionAgenda[]
+  cupos        CupoMedico[]
 
   @@map("modalidades_cita")
 }
