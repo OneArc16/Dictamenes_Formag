@@ -1283,25 +1283,28 @@ enum CategoriaIncapacidad {
 
 /// Incapacidades que el médico expide al docente durante la atención.
 model AtencionIncapacidad {
-  id                Int                  @id @default(autoincrement())
-  citaId            Int
-  usuarioId         Int
+  id                    Int                  @id @default(autoincrement())
+  citaId                Int
+  usuarioId             Int
   /// Consecutivo por año: AAAA-NNNN.
-  numeroInterno     String               @unique @db.VarChar(20)
-  categoria         CategoriaIncapacidad
-  prorroga          Boolean              @default(false)
-  prorrogaDeId      Int?
-  fechaInicio       DateTime             @db.Date
-  fechaFin          DateTime             @db.Date
-  dias              Int                  @db.SmallInt
-  observaciones     String?              @db.Text
-  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
-  createdBy         Int
+  numeroInterno         String               @unique @db.VarChar(20)
+  categoria             CategoriaIncapacidad
+  prorroga              Boolean              @default(false)
+  prorrogaDeId          Int?
+  /// Prórroga de una incapacidad expedida fuera del sistema.
+  prorrogaExternaNumero String?              @db.VarChar(40)
+  prorrogaExternaFin    DateTime?            @db.Date
+  fechaInicio           DateTime             @db.Date
+  fechaFin              DateTime             @db.Date
+  dias                  Int                  @db.SmallInt
+  observaciones         String?              @db.Text
+  createdAt             DateTime             @default(now()) @db.Timestamptz(3)
+  createdBy             Int
 
-  cita        Cita                  @relation(fields: [citaId], references: [id], onDelete: Restrict)
-  usuario     Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  prorrogaDe  AtencionIncapacidad?  @relation("IncapacidadProrroga", fields: [prorrogaDeId], references: [id], onDelete: Restrict)
-  prorrogas   AtencionIncapacidad[] @relation("IncapacidadProrroga")
+  cita       Cita                  @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  usuario    Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  prorrogaDe AtencionIncapacidad?  @relation("IncapacidadProrroga", fields: [prorrogaDeId], references: [id], onDelete: Restrict)
+  prorrogas  AtencionIncapacidad[] @relation("IncapacidadProrroga")
 
   @@index([citaId])
   @@index([usuarioId, fechaInicio])
