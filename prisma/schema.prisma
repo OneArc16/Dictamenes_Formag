@@ -782,6 +782,7 @@ model Usuario {
   signosVitales             SignosVitales[]
   remisiones                AtencionRemision[]
   evoluciones               AtencionEvolucion[]
+  incapacidades             AtencionIncapacidad[]
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1063,6 +1064,7 @@ model Cita {
   diagnosticos       AtencionDiagnostico[]
   remisiones         AtencionRemision[]
   evoluciones        AtencionEvolucion[]
+  incapacidades      AtencionIncapacidad[]
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1268,6 +1270,45 @@ model AtencionEvolucion {
   @@index([citaId, createdAt])
   @@index([usuarioId, createdAt])
   @@map("atencion_evoluciones")
+}
+
+enum CategoriaIncapacidad {
+  ENFERMEDAD_GENERAL
+  ENFERMEDAD_PROFESIONAL
+  ACCIDENTE_LABORAL
+  ACCIDENTE_NO_LABORAL
+  INCAPACIDAD_MATERNA
+  LEY_MARIA
+}
+
+/// Incapacidades que el médico expide al docente durante la atención.
+model AtencionIncapacidad {
+  id                Int                  @id @default(autoincrement())
+  citaId            Int
+  usuarioId         Int
+  /// Consecutivo por año: AAAA-NNNN.
+  numeroInterno     String               @unique @db.VarChar(20)
+  categoria         CategoriaIncapacidad
+  prorroga          Boolean              @default(false)
+  prorrogaDeId      Int?
+  diagnosticoCodigo String               @db.VarChar(10)
+  fechaInicio       DateTime             @db.Date
+  fechaFin          DateTime             @db.Date
+  dias              Int                  @db.SmallInt
+  observaciones     String?              @db.Text
+  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
+  createdBy         Int
+
+  cita        Cita                  @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  usuario     Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  diagnostico Cie10                 @relation(fields: [diagnosticoCodigo], references: [codigo], onDelete: Restrict)
+  prorrogaDe  AtencionIncapacidad?  @relation("IncapacidadProrroga", fields: [prorrogaDeId], references: [id], onDelete: Restrict)
+  prorrogas   AtencionIncapacidad[] @relation("IncapacidadProrroga")
+
+  @@index([citaId])
+  @@index([usuarioId, fechaInicio])
+  @@index([prorrogaDeId])
+  @@map("atencion_incapacidades")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
@@ -1553,6 +1594,7 @@ model Cie10 {
   remisionesPrincipal  AtencionRemision[]    @relation("RemisionDiagnostico")
   remisionesRelac2     AtencionRemision[]    @relation("RemisionRelacionado2")
   remisionesRelac3     AtencionRemision[]    @relation("RemisionRelacionado3")
+  incapacidades        AtencionIncapacidad[]
 
   @@map("cie10")
 }
