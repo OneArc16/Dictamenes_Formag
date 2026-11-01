@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { ReceptionError } from '@/features/reception/application/errors';
-import type { AuthorizationContext } from '@/lib/auth/authorization';
+import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
 
 import { ApplicationError } from '@/features/formulario-origen/application/errors';
@@ -87,6 +87,13 @@ export async function getRemisiones(citaId: number, usuarioId: number) {
   };
 }
 
+/** Motivo por el que la junta no puede abrir el caso en Dictamen, o null si puede. */
+export function aperturaCasoBloqueada(auth: AuthorizationContext) {
+  return hasAbility(auth, 'dictamen.create')
+    ? null
+    : 'No tienes permiso para abrir casos en Dictamen; la remisión se guardó sin abrir el caso.';
+}
+
 export async function createRemision(
   auth: AuthorizationContext,
   citaId: number,
@@ -133,7 +140,9 @@ export async function createRemision(
       }
 
       let aviso: string | null = null;
-      if (junta && input.tipoDictamen) {
+      const bloqueo = junta ? aperturaCasoBloqueada(auth) : null;
+      if (bloqueo) aviso = bloqueo;
+      else if (junta && input.tipoDictamen) {
         // La junta abre el caso en el panel de Dictamen del médico que atiende.
         const docente = await tx.usuario.findUniqueOrThrow({
           where: { id: cita.usuarioId },
