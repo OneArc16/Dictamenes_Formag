@@ -250,7 +250,6 @@ export const workScheduleSchema = z
   .object({
     sedeId: z.number().int().positive(),
     medicoId: z.number().int().positive().nullable().optional(),
-    modalidadId: z.number({ error: 'Selecciona la modalidad.' }).int().positive(),
     nombre: z.string().trim().min(3).max(120),
     zonaHoraria: z.string().trim().min(3).max(80).default('America/Bogota'),
     bloques: scheduleBlocksSchema,

@@ -9,19 +9,15 @@ type EffectiveSchedulesResponse = {
   schedules: EffectiveDoctorWorkSchedule[];
 };
 
-export function useAgendaEffectiveSchedules(
-  siteId: number,
-  modalityId: number,
-  doctorIds: number[],
-) {
+export function useAgendaEffectiveSchedules(siteId: number, doctorIds: number[]) {
   const normalizedIds = [...new Set(doctorIds)].sort((left, right) => left - right);
   const doctorIdsKey = normalizedIds.join(',');
   const query = useQuery<EffectiveSchedulesResponse, Error>({
-    queryKey: ['agenda-effective-schedules', siteId, modalityId, doctorIdsKey],
+    queryKey: ['agenda-effective-schedules', siteId, doctorIdsKey],
     enabled: normalizedIds.length > 0,
     queryFn: () =>
       agendaRequest(
-        `/api/agenda/medicos/horarios-efectivos?sedeId=${siteId}&modalidadId=${modalityId}&medicoIds=${doctorIdsKey}`,
+        `/api/agenda/medicos/horarios-efectivos?sedeId=${siteId}&medicoIds=${doctorIdsKey}`,
       ),
     staleTime: 60_000,
     retry: 1,

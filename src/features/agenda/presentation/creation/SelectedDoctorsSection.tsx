@@ -12,7 +12,6 @@ import type { AgendaDoctorOption } from './agenda-creation-types';
 
 type SelectedDoctorsSectionProps = {
   siteId: number;
-  modalityId: number;
   doctors: AgendaDoctorOption[];
   periodDates: string[];
   globallyExcludedDates: string[];
@@ -44,7 +43,6 @@ type SelectedDoctorsSectionProps = {
 
 export function SelectedDoctorsSection({
   siteId,
-  modalityId,
   doctors,
   periodDates,
   globallyExcludedDates,
@@ -109,7 +107,6 @@ export function SelectedDoctorsSection({
               <SelectedDoctorCard
                 key={doctor.id}
                 siteId={siteId}
-                modalityId={modalityId}
                 doctor={doctor}
                 preview={doctorPreview}
                 scheduleOverride={doctorScheduleOverrides[doctor.id]}

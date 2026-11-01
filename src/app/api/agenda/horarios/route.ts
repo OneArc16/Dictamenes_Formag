@@ -18,15 +18,9 @@ export async function GET(request: Request) {
   if (typeof medicoId === 'number' && (!Number.isInteger(medicoId) || medicoId <= 0)) {
     return NextResponse.json({ ok: false, error: 'El médico no es válido.' }, { status: 400 });
   }
-  const modalidadParam = url.searchParams.get('modalidadId');
-  const modalidadId = modalidadParam === null ? undefined : Number(modalidadParam);
-  if (typeof modalidadId === 'number' && (!Number.isInteger(modalidadId) || modalidadId <= 0)) {
-    return NextResponse.json({ ok: false, error: 'La modalidad no es válida.' }, { status: 400 });
-  }
   const rows = await listWorkSchedules({
     sedeId,
     medicoId,
-    modalidadId,
     includeInactive: url.searchParams.get('includeInactive') === 'true',
   });
   return NextResponse.json({ ok: true, rows });

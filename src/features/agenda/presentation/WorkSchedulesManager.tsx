@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import { agendaRequest } from './api-client';
 
 type Site = { id: number; nombre: string };
@@ -18,8 +17,6 @@ type Block = { id?: number; diaSemana: number; horaInicio: string; horaFin: stri
 type Schedule = {
   id: number;
   sedeId: number;
-  modalidadId: number;
-  modalidadNombre: string;
   medicoId: number | null;
   medicoNombre: string | null;
   alcance: 'SEDE' | 'PARTICULAR';
@@ -36,10 +33,9 @@ const DEFAULT_BLOCKS: Block[] = [1, 2, 3, 4, 5].flatMap((day) => [
   { diaSemana: day, horaInicio: '13:00', horaFin: '17:00' },
 ]);
 
-export default function WorkSchedulesManager({ modalities }: { modalities: AgendaModality[] }) {
+export default function WorkSchedulesManager() {
   const queryClient = useQueryClient();
   const [siteId, setSiteId] = useState<number | null>(null);
-  const [modalityId, setModalityId] = useState<number | null>(modalities[0]?.id ?? null);
   const [scope, setScope] = useState<'SEDE' | 'PARTICULAR'>('SEDE');
   const [doctorId, setDoctorId] = useState<number | null>(null);
   const [name, setName] = useState('Horario laboral de sede');
@@ -62,7 +58,6 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
 
   const payload = {
     sedeId: siteId,
-    modalidadId: modalityId,
     medicoId: scope === 'PARTICULAR' ? doctorId : null,
     nombre: name,
     zonaHoraria: timeZone,
@@ -86,7 +81,6 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
 
   function resetForm() {
     setEditingId(null);
-    setModalityId(modalities[0]?.id ?? null);
     setScope('SEDE');
     setDoctorId(null);
     setName('Horario laboral de sede');
@@ -97,7 +91,6 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
 
   function editSchedule(schedule: Schedule) {
     setEditingId(schedule.id);
-    setModalityId(schedule.modalidadId);
     setScope(schedule.alcance);
     setDoctorId(schedule.medicoId);
     setName(schedule.nombre);
@@ -110,7 +103,6 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
   function submit() {
     setError('');
     if (!siteId) return setError('Selecciona una sede.');
-    if (!modalityId) return setError('Selecciona la modalidad del horario.');
     if (scope === 'PARTICULAR' && !doctorId) return setError('Selecciona el médico del horario particular.');
     if (!name.trim()) return setError('Escribe un nombre para el horario.');
     if (blocks.length === 0) return setError('Agrega al menos un bloque de atención.');
@@ -118,14 +110,13 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
   }
 
   return (
-    <ModulePageLayout moduleKey="agenda" title="Horario laboral" description="Configura, por modalidad, la plantilla semanal activa de una sede o el horario particular de un médico." compactHero>
+    <ModulePageLayout moduleKey="agenda" title="Horario laboral" description="Configura la plantilla semanal activa de una sede o el horario particular de un médico." compactHero>
       <div className="grid gap-4 xl:grid-cols-[minmax(340px,440px)_minmax(0,1fr)]">
         <Card className="h-fit border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
           <CardHeader className="border-b border-slate-100 p-5"><CardTitle className="text-base">{editingId ? `Editar horario #${editingId}` : 'Nuevo horario laboral'}</CardTitle></CardHeader>
           <CardContent className="space-y-5 p-5">
             {error ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div> : null}
             <div className="space-y-2"><Label htmlFor="schedule-site">Sede *</Label><select id="schedule-site" value={siteId ?? ''} disabled={Boolean(editingId)} onChange={(event) => { setSiteId(Number(event.target.value)); setDoctorId(null); }} className="min-h-11 w-full px-3 text-sm"><option value="">Selecciona</option>{(sitesQuery.data?.options ?? []).map((site) => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select></div>
-            <fieldset><legend className="text-sm font-medium text-slate-900">Modalidad *</legend><div className="mt-2 grid grid-cols-2 gap-2">{modalities.map((modality) => <Button key={modality.id} type="button" variant={modalityId === modality.id ? 'default' : 'outline'} aria-pressed={modalityId === modality.id} disabled={Boolean(editingId)} onClick={() => setModalityId(modality.id)} className="min-h-11">{modality.nombre}</Button>)}</div></fieldset>
             <fieldset><legend className="text-sm font-medium text-slate-900">Alcance *</legend><div className="mt-2 grid grid-cols-2 gap-2">{(['SEDE', 'PARTICULAR'] as const).map((value) => <Button key={value} type="button" variant={scope === value ? 'default' : 'outline'} aria-pressed={scope === value} onClick={() => { setScope(value); if (value === 'SEDE') setDoctorId(null); }} className="min-h-11">{value === 'SEDE' ? 'Toda la sede' : 'Un médico'}</Button>)}</div></fieldset>
             {scope === 'PARTICULAR' ? <div className="space-y-2"><Label htmlFor="schedule-doctor">Médico *</Label><select id="schedule-doctor" value={doctorId ?? ''} onChange={(event) => setDoctorId(Number(event.target.value))} className="min-h-11 w-full px-3 text-sm"><option value="">Selecciona</option>{(doctorsQuery.data?.options ?? []).map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.nombre}</option>)}</select></div> : null}
             <div className="space-y-2"><Label htmlFor="schedule-name">Nombre *</Label><Input id="schedule-name" value={name} onChange={(event) => setName(event.target.value)} className="min-h-11" /></div>
@@ -136,7 +127,7 @@ export default function WorkSchedulesManager({ modalities }: { modalities: Agend
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white shadow-sm"><CardHeader className="border-b border-slate-100 p-5"><CardTitle className="text-base">Horarios configurados</CardTitle></CardHeader><CardContent className="p-4 sm:p-5">{schedulesQuery.isLoading ? <p className="py-10 text-center text-sm text-slate-500">Cargando horarios…</p> : (schedulesQuery.data?.rows ?? []).length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center"><Clock3 className="mx-auto h-8 w-8 text-slate-400" aria-hidden="true" /><p className="mt-3 font-semibold text-slate-900">No hay horarios configurados</p><p className="mt-1 text-sm text-slate-600">Crea el horario predeterminado de la sede para comenzar.</p></div> : <div className="space-y-3">{(schedulesQuery.data?.rows ?? []).map((schedule) => <article key={schedule.id} className={`rounded-2xl border p-4 ${schedule.activo ? 'border-slate-200' : 'border-slate-200 bg-slate-50 opacity-70'}`}><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-950">{schedule.nombre}</h2><span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800">{schedule.modalidadNombre}</span><span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">{schedule.alcance === 'SEDE' ? 'Sede' : 'Particular'}</span>{!schedule.activo ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs">Inactivo</span> : null}</div><p className="mt-2 text-sm text-slate-600">{schedule.medicoNombre ?? 'Todos los médicos sin horario particular'}</p><p className="mt-1 text-xs text-slate-500">{schedule.bloques.length} bloques · {schedule.zonaHoraria}{schedule.utilizado ? ' · utilizado en generaciones' : ''}</p></div>{schedule.activo ? <div className="flex gap-2"><Button type="button" size="icon" variant="outline" aria-label={`Editar ${schedule.nombre}`} className="h-11 w-11" onClick={() => editSchedule(schedule)}><Pencil aria-hidden="true" /></Button><Button type="button" size="icon" variant="outline" aria-label={`Desactivar ${schedule.nombre}`} className="h-11 w-11 text-rose-700" disabled={deactivateMutation.isPending} onClick={() => { if (window.confirm(`¿Desactivar “${schedule.nombre}”? Los cupos existentes no se modificarán.`)) deactivateMutation.mutate(schedule.id); }}><Power aria-hidden="true" /></Button></div> : null}</div><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{DAYS.map((day, index) => { const dayBlocks = schedule.bloques.filter((block) => block.diaSemana === index + 1); if (!dayBlocks.length) return null; return <div key={day} className="rounded-xl bg-slate-50 p-3 text-xs"><span className="font-semibold text-slate-700">{day}</span><span className="mt-1 block text-slate-600">{dayBlocks.map((block) => `${block.horaInicio}–${block.horaFin}`).join(' · ')}</span></div>; })}</div></article>)}</div>}</CardContent></Card>
+        <Card className="border-slate-200 bg-white shadow-sm"><CardHeader className="border-b border-slate-100 p-5"><CardTitle className="text-base">Horarios configurados</CardTitle></CardHeader><CardContent className="p-4 sm:p-5">{schedulesQuery.isLoading ? <p className="py-10 text-center text-sm text-slate-500">Cargando horarios…</p> : (schedulesQuery.data?.rows ?? []).length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center"><Clock3 className="mx-auto h-8 w-8 text-slate-400" aria-hidden="true" /><p className="mt-3 font-semibold text-slate-900">No hay horarios configurados</p><p className="mt-1 text-sm text-slate-600">Crea el horario predeterminado de la sede para comenzar.</p></div> : <div className="space-y-3">{(schedulesQuery.data?.rows ?? []).map((schedule) => <article key={schedule.id} className={`rounded-2xl border p-4 ${schedule.activo ? 'border-slate-200' : 'border-slate-200 bg-slate-50 opacity-70'}`}><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-950">{schedule.nombre}</h2><span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">{schedule.alcance === 'SEDE' ? 'Sede' : 'Particular'}</span>{!schedule.activo ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs">Inactivo</span> : null}</div><p className="mt-2 text-sm text-slate-600">{schedule.medicoNombre ?? 'Todos los médicos sin horario particular'}</p><p className="mt-1 text-xs text-slate-500">{schedule.bloques.length} bloques · {schedule.zonaHoraria}{schedule.utilizado ? ' · utilizado en generaciones' : ''}</p></div>{schedule.activo ? <div className="flex gap-2"><Button type="button" size="icon" variant="outline" aria-label={`Editar ${schedule.nombre}`} className="h-11 w-11" onClick={() => editSchedule(schedule)}><Pencil aria-hidden="true" /></Button><Button type="button" size="icon" variant="outline" aria-label={`Desactivar ${schedule.nombre}`} className="h-11 w-11 text-rose-700" disabled={deactivateMutation.isPending} onClick={() => { if (window.confirm(`¿Desactivar “${schedule.nombre}”? Los cupos existentes no se modificarán.`)) deactivateMutation.mutate(schedule.id); }}><Power aria-hidden="true" /></Button></div> : null}</div><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{DAYS.map((day, index) => { const dayBlocks = schedule.bloques.filter((block) => block.diaSemana === index + 1); if (!dayBlocks.length) return null; return <div key={day} className="rounded-xl bg-slate-50 p-3 text-xs"><span className="font-semibold text-slate-700">{day}</span><span className="mt-1 block text-slate-600">{dayBlocks.map((block) => `${block.horaInicio}–${block.horaFin}`).join(' · ')}</span></div>; })}</div></article>)}</div>}</CardContent></Card>
       </div>
     </ModulePageLayout>
   );

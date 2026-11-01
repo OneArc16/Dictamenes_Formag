@@ -229,7 +229,6 @@ export async function calculateAgenda(
   const schedules = await db.horarioLaboral.findMany({
     where: {
       sedeId: input.sedeId,
-      modalidadId: input.modalidadId,
       activo: true,
       OR: [{ medicoId: null }, { medicoId: { in: input.medicoIds } }],
     },
@@ -285,9 +284,7 @@ export async function calculateAgenda(
     const resolved = resolveEffectiveSchedule(schedules, medicoId);
     if (resolved.error) doctorErrors.add(resolved.error);
     if (!resolved.schedule) {
-      doctorErrors.add(
-        `No existe un horario laboral activo de ${modalidad.nombre.toLowerCase()} para el médico ni para su sede.`,
-      );
+      doctorErrors.add('No existe un horario laboral activo para el médico ni para su sede.');
     }
     const schedule = resolved.schedule;
     const customDates = customSchedulesByDoctor.get(medicoId);

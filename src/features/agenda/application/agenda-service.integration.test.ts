@@ -40,11 +40,9 @@ before(async () => {
       idSede: site.id,
     },
   });
-  const presencial = await prisma.modalidadCita.findUniqueOrThrow({ where: { codigo: 'PRESENCIAL' } });
   await createWorkSchedule(
     {
       sedeId: site.id,
-      modalidadId: presencial.id,
       nombre: 'Jornada partida',
       zonaHoraria: 'America/Bogota',
       bloques: [
@@ -141,7 +139,6 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
     {
       sedeId: site.id,
       medicoId: doctor.id,
-      modalidadId: presencial.id,
       nombre: 'Horario particular corto',
       zonaHoraria: 'America/Bogota',
       bloques: [{ diaSemana: 1, horaInicio: '09:00', horaFin: '11:00' }],
@@ -195,7 +192,7 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   assert.equal(customDuration.preview.medicos[0].duracionMinutos, 60);
 });
 
-test('agendas separadas por modalidad sin cruces del mismo médico', { skip: !enabled }, async () => {
+test('la teleconsulta usa el horario compartido sin cruzarse con la agenda presencial', { skip: !enabled }, async () => {
   const site = await prisma.sede.findFirstOrThrow({ where: { nombre: 'Sede agenda test' } });
   const doctor = await prisma.empleado.findFirstOrThrow({ where: { usuario: 'agenda-integration-doctor' } });
   const teleconsulta = await prisma.modalidadCita.findUniqueOrThrow({ where: { codigo: 'TELECONSULTA' } });
@@ -213,46 +210,28 @@ test('agendas separadas por modalidad sin cruces del mismo médico', { skip: !en
     horariosPersonalizados: [],
   };
 
-  // Los horarios presenciales no sirven para la agenda de teleconsulta.
-  const withoutSchedule = await calculateAgenda(input);
-  assert.equal(withoutSchedule.preview.totalNuevos, 0);
-  assert.equal(withoutSchedule.preview.bloqueado, true);
+  // El 2030-02-04 ya tiene cupos presenciales de 08:00 a 12:00: los cupos idénticos
+  // del horario particular (09:00-11:00) son conflicto, no se omiten.
+  const crossing = await calculateAgenda(input);
+  assert.equal(crossing.preview.medicos[0].horarioOrigen, 'PARTICULAR');
+  assert.equal(crossing.preview.totalConflictos, 4);
+  assert.equal(crossing.preview.totalOmitidos, 0);
+  assert.equal(crossing.preview.bloqueado, true);
 
-  // El médico ya tiene horario particular presencial; uno de teleconsulta convive con él.
-  const teleSchedule = {
-    sedeId: site.id,
-    medicoId: doctor.id,
-    modalidadId: teleconsulta.id,
-    nombre: 'Teleconsulta tarde',
-    zonaHoraria: 'America/Bogota',
-    bloques: [{ diaSemana: 1, horaInicio: '17:00', horaFin: '18:00' }],
-  };
-  await createWorkSchedule(teleSchedule, 'integration-test');
-  await assert.rejects(createWorkSchedule(teleSchedule, 'integration-test'), /Ya existe un horario activo/);
-
-  const preview = await calculateAgenda(input);
+  // En una fecha libre el mismo horario genera la agenda de teleconsulta.
+  const freeDay = { ...input, fechaInicial: '2030-02-11', fechaFinal: '2030-02-11' };
+  const preview = await calculateAgenda(freeDay);
   assert.equal(preview.preview.modalidadId, teleconsulta.id);
-  assert.equal(preview.preview.totalNuevos, 2);
+  assert.equal(preview.preview.totalNuevos, 4);
   assert.equal(preview.preview.bloqueado, false);
   const generation = await confirmAgendaGeneration(
-    { ...input, idempotencyKey: crypto.randomUUID(), previewFingerprint: preview.preview.fingerprint },
+    { ...freeDay, idempotencyKey: crypto.randomUUID(), previewFingerprint: preview.preview.fingerprint },
     'integration-test',
   );
   const stored = await prisma.generacionAgenda.findUniqueOrThrow({ where: { id: generation.generacionId } });
   assert.equal(stored.modalidadId, teleconsulta.id);
   assert.equal(
     await prisma.cupoMedico.count({ where: { generacionAgendaId: generation.generacionId, modalidadId: teleconsulta.id } }),
-    2,
+    4,
   );
-
-  // Un cupo idéntico a uno presencial existente es conflicto, no se omite.
-  const crossing = await calculateAgenda({
-    ...input,
-    horariosPersonalizados: [
-      { medicoId: doctor.id, fechas: [{ fecha: '2030-02-04', bloques: [{ horaInicio: '08:00', horaFin: '09:00' }] }] },
-    ],
-  });
-  assert.equal(crossing.preview.totalConflictos, 2);
-  assert.equal(crossing.preview.totalOmitidos, 0);
-  assert.equal(crossing.preview.bloqueado, true);
 });

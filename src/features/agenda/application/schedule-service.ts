@@ -11,12 +11,11 @@ import { listSchedulableDoctors } from '@/features/agenda/infrastructure/schedul
 import { prisma } from '@/lib/prisma';
 
 const NO_EFFECTIVE_SCHEDULE =
-  'No existe un horario laboral activo de esta modalidad para el médico ni para su sede.';
+  'No existe un horario laboral activo para el médico ni para su sede.';
 
 export type WorkScheduleCommand = {
   sedeId: number;
   medicoId?: number | null;
-  modalidadId: number;
   nombre: string;
   zonaHoraria: string;
   bloques: Array<{
@@ -35,12 +34,6 @@ async function assertScheduleScope(command: WorkScheduleCommand, excludeId?: num
   const sede = await prisma.sede.findFirst({ where: { id: command.sedeId, estado: 1 }, select: { id: true } });
   if (!sede) throw new AgendaApplicationError('La sede no está activa.', 404);
 
-  const modalidad = await prisma.modalidadCita.findFirst({
-    where: { id: command.modalidadId, estado: true },
-    select: { id: true },
-  });
-  if (!modalidad) throw new AgendaApplicationError('La modalidad no está activa.', 404);
-
   if (command.medicoId) {
     const doctors = await listSchedulableDoctors({
       sedeId: command.sedeId,
@@ -58,7 +51,6 @@ async function assertScheduleScope(command: WorkScheduleCommand, excludeId?: num
       activo: true,
       sedeId: command.sedeId,
       medicoId: command.medicoId ?? null,
-      modalidadId: command.modalidadId,
     },
     select: { id: true, nombre: true },
   });
@@ -74,7 +66,6 @@ function scheduleData(command: WorkScheduleCommand, actor: string) {
   return {
     sedeId: command.sedeId,
     medicoId: command.medicoId ?? null,
-    modalidadId: command.modalidadId,
     nombre: command.nombre,
     zonaHoraria: command.zonaHoraria,
     updatedBy: actor,
@@ -134,22 +125,15 @@ export async function deactivateWorkSchedule(id: number, actor: string) {
   if (result.count === 0) throw new AgendaApplicationError('Horario no encontrado o ya inactivo.', 404);
 }
 
-export async function listWorkSchedules(filters: {
-  sedeId: number;
-  medicoId?: number | null;
-  modalidadId?: number;
-  includeInactive?: boolean;
-}) {
+export async function listWorkSchedules(filters: { sedeId: number; medicoId?: number | null; includeInactive?: boolean }) {
   const rows = await prisma.horarioLaboral.findMany({
     where: {
       sedeId: filters.sedeId,
-      ...(filters.modalidadId !== undefined ? { modalidadId: filters.modalidadId } : {}),
       ...(filters.medicoId !== undefined ? { medicoId: filters.medicoId } : {}),
       ...(!filters.includeInactive ? { activo: true } : {}),
     },
     include: {
       sede: { select: { nombre: true } },
-      modalidad: { select: { nombre: true } },
       medico: {
         select: {
           primerNombre: true,
@@ -168,8 +152,6 @@ export async function listWorkSchedules(filters: {
     id: row.id,
     sedeId: row.sedeId,
     sedeNombre: row.sede.nombre,
-    modalidadId: row.modalidadId,
-    modalidadNombre: row.modalidad.nombre,
     medicoId: row.medicoId,
     medicoNombre: row.medico
       ? [row.medico.primerNombre, row.medico.segundoNombre, row.medico.primerApellido, row.medico.segundoApellido]
@@ -193,7 +175,6 @@ export async function listWorkSchedules(filters: {
 
 export async function getEffectiveWorkSchedules(
   sedeId: number,
-  modalidadId: number,
   medicoIds: number[],
 ): Promise<EffectiveDoctorWorkSchedule[]> {
   const normalizedIds = [...new Set(medicoIds)].sort((left, right) => left - right);
@@ -215,7 +196,6 @@ export async function getEffectiveWorkSchedules(
   const schedules = await prisma.horarioLaboral.findMany({
     where: {
       sedeId,
-      modalidadId,
       activo: true,
       OR: [{ medicoId: null }, { medicoId: { in: normalizedIds } }],
     },
@@ -252,8 +232,8 @@ export async function getEffectiveWorkSchedules(
   });
 }
 
-export async function getEffectiveWorkSchedule(sedeId: number, modalidadId: number, medicoId: number) {
-  const [result] = await getEffectiveWorkSchedules(sedeId, modalidadId, [medicoId]);
+export async function getEffectiveWorkSchedule(sedeId: number, medicoId: number) {
+  const [result] = await getEffectiveWorkSchedules(sedeId, [medicoId]);
   if (result.error) {
     throw new AgendaApplicationError(
       result.error,

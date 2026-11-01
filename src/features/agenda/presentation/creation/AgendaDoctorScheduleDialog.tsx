@@ -40,7 +40,6 @@ import { useAgendaHolidays } from './useAgendaHolidays';
 
 type AgendaDoctorScheduleDialogProps = {
   siteId: number;
-  modalityId: number;
   doctorId: number;
   doctorName: string;
   periodDates: string[];
@@ -212,7 +211,6 @@ function ScheduleEditor({
 
 export function AgendaDoctorScheduleDialog({
   siteId,
-  modalityId,
   doctorId,
   doctorName,
   periodDates,
@@ -224,11 +222,11 @@ export function AgendaDoctorScheduleDialog({
 }: AgendaDoctorScheduleDialogProps) {
   const [open, setOpen] = useState(false);
   const scheduleQuery = useQuery<{ schedule: EffectiveWorkSchedule }, Error>({
-    queryKey: ['agenda-effective-schedule', siteId, modalityId, doctorId],
+    queryKey: ['agenda-effective-schedule', siteId, doctorId],
     enabled: open,
     queryFn: () =>
       agendaRequest(
-        `/api/agenda/medicos/${doctorId}/horario-efectivo?sedeId=${siteId}&modalidadId=${modalityId}`,
+        `/api/agenda/medicos/${doctorId}/horario-efectivo?sedeId=${siteId}`,
       ),
     staleTime: 60_000,
     retry: 1,

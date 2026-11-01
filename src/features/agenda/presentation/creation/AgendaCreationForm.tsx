@@ -61,7 +61,6 @@ function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }:
   );
   const effectiveSchedules = useAgendaEffectiveSchedules(
     context.site.id,
-    modality.id,
     selectedDoctorIds,
   );
 
@@ -245,7 +244,6 @@ function ReadyAgendaCreationForm({ context, siteOptions, modalities, modality }:
 
           <SelectedDoctorsSection
             siteId={context.site.id}
-            modalityId={modality.id}
             doctors={state.selectedDoctors}
             periodDates={periodDates}
             globallyExcludedDates={state.excludedDates}
