@@ -517,7 +517,7 @@ function AppointmentIconAction({
   icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  tone?: 'default' | 'primary' | 'success' | 'danger';
+  tone?: 'default' | 'primary' | 'success' | 'danger' | 'warning' | 'violet';
 }) {
   return <Tooltip id={id} label={label}>
     <Button
@@ -776,9 +776,9 @@ export default function PatientReceptionPage() {
             <AppointmentIconAction id={`appointment-${item.id}-cancel`} label="Cancelar cita" tone="danger" icon={<CalendarX2 aria-hidden="true" />} disabled={act.isPending} onClick={() => { setCancelReason(''); setCancelling(item); }} />
           </> : null}
           {item.estado === 'ATENDIDA' ? <>
-            <AppointmentIconAction id={`appointment-${item.id}-clinical-history`} label="Imprimir historia clínica" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'hc')} />
-            {item.documentosClinicos.incapacidadCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-incapacity`} label="Imprimir incapacidad" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'incapacidad')} /> : null}
-            {item.documentosClinicos.remisionCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-referral`} label="Imprimir remisión" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'remision')} /> : null}
+            <AppointmentIconAction id={`appointment-${item.id}-clinical-history`} label="Imprimir historia clínica" tone="primary" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'hc')} />
+            {item.documentosClinicos.incapacidadCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-incapacity`} label="Imprimir incapacidad" tone="warning" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'incapacidad')} /> : null}
+            {item.documentosClinicos.remisionCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-referral`} label="Imprimir remisión" tone="violet" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'remision')} /> : null}
           </> : null}
         </div></article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent>
       </Card>

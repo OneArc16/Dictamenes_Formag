@@ -665,6 +665,30 @@ fieldset:disabled button {
   color: #047857;
 }
 
+.appointment-icon-action.is-warning:not(:disabled) {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.appointment-icon-action.is-warning:hover:not(:disabled) {
+  border-color: #fbbf24;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.appointment-icon-action.is-violet:not(:disabled) {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.appointment-icon-action.is-violet:hover:not(:disabled) {
+  border-color: #a78bfa;
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .appointment-icon-action.is-danger {
   margin-left: 0.25rem;
   border-color: #fecdd3;
