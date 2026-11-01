@@ -19,9 +19,9 @@ Acceptance criteria:
 
 ## Tasks
 
-- T1 (S1): Add server-side clinical document data and printable endpoints. Route: delegated backend writer. Status: complete after endpoint-contract correction. Commit: pending.
-- T2 (S1): Add attended-history document actions and new-tab behavior. Route: delegated frontend writer, parent seam correction. Status: complete. Commit: pending.
-- T3 (S1): Run focused tests, lint, type checks, and seam verification. Route: inline parent verification plus independent verifier. Status: complete; no focused route/browser test exists. Commit: pending.
+- T1 (S1): Add server-side clinical document data and printable endpoints. Route: delegated backend writer. Status: complete after endpoint-contract correction. Commit: e654ebb.
+- T2 (S1): Add attended-history document actions and new-tab behavior. Route: delegated frontend writer, parent seam correction. Status: complete. Commit: e654ebb.
+- T3 (S1): Run focused tests, lint, type checks, and seam verification. Route: inline parent verification plus independent verifier. Status: complete; no focused route/browser test exists. Commit: e654ebb.
 
 ## Log
 
