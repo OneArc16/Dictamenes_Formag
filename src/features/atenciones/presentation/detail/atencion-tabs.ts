@@ -12,6 +12,7 @@ export const ATENCION_TABS = [
   { id: 'analisis-plan', short: 'Análisis y plan', label: 'Análisis y plan' },
   { id: 'remisiones', short: 'Remisiones', label: 'Remisiones' },
   { id: 'evoluciones', short: 'Evoluciones', label: 'Evoluciones' },
+  { id: 'incapacidades', short: 'Incapacidades', label: 'Incapacidades' },
 ] as const;
 
 export type AtencionTabId = (typeof ATENCION_TABS)[number]['id'];

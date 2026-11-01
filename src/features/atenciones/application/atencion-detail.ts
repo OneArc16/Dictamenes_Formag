@@ -4,9 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { DiagnosticoAtencion } from '../domain/diagnosticos';
 import type { Evolucion } from '../domain/evoluciones';
+import type { Incapacidad } from '../domain/incapacidades';
 import type { Remision, RemisionAtajo } from '../domain/remisiones';
 import { getDiagnosticos } from './diagnosticos';
 import { getEvoluciones } from './evoluciones';
+import { getIncapacidades } from './incapacidades';
 import { getRemisiones } from './remisiones';
 import { resolveHallazgos, type HallazgosDoc } from './hallazgos';
 import { getSignosVitales, type SignosHistorialItem, type SignosVitalesToma } from './signos-vitales';
@@ -60,6 +62,11 @@ export type AtencionDetalle = {
   evoluciones: Evolucion[];
   /** Evoluciones del docente en otras atenciones, de la más reciente a la más antigua. */
   evolucionesHistorial: Evolucion[];
+  incapacidades: Incapacidad[];
+  /** Incapacidades del docente en otras atenciones, de la más reciente a la más antigua. */
+  incapacidadesHistorial: Incapacidad[];
+  /** Días de incapacidad acumulados del docente, incluidas las de esta atención. */
+  incapacidadDiasAcumulados: number;
   mujer: boolean;
   signosVitales: SignosVitalesToma;
   /** Tomas de las demás atenciones del docente, de la más reciente a la más antigua. */
@@ -126,6 +133,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     diagnosticos,
     remisiones,
     evoluciones,
+    incapacidades,
   ] = await Promise.all([
     load('personales', cita.atencion?.antecedentesPersonales),
     load('familiares', cita.atencion?.antecedentesFamiliares),
@@ -136,6 +144,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     getDiagnosticos(cita.id),
     getRemisiones(cita.id, cita.usuarioId),
     getEvoluciones(cita.id, cita.usuarioId),
+    getIncapacidades(cita.id, cita.usuarioId),
   ]);
 
   const paciente = cita.paciente;
@@ -180,6 +189,9 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     remisionAtajos: remisiones.atajos,
     evoluciones: evoluciones.evoluciones,
     evolucionesHistorial: evoluciones.historial,
+    incapacidades: incapacidades.incapacidades,
+    incapacidadesHistorial: incapacidades.historial,
+    incapacidadDiasAcumulados: incapacidades.diasAcumulados,
     mujer,
     signosVitales: signos.toma,
     signosHistorial: signos.historial,

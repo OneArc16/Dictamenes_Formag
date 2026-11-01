@@ -19,7 +19,9 @@ import { AtencionRightPanel } from './AtencionRightPanel';
 import { ATENCION_TABS, atencionPendientesUi, type AtencionTabId } from './atencion-tabs';
 import { AntecedentesTab } from './tabs/AntecedentesTab';
 import { MotivoConsultaTab } from './tabs/MotivoConsultaTab';
+import { totalDias } from '@/features/atenciones/domain/incapacidades';
 import { EvolucionesTab } from './tabs/EvolucionesTab';
+import { IncapacidadesTab } from './tabs/IncapacidadesTab';
 import { RemisionesTab } from './tabs/RemisionesTab';
 import { AnalisisPlanTab } from './tabs/AnalisisPlanTab';
 import { DiagnosticosTab } from './tabs/DiagnosticosTab';
@@ -37,6 +39,7 @@ const SIN_GINECOBSTETRICOS = {
 import { useAtencionForm } from './useAtencionForm';
 import { useDiagnosticos } from './useDiagnosticos';
 import { useEvoluciones } from './useEvoluciones';
+import { useIncapacidades } from './useIncapacidades';
 import { useRemisiones } from './useRemisiones';
 import { useHallazgos } from './useHallazgos';
 import { useSignosVitales } from './useSignosVitales';
@@ -65,6 +68,13 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
   const diagnosticos = useDiagnosticos(detalle.id, detalle.diagnosticos, editable);
   const remisiones = useRemisiones(detalle.id, detalle.remisiones);
   const evoluciones = useEvoluciones(detalle.id, detalle.evoluciones);
+  const incapacidades = useIncapacidades(detalle.id, detalle.incapacidades);
+  const diagnosticosOpciones = diagnosticos.filas
+    .filter((fila) => fila.cie10Codigo.trim())
+    .map((fila) => ({ codigo: fila.cie10Codigo, label: fila.cie10Label || fila.cie10Codigo }));
+  // El acumulado del servidor incluye las de esta atención; se ajusta con las agregadas o quitadas.
+  const incapacidadDias =
+    detalle.incapacidadDiasAcumulados - totalDias(detalle.incapacidades) + totalDias(incapacidades.incapacidades);
 
   // El panel derecho resume todos los guardados; finalizar espera a que terminen.
   const statuses = [
@@ -215,9 +225,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   remisiones={remisiones.remisiones}
                   historial={detalle.remisionesHistorial}
                   atajos={detalle.remisionAtajos}
-                  diagnosticos={diagnosticos.filas
-                    .filter((fila) => fila.cie10Codigo.trim())
-                    .map((fila) => ({ codigo: fila.cie10Codigo, label: fila.cie10Label || fila.cie10Codigo }))}
+                  diagnosticos={diagnosticosOpciones}
                   readOnly={!editable}
                   agregando={remisiones.agregar.isPending}
                   quitandoId={remisiones.quitar.isPending ? (remisiones.quitar.variables ?? null) : null}
@@ -235,6 +243,20 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   quitandoId={evoluciones.quitar.isPending ? (evoluciones.quitar.variables ?? null) : null}
                   onAgregar={(input) => evoluciones.agregar.mutateAsync(input)}
                   onQuitar={(id) => evoluciones.quitar.mutate(id)}
+                />
+              ),
+              incapacidades: (
+                <IncapacidadesTab
+                  incapacidades={incapacidades.incapacidades}
+                  historial={detalle.incapacidadesHistorial}
+                  diasAcumulados={incapacidadDias}
+                  diagnosticos={diagnosticosOpciones}
+                  readOnly={!editable}
+                  agregando={incapacidades.agregar.isPending}
+                  quitandoId={incapacidades.quitar.isPending ? (incapacidades.quitar.variables ?? null) : null}
+                  onAgregar={(input) => incapacidades.agregar.mutateAsync(input)}
+                  onQuitar={(id) => incapacidades.quitar.mutate(id)}
+                  onIrADiagnosticos={() => setActiveTab('diagnosticos')}
                 />
               ),
             }}
