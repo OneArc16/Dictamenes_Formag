@@ -15,17 +15,22 @@ export function AgendaModalityPicker({
   modalityId,
   onSelect,
   disabled = false,
+  bordered = true,
 }: {
   modalities: AgendaModality[];
   modalityId: number | null;
   onSelect: (modalityId: number) => void;
   disabled?: boolean;
+  /** Sin recuadro cuando va en línea con otros controles. */
+  bordered?: boolean;
 }) {
 
   return (
     <section
       aria-labelledby="agenda-modality-title"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-slate-200 px-3 py-2"
+      className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${
+        bordered ? 'rounded-xl border border-slate-200 px-3 py-2' : ''
+      }`}
     >
       <h2 id="agenda-modality-title" className="text-sm font-semibold text-slate-950">
         Tipo de agenda

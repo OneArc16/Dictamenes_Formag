@@ -44,18 +44,23 @@ export default function AgendaHome({
         ) : undefined
       }
     >
-      <div className="mb-4">
-        <AgendaModalityPicker modalities={modalities} modalityId={modalityId} onSelect={setModalityId} />
-      </div>
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-        <TabsList className="h-auto rounded-xl bg-slate-100 p-1">
-          <TabsTrigger value="cupos" className={triggerClass}>
-            <LayoutList className="h-4 w-4" aria-hidden="true" /> Cupos
-          </TabsTrigger>
-          <TabsTrigger value="generaciones" className={triggerClass}>
-            <History className="h-4 w-4" aria-hidden="true" /> Generaciones
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <TabsList className="h-auto rounded-xl bg-slate-100 p-1">
+            <TabsTrigger value="cupos" className={triggerClass}>
+              <LayoutList className="h-4 w-4" aria-hidden="true" /> Cupos
+            </TabsTrigger>
+            <TabsTrigger value="generaciones" className={triggerClass}>
+              <History className="h-4 w-4" aria-hidden="true" /> Generaciones
+            </TabsTrigger>
+          </TabsList>
+          <AgendaModalityPicker
+            modalities={modalities}
+            modalityId={modalityId}
+            onSelect={setModalityId}
+            bordered={false}
+          />
+        </div>
         <TabsContent value="cupos" className="mt-0">
           <AgendaSlotsBoard canCancel={canCancel} modalityId={modalityId} />
         </TabsContent>
