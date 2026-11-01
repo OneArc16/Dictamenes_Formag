@@ -1,0 +1,78 @@
+"id","nombre","capitulo","decreto","tabla","tipo_tabla"
+1,Deficiencia por alteraciones en la continuidad y cualidad de la conciencia,"1","1655","1.1",CLASE
+2,Deficiencia por alteraciones de la conciencia,"1","1655","1.2",CLASE
+3,Deficiencia por alteraciones en la orientación,"1","1655","1.3",CLASE
+4,Funciones intelectuales y cognitivas superiores,"1","1655","1.4",CLASE
+5,Funciones del temperamento y la personalidad,"1","1655","1.5",CLASE
+6,Deficiencias en las funciones relacionadas con la energía y el impulso,"1","1655","1.6",CLASE
+7,Deficiencias en las unciones relacionadas con el pensamiento,"1","1655","1.7",CLASE
+8,Funciones de la memoria,"1","1655","1.8",CLASE
+9,Funciones psicomotoras,"1","1655","1.9",CLASE
+10,Deficiencia por Funciones mentales del lenguaje,"1","1655","1.1",CLASE
+11,Criterios para la evaluación de la deficiencia de las estructures y funciones del sistema nervioso por patologías de los pares craneanos,"1","1655","1.11",CLASE
+12,Deficiencia unilateral del plexo cervical y braquial (motor-sensitivo) unilateral,"1","1655","1.12",NERVIO
+13,Deficiencia unilateral del plexo lumbo-sacro (motor-sensitivo) unilateral,"1","1655","1.13",NERVIO
+14,Deficiencia unilateral de los nervios espinales (motor-sensitivo) unilateral,"1","1655","1.14",NERVIO
+15,Deficiencia por funciones y estructuras de un Miembro Superior,"1","1655","1.15",CLASE
+16,Deficiencia por alteraciones de la bipedestación y la marcha.,"1","1655","1.16",CLASE
+17,Vista y funciones relacionadas,"2","1655","2.2.1",FORMULA
+18,Funciones auditivas y vestibulares,"2","1655","2.2.2",FORMULA
+19,Deficiencia por vértigo vestibular,"2","1655","2.3",CLASE
+20,Función Gustativa,"2","1655","2.4",CRITERIO
+21,Función olfativa,"2","1655","2.5",CRITERIO
+22,Deficiencia global por alteraciones en la voz y en el habla,"3","1655","3.1",CLASE
+23,Criterios para la evaluación de a deficiencia por enfermedad orgánica del corazón,"4","1655","4.1",CLASE
+24,"Criterios para la evaluación de deficiencia por enfermedad vascular (arterial, venosa y linfática)","4","1655","4.2",CLASE
+25,Criterios para la evaluación de deficiencias por hipertensión pulmonar,"4","1655","4.3",CLASE
+26,Criterios para la evaluación de deficiencias por hipertensión arterial -HTA-,"4","1655","4.5",CLASE
+27,Criterios para la evaluación de la deficiencia por anemia,"4","1655","4.7",CLASE
+28,Criterios para la evaluación de la deficiencia por eritrocitosis,"4","1655","4.8",CLASE
+29,Criterios para la evaluación de la deficiencia por trastornos de las plaquetas,"4","1655","4.1",CLASE
+30,Criterios para la evaluación de la deficiencia por Trastornos hemorrágicos por déficit de factores de la coagulación,"4","1655","4.11",CLASE
+31,Criterios para la evaluación de la deficiencia por alteración de los leucocitos (neutropenia),"4","1655","4.13",CLASE
+32,Criterios para la evaluación por Síndrome de Inmunodeficiencia Adquirida -VIH / SIDA,"4","1655","4.15",CRITERIOS
+33,Criterios para la evaluación de la deficiencia por neoplasias,"4","1655","4.16",CLASE
+34,Deficiencia por patologías del sistema respiratorio,"4","1655","4.18",CLASE
+36,Criterios para la evaluación de la deficiencia de la boca,"5","1655","5.1",CLASE
+37,Criterios para la evaluación de la deficiencia del aparato digestivo,"5","1655","5.2",CLASE
+38,Criterios para la evaluación de la deficiencia de funciones hepáticas,"5","1655","5.4",CLASE
+39,Evaluación de la deficiencia por alteraciones del metabolismo de los hidratos de carbono (diabetes),"5","1655","5.5",CLASE
+40,Evaluación de la deficiencia por desórdenes del eje hipotálamo hipofisiario,"5","1655","5.6",CLASE
+41,Evaluación de la deficiencia por desórdenes tiroideos (hipotiroideo),"5","1655","5.7",CLASE
+42,Evaluación de la deficiencia por deficiencias debidas a hipoparatiroidismo,"5","1655","5.8",CLASE
+43,Evaluación de la deficiencia por hiperparatiroidismo,"5","1655","5.9",CLASE
+44,Evaluación de la deficiencia por trastornos suprarrenales,"5","1655","5.1",CLASE
+45,Evaluación de la deficiencia por hipoglicemia,"5","1655","5.11",CLASE
+46,Criterios para la evaluación de la deficiencia por enfermedad renal,"6","1655","6.1",CLASE
+47,Criterios para la evaluación de la deficiencia por enfermedad de la vejiga.,"6","1655","6.2",CLASE
+48,Criterios para la evaluación de la deficiencia por enfermedad de la uretra.,"6","1655","6.3",CLASE
+49,Criterios para la evaluación de las deficiencias por derivaciones del tracto urinario superior,"6","1655","6.4",CLASE
+50,Criterios para la evaluación de las deficiencias por enfermedades del pene,"6","1655","6.5",CLASE
+51,Criterios para la evaluación de las deficiencias por enfermedad de la vulva y la vagina,"6","1655","6.6",CLASE
+52,Criterios para la evaluación de las deficiencias por enfermedad del útero y cuello uterino.,"6","1655","6.7",CLASE
+53,Criterios para la evaluación de las deficiencias por enfermedad del ovario y las trompas de Falopio,"6","1655","6.8",CLASE
+54,Criterios para la evaluación de las deficiencias por enfermedades de la próstata y vesículas seminales,"6","1655","6.9",CLASE
+55,Criterios para la evaluación de las deficiencias por enfermedades del escroto,"6","1655","6.1",CLASE
+56,Criterios para la evaluación de las deficiencias por enfermedades a enfermedades de los testículos epidídimo y cordón espermático,"6","1655","6.11",CLASE
+57,"Articulación unilateral del hombro: Evaluación de la deficiencia debido a restricción de los arcos de movimiento y anquilosis (flexo-extensión, abducción-aducción, rotación externa-interna)","7","1655","7.2",MOVIMIENTO
+58,Articulación unilateral del codo: Evaluación de la deficiencia debido a restricción de los arcos de movimiento y anquilosis (flexo-extensión y pronosupinación),"7","1655","7.3",MOVIMIENTO
+59,Articulación unilateral de la muñeca: Evaluación de la deficiencia debido a restricción de los arcos de movimiento y anquilosis (flexión palmar y dorsal y desviación radio-cubital),"7","1655","7.4",MOVIMIENTO
+35,Deficiencias por SAHOS,"4","1655","4.19",CLASE
+60,Evaluación de las deficiencias debido a restricción de movimiento y anquilosis de las articulaciones de cada uno de los dedos menos el pulgar,"7","1655","7.5",MOVIMIENTO
+61,Evaluación de la deficiencia debido a restricción de movimiento y anquilosis de las articulaciones de un pulgar,"7","1655","7.6",MOVIMIENTO
+62,Articulación unilateral de la cadera: Evaluación de la deficiencia por restricciones y anquilosis en la Flexión - Extensión / Abducción - Aducción / Rotación Interna - Externa,"7","1655","7.7",MOVIMIENTO
+63,Articulación unilateral de rodilla - Evaluación de la deficiencia por restricciones y anquilosis en la Flexión - Extensión,"7","1655","7.8",MOVIMIENTO
+64,Articulación unilateral del tobillo: Evaluación de la deficiencia por restricciones y anquilosis en la Flexión plantar - dorsal/ Inversión - Eversión,"7","1655","7.9",MOVIMIENTO
+65,Articulación unilateral de grueso artejo: Evaluación de la deficiencia por restricciones y anquilosis,"7","1655","7.1",MOVIMIENTO
+66,"Articulación unilateral por cada uno de los artejos, excepto el grueso artejo: Evaluación de la deficiencia por restricciones y anquilosis.","7","1655","7.11",Interfalángica distal (IFD)
+67,Evaluación de la deficiencia por acortamiento unilateral de la extremidad inferior,"7","1655","7.12",CLASE
+68,Columna cervical: Evaluación de la deficiencia por restricciones en la movilidad y anquilosis,"7","1655","7.13",MOVIMIENTO
+69,Columna dorsal: Evaluación de la deficiencia por restricciones en la movilidad y anquilosis.,"7","1655","7.14",MOVIMIENTO
+70,Columna lumbosacra: Evaluación de la deficiencia por restricciones en la movilidad y anquilosis,"7","1655","7.15",MOVIMIENTO
+71,Amputaciones por cada extremidad superior,"7","1655","7.16",CRITERIO
+72,Amputaciones por cada extremidad inferior,"7","1655","7.17",CRITERIO
+73,Evaluación de la deficiencias por enfermedades reumáticas.,"7","1655","7.18",CLASE
+74,Criterios para la evaluación de la deficiencia por enfermedad de la piel,"8","1655","8.1",CLASE
+75,Criterios para la calificación de la deficiencia por quemaduras,"8","1655","8.2",CLASE
+76,Criterios para la evaluación de la deficiencia por secuelas faciales,"8","1655","8.3",NUMERAL
+77,Criterios para la evaluación de la deficiencia por cuero cabelludo,"8","1655","8.4",CLASE

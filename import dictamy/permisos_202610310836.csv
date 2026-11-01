@@ -1,0 +1,51 @@
+"id","codigo","nombre","descripcion","modulo","estado","createdAt","updatedAt","createdBy","updatedBy"
+17,dictamen.close,Cerrar dictamenes,,dictamen,1,2026-04-07 13:03:19.422,2026-08-01 01:17:10.613,seed-rbac,seed-rbac
+18,dictamen.reopen,Reabrir dictamenes,,dictamen,1,2026-04-07 13:03:19.423,2026-08-01 01:17:10.618,seed-rbac,seed-rbac
+94,formulario_origen.finalize,Finalizar formularios de origen,,formulario_origen,1,2026-07-23 10:08:06.288,2026-08-01 01:17:10.632,migration,seed-rbac
+95,formulario_origen.reopen,Reabrir formularios de origen,,formulario_origen,1,2026-07-23 10:08:06.288,2026-08-01 01:17:10.633,migration,seed-rbac
+21,recomendacion.read,Ver recomendaciones,,recomendacion,1,2026-04-07 13:03:19.429,2026-08-01 01:17:10.634,seed-rbac,seed-rbac
+22,recomendacion.create,Crear recomendaciones,,recomendacion,1,2026-04-07 13:03:19.431,2026-08-01 01:17:10.635,seed-rbac,seed-rbac
+25,recomendacion.reopen,Reabrir recomendaciones,,recomendacion,1,2026-04-07 13:03:19.435,2026-08-01 01:17:10.651,seed-rbac,seed-rbac
+26,recomendacion.print,Imprimir recomendaciones,,recomendacion,1,2026-04-07 13:03:19.436,2026-08-01 01:17:10.654,seed-rbac,seed-rbac
+27,recomendacion.export,Exportar recomendaciones,,recomendacion,1,2026-04-07 13:03:19.437,2026-08-01 01:17:10.659,seed-rbac,seed-rbac
+1,module.admin.access,Acceso al modulo Administrador,,module,1,2026-04-07 13:03:19.393,2026-08-01 01:17:10.482,seed-rbac,seed-rbac
+2,module.medico.access,Acceso al modulo Medico,,module,1,2026-04-07 13:03:19.400,2026-08-01 01:17:10.495,seed-rbac,seed-rbac
+3,module.admisiones.access,Acceso al modulo Admisiones,,module,1,2026-04-07 13:03:19.401,2026-08-01 01:17:10.500,seed-rbac,seed-rbac
+4,module.recomendaciones.access,Acceso al modulo Recomendaciones,,module,1,2026-04-07 13:03:19.402,2026-08-01 01:17:10.504,seed-rbac,seed-rbac
+61,module.agenda.access,Acceso al modulo Agenda Medica,,module,1,2026-07-19 04:02:04.229,2026-08-01 01:17:10.506,seed-rbac,seed-rbac
+62,agenda.read,Consultar agendas y cupos,,agenda,1,2026-07-19 04:02:04.232,2026-08-01 01:17:10.508,seed-rbac,seed-rbac
+63,agenda.read.own,Consultar agenda medica propia,,agenda,1,2026-07-19 04:02:04.237,2026-08-01 01:17:10.510,seed-rbac,seed-rbac
+64,agenda.create,Crear agendas medicas,,agenda,1,2026-07-19 04:02:04.239,2026-08-01 01:17:10.511,seed-rbac,seed-rbac
+96,agenda.site.select,Seleccionar sede al crear agendas,Permite seleccionar una sede activa distinta a la asignada para crear agendas médicas.,agenda,1,2026-07-30 12:34:07.365,2026-08-01 01:17:10.513,migration,seed-rbac
+65,agenda.schedule.manage,Gestionar horarios laborales,,agenda,1,2026-07-19 04:02:04.241,2026-08-01 01:17:10.515,seed-rbac,seed-rbac
+66,agenda.slots.cancel,Cancelar cupos disponibles,,agenda,1,2026-07-19 04:02:04.242,2026-08-01 01:17:10.522,seed-rbac,seed-rbac
+108,reception.read,Consultar recepción de pacientes,,reception,1,2026-08-01 01:17:10.528,2026-08-01 01:17:10.528,seed-rbac,seed-rbac
+109,reception.patient.update,Actualizar contacto del paciente,,reception,1,2026-08-01 01:17:10.531,2026-08-01 01:17:10.531,seed-rbac,seed-rbac
+5,admin.dashboard.read,Ver dashboard administrativo,,admin,1,2026-04-07 13:03:19.403,2026-08-01 01:17:10.559,seed-rbac,seed-rbac
+6,admin.empleados.read,Ver empleados,,admin,1,2026-04-07 13:03:19.409,2026-08-01 01:17:10.561,seed-rbac,seed-rbac
+7,admin.empleados.manage,Gestionar empleados,,admin,1,2026-04-07 13:03:19.410,2026-08-01 01:17:10.567,seed-rbac,seed-rbac
+8,admin.perfiles.read,Ver perfiles,,admin,1,2026-04-07 13:03:19.412,2026-08-01 01:17:10.572,seed-rbac,seed-rbac
+39,admin.notificadores_pcl.read,Ver notificadores PCL,,admin,1,2026-04-20 21:26:46.676,2026-08-01 01:17:10.587,seed-rbac,seed-rbac
+40,admin.notificadores_pcl.manage,Gestionar notificadores PCL,,admin,1,2026-04-20 21:26:46.679,2026-08-01 01:17:10.590,seed-rbac,seed-rbac
+12,admin.auditoria.read,Ver auditoria,,admin,1,2026-04-07 13:03:19.416,2026-08-01 01:17:10.596,seed-rbac,seed-rbac
+13,admin.auditoria.export,Exportar auditoria,,admin,1,2026-04-07 13:03:19.417,2026-08-01 01:17:10.600,seed-rbac,seed-rbac
+14,dictamen.read,Ver dictamenes,,dictamen,1,2026-04-07 13:03:19.419,2026-08-01 01:17:10.604,seed-rbac,seed-rbac
+15,dictamen.create,Crear dictamenes,,dictamen,1,2026-04-07 13:03:19.420,2026-08-01 01:17:10.605,seed-rbac,seed-rbac
+16,dictamen.edit,Editar dictamenes,,dictamen,1,2026-04-07 13:03:19.421,2026-08-01 01:17:10.606,seed-rbac,seed-rbac
+19,dictamen.print,Imprimir dictamenes,,dictamen,1,2026-04-07 13:03:19.424,2026-08-01 01:17:10.620,seed-rbac,seed-rbac
+20,dictamen.export,Exportar dictamenes,,dictamen,1,2026-04-07 13:03:19.428,2026-08-01 01:17:10.627,seed-rbac,seed-rbac
+92,formulario_origen.read,Ver formularios de origen,,formulario_origen,1,2026-07-23 10:08:06.288,2026-08-01 01:17:10.629,migration,seed-rbac
+93,formulario_origen.edit,Editar formularios de origen,,formulario_origen,1,2026-07-23 10:08:06.288,2026-08-01 01:17:10.631,migration,seed-rbac
+23,recomendacion.edit,Editar recomendaciones,,recomendacion,1,2026-04-07 13:03:19.432,2026-08-01 01:17:10.638,seed-rbac,seed-rbac
+110,reception.site.select,Seleccionar sede de atención,,reception,1,2026-08-01 01:17:10.536,2026-08-01 01:17:10.536,seed-rbac,seed-rbac
+111,appointment.schedule,Agendar citas,,appointment,1,2026-08-01 01:17:10.541,2026-08-01 01:17:10.541,seed-rbac,seed-rbac
+112,appointment.activate,Activar citas,,appointment,1,2026-08-01 01:17:10.545,2026-08-01 01:17:10.545,seed-rbac,seed-rbac
+9,admin.perfiles.manage,Gestionar perfiles,,admin,1,2026-04-07 13:03:19.413,2026-08-01 01:17:10.574,seed-rbac,seed-rbac
+10,admin.motivos_reapertura.read,Ver motivos de reapertura,,admin,1,2026-04-07 13:03:19.414,2026-08-01 01:17:10.578,seed-rbac,seed-rbac
+11,admin.motivos_reapertura.manage,Gestionar motivos de reapertura,,admin,1,2026-04-07 13:03:19.415,2026-08-01 01:17:10.584,seed-rbac,seed-rbac
+24,recomendacion.close,Cerrar recomendaciones,,recomendacion,1,2026-04-07 13:03:19.434,2026-08-01 01:17:10.646,seed-rbac,seed-rbac
+113,appointment.cancel,Cancelar citas,,appointment,1,2026-08-01 01:17:10.551,2026-08-01 01:17:10.551,seed-rbac,seed-rbac
+114,appointment.reschedule,Reprogramar citas,,appointment,1,2026-08-01 01:17:10.554,2026-08-01 01:17:10.554,seed-rbac,seed-rbac
+115,appointment.reminder.print,Generar e imprimir recordatorios de cita,,appointment,1,2026-08-01 01:17:10.555,2026-08-01 01:17:10.555,seed-rbac,seed-rbac
+116,appointment.attend,Marcar citas como atendidas desde flujo clínico,,appointment,1,2026-08-01 01:17:10.557,2026-08-01 01:17:10.557,seed-rbac,seed-rbac
+128,admin.reception.policy.manage,Gestionar políticas operativas de recepción,,admin,1,2026-08-01 01:17:10.602,2026-08-01 01:17:10.602,seed-rbac,seed-rbac

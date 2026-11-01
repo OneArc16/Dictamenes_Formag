@@ -1,0 +1,146 @@
+"id","deficienciaId","tipo_movimiento","rango_inicial","rango_final","restriccion_a","restriccion_b","anquilosis_a","anquilosis_b","grupo","orden"
+1,57,Flexión o elevación anterior,150.00,180.00,0.00,0.00,35.00,23.00,NINGUNA,1
+2,57,Flexión o elevación anterior,100.00,146.00,5.00,2.00,33.00,21.00,NINGUNA,2
+3,57,Flexión o elevación anterior,50.00,99.00,7.00,5.00,30.00,20.00,NINGUNA,3
+4,57,Flexión o elevación anterior,0.00,49.00,10.00,7.00,23.00,15.00,NINGUNA,4
+5,57,Extensión o elevación posterior,40.00,60.00,0.00,0.00,23.00,15.00,NINGUNA,5
+6,57,Extensión o elevación posterior,20.00,39.00,1.00,0.50,20.00,13.00,NINGUNA,6
+7,57,Extensión o elevación posterior,0.00,19.00,3.00,1.00,15.00,10.00,NINGUNA,7
+8,57,Abducción,150.00,180.00,0.00,0.00,35.00,23.00,NINGUNA,8
+9,57,Abducción,100.00,149.00,5.00,3.00,33.00,21.00,NINGUNA,9
+10,57,Abducción,50.00,99.00,8.00,5.00,30.00,20.00,NINGUNA,10
+11,57,Abducción,0.00,49.00,10.00,7.00,23.00,15.00,NINGUNA,11
+12,57,Aducción,40.00,60.00,0.00,0.00,35.00,23.00,NINGUNA,12
+13,57,Aducción,20.00,39.00,3.00,1.00,35.00,23.00,NINGUNA,13
+14,57,Aducción,0.00,19.00,5.00,2.00,30.00,20.00,NINGUNA,14
+15,57,Rotación externar,60.00,90.00,5.00,2.00,35.00,23.00,NINGUNA,15
+16,57,Rotación externar,30.00,59.00,7.00,3.00,35.00,23.00,NINGUNA,16
+17,57,Rotación externar,0.00,29.00,7.00,3.00,30.00,20.00,NINGUNA,17
+18,57,Rotación interna,0.00,29.00,3.00,1.00,30.00,20.00,NINGUNA,18
+19,57,Rotación interna,30.00,59.00,3.00,1.00,35.00,23.00,NINGUNA,19
+20,57,Rotación interna,60.00,90.00,0.00,0.00,35.00,23.00,NINGUNA,20
+21,58,Flexión,100.00,150.00,6.00,4.00,30.00,20.00,NINGUNA,1
+22,58,Flexión,50.00,99.00,12.00,8.00,20.00,12.00,NINGUNA,2
+23,58,Flexión,0.00,49.00,18.00,12.00,25.00,15.00,NINGUNA,3
+24,58,Extensión,0.00,49.00,5.00,3.00,25.00,15.00,NINGUNA,4
+25,58,Extensión,50.00,99.00,9.00,6.00,20.00,12.00,NINGUNA,5
+26,58,Extensión,100.00,150.00,15.00,9.00,30.00,20.00,NINGUNA,6
+27,58,Pronación,60.00,80.00,3.00,1.00,30.00,20.00,NINGUNA,7
+28,58,Pronación,40.00,59.00,5.00,3.00,25.00,15.00,NINGUNA,8
+29,58,Pronación,20.00,39.00,7.00,4.00,27.00,18.00,NINGUNA,9
+30,58,Pronación,0.00,19.00,10.00,5.00,25.00,15.00,NINGUNA,10
+31,58,Supinación,0.00,19.00,10.00,5.00,25.00,15.00,NINGUNA,11
+32,58,Supinación,20.00,39.00,7.00,4.00,26.00,17.00,NINGUNA,12
+33,58,Supinación,40.00,59.00,5.00,3.00,28.00,19.00,NINGUNA,13
+34,58,Supinación,60.00,80.00,3.00,1.00,30.00,20.00,NINGUNA,14
+35,59,Flexión palmar,40.00,60.00,3.00,2.00,30.00,20.00,NINGUNA,1
+36,59,Flexión palmar,20.00,39.00,5.00,3.00,30.00,20.00,NINGUNA,2
+37,59,Flexión palmar,0.00,19.00,8.00,5.00,22.50,15.00,NINGUNA,3
+38,59,Flexión dorsal,0.00,19.00,8.00,5.00,15.00,10.00,NINGUNA,4
+39,59,Flexión dorsal,20.00,39.00,5.00,3.00,22.50,15.00,NINGUNA,5
+40,59,Flexión dorsal,40.00,60.00,3.00,2.00,30.00,20.00,NINGUNA,6
+41,59,Desviación radial,11.00,20.00,3.00,2.00,30.00,20.00,NINGUNA,7
+42,59,Desviación radial,0.00,10.00,5.00,3.00,22.50,15.00,NINGUNA,8
+43,59,Desviación cubital,0.00,15.00,5.00,3.00,22.50,15.00,NINGUNA,9
+44,59,Desviación cubital,16.00,30.00,3.00,2.00,35.00,23.00,NINGUNA,10
+45,60,Extensión,0.00,,0.00,0.00,3.00,1.00,Metacarpo Falángica,1
+46,60,Flexión,0.00,29.00,4.00,2.00,3.00,1.00,Metacarpo Falángica,2
+47,60,Flexión,30.00,59.00,3.00,1.00,4.00,2.00,Metacarpo Falángica,3
+48,60,Flexión,60.00,90.00,1.00,0.50,5.00,3.00,Metacarpo Falángica,4
+49,60,Extensión,0.00,0.00,0.00,0.00,6.00,4.00,Interfalángica Proximal,5
+50,60,Flexión,0.00,29.00,8.00,5.00,6.00,4.00,Interfalángica Proximal,6
+51,60,Flexión,30.00,59.00,6.00,4.00,8.00,5.00,Interfalángica Proximal,7
+52,60,Flexión,60.00,100.00,3.00,1.00,10.00,7.00,Interfalángica Proximal,8
+53,60,Extensión,0.00,0.00,0.00,0.00,3.00,1.00,Interfalángica Distal,9
+54,60,Flexión,0.00,20.00,5.00,3.00,3.00,1.00,Interfalángica Distal,10
+55,60,Flexión,21.00,40.00,3.00,1.00,5.00,3.00,Interfalángica Distal,11
+56,60,Flexión,41.00,70.00,1.00,0.50,7.00,4.00,Interfalángica Distal,12
+57,61,Aducción,0.00,5.00,3.00,2.00,5.00,3.00,Carpo metacarpiano,1
+58,61,Aducción,6.00,10.00,2.00,1.00,7.00,4.00,Carpo metacarpiano,2
+59,61,Aducción,11.00,15.00,0.00,0.00,9.00,6.00,Carpo metacarpiano,3
+60,61,Abducción,0.00,15.00,3.00,0.00,5.00,3.00,Carpo metacarpiano,4
+61,61,Abducción,16.00,30.00,3.00,2.00,7.00,4.00,Carpo metacarpiano,5
+62,61,Abducción,31.00,49.00,2.00,1.00,9.00,6.00,Carpo metacarpiano,6
+63,61,Extensión,0.00,0.00,0.00,0.00,5.00,3.00,Metacarpo falángica,7
+64,61,Flexión,0.00,20.00,5.00,3.00,5.00,3.00,Metacarpo falángica,8
+65,61,Flexión,19.00,40.00,3.00,2.00,7.00,4.00,Metacarpo falángica,9
+66,61,Flexión,39.00,59.00,2.00,1.00,10.00,7.00,Metacarpo falángica,10
+67,61,Extensión,,,0.00,0.00,5.00,3.00,Interfalángica,11
+68,61,Flexión,0.00,20.00,5.00,3.00,5.00,3.00,Interfalángica,12
+69,61,Flexión,21.00,40.00,3.00,1.00,7.00,4.00,Interfalángica,13
+70,61,Flexión,41.00,79.00,2.00,0.70,10.00,7.00,Interfalángica,14
+71,62,Extensión,21.00,29.00,3.75,2.50,30.00,20.00,NINGUNA,1
+72,62,Extensión,11.00,20.00,7.50,5.00,27.00,18.00,NINGUNA,2
+73,62,Extensión,0.00,10.00,15.00,10.00,22.50,15.00,NINGUNA,3
+74,62,Flexión,0.00,30.00,22.50,15.00,22.50,15.00,NINGUNA,4
+75,62,Flexión,31.00,60.00,15.00,10.00,30.00,20.00,NINGUNA,5
+76,62,Flexión,61.00,99.00,7.50,5.00,45.00,23.00,NINGUNA,6
+77,62,Rotación interna,0.00,90.00,6.00,4.00,21.00,14.00,NINGUNA,7
+78,62,Rotación interna,10.00,19.00,3.00,2.00,27.00,18.00,NINGUNA,8
+79,62,Rotación externa,16.00,29.00,3.00,2.00,30.00,20.00,NINGUNA,9
+80,62,Rotación externa,0.00,15.00,6.00,4.00,22.50,15.00,NINGUNA,10
+81,62,Aducción,0.00,7.00,3.00,2.00,22.50,15.00,NINGUNA,11
+82,62,Aducción,8.00,14.00,1.50,1.00,0.00,20.00,NINGUNA,12
+83,62,Abducción,,4.00,9.00,6.00,21.00,14.00,NINGUNA,13
+84,62,Abducción,5.00,14.00,4.50,3.00,0.00,17.00,NINGUNA,14
+85,62,Abducción,15.00,25.00,2.25,1.50,30.00,20.00,NINGUNA,15
+86,63,Extensión,121.00,149.00,0.00,0.00,27.00,18.00,NINGUNA,1
+87,63,Extensión,81.00,120.00,7.50,5.00,25.50,17.00,NINGUNA,2
+88,63,Extensión,41.00,80.00,11.25,7.50,24.00,16.00,NINGUNA,3
+89,63,Extensión,0.00,40.00,15.00,10.00,22.50,15.00,NINGUNA,4
+90,63,Flexión,0.00,40.00,15.00,10.00,22.50,15.00,NINGUNA,5
+91,63,Flexión,41.00,80.00,11.25,7.50,24.00,16.00,NINGUNA,6
+92,63,Flexión,81.00,120.00,7.50,5.00,27.00,18.00,NINGUNA,7
+93,63,Flexión,121.00,149.00,0.00,0.00,30.00,20.00,NINGUNA,8
+94,64,Flexión plantar,0.00,10.00,9.00,6.00,9.00,6.00,NINGUNA,1
+95,64,Flexión plantar,11.00,25.00,4.50,3.00,15.00,10.00,NINGUNA,2
+96,64,Flexión plantar,26.00,39.00,1.50,1.00,21.00,14.00,NINGUNA,3
+97,64,Flexión dorsal.,0.00,5.00,1.50,1.00,9.00,6.00,NINGUNA,4
+98,64,Flexión dorsal.,6.00,15.00,0.75,0.50,15.00,10.00,NINGUNA,5
+99,64,Flexión dorsal.,16.00,19.00,0.00,0.00,21.00,14.00,NINGUNA,6
+100,64,Inversión,0.00,10.00,1.50,1.00,9.00,6.00,NINGUNA,7
+101,64,Inversión,11.00,20.00,0.75,0.50,15.00,10.00,NINGUNA,8
+102,64,Inversión,21.00,29.00,0.00,0.00,21.00,14.00,NINGUNA,9
+103,64,Eversión,0.00,5.00,1.50,1.00,9.00,6.00,NINGUNA,10
+104,64,Eversión,6.00,15.00,0.75,0.50,15.00,10.00,NINGUNA,11
+105,64,Eversión,16.00,19.00,0.00,0.00,21.00,14.00,NINGUNA,12
+106,65,Flexión dorsal,0.00,20.00,2.25,1.50,3.00,2.00,Metatarso falángica (MTF),1
+107,65,Flexión dorsal,21.00,49.00,1.50,1.00,6.00,4.00,Metatarso falángica (MTF),2
+108,65,Flexión dorsal,0.00,10.00,2.25,1.50,3.00,2.00,Metatarso falángica (MTF),3
+109,65,Flexión plantar,11.00,29.00,1.50,1.00,6.00,4.00,Metatarso falángica (MTF),4
+110,65,Flexión plantar,0.00,10.00,3.00,2.00,3.00,2.00,Metatarso falángica (MTF),5
+111,65,Flexión plantar,11.00,29.00,1.50,1.00,4.50,3.00,Metatarso falángica (MTF),6
+112,66,Flexión dorsal,0.00,5.00,0.75,0.50,0.75,0.50,Interfalángica distal (IFD),1
+113,66,Flexión plantar,5.00,,0.00,0.00,1.50,1.00,Interfalángica distal (IFD),2
+114,66,Flexión dorsal,0.00,5.00,0.75,0.50,0.75,0.50,Interfalángica (IF),3
+115,66,Flexión plantar,5.00,,0.00,0.00,1.50,1.00,Interfalángica (IF),4
+116,68,Flexión,31.00,49.00,2.25,1.50,30.00,20.00,NINGUNA,1
+117,68,Flexión,16.00,30.00,4.50,3.00,22.50,15.00,NINGUNA,2
+118,68,Flexión,0.00,20.00,9.00,6.00,15.00,10.00,NINGUNA,3
+119,68,Extensión,0.00,20.00,9.00,6.00,15.00,10.00,NINGUNA,4
+120,68,Extensión,21.00,40.00,4.50,3.00,22.50,15.00,NINGUNA,5
+121,68,Extensión,41.00,59.00,2.25,1.50,30.00,20.00,NINGUNA,6
+122,68,Inclinación lateral derecha o izquierda,0.00,15.00,6.00,4.00,15.00,10.00,NINGUNA,7
+123,68,Inclinación lateral derecha o izquierda,16.00,30.00,3.00,2.00,22.50,15.00,NINGUNA,8
+124,68,Inclinación lateral derecha o izquierda,31.00,44.00,1.50,1.00,30.00,20.00,NINGUNA,9
+125,68,Rotación interna o externa,0.00,30.00,9.00,6.00,15.00,10.00,NINGUNA,10
+126,68,Rotación interna o externa,31.00,60.00,6.00,4.00,0.00,15.00,NINGUNA,11
+127,68,Rotación interna o externa,61.00,79.00,3.00,2.00,30.00,20.00,NINGUNA,12
+128,69,Flexión,61.00,89.00,2.25,1.50,40.00,20.00,NINGUNA,1
+129,69,Flexión,31.00,60.00,4.50,3.00,20.00,15.00,NINGUNA,2
+130,69,Flexión,0.00,30.00,6.75,4.50,15.00,10.00,NINGUNA,3
+131,69,Extensión,0.00,10.00,2.25,1.50,15.00,10.00,NINGUNA,4
+132,69,Extensión,11.00,20.00,1.50,1.00,25.00,18.00,NINGUNA,5
+133,69,Extensión,21.00,29.00,0.75,0.50,40.00,20.00,NINGUNA,6
+134,69,Rotación interna o externa,0.00,10.00,4.50,3.00,7.50,5.00,NINGUNA,7
+135,69,Rotación interna o externa,11.00,20.00,3.00,2.00,0.00,10.00,NINGUNA,8
+136,69,Rotación interna o externa,21.00,29.00,1.50,1.00,20.00,15.00,NINGUNA,9
+137,70,Flexión,41.00,59.00,4.50,3.00,40.00,20.00,NINGUNA,1
+138,70,Flexión,26.00,40.00,9.00,6.00,30.00,18.00,NINGUNA,2
+139,70,Flexión,0.00,25.00,13.50,9.00,15.00,10.00,NINGUNA,3
+140,70,Extensión,0.00,10.00,10.50,7.00,15.00,10.00,NINGUNA,4
+141,70,Extensión,11.00,20.00,6.00,4.00,30.00,18.00,NINGUNA,5
+142,70,Extensión,21.00,24.00,3.00,2.00,40.00,20.00,NINGUNA,6
+143,70,Inclinación lateral,0.00,15.00,9.00,6.00,15.00,10.00,NINGUNA,7
+144,70,Inclinación lateral,16.00,30.00,6.00,4.00,0.00,20.00,NINGUNA,8
+145,70,Inclinación lateral,31.00,39.00,3.00,2.00,40.00,20.00,NINGUNA,9

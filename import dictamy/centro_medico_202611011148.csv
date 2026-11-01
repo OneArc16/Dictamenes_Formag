@@ -1,0 +1,2 @@
+"id","codigoHabilitacion","nombre","email","direccion","telefono","codigoDepartamento","codigoMunicipio","logo","estado","resolucion","createdAt","updatedAt","createdBy","updatedBy"
+1,"4700100001",IPS SISM,info@ipssism.com,Calle 22 # 15-30,"6054200000","47","47001",,1,RES-001-2024,2025-11-21 14:11:25.803,2025-11-21 14:11:25.803,seed,seed

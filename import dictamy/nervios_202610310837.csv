@@ -1,0 +1,52 @@
+"id","deficienciaId","nombre","motor_a","sensitivo_a","mixto_a","motor_b","sensitivo_b","mixto_b","orden"
+2,12,Plexo braquial lesión completa,30.00,45.00,75.00,20.00,30.00,50.00,1
+3,12,Tronco superior (C5; C6; o Erb – Duchene),20.00,30.00,50.00,10.00,15.00,25.00,2
+4,12,Tronco medio (C7),3.00,15.00,18.00,2.00,10.00,12.00,3
+5,12,"Tronco inferior (C8 T1, Dejerine- Klumpke)",15.00,20.00,35.00,10.00,10.00,20.00,4
+6,12,Nervio Pectoral (medial y lateral ) o por nervio axilar,3.00,15.00,18.00,2.00,10.00,12.00,5
+7,12,Nervio Escapular dorsal,0.00,3.00,3.00,0.00,2.00,2.00,6
+8,12,Torácico largo,0.00,7.00,7.00,0.00,5.00,5.00,7
+9,12,Branquial cutáneo interno o cutáneo medial del antebrazo,3.00,0.00,3.00,2.00,0.00,2.00,8
+10,12,Nervio mediano por encima de antebrazo,15.00,20.00,35.00,5.00,10.00,15.00,9
+11,12,Rama Interósea anterior,3.00,4.00,7.00,2.00,3.00,5.00,10
+12,12,Nervio mediano por debajo del antebrazo,15.00,10.00,25.00,8.00,7.00,15.00,11
+13,12,Nervio mediano por debajo del antebrazo – rama palmar lado cubital del pulgar,1.50,0.00,1.50,1.00,0.00,1.00,12
+14,12,Nervio mediano por debajo del antebrazo – rama palmar lado radial del pulgar,4.50,,4.50,3.00,0.00,3.00,13
+15,12,Nervio mediano por debajo del antebrazo – rama palmar o palmar del lado cubital del dedo indice,1.50,0.00,1.50,1.00,0.00,1.00,14
+16,12,Nervio mediano por debajo del antebrazo – rama palmar del lado radial o palmar del lado cubital del dedo medio,7.50,0.00,7.50,5.00,0.00,5.00,15
+17,12,Nervio mediano por debajo del antebrazo – rama palmar del lado radial o palmar del lado cubital del cuarto dedo,1.50,0.00,1.50,1.00,0.00,1.00,16
+18,12,Nervio mediano por debajo del antebrazo – rama palmar lado radial o palmar lado cubital del quinto dedo,1.50,0.00,1.50,1.00,0.00,1.00,17
+19,12,Nervio Musculo cutáneo,5.00,10.00,15.00,3.00,7.00,10.00,18
+20,12,Nervio Radial Parte superior del brazo con pérdida del tríceps,3.00,21.00,24.00,2.00,16.00,18.00,19
+21,12,Nervio Radial a nivel del codo,4.00,16.00,20.00,3.00,12.00,15.00,20
+22,12,Nervio Subescapular (Superior e inferior),0.00,2.00,2.00,0.00,1.50,1.50,21
+23,12,Nervio Supra escapular,3.00,5.00,8.00,2.00,4.00,6.00,22
+24,12,Nervio Toracodorsal,0.00,4.00,4.00,0.00,3.00,3.00,23
+25,12,Nervio Ulnar (cubital) sobre o por debajo del antebrazo,3.00,11.00,14.00,2.00,8.00,10.00,24
+26,12,Nervio Ulnar palmar del cuarto o del quinto dedo,0.00,1.50,1.50,0.00,1.00,1.00,25
+27,13,Plexo Lumbo sacro,25.00,35.00,60.00,16.00,19.00,35.00,1
+28,13,Nervio cutáneo femoral lateral o Peróneo superficial o Sural o Safeno,0.00,4.00,4.00,0.00,3.00,3.00,2
+29,13,N. Glúteo superior,0.00,5.50,5.50,0.00,4.00,4.00,3
+30,13,N. Glúteo inferior,7.00,0.00,7.00,0.00,5.00,5.00,4
+31,13,N. femoral,2.00,8.00,10.00,1.00,6.50,7.50,5
+32,13,Genito - Femoral,1.50,0.00,1.50,1.00,0.00,1.00,6
+33,13,"Nervios del musculo Obturador Interno, del musculo Piriforme o del Obturador",0.00,3.00,3.00,0.00,2.00,2.00,7
+34,13,Posterior cutáneo del muslo,1.50,0.00,1.50,1.00,0.00,1.00,8
+35,13,Ciático (inervación por encima del hueco popliteo,5.00,15.00,20.00,3.00,10.00,13.00,9
+36,13,Común Peróneo (poplíteo lateral externo),2.00,8.00,10.00,1.00,6.50,7.50,10
+37,13,Profundo (por encima de la tibia media),7.00,0.00,7.00,0.00,5.00,5.00,11
+38,13,Profundo (por debajo de la tibia Media,0.00,1.50,1.50,0.00,1.00,1.00,12
+39,13,Nervio tibial (poplíteo Medio o interno) por encima de rodilla,0.00,12.00,12.00,0.00,9.00,9.00,13
+40,13,Nervio tibial posterior (pantorrilla media y rodilla),2.00,7.00,9.00,2.00,5.00,7.00,14
+41,13,Nervio tibial Por debajo de la pantorrilla media,4.00,4.00,8.00,3.00,3.00,6.00,15
+42,13,N. plantar medial o plantar lateral,4.50,4.50,7.50,3.00,3.00,5.00,16
+43,13,Crural (Safena externo),1.50,0.00,1.50,1.00,0.00,1.00,17
+44,14,C-5,2.00,6.00,7.50,1.00,4.00,5.00,1
+45,14,C-6,3.00,6.00,9.00,2.00,4.00,6.00,2
+46,14,C-7,6.00,6.00,9.00,4.00,4.00,6.00,3
+47,14,C-8,3.00,7.50,10.50,2.00,5.00,7.00,4
+48,14,T-1,2.00,4.50,6.00,1.00,3.00,4.00,5
+49,14,L3,2.00,4.50,4.50,1.00,3.00,3.00,6
+50,14,L4,2.00,4.50,6.00,1.00,3.00,4.00,7
+51,14,L5,3.00,6.00,9.00,2.00,4.00,6.00,8
+52,14,S1,2.00,4.50,6.00,1.00,3.00,4.00,9

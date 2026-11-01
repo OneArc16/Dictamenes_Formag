@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Datos de empleados reales (cédulas, firmas, contraseñas): no se versionan
+/import dictamy/empleados_*.csv
+/import dictamy/empleados_*.sql
