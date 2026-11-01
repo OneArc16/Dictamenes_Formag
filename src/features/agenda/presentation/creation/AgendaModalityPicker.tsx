@@ -64,7 +64,6 @@ export function AgendaModalityPicker({
           );
         })}
       </div>
-      <p className="text-xs text-slate-500">Al cambiarla se reinicia la configuración.</p>
     </section>
   );
 }
