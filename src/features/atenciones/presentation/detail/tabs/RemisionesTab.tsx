@@ -149,40 +149,34 @@ export function RemisionesTab({
   return (
     <div className="space-y-5">
       {!readOnly ? (
-        <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Remisiones frecuentes</h3>
+        <section className="flex flex-wrap items-center gap-x-2 gap-y-1.5" aria-label="Remisiones frecuentes">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Frecuentes</h3>
           {atajosEstado.length === 0 ? (
             <p className="text-xs text-slate-500">No hay atajos configurados.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {atajosEstado.map((atajo) => (
-                <button
-                  key={atajo.cupsCodigo}
-                  type="button"
-                  onClick={() => usarAtajo(atajo)}
-                  disabled={agregando}
-                  title={`${atajo.cupsCodigo} - ${atajo.cupsNombre}`}
-                  aria-label={`${atajo.etiqueta}: ${atajo.cargado ? 'cargada' : 'sin cargar, clic para agregar'}`}
-                  className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60 ${
-                    atajo.cargado
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus-visible:ring-emerald-500'
-                      : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 focus-visible:ring-amber-500'
-                  }`}
-                >
-                  {atajo.cargado ? (
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {atajo.etiqueta}
-                </button>
-              ))}
-            </div>
+            atajosEstado.map((atajo) => (
+              <button
+                key={atajo.cupsCodigo}
+                type="button"
+                onClick={() => usarAtajo(atajo)}
+                disabled={agregando}
+                title={`${atajo.cupsCodigo} - ${atajo.cupsNombre}${atajo.cargado ? ' (ya cargada en esta atención)' : ' (clic para agregar)'}`}
+                aria-label={`${atajo.etiqueta}: ${atajo.cargado ? 'cargada' : 'sin cargar, clic para agregar'}`}
+                className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-60 ${
+                  atajo.cargado
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100'
+                    : 'bg-white text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-sky-50 hover:text-sky-800 hover:ring-sky-300'
+                }`}
+              >
+                {atajo.cargado ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {atajo.etiqueta}
+              </button>
+            ))
           )}
-          <p className="text-[11px] text-slate-500">
-            <span className="font-semibold text-emerald-700">Verde</span>: ya se cargó en esta atención ·{' '}
-            <span className="font-semibold text-amber-700">Amarillo</span>: sin cargar (un clic la agrega).
-          </p>
         </section>
       ) : null}
 
