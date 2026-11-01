@@ -16,6 +16,7 @@ Acceptance criteria:
 - Actions use the existing minimal icon-button pattern with accessible labels and tooltips.
 - Opening an action preserves the reception page and opens the printable document in a new tab.
 - Document endpoints enforce authenticated reception access, attended-appointment scope, and inline PDF responses.
+- A single remisión action generates one PDF where each remisión starts on a separate page.
 
 ## Tasks
 
@@ -30,3 +31,4 @@ L2: Existing evidence: `PatientReceptionPage` already has an icon-action pattern
 L3: Assumption: the initial "etc" scope is represented by HC, incapacity, and referral documents; evolutions, diagnoses, and vital signs are included in HC rather than separate buttons.
 L4: Implementation: the history API now returns attended-only clinical-document availability counts; HC, incapacity, and referral PDFs are served from `/api/reception/appointments/[id]/clinical-documents/[document]`. The UI uses the same route and document kinds (`hc`, `incapacidad`, `remision`) and opens each PDF in a detached new tab.
 L5: Verification: focused ESLint passed; `git diff --check` passed; 15 focused domain/application tests passed. TypeScript remains blocked by six pre-existing missing `sharp` and `@react-pdf/types` modules outside the changed reception files. Independent static verification found no blockers and confirmed authentication, ATENDIDA status, site scope, document availability, and PDF security headers. Risk: item 2 (clinical-document access and site/status guards).
+L6: User correction: "hagamos algo para que ls remisiones salgan en dos hojas diferentes, no en la misma hoja, sin tener que poner dos botones diferentes". The single remisión action now inserts a page break before every remisión after the first.

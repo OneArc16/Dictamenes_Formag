@@ -7,7 +7,7 @@ import { assertAttendedAppointmentSite } from './reception-service';
 
 export type ClinicalDocumentKind = 'hc' | 'incapacidad' | 'remision';
 
-type TextLine = { text: string; heading?: boolean };
+type TextLine = { text: string; heading?: boolean; pageBreakBefore?: boolean };
 
 function readableText(value: string) {
   return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
@@ -122,7 +122,7 @@ function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencion
   return [
     { text: 'Remisiones', heading: true }, ...appointmentHeader(detail).slice(1),
     ...detail.remisiones.flatMap((item, index) => [
-      { text: `Remision ${index + 1}`, heading: true },
+      { text: `Remision ${index + 1}`, heading: true, pageBreakBefore: index > 0 },
       { text: `Servicio: ${item.cups.codigo} - ${item.cups.nombre}` },
       { text: `Diagnosticos: ${item.diagnosticos.map((diagnostico) => `${diagnostico.codigo} - ${diagnostico.nombre}`).join('; ') || 'No registrados'}` },
       { text: `Motivo: ${item.motivo ?? 'No especificado'}` },
@@ -145,6 +145,7 @@ async function renderPdf(lines: TextLine[]) {
   };
   let page = addPage();
   for (const entry of lines) {
+    if (entry.pageBreakBefore && y < height - margin) page = addPage();
     const heading = Boolean(entry.heading);
     const size = heading ? 12 : 10;
     const lineHeight = heading ? 19 : 15;
