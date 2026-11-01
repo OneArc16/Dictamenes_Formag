@@ -1232,23 +1232,27 @@ model RemisionAtajo {
 
 /// Remisiones ordenadas en una atención (un mismo servicio CUPS una sola vez por atención).
 model AtencionRemision {
-  id                 Int      @id @default(autoincrement())
+  id                 Int           @id @default(autoincrement())
   citaId             Int
   usuarioId          Int
-  cupsCodigo         String   @db.VarChar(10)
-  diagnosticoCodigo  String   @db.VarChar(10)
-  relacionado2Codigo String?  @db.VarChar(10)
-  relacionado3Codigo String?  @db.VarChar(10)
-  motivo             String?  @db.Text
-  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  cupsCodigo         String        @db.VarChar(10)
+  diagnosticoCodigo  String        @db.VarChar(10)
+  relacionado2Codigo String?       @db.VarChar(10)
+  relacionado3Codigo String?       @db.VarChar(10)
+  motivo             String?       @db.Text
+  /// Solo junta médica: primera vez (CALIFICACION) o RECALIFICACION.
+  tipoDictamen       TipoDictamen?
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
   createdBy          Int
 
-  cita         Cita    @relation(fields: [citaId], references: [id], onDelete: Restrict)
-  usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  cups         Cups    @relation(fields: [cupsCodigo], references: [codigo], onDelete: Restrict)
-  diagnostico  Cie10   @relation("RemisionDiagnostico", fields: [diagnosticoCodigo], references: [codigo], onDelete: Restrict)
-  relacionado2 Cie10?  @relation("RemisionRelacionado2", fields: [relacionado2Codigo], references: [codigo], onDelete: Restrict)
-  relacionado3 Cie10?  @relation("RemisionRelacionado3", fields: [relacionado3Codigo], references: [codigo], onDelete: Restrict)
+  cita         Cita      @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  /// Caso que la remisión de junta abrió en el panel de Dictamen.
+  dictamen     Dictamen?
+  usuario      Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  cups         Cups      @relation(fields: [cupsCodigo], references: [codigo], onDelete: Restrict)
+  diagnostico  Cie10     @relation("RemisionDiagnostico", fields: [diagnosticoCodigo], references: [codigo], onDelete: Restrict)
+  relacionado2 Cie10?    @relation("RemisionRelacionado2", fields: [relacionado2Codigo], references: [codigo], onDelete: Restrict)
+  relacionado3 Cie10?    @relation("RemisionRelacionado3", fields: [relacionado3Codigo], references: [codigo], onDelete: Restrict)
 
   @@unique([citaId, cupsCodigo])
   @@index([usuarioId, createdAt])
@@ -1622,7 +1626,10 @@ model Dictamen {
   origenVersionUtilizadaPcl Int?                 @map("origen_version_utilizada_pcl")
   lockVersion               Int                  @default(1) @map("lock_version")
 
-  tipoDictamen TipoDictamen @default(CALIFICACION) @map("tipo_dictamen")
+  tipoDictamen TipoDictamen      @default(CALIFICACION) @map("tipo_dictamen")
+  /// Remisión a junta médica que abrió el caso desde una atención.
+  remisionId   Int?              @unique @map("remision_id")
+  remision     AtencionRemision? @relation(fields: [remisionId], references: [id], onDelete: Restrict)
 
   totalTitulo1           Decimal?                @db.Decimal(6, 2)
   totalCap1              Decimal?                @db.Decimal(6, 2)
