@@ -866,9 +866,9 @@ export default function PatientReceptionPage() {
           <DialogDescription>Elegí cuál remisión querés imprimir.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
-          {remisionSelection?.documentosClinicos.remisiones.map((remision, index) => <Button key={remision.id} type="button" variant="outline" className="h-auto justify-start gap-3 border-violet-200 bg-violet-50/50 px-3 py-3 text-left text-slate-800 hover:border-violet-300 hover:bg-violet-50" onClick={() => { openAppointmentDocument(remisionSelection.id, 'remision', `?remisionId=${remision.id}`); setRemisionSelection(null); }}>
+          {remisionSelection?.documentosClinicos.remisiones.map((remision, index) => <Button key={remision.id} type="button" variant="outline" className="h-auto w-full justify-start gap-3 whitespace-normal border-violet-200 bg-violet-50/50 px-3 py-3 text-left text-slate-800 hover:border-violet-300 hover:bg-violet-50" onClick={() => { openAppointmentDocument(remisionSelection.id, 'remision', `?remisionId=${remision.id}`); setRemisionSelection(null); }}>
             <FileText className="h-4 w-4 shrink-0 text-violet-700" aria-hidden="true" />
-            <span className="grid gap-0.5"><span className="text-sm font-semibold">Remisión {index + 1}</span><span className="text-xs text-slate-500">{remision.label} · {formatDateTime(remision.createdAt)}</span></span>
+            <span className="grid min-w-0 gap-0.5"><span className="text-sm font-semibold">Remisión {index + 1}</span><span className="break-words text-xs text-slate-500">{remision.label} · {formatDateTime(remision.createdAt)}</span></span>
           </Button>)}
         </div>
         <DialogFooter><Button type="button" variant="outline" onClick={() => setRemisionSelection(null)}>Cancelar</Button></DialogFooter>
