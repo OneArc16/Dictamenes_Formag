@@ -781,6 +781,7 @@ model Usuario {
   antecedentesGineco        AntecedentesGinecobstetricos?
   signosVitales             SignosVitales[]
   remisiones                AtencionRemision[]
+  evoluciones               AtencionEvolucion[]
 
   @@unique([identificacion, tipoIdentificacion])
   @@index([codigoEps])
@@ -1061,6 +1062,7 @@ model Cita {
   signosVitales      SignosVitales?
   diagnosticos       AtencionDiagnostico[]
   remisiones         AtencionRemision[]
+  evoluciones        AtencionEvolucion[]
 
   @@unique([clinicalEncounterSource, clinicalEncounterId])
   @@index([usuarioId, inicioProgramado])
@@ -1249,6 +1251,23 @@ model AtencionRemision {
   @@unique([citaId, cupsCodigo])
   @@index([usuarioId, createdAt])
   @@map("atencion_remisiones")
+}
+
+/// Notas de evolución que el médico escribe durante la atención.
+model AtencionEvolucion {
+  id        Int      @id @default(autoincrement())
+  citaId    Int
+  usuarioId Int
+  texto     String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdBy Int
+
+  cita    Cita    @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([citaId, createdAt])
+  @@index([usuarioId, createdAt])
+  @@map("atencion_evoluciones")
 }
 
 /// Trazabilidad de cancelaciones y reversiones de cada cupo (un cupo puede cancelarse y
