@@ -18,6 +18,7 @@ function slot(id: number, inicio: string, estado: AgendaSlotRow['estado'] = 'LIB
     medicoId: 1,
     medicoNombre: 'ANA PEREZ',
     sedeNombre: 'Sede',
+    modalidadNombre: 'Presencial',
     inicio,
     fin: inicio,
     duracionMinutos: 30,

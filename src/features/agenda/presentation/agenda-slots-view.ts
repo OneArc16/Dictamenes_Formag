@@ -9,6 +9,7 @@ export type AgendaSlotRow = {
   medicoId: number;
   medicoNombre: string;
   sedeNombre: string;
+  modalidadNombre: string;
   inicio: string;
   fin: string;
   duracionMinutos: number;

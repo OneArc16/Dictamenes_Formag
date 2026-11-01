@@ -39,6 +39,7 @@ export async function GET(request: Request) {
       include: {
         medico: { select: nameSelect },
         sede: { select: { nombre: true } },
+        modalidad: { select: { nombre: true } },
         citas: {
           where: { estado: { in: ['ASIGNADA', 'ATENDIDA'] } },
           orderBy: { createdAt: 'desc' },
@@ -86,6 +87,7 @@ export async function GET(request: Request) {
         medicoId: row.medicoId,
         medicoNombre: employeeFullName(row.medico),
         sedeNombre: row.sede.nombre,
+        modalidadNombre: row.modalidad.nombre,
         inicio: row.inicio.toISOString(),
         fin: row.fin.toISOString(),
         duracionMinutos: row.duracionMinutos,

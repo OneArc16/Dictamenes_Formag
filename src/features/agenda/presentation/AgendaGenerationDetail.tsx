@@ -37,6 +37,7 @@ import {
 type GenerationDetail = {
   id: number;
   sedeNombre: string;
+  modalidadNombre: string;
   fechaInicial: string;
   fechaFinal: string;
   duracionMinutos: number;
@@ -171,7 +172,7 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
     <ModulePageLayout
       moduleKey="agenda"
       title={`Generación #${generation.id}`}
-      description={`${generation.sedeNombre} · ${generation.fechaInicial} a ${generation.fechaFinal} · ${generation.duracionMinutos} minutos`}
+      description={`${generation.sedeNombre} · ${generation.modalidadNombre} · ${generation.fechaInicial} a ${generation.fechaFinal} · ${generation.duracionMinutos} minutos`}
       compactHero
       stats={[
         { label: 'Médicos', value: String(generation.totalMedicos) },

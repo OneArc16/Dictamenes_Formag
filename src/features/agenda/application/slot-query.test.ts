@@ -18,6 +18,7 @@ const baseFilters: SlotQueryFilters = {
   desde: '2026-11-03',
   hasta: '2026-11-30',
   medicoId: 7,
+  modalidadId: null,
   estados: ['LIBRE'],
   search: 'claudia 2688',
   page: 1,
@@ -84,4 +85,17 @@ test('las facetas omiten los filtros indicados', () => {
 test('la lectura propia fuerza el médico aunque se pida otro', () => {
   const where = buildSlotWhere({ ...baseFilters, medicoId: 99 }, { medicoId: 5, sedeId: null }, {}).AND as object[];
   assert.deepEqual(where.slice(1), [{ medicoId: 5 }]);
+});
+
+test('lee la modalidad de la agenda consultada', () => {
+  const withModality = parse('desde=2026-11-03&hasta=2026-11-30&modalidadId=2');
+  assert.equal(withModality.ok && withModality.value.modalidadId, 2);
+  const withoutModality = parse('desde=2026-11-03&hasta=2026-11-30');
+  assert.equal(withoutModality.ok && withoutModality.value.modalidadId, null);
+});
+
+test('la modalidad separa las agendas también en las facetas', () => {
+  const scope = { medicoId: null, sedeId: 2 };
+  const doctorsFacet = buildSlotWhere({ ...baseFilters, modalidadId: 2 }, scope, {}).AND as object[];
+  assert.deepEqual(doctorsFacet.slice(1), [{ sedeId: 2 }, { modalidadId: 2 }]);
 });

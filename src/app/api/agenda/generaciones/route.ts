@@ -19,8 +19,10 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
   const pageSize = Math.min(50, Math.max(1, Number(url.searchParams.get('pageSize')) || 20));
+  const modalidadId = Number(url.searchParams.get('modalidadId'));
   const where = {
     ...(scope.medicoId ? { medicos: { some: { medicoId: scope.medicoId } } } : { sedeId: scope.sedeId! }),
+    ...(Number.isInteger(modalidadId) && modalidadId > 0 ? { modalidadId } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.generacionAgenda.findMany({
@@ -42,6 +44,7 @@ export async function GET(request: Request) {
         createdAt: true,
         createdBy: true,
         sede: { select: { nombre: true } },
+        modalidad: { select: { nombre: true } },
       },
     }),
     prisma.generacionAgenda.count({ where }),
@@ -56,6 +59,8 @@ export async function GET(request: Request) {
       createdAt: row.createdAt.toISOString(),
       sedeNombre: row.sede.nombre,
       sede: undefined,
+      modalidadNombre: row.modalidad.nombre,
+      modalidad: undefined,
     })),
   });
 }

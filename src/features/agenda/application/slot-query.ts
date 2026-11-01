@@ -43,6 +43,8 @@ export type SlotQueryFilters = {
   desde: DateOnly;
   hasta: DateOnly;
   medicoId: number | null;
+  /** Agenda consultada; null muestra todas las modalidades. */
+  modalidadId: number | null;
   estados: SlotStatus[];
   search: string;
   page: number;
@@ -90,6 +92,7 @@ export function parseSlotQuery(params: URLSearchParams): ParseResult {
       desde,
       hasta,
       medicoId: positiveInt(params.get('medicoId')),
+      modalidadId: positiveInt(params.get('modalidadId')),
       estados: [...new Set(rawStatuses)] as SlotStatus[],
       search,
       page: positiveInt(params.get('page')) ?? 1,
@@ -149,6 +152,8 @@ export function buildSlotWhere(
 ): Prisma.CupoMedicoWhereInput {
   const and: Prisma.CupoMedicoWhereInput[] = [{ inicio: localDayRange(filters.desde, filters.hasta) }];
   if (scope.sedeId) and.push({ sedeId: scope.sedeId });
+  // Cada modalidad es una agenda distinta: aplica también a las facetas.
+  if (filters.modalidadId) and.push({ modalidadId: filters.modalidadId });
 
   // Un médico con lectura propia solo ve sus cupos, pida lo que pida.
   const medicoId = scope.medicoId ?? (include.medico ? filters.medicoId : null);

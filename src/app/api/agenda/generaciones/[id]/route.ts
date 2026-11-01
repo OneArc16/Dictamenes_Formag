@@ -20,6 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     },
     include: {
       sede: { select: { nombre: true } },
+      modalidad: { select: { nombre: true } },
       fechasExcluidas: { orderBy: [{ fecha: 'asc' }, { medicoId: 'asc' }] },
       medicos: {
         ...(scope.medicoId ? { where: { medicoId: scope.medicoId } } : {}),
@@ -51,6 +52,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     generation: {
       id: row.id,
       sedeNombre: row.sede.nombre,
+      modalidadNombre: row.modalidad.nombre,
       fechaInicial: row.fechaInicial.toISOString().slice(0, 10),
       fechaFinal: row.fechaFinal.toISOString().slice(0, 10),
       duracionMinutos: row.duracionMinutos,

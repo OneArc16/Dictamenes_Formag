@@ -11,6 +11,7 @@ import { agendaRequest } from './api-client';
 type GenerationRow = {
   id: number;
   sedeNombre: string;
+  modalidadNombre: string;
   fechaInicial: string;
   fechaFinal: string;
   duracionMinutos: number;
@@ -27,10 +28,17 @@ function statusLabel(status: string) {
 }
 
 /** Historial de generaciones de cupos (trazabilidad de cada operación de creación). */
-export default function AgendaGenerationsList({ canCreate }: { canCreate: boolean }) {
+export default function AgendaGenerationsList({
+  canCreate,
+  modalityId,
+}: {
+  canCreate: boolean;
+  modalityId: number | null;
+}) {
   const query = useQuery<{ rows: GenerationRow[]; total: number }>({
-    queryKey: ['agenda-generations'],
-    queryFn: () => agendaRequest('/api/agenda/generaciones'),
+    queryKey: ['agenda-generations', modalityId],
+    queryFn: () =>
+      agendaRequest(modalityId ? `/api/agenda/generaciones?modalidadId=${modalityId}` : '/api/agenda/generaciones'),
   });
   const rows = query.data?.rows ?? [];
 
@@ -73,7 +81,7 @@ export default function AgendaGenerationsList({ canCreate }: { canCreate: boolea
                     <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">{statusLabel(row.estado)}</span>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">
-                    {row.sedeNombre} · {row.fechaInicial} a {row.fechaFinal} · {row.duracionMinutos} min
+                    {row.sedeNombre} · {row.modalidadNombre} · {row.fechaInicial} a {row.fechaFinal} · {row.duracionMinutos} min
                   </p>
                   <p className="mt-1 text-xs text-slate-500">{row.totalMedicos} médicos · {row.totalCreados} creados · {row.totalOmitidos} omitidos</p>
                 </div>

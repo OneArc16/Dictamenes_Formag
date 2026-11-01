@@ -113,7 +113,13 @@ function useDebounced<T>(value: T, ms = 300) {
   return debounced;
 }
 
-export default function AgendaSlotsBoard({ canCancel }: { canCancel: boolean }) {
+export default function AgendaSlotsBoard({
+  canCancel,
+  modalityId,
+}: {
+  canCancel: boolean;
+  modalityId: number | null;
+}) {
   const queryClient = useQueryClient();
   const [today] = useState(() => todayInAgendaZone());
   const [range, setRange] = useState(() => presetRange(DEFAULT_PRESET, today));
@@ -136,7 +142,7 @@ export default function AgendaSlotsBoard({ canCancel }: { canCancel: boolean }) 
     range.desde && range.hasta && differenceInCalendarDays(range.desde, range.hasta) > MAX_RANGE_DAYS
       ? `El rango no puede superar ${MAX_RANGE_DAYS + 1} días.`
       : '';
-  const filters = { ...range, doctorId, statuses, search };
+  const filters = { ...range, modalityId, doctorId, statuses, search };
 
   const query = useInfiniteQuery<SlotsResponse>({
     queryKey: ['agenda-slots', filters],
@@ -153,6 +159,7 @@ export default function AgendaSlotsBoard({ canCancel }: { canCancel: boolean }) 
         page: String(pageParam),
         pageSize: String(PAGE_SIZE),
       });
+      if (modalityId) params.set('modalidadId', String(modalityId));
       if (doctorId !== 'all') params.set('medicoId', doctorId);
       if (statuses.length > 0) params.set('estado', statuses.join(','));
       if (search) params.set('q', search);
