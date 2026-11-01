@@ -102,7 +102,7 @@ function clinicalHistoryLines(detail: NonNullable<Awaited<ReturnType<typeof getA
   return lines;
 }
 
-function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>, kind: ClinicalDocumentKind): TextLine[] {
+function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>, kind: ClinicalDocumentKind, remisionId?: number): TextLine[] {
   if (kind === 'hc') return clinicalHistoryLines(detail);
   if (kind === 'incapacidad') {
     if (!detail.incapacidades.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La cita no tiene incapacidades para imprimir.', 404);
@@ -118,10 +118,11 @@ function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencion
       ]),
     ];
   }
-  if (!detail.remisiones.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La cita no tiene remisiones para imprimir.', 404);
+  const remisiones = remisionId === undefined ? detail.remisiones : detail.remisiones.filter((item) => item.id === remisionId);
+  if (!remisiones.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La remisión solicitada no está disponible para imprimir.', 404);
   return [
     { text: 'Remisiones', heading: true }, ...appointmentHeader(detail).slice(1),
-    ...detail.remisiones.flatMap((item, index) => [
+    ...remisiones.flatMap((item, index) => [
       { text: `Remision ${index + 1}`, heading: true, pageBreakBefore: index > 0 },
       { text: `Servicio: ${item.cups.codigo} - ${item.cups.nombre}` },
       { text: `Diagnosticos: ${item.diagnosticos.map((diagnostico) => `${diagnostico.codigo} - ${diagnostico.nombre}`).join('; ') || 'No registrados'}` },
@@ -160,11 +161,11 @@ async function renderPdf(lines: TextLine[]) {
   return Buffer.from(await pdf.save());
 }
 
-export async function renderClinicalDocument(auth: AuthorizationContext, appointmentId: number, kind: ClinicalDocumentKind) {
+export async function renderClinicalDocument(auth: AuthorizationContext, appointmentId: number, kind: ClinicalDocumentKind, remisionId?: number) {
   await assertAttendedAppointmentSite(auth, appointmentId);
   const detail = await getAtencionDetalle(auth, appointmentId);
   if (!detail || detail.estado !== 'ATENDIDA') {
     throw new ReceptionError('CLINICAL_DOCUMENT_NOT_RENDERABLE', 'La cita no permite imprimir documentos clínicos.', 409);
   }
-  return renderPdf(documentLines(detail, kind));
+  return renderPdf(documentLines(detail, kind, remisionId));
 }

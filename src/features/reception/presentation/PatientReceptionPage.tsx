@@ -63,7 +63,8 @@ type Doctor = { id: number; name: string };
 type Slot = { id: number; inicio: string; fin: string };
 type AppointmentReason = { codigo: string; nombre: string };
 type ClinicalDocumentKind = 'hc' | 'incapacidad' | 'remision';
-type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number; documentosClinicos: { hc: boolean; incapacidadCount: number; remisionCount: number } };
+type RemisionOption = { id: number; label: string; createdAt: string };
+type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number; documentosClinicos: { hc: boolean; incapacidadCount: number; remisionCount: number; remisiones: RemisionOption[] } };
 type HistoryPage = { items: HistoryItem[]; nextCursor: string | null };
 type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 type MovementPage = { items: Movement[]; nextCursor: string | null };
@@ -605,6 +606,7 @@ export default function PatientReceptionPage() {
   const [datePickerExpanded, setDatePickerExpanded] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [movementAppointment, setMovementAppointment] = useState<HistoryItem | null>(null);
+  const [remisionSelection, setRemisionSelection] = useState<HistoryItem | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [historyStates, setHistoryStates] = useState<string[]>([]);
@@ -724,14 +726,23 @@ export default function PatientReceptionPage() {
     reminder.mutate({ appointmentId, target });
   };
 
-  const openAppointmentDocument = (appointmentId: number, document: ClinicalDocumentKind) => {
+  const openAppointmentDocument = (appointmentId: number, document: ClinicalDocumentKind, query = '') => {
     const target = window.open('', '_blank');
     if (!target) {
       toast.error('El navegador bloqueó la nueva pestaña. Permití ventanas emergentes para imprimir.');
       return;
     }
     target.opener = null;
-    target.location.assign(`/api/reception/appointments/${appointmentId}/clinical-documents/${document}`);
+    target.location.assign(`/api/reception/appointments/${appointmentId}/clinical-documents/${document}${query}`);
+  };
+
+  const printRemision = (appointment: HistoryItem) => {
+    const remisiones = appointment.documentosClinicos.remisiones;
+    if (remisiones.length === 1) {
+      openAppointmentDocument(appointment.id, 'remision', `?remisionId=${remisiones[0].id}`);
+      return;
+    }
+    setRemisionSelection(appointment);
   };
 
   const resetForSite = (value: number) => { setSiteId(value); setSpecialtyId(null); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
@@ -778,7 +789,7 @@ export default function PatientReceptionPage() {
           {item.estado === 'ATENDIDA' ? <>
             <AppointmentIconAction id={`appointment-${item.id}-clinical-history`} label="Imprimir historia clínica" tone="primary" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'hc')} />
             {item.documentosClinicos.incapacidadCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-incapacity`} label="Imprimir incapacidad" tone="warning" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'incapacidad')} /> : null}
-            {item.documentosClinicos.remisionCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-referral`} label="Imprimir remisión" tone="violet" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'remision')} /> : null}
+            {item.documentosClinicos.remisionCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-referral`} label="Imprimir remisión" tone="violet" icon={<FileText aria-hidden="true" />} onClick={() => printRemision(item)} /> : null}
           </> : null}
         </div></article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent>
       </Card>
@@ -846,6 +857,21 @@ export default function PatientReceptionPage() {
           {movements.hasNextPage ? <Button className="mt-4 w-full" variant="outline" onClick={() => movements.fetchNextPage()} disabled={movements.isFetchingNextPage}>{movements.isFetchingNextPage ? 'Cargando…' : 'Cargar más movimientos'}</Button> : null}
         </div>
         <DialogFooter className="appointment-movements-dialog__footer"><Button variant="outline" className="h-11 min-w-24 border-slate-300 bg-white text-slate-700 hover:bg-slate-100" onClick={() => setMovementAppointment(null)}>Cerrar</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={!!remisionSelection} onOpenChange={(open) => { if (!open) setRemisionSelection(null); }}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg border-slate-200 bg-white text-slate-950 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-left text-base"><FileText className="h-4 w-4 text-violet-700" />Seleccionar remisión</DialogTitle>
+          <DialogDescription>Elegí cuál remisión querés imprimir.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          {remisionSelection?.documentosClinicos.remisiones.map((remision, index) => <Button key={remision.id} type="button" variant="outline" className="h-auto justify-start gap-3 border-violet-200 bg-violet-50/50 px-3 py-3 text-left text-slate-800 hover:border-violet-300 hover:bg-violet-50" onClick={() => { openAppointmentDocument(remisionSelection.id, 'remision', `?remisionId=${remision.id}`); setRemisionSelection(null); }}>
+            <FileText className="h-4 w-4 shrink-0 text-violet-700" aria-hidden="true" />
+            <span className="grid gap-0.5"><span className="text-sm font-semibold">Remisión {index + 1}</span><span className="text-xs text-slate-500">{remision.label} · {formatDateTime(remision.createdAt)}</span></span>
+          </Button>)}
+        </div>
+        <DialogFooter><Button type="button" variant="outline" onClick={() => setRemisionSelection(null)}>Cancelar</Button></DialogFooter>
       </DialogContent>
     </Dialog>
     <Dialog open={timePickerOpen} onOpenChange={setTimePickerOpen}>

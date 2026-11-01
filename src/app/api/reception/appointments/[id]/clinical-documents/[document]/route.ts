@@ -14,7 +14,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'El documento clínico solicitado no está disponible.', 404);
     }
     const kind = values.document as ClinicalDocumentKind;
-    const bytes = await renderClinicalDocument(auth.auth, appointmentId, kind);
+    const remisionIdValue = new URL(request.url).searchParams.get('remisionId');
+    const remisionId = remisionIdValue === null ? undefined : positiveQuery(remisionIdValue, 'Remisión');
+    const bytes = await renderClinicalDocument(auth.auth, appointmentId, kind, remisionId);
     const filename = kind === 'hc' ? 'historia-clinica.pdf' : kind === 'incapacidad' ? 'incapacidades.pdf' : 'remisiones.pdf';
     return new Response(bytes, {
       headers: {

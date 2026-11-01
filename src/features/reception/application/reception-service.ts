@@ -380,14 +380,20 @@ export async function appointmentHistory(patientId: number, statuses: EstadoCita
       especialidadId: true, especialidadNombre: true, modalidadId: true, modalidadNombre: true, medioSolicitud: true,
       activadaAt: true, lockVersion: true,
       _count: { select: { incapacidades: true, remisiones: true } },
+      remisiones: { orderBy: { id: 'asc' }, select: { id: true, createdAt: true, cups: { select: { codigo: true, nombre: true } } } },
     },
   });
-  const items = rows.slice(0, pageSize).map(({ _count, ...item }) => ({
+  const items = rows.slice(0, pageSize).map(({ _count, remisiones, ...item }) => ({
     ...item,
     documentosClinicos: {
       hc: item.estado === 'ATENDIDA',
       incapacidadCount: item.estado === 'ATENDIDA' ? _count.incapacidades : 0,
       remisionCount: item.estado === 'ATENDIDA' ? _count.remisiones : 0,
+      remisiones: item.estado === 'ATENDIDA' ? remisiones.map((remision) => ({
+        id: remision.id,
+        label: `${remision.cups.codigo} - ${remision.cups.nombre}`,
+        createdAt: remision.createdAt.toISOString(),
+      })) : [],
     },
   }));
   const last = items.at(-1);
