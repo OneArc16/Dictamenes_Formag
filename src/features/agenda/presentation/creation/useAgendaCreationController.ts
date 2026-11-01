@@ -79,8 +79,8 @@ export function useAgendaCreationController(context: ReadyContext) {
           previewFingerprint,
         }),
       }),
-    onSuccess: ({ result }) => {
-      router.push(`/agenda/generaciones/${result.generacionId}`);
+    onSuccess: () => {
+      router.push('/agenda');
     },
     onError: (error) => {
       dispatch({
