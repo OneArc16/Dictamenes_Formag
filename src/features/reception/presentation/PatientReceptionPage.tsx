@@ -4,7 +4,7 @@ import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DayPicker } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
-import { ArrowRight, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarX2, ChevronDown, CircleCheck, Clock3, History, ListFilter, Printer, Save, Search, ShieldAlert, UserPlus, UserRound, X } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarX2, ChevronDown, CircleCheck, Clock3, FileText, History, ListFilter, Printer, Save, Search, ShieldAlert, UserPlus, UserRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
@@ -62,7 +62,8 @@ type Option = { id: number; nombre: string };
 type Doctor = { id: number; name: string };
 type Slot = { id: number; inicio: string; fin: string };
 type AppointmentReason = { codigo: string; nombre: string };
-type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number };
+type ClinicalDocumentKind = 'hc' | 'incapacidad' | 'remision';
+type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number; documentosClinicos: { hc: boolean; incapacidadCount: number; remisionCount: number } };
 type HistoryPage = { items: HistoryItem[]; nextCursor: string | null };
 type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 type MovementPage = { items: Movement[]; nextCursor: string | null };
@@ -723,6 +724,16 @@ export default function PatientReceptionPage() {
     reminder.mutate({ appointmentId, target });
   };
 
+  const openAppointmentDocument = (appointmentId: number, document: ClinicalDocumentKind) => {
+    const target = window.open('', '_blank');
+    if (!target) {
+      toast.error('El navegador bloqueó la nueva pestaña. Permití ventanas emergentes para imprimir.');
+      return;
+    }
+    target.opener = null;
+    target.location.assign(`/api/reception/appointments/${appointmentId}/clinical-documents/${document}`);
+  };
+
   const resetForSite = (value: number) => { setSiteId(value); setSpecialtyId(null); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
   const selectSpecialty = (value: number) => { setSpecialtyId(value); setSelectedDate(undefined); setDoctorId(null); setSlotId(null); setDatePickerExpanded(false); };
   const canBook = !!patient && hasMainPhoneContact && !!effectiveSiteId && !!specialtyId && !!selectedDate && !!doctorId && !!slotId && (!!rescheduling ? !!rescheduleReason : !!modalityId);
@@ -763,6 +774,11 @@ export default function PatientReceptionPage() {
             <AppointmentIconAction id={`appointment-${item.id}-reschedule`} label="Reprogramar cita" tone="primary" icon={<CalendarClock aria-hidden="true" />} onClick={() => { setRescheduling(item); setRescheduleReason(''); selectSpecialty(item.especialidadId); }} />
             {canPrintReminder ? <AppointmentIconAction id={`appointment-${item.id}-print`} label={reminder.isPending ? 'Generando recordatorio' : 'Imprimir recordatorio'} icon={<Printer aria-hidden="true" />} disabled={reminder.isPending} onClick={() => openReminder(item.id)} /> : null}
             <AppointmentIconAction id={`appointment-${item.id}-cancel`} label="Cancelar cita" tone="danger" icon={<CalendarX2 aria-hidden="true" />} disabled={act.isPending} onClick={() => { setCancelReason(''); setCancelling(item); }} />
+          </> : null}
+          {item.estado === 'ATENDIDA' ? <>
+            <AppointmentIconAction id={`appointment-${item.id}-clinical-history`} label="Imprimir historia clínica" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'hc')} />
+            {item.documentosClinicos.incapacidadCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-incapacity`} label="Imprimir incapacidad" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'incapacidad')} /> : null}
+            {item.documentosClinicos.remisionCount > 0 ? <AppointmentIconAction id={`appointment-${item.id}-referral`} label="Imprimir remisión" icon={<FileText aria-hidden="true" />} onClick={() => openAppointmentDocument(item.id, 'remision')} /> : null}
           </> : null}
         </div></article>)}{history.hasNextPage ? <Button className="w-full" variant="outline" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage}>{history.isFetchingNextPage ? 'Cargando…' : 'Cargar más citas'}</Button> : null}</div> : <p className="text-sm text-slate-500">Este paciente aún no tiene citas registradas.</p>}</CardContent>
       </Card>

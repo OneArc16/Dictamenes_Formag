@@ -375,11 +375,31 @@ export async function appointmentHistory(patientId: number, statuses: EstadoCita
       ...(decoded ? { OR: [{ inicioProgramado: { lt: new Date(decoded.inicioProgramado) } }, { inicioProgramado: new Date(decoded.inicioProgramado), id: { lt: decoded.id } }] } : {}),
     },
     orderBy: [{ inicioProgramado: 'desc' }, { id: 'desc' }], take: pageSize + 1,
-    select: { id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true, especialidadId: true, especialidadNombre: true, modalidadId: true, modalidadNombre: true, medioSolicitud: true, activadaAt: true, lockVersion: true },
+    select: {
+      id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true,
+      especialidadId: true, especialidadNombre: true, modalidadId: true, modalidadNombre: true, medioSolicitud: true,
+      activadaAt: true, lockVersion: true,
+      _count: { select: { incapacidades: true, remisiones: true } },
+    },
   });
-  const items = rows.slice(0, pageSize);
+  const items = rows.slice(0, pageSize).map(({ _count, ...item }) => ({
+    ...item,
+    documentosClinicos: {
+      hc: item.estado === 'ATENDIDA',
+      incapacidadCount: item.estado === 'ATENDIDA' ? _count.incapacidades : 0,
+      remisionCount: item.estado === 'ATENDIDA' ? _count.remisiones : 0,
+    },
+  }));
   const last = items.at(-1);
   return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ inicioProgramado: last.inicioProgramado.toISOString(), id: last.id }) : null };
+}
+
+/** Enforces attended-state and assigned-site scope before reception can print clinical content. */
+export async function assertAttendedAppointmentSite(auth: AuthorizationContext, appointmentId: number) {
+  const appointment = await prisma.cita.findUnique({ where: { id: appointmentId }, select: { estado: true, sedeId: true } });
+  if (!appointment) throw new ReceptionError('APPOINTMENT_NOT_FOUND', 'La cita no existe.', 404);
+  if (appointment.estado !== 'ATENDIDA') throw new ReceptionError('CLINICAL_DOCUMENT_NOT_RENDERABLE', 'La cita no permite imprimir documentos clínicos.', 409);
+  await assertReceptionSite(auth, appointment.sedeId);
 }
 
 export async function appointmentMovements(appointmentId: number, pageSize = 20, cursor: string | null = null) {
