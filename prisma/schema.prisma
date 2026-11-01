@@ -1674,6 +1674,7 @@ model Dictamen {
   junta            DictamenJunta[]
   historial        DictamenHistorial[]
   formularioOrigen FormularioOrigen?
+  adjuntos         DictamenAdjunto[]
 
   @@index([usuarioId])
   @@index([empleadoId])
@@ -2146,4 +2147,23 @@ model PerfilPermiso {
   @@index([perfilId])
   @@index([permisoId])
   @@map("perfil_permisos")
+}
+
+/// Documento adjunto a un dictamen (p. ej. historias clínicas de especialistas).
+model DictamenAdjunto {
+  id         Int    @id @default(autoincrement())
+  dictamenId Int    @map("dictamen_id")
+  nombre     String @db.VarChar(255)
+  mimeType   String @map("mime_type") @db.VarChar(100)
+  tamano     Int
+  /// Ruta relativa dentro de ADJUNTOS_DIR; el archivo vive en disco, no en la base.
+  rutaArchivo String @map("ruta_archivo") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.VarChar(100)
+
+  dictamen Dictamen @relation(fields: [dictamenId], references: [id], onDelete: Cascade)
+
+  @@index([dictamenId])
+  @@map("dictamenes_adjuntos")
 }

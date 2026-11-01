@@ -45,3 +45,6 @@ next-env.d.ts
 # Datos de empleados reales (cédulas, firmas, contraseñas): no se versionan
 /import dictamy/empleados_*.csv
 /import dictamy/empleados_*.sql
+
+# Documentos adjuntos de dictámenes (datos de pacientes): no se versionan
+/storage/

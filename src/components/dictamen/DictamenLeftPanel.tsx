@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { DocumentMetaCard } from '@/components/clinical-document/DocumentMetaCard';
 import { DocenteSummaryCard } from '@/components/clinical-document/DocenteSummaryCard';
 import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
+import DictamenAdjuntosCard from '@/components/dictamen/DictamenAdjuntosCard';
 import { useActualizarProcedimientoDictamen } from '@/hooks/useActualizarProcedimientoDictamen';
 
 type DictamenEstado = 'PENDIENTE' | 'REABIERTO' | 'CERRADO';
@@ -213,6 +214,8 @@ export default function DictamenLeftPanel({
           </p>
         </div>
       </DocumentMetaCard>
+
+      <DictamenAdjuntosCard dictamenId={dictamenId} readOnly={estado === 'CERRADO'} />
     </>
   );
 }

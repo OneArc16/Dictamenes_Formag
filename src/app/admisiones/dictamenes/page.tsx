@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { DictamenExportButton, type DictamenExportRow } from '@/components/DictamenExportButton';
 import AdmisionesBanner from '@/components/admisiones/AdmisionesBanner';
+import AdjuntarDocumentosButton from '@/components/admisiones/dictamenes/AdjuntarDocumentosButton';
 import ImprimirDictamenButton from '@/components/admisiones/dictamenes/ImprimirDictamenButton';
 import ImprimirOrigenButton from '@/components/admisiones/dictamenes/ImprimirOrigenButton';
 import ReabrirDictamenButton from '@/components/admisiones/dictamenes/ReabrirDictamenButton';
@@ -198,6 +199,11 @@ export default function AdmisionesPage() {
 
           return (
             <div className="flex items-center gap-2">
+              <AdjuntarDocumentosButton
+                dictamenId={row.id}
+                isCerrado={isCerrado}
+                docenteNombre={row.docenteNombre ?? undefined}
+              />
               <ImprimirOrigenButton dictamenId={row.id} canPrintOrigin={row.canPrintOrigin === true} />
               <ImprimirDictamenButton dictamenId={row.id} isCerrado={isCerrado} />
               {canReopenDictamen && isCerrado && motivosReapertura.length > 0 ? (
