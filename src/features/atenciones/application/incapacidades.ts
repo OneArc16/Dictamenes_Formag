@@ -28,6 +28,8 @@ const INCAPACIDAD_SELECT = {
   categoria: true,
   prorroga: true,
   prorrogaDe: { select: { id: true, numeroInterno: true } },
+  prorrogaExternaNumero: true,
+  prorrogaExternaFin: true,
   cita: { select: { diagnosticos: { orderBy: { orden: 'asc' }, select: { cie10: { select: { codigo: true, nombre: true } } } } } },
   fechaInicio: true,
   fechaFin: true,
@@ -55,6 +57,10 @@ async function toIncapacidades(db: Db, rows: IncapacidadRow[]): Promise<Incapaci
       categoria: row.categoria,
       prorroga: row.prorroga,
       prorrogaDe: row.prorrogaDe,
+      prorrogaExterna:
+        row.prorrogaExternaNumero && row.prorrogaExternaFin
+          ? { numero: row.prorrogaExternaNumero, fechaFin: dateOnly(row.prorrogaExternaFin) }
+          : null,
       diagnosticos: row.cita.diagnosticos.map((item) => item.cie10),
       fechaInicio: dateOnly(row.fechaInicio),
       fechaFin: dateOnly(row.fechaFin),
@@ -116,6 +122,10 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
       const motivo = validarProrroga(dateOnly(anterior.fechaFin), input.fechaInicio);
       if (motivo) throw new ReceptionError('PRORROGA_INVALIDA', motivo, 422);
     }
+    if (input.prorrogaExterna) {
+      const motivo = validarProrroga(input.prorrogaExterna.fechaFin, input.fechaInicio);
+      if (motivo) throw new ReceptionError('PRORROGA_INVALIDA', motivo, 422);
+    }
 
     // El lock de numeración también serializa esta verificación de cruces.
     const numeroInterno = await siguienteNumeroInterno(tx);
@@ -143,6 +153,8 @@ export async function createIncapacidad(auth: AuthorizationContext, citaId: numb
         categoria: input.categoria,
         prorroga: input.prorroga,
         prorrogaDeId: input.prorrogaDeId ?? null,
+        prorrogaExternaNumero: input.prorrogaExterna?.numero ?? null,
+        prorrogaExternaFin: input.prorrogaExterna ? parseDateOnly(input.prorrogaExterna.fechaFin) : null,
         fechaInicio: parseDateOnly(input.fechaInicio),
         fechaFin: parseDateOnly(fechaFin),
         dias: input.dias,

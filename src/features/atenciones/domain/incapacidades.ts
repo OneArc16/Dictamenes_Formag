@@ -32,6 +32,14 @@ export const createIncapacidadSchema = z
     categoria: z.enum(CATEGORIA_VALUES, { error: 'Selecciona la categoría.' }),
     prorroga: z.boolean(),
     prorrogaDeId: z.number().int().positive().optional(),
+    /** Incapacidad anterior expedida fuera del sistema (otra entidad). */
+    prorrogaExterna: z
+      .object({
+        numero: z.string().trim().min(1, 'Escribe el número de la incapacidad anterior.').max(40),
+        fechaFin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha de fin de la incapacidad anterior no es válida.'),
+      })
+      .strict()
+      .optional(),
     fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha de inicio no es válida.'),
     dias: z
       .number({ error: 'Escribe los días de incapacidad.' })
@@ -41,10 +49,16 @@ export const createIncapacidadSchema = z
     observaciones: z.string().trim().max(INCAPACIDAD_OBSERVACIONES_MAX).optional(),
   })
   .strict()
-  .refine((value) => (value.prorroga ? value.prorrogaDeId !== undefined : value.prorrogaDeId === undefined), {
-    message: 'Selecciona la incapacidad que se prorroga.',
-    path: ['prorrogaDeId'],
-  });
+  .refine(
+    (value) => {
+      const anteriores = Number(value.prorrogaDeId !== undefined) + Number(value.prorrogaExterna !== undefined);
+      return value.prorroga ? anteriores === 1 : anteriores === 0;
+    },
+    {
+      message: 'Selecciona la incapacidad que se prorroga.',
+      path: ['prorrogaDeId'],
+    },
+  );
 
 export type CreateIncapacidadCommand = z.infer<typeof createIncapacidadSchema>;
 
@@ -55,6 +69,7 @@ export type Incapacidad = {
   categoria: CategoriaIncapacidad;
   prorroga: boolean;
   prorrogaDe: { id: number; numeroInterno: string } | null;
+  prorrogaExterna: { numero: string; fechaFin: string } | null;
   /** Diagnósticos de la atención en que se expidió; el primero es el principal. */
   diagnosticos: Array<{ codigo: string; nombre: string }>;
   fechaInicio: string;

@@ -39,6 +39,22 @@ test('la prórroga exige la incapacidad que prorroga y la inicial no la admite',
   assert.equal(createIncapacidadSchema.safeParse({ ...base, prorrogaDeId: 4 }).success, false);
 });
 
+test('la prórroga puede ser de una incapacidad externa con su número y fecha de fin', () => {
+  const externa = { numero: ' EPS-123 ', fechaFin: '2026-10-31' };
+  const parsed = createIncapacidadSchema.parse({ ...base, prorroga: true, prorrogaExterna: externa });
+  assert.deepEqual(parsed.prorrogaExterna, { numero: 'EPS-123', fechaFin: '2026-10-31' });
+  assert.equal(
+    createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaExterna: { numero: '', fechaFin: '2026-10-31' } }).success,
+    false,
+  );
+  // O una del sistema o una externa, nunca ambas; y la inicial no admite ninguna.
+  assert.equal(
+    createIncapacidadSchema.safeParse({ ...base, prorroga: true, prorrogaDeId: 4, prorrogaExterna: externa }).success,
+    false,
+  );
+  assert.equal(createIncapacidadSchema.safeParse({ ...base, prorrogaExterna: externa }).success, false);
+});
+
 test('la fecha de fin cuenta el día de inicio', () => {
   assert.equal(fechaFinIncapacidad('2026-11-05', 1), '2026-11-05');
   assert.equal(fechaFinIncapacidad('2026-11-05', 3), '2026-11-07');
