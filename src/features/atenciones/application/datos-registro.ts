@@ -60,8 +60,14 @@ const CITA_REGISTRO_SELECT = {
 
 export type CitaRegistro = Prisma.CitaGetPayload<{ select: typeof CITA_REGISTRO_SELECT }>;
 
+/** Nombre del docente: junta los espacios repetidos, como lo muestra la atención. */
 function joinName(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Nombre del médico: recorta cada parte, como lo imprimían los documentos. */
+function joinParts(...parts: Array<string | null | undefined>) {
+  return parts.map((part) => part?.trim()).filter(Boolean).join(' ');
 }
 
 function signatureDataUrl(bytes: Uint8Array | null, mime: string | null) {
@@ -101,7 +107,7 @@ export function toDatosRegistro({ paciente, medico, sede }: CitaRegistro): Datos
     version: 1,
     paciente: pacienteRegistro(paciente),
     profesional: {
-      nombre: joinName(medico.primerNombre, medico.segundoNombre, medico.primerApellido, medico.segundoApellido),
+      nombre: joinParts(medico.primerNombre, medico.segundoNombre, medico.primerApellido, medico.segundoApellido),
       tipoDocumento: medico.tipoDocumento,
       documento: medico.numeroIdentidad,
       registroMedico: medico.registroMedico,

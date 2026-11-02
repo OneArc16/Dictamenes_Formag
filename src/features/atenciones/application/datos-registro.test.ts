@@ -71,3 +71,13 @@ test('arma la copia con los datos actuales del paciente, del médico y de la sed
   // La sede manda; lo que le falte sale del centro médico.
   assert.deepEqual(datos.sede, { codigoHabilitacion: '4700100001-01', direccion: 'Cra 19', telefono: '605', ciudad: 'SANTA MARTA' });
 });
+
+test('los nombres se arman como antes: el del médico solo recorta cada parte, el del paciente junta espacios', () => {
+  const datos = toDatosRegistro({
+    ...cita,
+    paciente: { ...cita.paciente, primerNombre: 'DANIEL  ANDRES', segundoNombre: null },
+    medico: { ...cita.medico, primerNombre: ' MARIA  JOSE ' },
+  });
+  assert.equal(datos.paciente.nombreCompleto, 'DANIEL ANDRES CASTAÑO');
+  assert.equal(datos.profesional.nombre, 'MARIA  JOSE YEJAS OROZCO');
+});
