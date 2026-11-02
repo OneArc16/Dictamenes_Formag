@@ -29,7 +29,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 34,
     // El interlineado va en `body`: en la página oculta el pie fijo con posición absoluta (react-pdf).
   },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: COLOR.accent },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 8,
+    marginBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: COLOR.accent,
+  },
   logo: { width: 86, objectFit: 'contain' },
   institution: { flex: 1, paddingHorizontal: 12 },
   institutionName: { fontFamily: 'Helvetica-Bold', fontSize: 11, lineHeight: 1.2, marginBottom: 3, color: COLOR.accent, textTransform: 'uppercase' },
@@ -46,16 +53,6 @@ const s = StyleSheet.create({
   },
   badgeBody: { paddingHorizontal: 6, paddingVertical: 4 },
   badgeLine: { flexDirection: 'row', justifyContent: 'space-between', fontSize: 7.5 },
-  strip: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 10,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    backgroundColor: COLOR.tint,
-    fontSize: 7.5,
-  },
   // lineHeight se resuelve con el fontSize del mismo estilo: van juntos.
   body: { fontSize: 8.5, lineHeight: 1.35 },
   section: { marginBottom: 10 },
@@ -219,15 +216,6 @@ export function HistoriaClinicaPdf({ hc, logoSrc }: { hc: HistoriaClinicaDocumen
                 </View>
               </View>
             </View>
-          </View>
-          {/* Cada hoja identifica al paciente, también cuando se separan. */}
-          <View style={s.strip}>
-            <Text>
-              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{paciente.nombre}</Text>  ·  {paciente.documento}
-            </Text>
-            <Text>
-              {atencion.especialidad}  ·  Sede {atencion.sede}
-            </Text>
           </View>
         </View>
 
