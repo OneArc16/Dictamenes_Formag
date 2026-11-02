@@ -29,8 +29,9 @@ type Schedule = {
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const DEFAULT_BLOCKS: Block[] = [1, 2, 3, 4, 5].flatMap((day) => [
-  { diaSemana: day, horaInicio: '08:00', horaFin: '12:00' },
-  { diaSemana: day, horaInicio: '13:00', horaFin: '17:00' },
+  { diaSemana: day, horaInicio: '07:00', horaFin: '12:00' },
+  // Los viernes la tarde termina media hora antes.
+  { diaSemana: day, horaInicio: '13:00', horaFin: day === 5 ? '16:00' : '16:30' },
 ]);
 
 export default function WorkSchedulesManager() {
