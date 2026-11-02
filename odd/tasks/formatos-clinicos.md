@@ -23,7 +23,7 @@ Acceptance criteria:
 ## Tasks
 
 - T1 (S1): HC view model (pure, tested) + react-pdf document + wire `hc` kind in clinical-document-service. Route: inline (no writer reason). Status: complete. Commit: see Log L5.
-- T2 (S2): Remisión format. Route: TBD. Status: pending user go-ahead after HC review.
+- T2 (S2): Remisión format. Route: TBD. Status: next (HC accepted, L9).
 - T3 (S3): Incapacidad format. Route: TBD. Status: pending.
 
 ## Log
@@ -36,3 +36,4 @@ L5: Verification: test:atenciones 64/64 (6 model tests + 1 render smoke test), t
 L6 (2026-11-02): "Quitemos esa parte en todas las hojas" (screenshot of the patient name/document strip under the header). Strip removed; header keeps attention number and date on every page. Sample HC now 3 pages; model + render tests 6/6, eslint clean.
 L7 (2026-11-02): "Puedes hacer las letras un poco mas pequeñas para ahorrar hojas y tinta/toner". Body text 8.5→7.5 pt (lineHeight 1.3), labels/headers/footer reduced ~1 pt, tighter paddings and margins. Sample HC: 3 pages, third page now only closes orders, evolutions and signature. Tests 6/6, eslint clean.
 L8 (2026-11-02): "Esta parte no me gusta, porque lo de la direccion esta muy grande" (screenshot of the identification grid). Cause: the EPS name wrapped to 3 lines in a 25% cell, stretching the Dirección row. Grid regrouped: short fields + phone in one row, Dirección 40% / EPS 60% (EPS now one line). Side finding: react-pdf moved a whole section to the next page when it missed only its marginBottom; section spacing moved to marginTop. Sample HC: 3 pages, page 1 full. Tests 6/6, eslint clean.
+L9 (2026-11-02): "Me gusta" — user accepted the HC format (S1 closed).
