@@ -33,7 +33,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingBottom: 6,
-    marginBottom: 10,
+    marginBottom: 2,
     borderBottomWidth: 2,
     borderBottomColor: COLOR.accent,
   },
@@ -55,7 +55,9 @@ const s = StyleSheet.create({
   badgeLine: { flexDirection: 'row', justifyContent: 'space-between', fontSize: 6.8 },
   // lineHeight se resuelve con el fontSize del mismo estilo: van juntos.
   body: { fontSize: 7.5, lineHeight: 1.3 },
-  section: { marginBottom: 8 },
+  // El espacio entre secciones va arriba del título: con marginBottom, una sección que solo no
+  // cabe por su margen salta completa a la hoja siguiente (react-pdf).
+  section: { marginTop: 8 },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -225,14 +227,15 @@ export function HistoriaClinicaPdf({ hc, logoSrc }: { hc: HistoriaClinicaDocumen
             <Field label="Nombre completo" value={paciente.nombre} width="50%" />
             <Field label="Documento" value={paciente.documento} width="25%" />
             <Field label="Fecha de nacimiento" value={paciente.fechaNacimiento} width="25%" />
-            <Field label="Edad" value={paciente.edad} width="16%" />
-            <Field label="Sexo" value={paciente.sexo} width="17%" />
-            <Field label="Estado civil" value={paciente.estadoCivil} width="17%" />
-            <Field label="Pertenencia étnica" value={paciente.etnia} width="25%" />
-            <Field label="Zona" value={paciente.zona} width="25%" />
-            <Field label="Dirección" value={paciente.direccion} width="50%" />
-            <Field label="Teléfono" value={paciente.telefono} width="25%" />
-            <Field label="EPS / Aseguradora" value={paciente.eps} width="25%" />
+            {/* Datos cortos juntos; la EPS lleva una celda ancha para no estirar la fila con varias líneas. */}
+            <Field label="Edad" value={paciente.edad} width="12%" />
+            <Field label="Sexo" value={paciente.sexo} width="13%" />
+            <Field label="Estado civil" value={paciente.estadoCivil} width="15%" />
+            <Field label="Pertenencia étnica" value={paciente.etnia} width="18%" />
+            <Field label="Zona" value={paciente.zona} width="12%" />
+            <Field label="Teléfono" value={paciente.telefono} width="30%" />
+            <Field label="Dirección" value={paciente.direccion} width="40%" />
+            <Field label="EPS / Aseguradora" value={paciente.eps} width="60%" />
             <Field label="Ocupación" value={paciente.ocupacion} width="50%" />
             <Field label="Sede" value={atencion.sede} width="25%" />
             <Field label="Especialidad" value={atencion.especialidad} width="25%" />
