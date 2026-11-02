@@ -4,8 +4,11 @@ import path from 'node:path';
 import React from 'react';
 
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
+import type { DocumentoClinicoExtras } from '@/features/atenciones/presentation/print/documento-clinico-model';
 import { HistoriaClinicaPdf } from '@/features/atenciones/presentation/print/HistoriaClinicaPdf';
-import { buildHistoriaClinica, type HistoriaClinicaExtras } from '@/features/atenciones/presentation/print/historia-clinica-model';
+import { buildHistoriaClinica } from '@/features/atenciones/presentation/print/historia-clinica-model';
+import { RemisionPdf } from '@/features/atenciones/presentation/print/RemisionPdf';
+import { buildRemisiones } from '@/features/atenciones/presentation/print/remision-model';
 import { prisma } from '@/lib/prisma';
 
 /** Prestador que emite los documentos clínicos; la base no guarda su NIT. */
@@ -31,8 +34,8 @@ async function logoDataUrl() {
   }
 }
 
-/** Lo que la historia clínica necesita y no trae el detalle de la atención: prestador, firma, cierre. */
-export async function loadHistoriaClinicaExtras(citaId: number, now = new Date()): Promise<HistoriaClinicaExtras> {
+/** Lo que los documentos impresos necesitan y no trae el detalle de la atención: prestador, firma, cierre. */
+export async function loadDocumentoClinicoExtras(citaId: number, now = new Date()): Promise<DocumentoClinicoExtras> {
   const cita = await prisma.cita.findUniqueOrThrow({
     where: { id: citaId },
     select: {
@@ -103,8 +106,20 @@ export async function loadHistoriaClinicaExtras(citaId: number, now = new Date()
   };
 }
 
-export async function renderHistoriaClinicaPdf(detalle: AtencionDetalle) {
-  const [extras, logoSrc] = await Promise.all([loadHistoriaClinicaExtras(detalle.id), logoDataUrl()]);
-  const document = React.createElement(HistoriaClinicaPdf, { hc: buildHistoriaClinica(detalle, extras), logoSrc });
-  return Buffer.from(await renderToBuffer(document as never));
+async function render(detalle: AtencionDetalle, create: (extras: DocumentoClinicoExtras, logoSrc: string | null) => React.ReactElement) {
+  const [extras, logoSrc] = await Promise.all([loadDocumentoClinicoExtras(detalle.id), logoDataUrl()]);
+  return Buffer.from(await renderToBuffer(create(extras, logoSrc) as never));
+}
+
+export function renderHistoriaClinicaPdf(detalle: AtencionDetalle) {
+  return render(detalle, (extras, logoSrc) =>
+    React.createElement(HistoriaClinicaPdf, { hc: buildHistoriaClinica(detalle, extras), logoSrc }),
+  );
+}
+
+/** Una hoja por remisión; con `remisionId`, solo esa. */
+export function renderRemisionesPdf(detalle: AtencionDetalle, remisionId?: number) {
+  return render(detalle, (extras, logoSrc) =>
+    React.createElement(RemisionPdf, { doc: buildRemisiones(detalle, extras, remisionId), logoSrc }),
+  );
 }

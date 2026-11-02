@@ -15,82 +15,28 @@ import {
   type SignoKey,
 } from '@/features/atenciones/domain/signos-vitales';
 
+import {
+  buildEncabezadoClinico,
+  clean,
+  diagnosticoNombre,
+  formatFecha,
+  formatFechaHora,
+  ordenDiagnostico,
+  type Dato,
+  type DocumentoClinicoExtras,
+  type Hallazgo,
+} from './documento-clinico-model';
+
 /**
  * Lo que imprime la historia clínica de una atención finalizada: solo lo registrado, ya con
  * etiquetas legibles y fechas en hora de Colombia. El PDF se limita a dibujarlo.
  */
 
-const TIME_ZONE = 'America/Bogota';
+export type HistoriaClinicaExtras = DocumentoClinicoExtras;
 
-/** Datos que no trae el detalle de la atención y que exige la historia clínica impresa. */
-export type HistoriaClinicaExtras = {
-  institucion: {
-    nombre: string;
-    nit: string;
-    codigoHabilitacion: string | null;
-    direccion: string | null;
-    telefono: string | null;
-    ciudad: string | null;
-  };
-  paciente: {
-    /** YYYY-MM-DD */
-    fechaNacimiento: string | null;
-    sexo: string;
-    estadoCivil: string | null;
-    direccion: string | null;
-    etnia: string | null;
-    zonaResidencia: string | null;
-  };
-  /** El médico que atendió la cita; firma como data URL. */
-  profesional: {
-    nombre: string;
-    tipoDocumento: string | null;
-    documento: string | null;
-    registroMedico: string | null;
-    firmaSrc: string | null;
-  };
-  /** Cuando se finalizó la atención (ISO). */
-  atendidaEn: string | null;
-  generadoEn: string;
-};
-
-export type Dato = { label: string; valor: string };
 export type GrupoDatos = { titulo: string; items: Dato[] };
-export type Hallazgo = Dato & { alterado: boolean };
 
 export type HistoriaClinicaDocumento = ReturnType<typeof buildHistoriaClinica>;
-
-// Igual que esMujer: H es hombre; M (mujer) y F, femenino.
-const SEXO: Record<string, string> = { H: 'Masculino', M: 'Femenino', F: 'Femenino', I: 'Indeterminado', O: 'Otro' };
-const ZONA: Record<string, string> = { U: 'Urbana', R: 'Rural' };
-
-function clean(value: string | null | undefined) {
-  return (value ?? '').trim();
-}
-
-function capitalize(value: string) {
-  const lower = value.toLocaleLowerCase('es-CO');
-  return lower.charAt(0).toLocaleUpperCase('es-CO') + lower.slice(1);
-}
-
-/** YYYY-MM-DD → DD/MM/YYYY; un ISO con hora se lleva a la fecha de Colombia. */
-export function formatFecha(value: string | null | undefined) {
-  if (!value) return '';
-  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (dateOnly) return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`;
-  return new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TIME_ZONE })
-    .format(new Date(value));
-}
-
-export function formatHora(value: string | null | undefined) {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TIME_ZONE })
-    .format(new Date(value));
-}
-
-function formatFechaHora(value: string | null | undefined) {
-  return value ? `${formatFecha(value)} ${formatHora(value)}` : '';
-}
 
 function antecedentesPersonales(detalle: AtencionDetalle) {
   const datos = detalle.antecedentesPersonales.datos;
@@ -192,43 +138,12 @@ function signos(values: AtencionDetalle['signosVitales']['values']): Dato[] {
   return result;
 }
 
-function diagnosticoNombre(codigo: string, label: string) {
-  const prefix = `${codigo} - `;
-  return label.startsWith(prefix) ? label.slice(prefix.length) : label;
-}
-
 export function buildHistoriaClinica(detalle: AtencionDetalle, extras: HistoriaClinicaExtras) {
-  const { docente } = detalle;
-  const paciente = extras.paciente;
-  const estadoCivil = clean(paciente.estadoCivil);
   const revisionCatalog = REVISION_CATALOG as unknown as HallazgosCatalog;
   const examenCatalog = EXAMEN_CATALOG as unknown as HallazgosCatalog;
 
   return {
-    institucion: extras.institucion,
-    atencion: {
-      numero: String(detalle.id),
-      fecha: formatFecha(detalle.inicioProgramado),
-      hora: formatHora(detalle.inicioProgramado),
-      cierre: formatFechaHora(extras.atendidaEn),
-      sede: detalle.sedeNombre,
-      especialidad: detalle.especialidadNombre,
-      modalidad: detalle.modalidadNombre,
-    },
-    paciente: {
-      nombre: docente.nombreCompleto,
-      documento: `${docente.tipoDocumento} ${docente.documento}`,
-      edad: docente.edad != null ? `${docente.edad} años` : '',
-      fechaNacimiento: formatFecha(paciente.fechaNacimiento),
-      sexo: SEXO[clean(paciente.sexo).toUpperCase()] ?? clean(paciente.sexo),
-      estadoCivil: estadoCivil ? capitalize(estadoCivil) : '',
-      direccion: clean(paciente.direccion),
-      zona: ZONA[clean(paciente.zonaResidencia)] ?? clean(paciente.zonaResidencia),
-      telefono: clean(docente.telefono),
-      eps: clean(docente.eps),
-      ocupacion: clean(docente.cargo),
-      etnia: clean(paciente.etnia),
-    },
+    ...buildEncabezadoClinico(detalle, extras),
     motivoConsulta: clean(detalle.form.motivoConsulta),
     enfermedadActual: clean(detalle.form.enfermedadActual),
     antecedentes: {
@@ -240,7 +155,7 @@ export function buildHistoriaClinica(detalle: AtencionDetalle, extras: HistoriaC
     revisionSistemas: hallazgos(revisionCatalog, detalle.revisionSistemas.datos.sistemas, detalle.mujer),
     examenFisico: hallazgos(examenCatalog, detalle.examenFisico.datos.sistemas, detalle.mujer),
     diagnosticos: detalle.diagnosticos.map((item, index) => ({
-      orden: index === 0 ? 'Principal' : `Relacionado ${index}`,
+      orden: ordenDiagnostico(index),
       codigo: item.cie10Codigo,
       nombre: diagnosticoNombre(item.cie10Codigo, item.cie10Label),
       tipo: TIPOS_DIAGNOSTICO.find((tipo) => tipo.value === item.tipo)?.label ?? item.tipo,
@@ -261,13 +176,5 @@ export function buildHistoriaClinica(detalle: AtencionDetalle, extras: HistoriaC
       medico: clean(item.medicoNombre),
       texto: clean(item.texto),
     })),
-    profesional: {
-      ...extras.profesional,
-      documento: extras.profesional.documento
-        ? `${extras.profesional.tipoDocumento ?? ''} ${extras.profesional.documento}`.trim()
-        : '',
-      especialidad: detalle.especialidadNombre,
-    },
-    generadoEn: formatFechaHora(extras.generadoEn),
   };
 }

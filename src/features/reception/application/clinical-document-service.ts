@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { getAtencionDetalle } from '@/features/atenciones/application/atencion-detail';
-import { renderHistoriaClinicaPdf } from '@/features/atenciones/application/historia-clinica-print';
+import { renderHistoriaClinicaPdf, renderRemisionesPdf } from '@/features/atenciones/application/documentos-clinicos-print';
 
 import { ReceptionError } from './errors';
 import { assertAttendedAppointmentSite } from './reception-service';
@@ -60,31 +60,17 @@ function appointmentHeader(detail: NonNullable<Awaited<ReturnType<typeof getAten
   ];
 }
 
-function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>, kind: Exclude<ClinicalDocumentKind, 'hc'>, remisionId?: number): TextLine[] {
-  if (kind === 'incapacidad') {
-    if (!detail.incapacidades.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La cita no tiene incapacidades para imprimir.', 404);
-    return [
-      { text: 'Incapacidades', heading: true }, ...appointmentHeader(detail).slice(1),
-      ...detail.incapacidades.flatMap((item, index) => [
-        { text: `Incapacidad ${index + 1}`, heading: true },
-        { text: `Numero: ${item.numeroInterno} | Categoria: ${item.categoria}` },
-        { text: `Periodo: ${item.fechaInicio} a ${item.fechaFin} | Dias: ${item.dias}` },
-        { text: `Prorroga: ${item.prorroga ? 'Si' : 'No'}` },
-        { text: `Diagnosticos: ${item.diagnosticos.map((diagnostico) => `${diagnostico.codigo} - ${diagnostico.nombre}`).join('; ') || 'No registrados'}` },
-        { text: `Observaciones: ${item.observaciones ?? 'Sin observaciones'}` },
-      ]),
-    ];
-  }
-  const remisiones = remisionId === undefined ? detail.remisiones : detail.remisiones.filter((item) => item.id === remisionId);
-  if (!remisiones.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La remisión solicitada no está disponible para imprimir.', 404);
+function incapacidadLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>): TextLine[] {
+  if (!detail.incapacidades.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La cita no tiene incapacidades para imprimir.', 404);
   return [
-    { text: 'Remisiones', heading: true }, ...appointmentHeader(detail).slice(1),
-    ...remisiones.flatMap((item, index) => [
-      { text: `Remision ${index + 1}`, heading: true, pageBreakBefore: index > 0 },
-      { text: `Servicio: ${item.cups.codigo} - ${item.cups.nombre}` },
+    { text: 'Incapacidades', heading: true }, ...appointmentHeader(detail).slice(1),
+    ...detail.incapacidades.flatMap((item, index) => [
+      { text: `Incapacidad ${index + 1}`, heading: true },
+      { text: `Numero: ${item.numeroInterno} | Categoria: ${item.categoria}` },
+      { text: `Periodo: ${item.fechaInicio} a ${item.fechaFin} | Dias: ${item.dias}` },
+      { text: `Prorroga: ${item.prorroga ? 'Si' : 'No'}` },
       { text: `Diagnosticos: ${item.diagnosticos.map((diagnostico) => `${diagnostico.codigo} - ${diagnostico.nombre}`).join('; ') || 'No registrados'}` },
-      { text: `Motivo: ${item.motivo ?? 'No especificado'}` },
-      { text: `Fecha: ${dateLabel(item.fecha)} | Medico: ${item.medicoNombre ?? detail.medicoNombre}` },
+      { text: `Observaciones: ${item.observaciones ?? 'Sin observaciones'}` },
     ]),
   ];
 }
@@ -125,5 +111,11 @@ export async function renderClinicalDocument(auth: AuthorizationContext, appoint
     throw new ReceptionError('CLINICAL_DOCUMENT_NOT_RENDERABLE', 'La cita no permite imprimir documentos clínicos.', 409);
   }
   if (kind === 'hc') return renderHistoriaClinicaPdf(detail);
-  return renderPdf(documentLines(detail, kind, remisionId));
+  if (kind === 'remision') {
+    if (!detail.remisiones.some((item) => remisionId === undefined || item.id === remisionId)) {
+      throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La remisión solicitada no está disponible para imprimir.', 404);
+    }
+    return renderRemisionesPdf(detail, remisionId);
+  }
+  return renderPdf(incapacidadLines(detail));
 }

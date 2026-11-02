@@ -17,13 +17,23 @@ Acceptance criteria:
 - Every page: institution header with attention number and date, "Página X de Y", confidentiality notice (Ley 23/1981, Res. 1995/1999, Ley 1581/2012). No repeated patient strip (L6).
 - Existing access guards (attended appointment, site scope) unchanged.
 
-### S2 — Remisión print format (pending, next)
+### S2 — Remisión print format
+User request: "Hazlo con el mismo estilo para que manejemos uno solo" (with a reference image of the current remisión).
+
+Scope: replace the plain-text remisión PDF (`clinical-documents/remision`, optional `remisionId`) with a react-pdf document built from the same shared pieces as the HC (header, patient grid, sections, signature, footer), so both formats are maintained in one place.
+
+Acceptance criteria:
+- Same header/footer/patient identification as the HC; badge "REMISIÓN" with remisión number, atención number and date.
+- Diagnoses of the remisión with CIE-10 code, principal first then related.
+- Requested service: CUPS code and name; junta médica type when present; motivo.
+- Signature of the physician who attended the appointment.
+- Each remisión on its own page; `remisionId` prints only that one; unavailable remisión keeps the existing 404 error.
 ### S3 — Incapacidad print format (pending)
 
 ## Tasks
 
 - T1 (S1): HC view model (pure, tested) + react-pdf document + wire `hc` kind in clinical-document-service. Route: inline (no writer reason). Status: complete. Commit: see Log L5.
-- T2 (S2): Remisión format. Route: TBD. Status: next (HC accepted, L9).
+- T2 (S2): Shared PDF kit extracted from the HC + remisión model/PDF + wire `remision` kind. Route: inline (single unit, no writer reason). Status: complete (see L11).
 - T3 (S3): Incapacidad format. Route: TBD. Status: pending.
 
 ## Log
@@ -37,3 +47,5 @@ L6 (2026-11-02): "Quitemos esa parte en todas las hojas" (screenshot of the pati
 L7 (2026-11-02): "Puedes hacer las letras un poco mas pequeñas para ahorrar hojas y tinta/toner". Body text 8.5→7.5 pt (lineHeight 1.3), labels/headers/footer reduced ~1 pt, tighter paddings and margins. Sample HC: 3 pages, third page now only closes orders, evolutions and signature. Tests 6/6, eslint clean.
 L8 (2026-11-02): "Esta parte no me gusta, porque lo de la direccion esta muy grande" (screenshot of the identification grid). Cause: the EPS name wrapped to 3 lines in a 25% cell, stretching the Dirección row. Grid regrouped: short fields + phone in one row, Dirección 40% / EPS 60% (EPS now one line). Side finding: react-pdf moved a whole section to the next page when it missed only its marginBottom; section spacing moved to marginTop. Sample HC: 3 pages, page 1 full. Tests 6/6, eslint clean.
 L9 (2026-11-02): "Me gusta" — user accepted the HC format (S1 closed).
+L10 (2026-11-02): "Hazlo con el mismo estilo para que manejemos uno solo" — remisión reference image shows admission data, diagnoses PPL/R1-R3, detail table (especialidad, diagnóstico, procedimiento, exámenes) and doctor signature.
+L11 (2026-11-02): T2 done. Shared pieces: `presentation/print/documento-clinico-model.ts` (header/patient/professional model, date helpers) and `clinical-pdf-kit.tsx` (ClinicalPage header+footer, PacienteSection, Section, Field, Rows, Paragraph, DiagnosticosTable, Firma). HC rebuilt on the kit (differential check vs base: same pages, only the badge date drawn as one text run instead of two). Remisión: `remision-model.ts` (+3 tests) and `RemisionPdf.tsx`, one page per remisión, badge with remisión/atención number and date, CIE-10 table, CUPS service, junta type, motivo, attending doctor signature. Loader renamed to `application/documentos-clinicos-print.ts`; reception service keeps the 404 for an unavailable remisión. Checks: test:atenciones 67/67, test:reception 16/16, eslint clean, tsc no new errors; sample render of cita 1: 2 remisiones on 2 pages.
