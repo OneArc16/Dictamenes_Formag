@@ -64,7 +64,6 @@ test('cada remisión lleva su número, fecha, servicio CUPS, motivo y diagnósti
       fecha: '30/10/2026 07:20',
       cupsCodigo: '890262',
       cupsNombre: 'CONSULTA DE PRIMERA VEZ POR MEDICINA DEL TRABAJO',
-      junta: null,
       motivo: 'Valoración por dolor crónico',
       diagnosticos: [
         { orden: 'Principal', codigo: 'M751', nombre: 'SINDROME DEL MANGUITO ROTATORIO' },
@@ -74,9 +73,10 @@ test('cada remisión lleva su número, fecha, servicio CUPS, motivo y diagnósti
   ]);
 });
 
-test('la junta médica muestra el tipo de calificación', () => {
+test('la junta médica no imprime el tipo de calificación', () => {
   const doc = buildRemisiones(detalle([remision({ tipoDictamen: 'RECALIFICACION' })]), extras);
-  assert.equal(doc.remisiones[0].junta, 'Recalificación');
+  assert.ok(!('junta' in doc.remisiones[0]));
+  assert.ok(!JSON.stringify(doc).includes('Recalificación'));
 });
 
 test('con remisionId imprime solo esa remisión; sin él, todas', () => {

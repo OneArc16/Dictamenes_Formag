@@ -1,5 +1,4 @@
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
-import { tipoJuntaLabel } from '@/features/atenciones/domain/remisiones';
 
 import {
   buildEncabezadoClinico,
@@ -23,7 +22,6 @@ export function buildRemisiones(detalle: AtencionDetalle, extras: DocumentoClini
       fecha: formatFechaHora(item.fecha),
       cupsCodigo: item.cups.codigo,
       cupsNombre: item.cups.nombre,
-      junta: item.tipoDictamen ? tipoJuntaLabel(item.tipoDictamen) : null,
       motivo: clean(item.motivo),
       diagnosticos: item.diagnosticos.map((diagnostico, index) => ({
         orden: ordenDiagnostico(index),

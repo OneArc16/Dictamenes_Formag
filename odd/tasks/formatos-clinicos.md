@@ -25,7 +25,7 @@ Scope: replace the plain-text remisión PDF (`clinical-documents/remision`, opti
 Acceptance criteria:
 - Same header/footer/patient identification as the HC; badge "REMISIÓN" with remisión number, atención number and date.
 - Diagnoses of the remisión with CIE-10 code, principal first then related.
-- Requested service: CUPS code and name; junta médica type when present; motivo.
+- Requested service: CUPS code and name; motivo. The junta médica calificación type is not printed (L12).
 - Signature of the physician who attended the appointment.
 - Each remisión on its own page; `remisionId` prints only that one; unavailable remisión keeps the existing 404 error.
 ### S3 — Incapacidad print format (pending)
@@ -49,3 +49,4 @@ L8 (2026-11-02): "Esta parte no me gusta, porque lo de la direccion esta muy gra
 L9 (2026-11-02): "Me gusta" — user accepted the HC format (S1 closed).
 L10 (2026-11-02): "Hazlo con el mismo estilo para que manejemos uno solo" — remisión reference image shows admission data, diagnoses PPL/R1-R3, detail table (especialidad, diagnóstico, procedimiento, exámenes) and doctor signature.
 L11 (2026-11-02): T2 done. Shared pieces: `presentation/print/documento-clinico-model.ts` (header/patient/professional model, date helpers) and `clinical-pdf-kit.tsx` (ClinicalPage header+footer, PacienteSection, Section, Field, Rows, Paragraph, DiagnosticosTable, Firma). HC rebuilt on the kit (differential check vs base: same pages, only the badge date drawn as one text run instead of two). Remisión: `remision-model.ts` (+3 tests) and `RemisionPdf.tsx`, one page per remisión, badge with remisión/atención number and date, CIE-10 table, CUPS service, junta type, motivo, attending doctor signature. Loader renamed to `application/documentos-clinicos-print.ts`; reception service keeps the 404 for an unavailable remisión. Checks: test:atenciones 67/67, test:reception 16/16, eslint clean, tsc no new errors; sample render of cita 1: 2 remisiones on 2 pages.
+L12 (2026-11-02): "El tipo de calificacion no debe verse en la pdf". Removed the junta type field from the remisión PDF and model; test now asserts it is not printed.
