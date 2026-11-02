@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { toDatosRegistro, type CitaRegistro } from './datos-registro';
+import { datosRegistroDeAtencion, toDatosRegistro, type CitaRegistro } from './datos-registro';
 
 const cita: CitaRegistro = {
   paciente: {
@@ -80,4 +80,25 @@ test('los nombres se arman como antes: el del médico solo recorta cada parte, e
   });
   assert.equal(datos.paciente.nombreCompleto, 'DANIEL ANDRES CASTAÑO');
   assert.equal(datos.profesional.nombre, 'MARIA  JOSE YEJAS OROZCO');
+});
+
+test('con copia guardada usa la copia; sin copia o inválida, consulta los datos actuales', async () => {
+  const copia = toDatosRegistro({ ...cita, paciente: { ...cita.paciente, eps: { nombreEntidad: 'EPS DE LA COPIA' } } });
+  let consultasActuales = 0;
+  const db = (guardada: unknown) =>
+    ({
+      atencion: { findUnique: async () => ({ datosRegistro: guardada }) },
+      cita: {
+        findUniqueOrThrow: async () => {
+          consultasActuales += 1;
+          return cita;
+        },
+      },
+    }) as unknown as Parameters<typeof datosRegistroDeAtencion>[0];
+
+  assert.equal((await datosRegistroDeAtencion(db(copia), 1)).paciente.eps, 'EPS DE LA COPIA');
+  assert.equal(consultasActuales, 0);
+  assert.equal((await datosRegistroDeAtencion(db(null), 1)).paciente.eps, 'FIDUPREVISORA');
+  assert.equal((await datosRegistroDeAtencion(db({ version: 9 }), 1)).paciente.eps, 'FIDUPREVISORA');
+  assert.equal(consultasActuales, 2);
 });
