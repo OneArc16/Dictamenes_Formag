@@ -7,6 +7,8 @@ import type { AtencionDetalle } from '@/features/atenciones/application/atencion
 import type { DocumentoClinicoExtras } from '@/features/atenciones/presentation/print/documento-clinico-model';
 import { HistoriaClinicaPdf } from '@/features/atenciones/presentation/print/HistoriaClinicaPdf';
 import { buildHistoriaClinica } from '@/features/atenciones/presentation/print/historia-clinica-model';
+import { IncapacidadPdf } from '@/features/atenciones/presentation/print/IncapacidadPdf';
+import { buildIncapacidades } from '@/features/atenciones/presentation/print/incapacidad-model';
 import { RemisionPdf } from '@/features/atenciones/presentation/print/RemisionPdf';
 import { buildRemisiones } from '@/features/atenciones/presentation/print/remision-model';
 import { prisma } from '@/lib/prisma';
@@ -121,5 +123,12 @@ export function renderHistoriaClinicaPdf(detalle: AtencionDetalle) {
 export function renderRemisionesPdf(detalle: AtencionDetalle, remisionId?: number) {
   return render(detalle, (extras, logoSrc) =>
     React.createElement(RemisionPdf, { doc: buildRemisiones(detalle, extras, remisionId), logoSrc }),
+  );
+}
+
+/** Una hoja por incapacidad de la atención. */
+export function renderIncapacidadesPdf(detalle: AtencionDetalle) {
+  return render(detalle, (extras, logoSrc) =>
+    React.createElement(IncapacidadPdf, { doc: buildIncapacidades(detalle, extras), logoSrc }),
   );
 }

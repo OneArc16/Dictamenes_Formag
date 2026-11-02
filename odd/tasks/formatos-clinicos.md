@@ -28,13 +28,23 @@ Acceptance criteria:
 - Requested service: CUPS code and name; motivo. The junta médica calificación type is not printed (L12).
 - Signature of the physician who attended the appointment.
 - Each remisión on its own page; `remisionId` prints only that one; unavailable remisión keeps the existing 404 error.
-### S3 — Incapacidad print format (pending)
+### S3 — Incapacidad print format
+User request: "Esta es la incapacidad, mismo diseño" (with a reference image of the current incapacidad).
+
+Scope: replace the plain-text incapacidad PDF (`clinical-documents/incapacidad`) with a react-pdf document on the shared kit.
+
+Acceptance criteria:
+- Same header/footer/patient identification; badge "INCAPACIDAD" with its internal number, atención number and issue date.
+- Diagnoses with CIE-10 code, principal first then related.
+- Detail: start date, end date, days, extension (prórroga), category; observaciones.
+- Signature of the physician who attended the appointment.
+- Each incapacidad on its own page; an appointment without incapacidades keeps the existing 404 error.
 
 ## Tasks
 
 - T1 (S1): HC view model (pure, tested) + react-pdf document + wire `hc` kind in clinical-document-service. Route: inline (no writer reason). Status: complete. Commit: see Log L5.
 - T2 (S2): Shared PDF kit extracted from the HC + remisión model/PDF + wire `remision` kind. Route: inline (single unit, no writer reason). Status: complete (see L11).
-- T3 (S3): Incapacidad format on the shared kit. Route: TBD. Status: next (S2 accepted, L13).
+- T3 (S3): Incapacidad model/PDF on the shared kit + wire `incapacidad` kind, drop the pdf-lib renderer. Route: inline (single unit). Status: complete (see L15).
 
 ## Log
 
@@ -51,3 +61,5 @@ L10 (2026-11-02): "Hazlo con el mismo estilo para que manejemos uno solo" — re
 L11 (2026-11-02): T2 done. Shared pieces: `presentation/print/documento-clinico-model.ts` (header/patient/professional model, date helpers) and `clinical-pdf-kit.tsx` (ClinicalPage header+footer, PacienteSection, Section, Field, Rows, Paragraph, DiagnosticosTable, Firma). HC rebuilt on the kit (differential check vs base: same pages, only the badge date drawn as one text run instead of two). Remisión: `remision-model.ts` (+3 tests) and `RemisionPdf.tsx`, one page per remisión, badge with remisión/atención number and date, CIE-10 table, CUPS service, junta type, motivo, attending doctor signature. Loader renamed to `application/documentos-clinicos-print.ts`; reception service keeps the 404 for an unavailable remisión. Checks: test:atenciones 67/67, test:reception 16/16, eslint clean, tsc no new errors; sample render of cita 1: 2 remisiones on 2 pages.
 L12 (2026-11-02): "El tipo de calificacion no debe verse en la pdf". Removed the junta type field from the remisión PDF and model; test now asserts it is not printed.
 L13 (2026-11-02): "me gusta" — user accepted the remisión format (S2 closed). Next: S3 incapacidad.
+L14 (2026-11-02): "Esta es la incapacidad, mismo diseño" — reference shows diagnoses PPL/R1-R3, detail table (inicio, fin, no. días, motivo, categoría) and doctor signature.
+L15 (2026-11-02): T3 done. `incapacidad-model.ts` (+2 tests) and `IncapacidadPdf.tsx` on the shared kit: badge with internal number, atención and issue date; CIE-10 table; detail grid (inicio, fin, días, prórroga, categoría); observaciones; attending doctor signature; one page per incapacidad. Reception service now renders all three kinds with react-pdf; the plain-text pdf-lib renderer was removed (404 for missing incapacidades/remisión kept). Checks: test:atenciones 69/69, test:reception 16/16, eslint clean, tsc no new errors; sample incapacidad of cita 1 rendered on 1 page.
