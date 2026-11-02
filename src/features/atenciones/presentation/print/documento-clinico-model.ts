@@ -33,6 +33,7 @@ export type DocumentoClinicoExtras = {
     tipoDocumento: string | null;
     documento: string | null;
     registroMedico: string | null;
+    licencia: string | null;
     firmaSrc: string | null;
   };
   /** Cuando se finalizó la atención (ISO). */
@@ -82,6 +83,13 @@ export function diagnosticoNombre(codigo: string, label: string) {
   return label.startsWith(prefix) ? label.slice(prefix.length) : label;
 }
 
+/** La licencia tal como está guardada; si no empieza por "Lic", se antepone "Licencia". */
+function formatLicencia(value: string | null) {
+  const licencia = clean(value);
+  if (!licencia) return '';
+  return /^lic/i.test(licencia) ? licencia : `Licencia ${licencia}`;
+}
+
 /** El primero es el principal; los demás, relacionados en su orden. */
 export function ordenDiagnostico(index: number) {
   return index === 0 ? 'Principal' : `Relacionado ${index}`;
@@ -122,6 +130,7 @@ export function buildEncabezadoClinico(detalle: AtencionDetalle, extras: Documen
       documento: extras.profesional.documento
         ? `${extras.profesional.tipoDocumento ?? ''} ${extras.profesional.documento}`.trim()
         : '',
+      licencia: formatLicencia(extras.profesional.licencia),
       especialidad: detalle.especialidadNombre,
     },
     generadoEn: formatFechaHora(extras.generadoEn),

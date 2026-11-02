@@ -87,6 +87,7 @@ const extras: HistoriaClinicaExtras = {
     tipoDocumento: 'CC',
     documento: '1004425222',
     registroMedico: '142759',
+    licencia: 'LIC. SST RES 065-202',
     firmaSrc: null,
   },
   atendidaEn: '2026-10-30T12:20:00.000Z',
@@ -167,4 +168,12 @@ test('signos vitales con unidad, presión arterial combinada e IMC calculado; om
   assert.equal(byLabel['Temperatura'], '36,5 °C');
   assert.equal(byLabel['IMC'], '24,33 kg/m² · Normal');
   assert.ok(!('Frecuencia cardíaca' in byLabel));
+});
+
+test('la firma lleva la licencia del médico, con "Licencia" solo si el valor no lo trae', () => {
+  assert.equal(buildHistoriaClinica(detalle(), extras).profesional.licencia, 'LIC. SST RES 065-202');
+  const conNumero = { ...extras, profesional: { ...extras.profesional, licencia: ' 060-070926 ' } };
+  assert.equal(buildHistoriaClinica(detalle(), conNumero).profesional.licencia, 'Licencia 060-070926');
+  const sinLicencia = { ...extras, profesional: { ...extras.profesional, licencia: null } };
+  assert.equal(buildHistoriaClinica(detalle(), sinLicencia).profesional.licencia, '');
 });

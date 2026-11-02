@@ -50,7 +50,7 @@ function detalle(remisiones: Remision[]): AtencionDetalle {
 const extras: DocumentoClinicoExtras = {
   institucion: { nombre: 'Prestador', nit: '900', codigoHabilitacion: null, direccion: null, telefono: null, ciudad: null },
   paciente: { fechaNacimiento: '1966-01-14', sexo: 'M', estadoCivil: null, direccion: null, etnia: null, zonaResidencia: null },
-  profesional: { nombre: 'William Gutiérrez', tipoDocumento: 'CC', documento: '1082837615', registroMedico: '060-070926', firmaSrc: null },
+  profesional: { nombre: 'William Gutiérrez', tipoDocumento: 'CC', documento: '1082837615', registroMedico: '060-070926', licencia: null, firmaSrc: null },
   atendidaEn: null,
   generadoEn: '2026-11-02T15:00:00.000Z',
 };

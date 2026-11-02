@@ -24,7 +24,7 @@ const hc: HistoriaClinicaDocumento = {
   remisiones: [],
   incapacidades: [],
   evoluciones: [],
-  profesional: { nombre: 'Ana Pérez', tipoDocumento: 'CC', documento: 'CC 2', registroMedico: '123', firmaSrc: null, especialidad: 'Medicina general' },
+  profesional: { nombre: 'Ana Pérez', tipoDocumento: 'CC', documento: 'CC 2', registroMedico: '123', licencia: 'Licencia 9', firmaSrc: null, especialidad: 'Medicina general' },
   generadoEn: '02/11/2026 10:00',
 };
 

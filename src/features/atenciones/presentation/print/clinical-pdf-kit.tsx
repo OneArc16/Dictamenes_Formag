@@ -228,6 +228,7 @@ export function Firma({ encabezado, nota }: { encabezado: EncabezadoClinico; not
           {profesional.especialidad}
           {profesional.registroMedico ? `  ·  Registro médico ${profesional.registroMedico}` : ''}
         </Text>
+        {profesional.licencia ? <Text>{profesional.licencia}</Text> : null}
         {nota ? <Text style={s.muted}>{nota}</Text> : null}
       </View>
     </View>

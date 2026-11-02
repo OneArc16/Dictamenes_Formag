@@ -50,7 +50,7 @@ function detalle(incapacidades: Incapacidad[]): AtencionDetalle {
 const extras: DocumentoClinicoExtras = {
   institucion: { nombre: 'Prestador', nit: '900', codigoHabilitacion: null, direccion: null, telefono: null, ciudad: null },
   paciente: { fechaNacimiento: '1979-10-29', sexo: 'M', estadoCivil: null, direccion: null, etnia: null, zonaResidencia: null },
-  profesional: { nombre: 'Irene Gómez', tipoDocumento: 'CC', documento: '1129567108', registroMedico: '471464', firmaSrc: null },
+  profesional: { nombre: 'Irene Gómez', tipoDocumento: 'CC', documento: '1129567108', registroMedico: '471464', licencia: null, firmaSrc: null },
   atendidaEn: null,
   generadoEn: '2026-11-02T15:00:00.000Z',
 };
