@@ -12,6 +12,7 @@ import {
 import { canEditDictamen } from '@/lib/dictamen/permissions';
 import { checkPclAccess } from '@/lib/dictamen/pcl-access';
 import { prisma } from '@/lib/prisma';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
 import { buildNumeroDictamen } from '@/features/formulario-origen/domain/numero-dictamen';
 
 export const runtime = 'nodejs';
@@ -62,6 +63,7 @@ const dictamenDetailArgs = Prisma.validator<Prisma.DictamenDefaultArgs>()({
         segundoNombre: true,
         primerApellido: true,
         segundoApellido: true,
+        fechaNacimiento: true,
         edad: true,
         sexo: true,
         secretariaId: true,
@@ -299,7 +301,11 @@ function serializeDictamenDetail(dictamen: DictamenDetailRecord) {
       documento: dictamen.usuario.identificacion,
       tipoDocumento: dictamen.usuario.tipoIdentificacion,
       nombreCompleto: getNombreCompleto(dictamen.usuario),
-      edad: dictamen.usuario.edad,
+      // Edad a la fecha del dictamen; la guardada solo si no hay fecha de nacimiento.
+      edad: edadPaciente(
+        { fechaNacimiento: fechaDb(dictamen.usuario.fechaNacimiento), edad: dictamen.usuario.edad },
+        fechaDb(dictamen.fechaDictamen) ?? fechaBogota(),
+      ),
       sexo: dictamen.usuario.sexo ?? '',
       secretaria: dictamen.usuario.secretariaRef?.nombre ?? null,
       institucion: dictamen.usuario.institucionEducativaRef?.nombre ?? null,

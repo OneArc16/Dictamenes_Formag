@@ -5,6 +5,7 @@ import path from 'node:path';
 import { renderToStream } from '@react-pdf/renderer';
 
 import { prisma } from '@/lib/prisma';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
 import { RecomendacionLaboralReactPdf } from '@/lib/react-pdf/RecomendacionLaboralReactPdf';
 
 export const runtime = 'nodejs';
@@ -245,6 +246,10 @@ export async function GET(req: Request, ctx: RouteCtx) {
   }
 
   const docente = recomendacion.usuario;
+  const edadRecomendacion = edadPaciente(
+    { fechaNacimiento: fechaDb(docente.fechaNacimiento), edad: docente.edad },
+    fechaDb(recomendacion.fechaRecomendacion) ?? fechaBogota(),
+  );
   const logoSrc = await getLogoDataUrl(req).catch(() => null);
 
   const juntaMedica = await prisma.empleado.findMany({
@@ -334,7 +339,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
       institucion: docente.institucionEducativaRef?.nombre ?? null,
       direccion: docente.direccion,
       telefono: docente.telefono ?? docente.celular ?? null,
-      edad: docente.edad != null ? String(docente.edad) : null,
+      // Edad a la fecha de la recomendación; la guardada solo si no hay fecha de nacimiento.
+      edad: edadRecomendacion != null ? String(edadRecomendacion) : null,
       talla: formatDecimal(recomendacion.tallaM, 'm'),
       peso: formatDecimal(recomendacion.pesoKg, 'Kg'),
       imc: formatDecimal(recomendacion.imc),

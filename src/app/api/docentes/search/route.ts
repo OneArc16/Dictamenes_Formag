@@ -1,6 +1,7 @@
 // app/api/docentes/search/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
 
 export const runtime = 'nodejs';
 
@@ -167,7 +168,7 @@ export async function GET(req: Request) {
         segundoApellido: u.segundoApellido,
 
         sexo: mapSexoToFrontend(u.sexo),
-        edad: u.edad,
+        edad: edadPaciente({ fechaNacimiento: fechaDb(u.fechaNacimiento), edad: u.edad }, fechaBogota()),
         telefono,
         email: u.email,
         direccion: u.direccion,

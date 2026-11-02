@@ -177,3 +177,16 @@ test('la firma lleva la licencia del médico, con "Licencia" solo si el valor no
   const sinLicencia = { ...extras, profesional: { ...extras.profesional, licencia: null } };
   assert.equal(buildHistoriaClinica(detalle(), sinLicencia).profesional.licencia, '');
 });
+
+test('la edad impresa es la que tenía el paciente el día de la atención, no la guardada', () => {
+  // Registrado con 24 años; la atención es tres años después y la edad guardada nunca se actualizó.
+  const viejo = detalle({
+    inicioProgramado: '2029-11-02T15:00:00.000Z',
+    docente: { ...detalle().docente, edad: 24 },
+  });
+  const conNacimiento = { ...extras, paciente: { ...extras.paciente, fechaNacimiento: '2002-10-13' } };
+  assert.equal(buildHistoriaClinica(viejo, conNacimiento).paciente.edad, '27 años');
+  // Sin fecha de nacimiento solo queda el valor guardado.
+  const sinNacimiento = { ...extras, paciente: { ...extras.paciente, fechaNacimiento: null } };
+  assert.equal(buildHistoriaClinica(viejo, sinNacimiento).paciente.edad, '24 años');
+});

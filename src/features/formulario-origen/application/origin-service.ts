@@ -12,6 +12,7 @@ import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { hasCaseScope } from '@/lib/auth/case-scope';
 import { prisma } from '@/lib/prisma';
 import { formatDateOnly, getDiaSemanaBogota, parseColombiaDate } from '../domain/date';
+import { edadAlDictamenOrigen } from '../domain/edad-origen';
 import { buildNumeroDictamen } from '../domain/numero-dictamen';
 import { calculateSectionProgress, validateFormularioOrigen } from '../domain/validation';
 import { canAccessOrigin } from '../domain/policies';
@@ -159,7 +160,7 @@ export function serializeFormularioOrigen(record: OriginRecord) {
       documento: record.dictamen.usuario.identificacion,
       tipoDocumento: record.dictamen.usuario.tipoIdentificacion,
       nombreCompleto: fullName(record.dictamen.usuario),
-      edad: record.dictamen.usuario.edad,
+      edad: edadAlDictamenOrigen(record.dictamen.usuario, record.fechaDictamenOrigen),
       secretaria: record.dictamen.usuario.secretariaRef?.nombre ?? null,
       institucion: record.dictamen.usuario.institucionEducativaRef?.nombre ?? null,
       tipoDictamen: record.dictamen.tipoDictamen,
@@ -524,7 +525,7 @@ function buildSnapshot(
         segundoNombre: record.dictamen.usuario.segundoNombre,
         nombreCompleto: fullName(record.dictamen.usuario),
         fechaNacimiento: formatDateOnly(record.dictamen.usuario.fechaNacimiento),
-        edad: record.dictamen.usuario.edad,
+        edad: edadAlDictamenOrigen(record.dictamen.usuario, record.fechaDictamenOrigen),
         sexo: record.dictamen.usuario.sexo,
         tipoUsuario: record.dictamen.usuario.tipoUsuario,
         categoria: record.dictamen.usuario.categoria,

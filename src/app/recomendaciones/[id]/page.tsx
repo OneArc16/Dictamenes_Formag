@@ -16,6 +16,7 @@ import {
   parseRecomendacionHistorySnapshot,
 } from '@/lib/recomendaciones/historial';
 import { prisma } from '@/lib/prisma';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
 import { getSession } from '@/lib/session';
 import { hasAbility } from '@/lib/auth/ability-utils';
 
@@ -123,6 +124,10 @@ export default async function RecomendacionDetallePage({
   }
 
   const docente = recomendacion.usuario;
+  const edadRecomendacion = edadPaciente(
+    { fechaNacimiento: fechaDb(docente.fechaNacimiento), edad: docente.edad },
+    fechaDb(recomendacion.fechaRecomendacion) ?? fechaBogota(),
+  );
   const medico = recomendacion.empleado;
   const sessionRole = session?.role ?? null;
   const sessionEmpleadoId = Number(session?.sub ?? Number.NaN);
@@ -167,7 +172,8 @@ export default async function RecomendacionDetallePage({
       tipoDocumento: docente.tipoIdentificacion,
       numeroDocumento: docente.identificacion,
       estadoCivil: docente.estadoCivil,
-      edad: docente.edad != null ? `${docente.edad} anos` : null,
+      // Edad a la fecha de la recomendación; la guardada solo si no hay fecha de nacimiento.
+      edad: edadRecomendacion != null ? `${edadRecomendacion} anos` : null,
       direccion: docente.direccion,
       telefono: docente.telefono ?? docente.celular ?? null,
       aseguradora: docente.eps?.nombreEntidad ?? null,

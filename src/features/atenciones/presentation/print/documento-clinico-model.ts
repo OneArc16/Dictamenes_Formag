@@ -1,4 +1,5 @@
 import type { AtencionDetalle } from '@/features/atenciones/application/atencion-detail';
+import { edadPaciente, fechaBogota } from '@/lib/edad';
 
 /**
  * Lo común a los documentos clínicos impresos (historia clínica, remisión…): prestador, atención,
@@ -99,6 +100,11 @@ export function buildEncabezadoClinico(detalle: AtencionDetalle, extras: Documen
   const { docente } = detalle;
   const paciente = extras.paciente;
   const estadoCivil = clean(paciente.estadoCivil);
+  // La edad del día de la atención: igual al reimprimir años después.
+  const edad = edadPaciente(
+    { fechaNacimiento: paciente.fechaNacimiento, edad: docente.edad },
+    fechaBogota(detalle.inicioProgramado),
+  );
 
   return {
     institucion: extras.institucion,
@@ -114,7 +120,7 @@ export function buildEncabezadoClinico(detalle: AtencionDetalle, extras: Documen
     paciente: {
       nombre: docente.nombreCompleto,
       documento: `${docente.tipoDocumento} ${docente.documento}`,
-      edad: docente.edad != null ? `${docente.edad} años` : '',
+      edad: edad != null ? `${edad} años` : '',
       fechaNacimiento: formatFecha(paciente.fechaNacimiento),
       sexo: SEXO[clean(paciente.sexo).toUpperCase()] ?? clean(paciente.sexo),
       estadoCivil: estadoCivil ? capitalize(estadoCivil) : '',

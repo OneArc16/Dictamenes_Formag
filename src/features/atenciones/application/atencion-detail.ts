@@ -1,5 +1,6 @@
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
 
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { DiagnosticoAtencion } from '../domain/diagnosticos';
@@ -165,7 +166,11 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
         'Docente sin nombre',
       tipoDocumento: paciente.tipoIdentificacion,
       documento: paciente.identificacion,
-      edad: paciente.edad,
+      // Edad el día de la atención (la misma al volver a verla años después); la guardada solo sin fecha de nacimiento.
+      edad: edadPaciente(
+        { fechaNacimiento: fechaDb(paciente.fechaNacimiento), edad: paciente.edad },
+        fechaBogota(cita.inicioProgramado),
+      ),
       telefono: paciente.celular ?? paciente.telefono ?? null,
       eps: paciente.eps?.nombreEntidad ?? null,
       cargo: paciente.cargoDocente?.nombre ?? null,

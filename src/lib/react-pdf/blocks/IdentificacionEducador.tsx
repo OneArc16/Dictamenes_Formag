@@ -1,5 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
+import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
+
 import { Bar, T, Td, Tr, TPL } from '../components/Tpl';
 
 type Props = {
@@ -16,18 +18,11 @@ function formatDateDMY(value?: string | Date | null) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
-function calcAge(birth?: string | Date | null, ref?: string | Date | null) {
-  if (!birth) return null;
-  const b = typeof birth === 'string' ? new Date(birth) : birth;
-  if (Number.isNaN(b.getTime())) return null;
-
-  const r0 = ref ? (typeof ref === 'string' ? new Date(ref) : ref) : new Date();
-  const r = Number.isNaN(r0.getTime()) ? new Date() : r0;
-
-  let age = r.getFullYear() - b.getFullYear();
-  const m = r.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && r.getDate() < b.getDate())) age--;
-  return age;
+/** Date de una columna solo-fecha o texto YYYY-MM-DD → YYYY-MM-DD. */
+function soloFecha(value?: string | Date | null) {
+  if (!value) return null;
+  if (value instanceof Date) return fechaDb(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
 }
 
 // âœ… evita [object Object]
@@ -92,8 +87,12 @@ export function IdentificacionEducadorBlock({ dictamen }: Props) {
   const estadoCivil = asText(u?.estadoCivil);
 
   const fechaNac = u?.fechaNacimiento ?? null;
-  const edadCalc =
-    u?.edad != null ? u.edad : calcAge(fechaNac, dictamen?.fechaDictamen ?? dictamen?.fecha ?? null);
+  // La edad a la fecha del dictamen; la guardada solo si no hay fecha de nacimiento.
+  const fechaReferencia = soloFecha(dictamen?.fechaDictamen ?? dictamen?.fecha ?? null) ?? fechaBogota();
+  const edadCalc = edadPaciente(
+    { fechaNacimiento: soloFecha(fechaNac), edad: u?.edad != null ? Number(u.edad) : null },
+    fechaReferencia,
+  );
 
   const direccion = asText(u?.direccion);
   const zona = zonaLabel(u?.zonaResidencia ?? null);
