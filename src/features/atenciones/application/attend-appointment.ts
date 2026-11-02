@@ -10,6 +10,7 @@ import {
   type AtencionForm,
 } from '@/features/atenciones/domain/atencion-form';
 import { SIGNO_SELECT, signosFromRecord, signosPendientes } from '@/features/atenciones/domain/signos-vitales';
+import { datosRegistroActuales } from '@/features/atenciones/application/datos-registro';
 import { resolveHallazgos } from '@/features/atenciones/application/hallazgos';
 import { ReceptionError } from '@/features/reception/application/errors';
 import { markAppointmentAttendedInTransaction } from '@/features/reception/application/reception-service';
@@ -79,6 +80,8 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
           antecedentesGineco: mujer
             ? (parseAntecedentesGinecobstetricos(gineco?.datos) as unknown as Prisma.InputJsonValue)
             : Prisma.DbNull,
+          // Paciente, médico y sede tal como estaban al firmar; las ediciones posteriores no la cambian.
+          datosRegistro: (await datosRegistroActuales(tx, appointmentId)) as unknown as Prisma.InputJsonValue,
           updatedBy: auth.empleadoId,
         },
       });

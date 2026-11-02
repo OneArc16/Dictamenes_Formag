@@ -1,6 +1,8 @@
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 import { prisma } from '@/lib/prisma';
-import { edadPaciente, fechaBogota, fechaDb } from '@/lib/edad';
+import { edadPaciente, fechaBogota } from '@/lib/edad';
+import { parseDatosRegistro } from '@/features/atenciones/domain/datos-registro';
+import { pacienteRegistro } from './datos-registro';
 
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { DiagnosticoAtencion } from '../domain/diagnosticos';
@@ -81,10 +83,6 @@ export type AtencionDetalle = {
   canEdit: boolean;
 };
 
-function fullName(...parts: Array<string | null | undefined>) {
-  return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-}
-
 /** Solo las citas que muestra el listado (activadas o atendidas) tienen ficha de atención. */
 export async function getAtencionDetalle(auth: AuthorizationContext, citaId: number): Promise<AtencionDetalle | null> {
   const cita = await prisma.cita.findUnique({
@@ -96,6 +94,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
           antecedentesPersonales: true,
           antecedentesFamiliares: true,
           antecedentesGineco: true,
+          datosRegistro: true,
         },
       },
       paciente: {
@@ -124,7 +123,9 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     snapshot
       ? { datos: PARSE_ANTECEDENTES[kind](saved), version: 0, actualizadoEn: null, actualizadoPor: null }
       : getAntecedentes(kind, cita.usuarioId);
-  const mujer = esMujer(cita.paciente.sexo);
+  // Finalizada con copia: el docente tal como estaba al firmar; si no, sus datos actuales.
+  const registro = (!activada && parseDatosRegistro(cita.atencion?.datosRegistro)?.paciente) || pacienteRegistro(cita.paciente);
+  const mujer = esMujer(registro.sexo);
   const [
     antecedentesPersonales,
     antecedentesFamiliares,
@@ -149,7 +150,6 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     getIncapacidades(cita.id, cita.usuarioId),
   ]);
 
-  const paciente = cita.paciente;
   return {
     id: cita.id,
     estado: activada ? 'ACTIVADA' : 'ATENDIDA',
@@ -161,21 +161,16 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     modalidadNombre: cita.modalidadNombre,
     medicoNombre: cita.medicoNombre,
     docente: {
-      nombreCompleto:
-        fullName(paciente.primerNombre, paciente.segundoNombre, paciente.primerApellido, paciente.segundoApellido) ||
-        'Docente sin nombre',
-      tipoDocumento: paciente.tipoIdentificacion,
-      documento: paciente.identificacion,
+      nombreCompleto: registro.nombreCompleto,
+      tipoDocumento: registro.tipoDocumento,
+      documento: registro.documento,
       // Edad el día de la atención (la misma al volver a verla años después); la guardada solo sin fecha de nacimiento.
-      edad: edadPaciente(
-        { fechaNacimiento: fechaDb(paciente.fechaNacimiento), edad: paciente.edad },
-        fechaBogota(cita.inicioProgramado),
-      ),
-      telefono: paciente.celular ?? paciente.telefono ?? null,
-      eps: paciente.eps?.nombreEntidad ?? null,
-      cargo: paciente.cargoDocente?.nombre ?? null,
-      secretaria: paciente.secretariaRef?.nombre ?? paciente.institucionEducativaRef?.secretaria?.nombre ?? null,
-      institucion: paciente.institucionEducativaRef?.nombre ?? null,
+      edad: edadPaciente(registro, fechaBogota(cita.inicioProgramado)),
+      telefono: registro.telefono,
+      eps: registro.eps,
+      cargo: registro.cargo,
+      secretaria: registro.secretaria,
+      institucion: registro.institucion,
     },
     anteriores: anteriores.map((item) => ({
       id: item.id,

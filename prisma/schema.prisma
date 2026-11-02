@@ -1091,6 +1091,9 @@ model Atencion {
   revisionSistemas       Json?
   /// Examen físico de esta atención (se precarga con el último del docente).
   examenFisico           Json?
+  /// Copia de la identificación del paciente, del médico y de la sede al finalizar: los documentos
+  /// conservan los datos con los que se firmó. Null en atenciones finalizadas antes de existir.
+  datosRegistro          Json?    @map("datos_registro")
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   createdBy              Int
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
