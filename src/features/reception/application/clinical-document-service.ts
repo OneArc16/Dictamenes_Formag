@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { AuthorizationContext } from '@/lib/auth/authorization';
 import { getAtencionDetalle } from '@/features/atenciones/application/atencion-detail';
+import { renderHistoriaClinicaPdf } from '@/features/atenciones/application/historia-clinica-print';
 
 import { ReceptionError } from './errors';
 import { assertAttendedAppointmentSite } from './reception-service';
@@ -45,20 +46,6 @@ function wrapText(value: string, font: PDFFont, size: number, maxWidth: number) 
   return lines;
 }
 
-function flatten(value: unknown, prefix = ''): string[] {
-  if (value == null || value === '') return [];
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return [`${prefix ? `${prefix}: ` : ''}${String(value)}`];
-  }
-  if (Array.isArray(value)) return value.flatMap((item, index) => flatten(item, `${prefix} ${index + 1}`.trim()));
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if ('datos' in record) return flatten(record.datos, prefix);
-    return Object.entries(record).flatMap(([key, item]) => flatten(item, prefix ? `${prefix} / ${key}` : key));
-  }
-  return [];
-}
-
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: 'America/Bogota' }).format(new Date(value));
 }
@@ -73,37 +60,7 @@ function appointmentHeader(detail: NonNullable<Awaited<ReturnType<typeof getAten
   ];
 }
 
-function clinicalHistoryLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>): TextLine[] {
-  const lines: TextLine[] = appointmentHeader(detail);
-  const addSection = (title: string, values: unknown) => {
-    const content = flatten(values);
-    if (!content.length) return;
-    lines.push({ text: title, heading: true }, ...content.map((text) => ({ text })));
-  };
-  addSection('Datos del paciente', {
-    Edad: detail.docente.edad,
-    Telefono: detail.docente.telefono,
-    EPS: detail.docente.eps,
-    Cargo: detail.docente.cargo,
-    Secretaria: detail.docente.secretaria,
-    Institucion: detail.docente.institucion,
-  });
-  addSection('Atencion', detail.form);
-  addSection('Antecedentes personales', detail.antecedentesPersonales);
-  addSection('Antecedentes familiares', detail.antecedentesFamiliares);
-  if (detail.antecedentesGinecobstetricos) addSection('Antecedentes gineco-obstetricos', detail.antecedentesGinecobstetricos);
-  addSection('Revision por sistemas', detail.revisionSistemas);
-  addSection('Examen fisico', detail.examenFisico);
-  addSection('Signos vitales', detail.signosVitales.values);
-  addSection('Diagnosticos', detail.diagnosticos.map((item) => `${item.cie10Label} (${item.tipo})`));
-  addSection('Evoluciones', detail.evoluciones.map((item) => `${item.fecha}: ${item.texto}`));
-  addSection('Remisiones', detail.remisiones.map((item) => `${item.cups.codigo} - ${item.cups.nombre}; motivo: ${item.motivo ?? 'No especificado'}`));
-  addSection('Incapacidades', detail.incapacidades.map((item) => `${item.numeroInterno}: ${item.fechaInicio} a ${item.fechaFin} (${item.dias} dias); ${item.observaciones ?? 'Sin observaciones'}`));
-  return lines;
-}
-
-function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>, kind: ClinicalDocumentKind, remisionId?: number): TextLine[] {
-  if (kind === 'hc') return clinicalHistoryLines(detail);
+function documentLines(detail: NonNullable<Awaited<ReturnType<typeof getAtencionDetalle>>>, kind: Exclude<ClinicalDocumentKind, 'hc'>, remisionId?: number): TextLine[] {
   if (kind === 'incapacidad') {
     if (!detail.incapacidades.length) throw new ReceptionError('CLINICAL_DOCUMENT_UNAVAILABLE', 'La cita no tiene incapacidades para imprimir.', 404);
     return [
@@ -167,5 +124,6 @@ export async function renderClinicalDocument(auth: AuthorizationContext, appoint
   if (!detail || detail.estado !== 'ATENDIDA') {
     throw new ReceptionError('CLINICAL_DOCUMENT_NOT_RENDERABLE', 'La cita no permite imprimir documentos clínicos.', 409);
   }
+  if (kind === 'hc') return renderHistoriaClinicaPdf(detail);
   return renderPdf(documentLines(detail, kind, remisionId));
 }
