@@ -156,6 +156,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
             activeTab={activeTab}
             onTabChange={setActiveTab}
             pendientes={editable ? pendientesPorPestana : {}}
+            onSave={editable ? flushAll : undefined}
             panels={{
               'motivo-consulta': <MotivoConsultaTab form={form} readOnly={!editable} onChange={setField} />,
               antecedentes: (

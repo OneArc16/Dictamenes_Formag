@@ -1,24 +1,49 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Save } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import toast from 'react-hot-toast';
 
-import { ATENCION_TABS as TABS, type AtencionTabId } from './atencion-tabs';
+import { ATENCION_TABS as TABS, siguientePestana, type AtencionTabId } from './atencion-tabs';
 
 export function AtencionCenterPanel({
   activeTab,
   onTabChange,
   panels,
   pendientes,
+  onSave,
 }: {
   activeTab: AtencionTabId;
   onTabChange: (tab: AtencionTabId) => void;
   panels: Record<AtencionTabId, ReactNode>;
   /** Obligatorios sin diligenciar por pestaña; se muestran como contador. */
   pendientes: Partial<Record<AtencionTabId, number>>;
+  /** Guarda lo pendiente; sin él (solo lectura) no se muestra el botón. */
+  onSave?: () => Promise<boolean>;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState({ left: false, right: false });
+  const [saving, setSaving] = useState(false);
+  const nextTab = siguientePestana(activeTab);
+
+  // Guarda y, si salió bien, pasa a la pestaña siguiente con la vista al inicio del panel.
+  const saveAndContinue = async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      if (!(await onSave())) {
+        toast.error('No se pudieron guardar los cambios.');
+        return;
+      }
+      toast.success('Cambios guardados.');
+      if (nextTab) {
+        onTabChange(nextTab);
+        listRef.current?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const updateOverflow = useCallback(() => {
     const list = listRef.current;
@@ -151,6 +176,24 @@ export function AtencionCenterPanel({
       >
         {panels[activeTab]}
       </div>
+
+      {onSave ? (
+        <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void saveAndContinue()}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Save className="h-4 w-4" aria-hidden="true" />
+            )}
+            {saving ? 'Guardando…' : nextTab ? 'Guardar y continuar' : 'Guardar'}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

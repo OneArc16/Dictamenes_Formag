@@ -31,6 +31,11 @@ export const FIELD_LOCATION: Record<keyof AtencionForm, { tab: AtencionTabId; in
 
 const TAB_ORDER = ATENCION_TABS.map((tab) => tab.id) as AtencionTabId[];
 
+/** La pestaña que sigue a `tab`, o null si es la última. */
+export function siguientePestana(tab: AtencionTabId): AtencionTabId | null {
+  return TAB_ORDER[TAB_ORDER.indexOf(tab) + 1] ?? null;
+}
+
 export function signoInputId(key: string) {
   return `signo-${key}`;
 }
