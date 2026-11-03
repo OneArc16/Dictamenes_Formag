@@ -18,7 +18,7 @@ import { datosRegistroDeAtencion } from './datos-registro';
 /** Prestador que emite los documentos clínicos; la base no guarda su NIT. */
 export const INSTITUCION = { nombre: 'Servicios Integrales de Salud del Magdalena', nit: '900 018 045 - 5' };
 
-async function logoDataUrl() {
+export async function logoDataUrl() {
   try {
     const bytes = await fs.readFile(path.join(process.cwd(), 'public', 'assets', 'logo-sism.png'));
     return `data:image/png;base64,${bytes.toString('base64')}`;

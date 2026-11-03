@@ -1,6 +1,12 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { renderToBuffer } from '@react-pdf/renderer';
+import React from 'react';
+
+import { datosRegistroActuales } from '@/features/atenciones/application/datos-registro';
+import { INSTITUCION, logoDataUrl } from '@/features/atenciones/application/documentos-clinicos-print';
+import { formatFecha, formatFechaHora, formatHora } from '@/features/atenciones/presentation/print/documento-clinico-model';
+import { RecordatorioPdf, type RecordatorioDocumento } from '@/features/atenciones/presentation/print/RecordatorioPdf';
 
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
@@ -81,15 +87,12 @@ export async function renderReminderDocument(auth: AuthorizationContext, appoint
   if (!document || document.cita.estado !== 'ASIGNADA') throw new ReceptionError('REMINDER_DOCUMENT_NOT_RENDERABLE', 'El recordatorio ya no se puede imprimir.', 409);
   await assertReceptionSite(auth, document.cita.sedeId);
   const snapshot = decrypt(document);
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([612, 792]);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  page.drawText('Recordatorio de cita médica', { x: 54, y: 730, size: 19, font: bold, color: rgb(0.03, 0.35, 0.5) });
-  const date = new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(snapshot.start));
-  const lines = [['Paciente', snapshot.patientName], ['Documento', snapshot.documentNumber], ['Sede', snapshot.siteName], ['Especialidad', snapshot.specialtyName], ['Médico', snapshot.doctorName], ['Fecha y hora', date], ['Modalidad', snapshot.modalityName], ['Código de cita', snapshot.appointmentCode]];
-  let y = 670;
-  for (const [label, value] of lines) { page.drawText(`${label}:`, { x: 54, y, size: 11, font: bold }); page.drawText(value, { x: 175, y, size: 11, font }); y -= 34; }
-  page.drawText('Preséntese con anticipación y conserve este recordatorio.', { x: 54, y: 130, size: 10, font, color: rgb(0.25, 0.3, 0.35) });
-  return Buffer.from(await pdf.save());
+  const [registro, logoSrc] = await Promise.all([datosRegistroActuales(prisma, appointmentId), logoDataUrl()]);
+  const doc: RecordatorioDocumento = {
+    encabezado: { institucion: { ...INSTITUCION, ...registro.sede }, generadoEn: formatFechaHora(snapshot.generatedAt) },
+    codigo: snapshot.appointmentCode,
+    paciente: { nombre: snapshot.patientName, documento: snapshot.documentNumber },
+    cita: { fecha: formatFecha(snapshot.start), hora: formatHora(snapshot.start), sede: snapshot.siteName, especialidad: snapshot.specialtyName, medico: snapshot.doctorName, modalidad: snapshot.modalityName },
+  };
+  return Buffer.from(await renderToBuffer(React.createElement(RecordatorioPdf, { doc, logoSrc }) as never));
 }

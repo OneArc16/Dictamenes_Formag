@@ -248,7 +248,7 @@ export function ClinicalPage({
 }: {
   titulo: string;
   datos: Array<[string, string]>;
-  encabezado: EncabezadoClinico;
+  encabezado: Pick<EncabezadoClinico, 'institucion' | 'generadoEn'>;
   logoSrc: string | null;
   children: ReactNode;
 }) {
