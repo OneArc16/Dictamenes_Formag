@@ -33,6 +33,13 @@ const MODALIDADES_CITA = [
   { codigo: 'TELECONSULTA', nombre: 'Teleconsulta' },
 ] as const;
 
+const MOTIVOS_CAMBIO_CITA = [
+  { tipo: 'CANCELACION', codigo: 'SOLICITUD_PACIENTE', nombre: 'Solicitud del paciente' },
+  { tipo: 'CANCELACION', codigo: 'ERROR_PROGRAMACION', nombre: 'Error de programación' },
+  { tipo: 'REPROGRAMACION', codigo: 'SOLICITUD_PACIENTE', nombre: 'Solicitud del paciente' },
+  { tipo: 'REPROGRAMACION', codigo: 'CAMBIO_DISPONIBILIDAD', nombre: 'Cambio de disponibilidad' },
+] as const;
+
 const HORARIO_SEDE_SANTA_MARTA = {
   sedeNombre: 'IPS SISM SANTA MARTA',
   nombre: 'Horario laboral IPS SISM Santa Marta',
@@ -74,6 +81,16 @@ async function ensureAppointmentModalities() {
       where: { codigo: modalidad.codigo },
       update: { nombre: modalidad.nombre, estado: true },
       create: { ...modalidad, estado: true },
+    });
+  }
+}
+
+async function ensureAppointmentChangeReasons() {
+  for (const motivo of MOTIVOS_CAMBIO_CITA) {
+    await prisma.motivoCambioCita.upsert({
+      where: { tipo_codigo: { tipo: motivo.tipo, codigo: motivo.codigo } },
+      update: { nombre: motivo.nombre, estado: true },
+      create: { ...motivo, estado: true },
     });
   }
 }
@@ -211,6 +228,7 @@ export async function runProductionSeed() {
   await syncRbac(prisma);
   await ensureAdministrator();
   await ensureAppointmentModalities();
+  await ensureAppointmentChangeReasons();
   await ensureRemisionAtajos();
   await ensureSantaMartaWorkSchedule();
 
