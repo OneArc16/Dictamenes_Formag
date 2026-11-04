@@ -940,6 +940,9 @@ fieldset:disabled button {
 }
 
 .appointment-movement-card__reason span { font-weight: 700; }
+.appointment-movement-card__transition > .appointment-movement-card__target { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+.appointment-movement-card__transition .appointment-movement-card__target strong { background: #ecfdf5; color: #047857; }
+.appointment-movement-card__target small { color: #64748b; font-size: 0.6875rem; }
 
 @keyframes appointment-dialog-spin {
   to { transform: rotate(360deg); }

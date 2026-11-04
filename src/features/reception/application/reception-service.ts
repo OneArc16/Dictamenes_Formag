@@ -346,7 +346,7 @@ export async function scheduleAppointment(auth: AuthorizationContext, command: S
   return prisma.$transaction((tx) => scheduleAppointmentInTransaction(tx, auth, command), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-type AppointmentCursor = { inicioProgramado: string; id: number };
+type AppointmentCursor = { updatedAt: string; id: number };
 type MovementCursor = { createdAt: string; id: number };
 
 function encodeCursor(cursor: AppointmentCursor | MovementCursor) {
@@ -357,7 +357,7 @@ function decodeCursor(value: string | null, kind: 'appointment' | 'movement'): A
   if (!value) return null;
   try {
     const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
-    const dateField = kind === 'appointment' ? 'inicioProgramado' : 'createdAt';
+    const dateField = kind === 'appointment' ? 'updatedAt' : 'createdAt';
     const timestamp = typeof parsed[dateField] === 'string' ? new Date(parsed[dateField]) : null;
     if (!timestamp || Number.isNaN(timestamp.getTime()) || !Number.isInteger(parsed.id) || Number(parsed.id) < 1) throw new Error('invalid cursor');
     return { [dateField]: timestamp.toISOString(), id: Number(parsed.id) } as AppointmentCursor | MovementCursor;
@@ -372,13 +372,14 @@ export async function appointmentHistory(patientId: number, statuses: EstadoCita
     where: {
       usuarioId: patientId,
       ...(statuses.length ? { estado: { in: statuses } } : {}),
-      ...(decoded ? { OR: [{ inicioProgramado: { lt: new Date(decoded.inicioProgramado) } }, { inicioProgramado: new Date(decoded.inicioProgramado), id: { lt: decoded.id } }] } : {}),
+      ...(decoded ? { OR: [{ updatedAt: { lt: new Date(decoded.updatedAt) } }, { updatedAt: new Date(decoded.updatedAt), id: { lt: decoded.id } }] } : {}),
     },
-    orderBy: [{ inicioProgramado: 'desc' }, { id: 'desc' }], take: pageSize + 1,
+    // Most recent action first: any state change (reschedule, cancel, activation, attention) bumps updatedAt.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: pageSize + 1,
     select: {
       id: true, estado: true, inicioProgramado: true, finProgramado: true, sedeNombre: true, medicoNombre: true,
       especialidadId: true, especialidadNombre: true, modalidadId: true, modalidadNombre: true, medioSolicitud: true,
-      activadaAt: true, lockVersion: true,
+      activadaAt: true, lockVersion: true, updatedAt: true,
       _count: { select: { incapacidades: true, remisiones: true } },
       remisiones: { orderBy: { id: 'asc' }, select: { id: true, createdAt: true, cups: { select: { codigo: true, nombre: true } } } },
     },
@@ -397,7 +398,7 @@ export async function appointmentHistory(patientId: number, statuses: EstadoCita
     },
   }));
   const last = items.at(-1);
-  return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ inicioProgramado: last.inicioProgramado.toISOString(), id: last.id }) : null };
+  return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ updatedAt: last.updatedAt.toISOString(), id: last.id }) : null };
 }
 
 /** Enforces attended-state and assigned-site scope before reception can print clinical content. */
@@ -406,6 +407,13 @@ export async function assertAttendedAppointmentSite(auth: AuthorizationContext, 
   if (!appointment) throw new ReceptionError('APPOINTMENT_NOT_FOUND', 'La cita no existe.', 404);
   if (appointment.estado !== 'ATENDIDA') throw new ReceptionError('CLINICAL_DOCUMENT_NOT_RENDERABLE', 'La cita no permite imprimir documentos clínicos.', 409);
   await assertReceptionSite(auth, appointment.sedeId);
+}
+
+/** Reads the replacement appointment id stored on a REPROGRAMADA movement. */
+function rescheduleTargetId(metadata: Prisma.JsonValue | null) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const id = (metadata as Record<string, unknown>).newAppointmentId;
+  return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : null;
 }
 
 export async function appointmentMovements(appointmentId: number, pageSize = 20, cursor: string | null = null) {
@@ -417,7 +425,16 @@ export async function appointmentMovements(appointmentId: number, pageSize = 20,
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: pageSize + 1,
     select: { id: true, tipoEvento: true, estadoAnterior: true, estadoNuevo: true, estadoCupoAnterior: true, estadoCupoNuevo: true, createdAt: true, metadata: true },
   });
-  const items = rows.slice(0, pageSize);
+  const pageRows = rows.slice(0, pageSize);
+  const targetIds = [...new Set(pageRows.map((row) => rescheduleTargetId(row.metadata)).filter((id): id is number => id !== null))];
+  const targets = targetIds.length
+    ? await prisma.cita.findMany({ where: { id: { in: targetIds } }, select: { id: true, inicioProgramado: true, medicoNombre: true, sedeNombre: true } })
+    : [];
+  const targetsById = new Map(targets.map((target) => [target.id, target]));
+  const items = pageRows.map((row) => {
+    const targetId = rescheduleTargetId(row.metadata);
+    return { ...row, rescheduledTo: targetId === null ? null : targetsById.get(targetId) ?? null };
+  });
   const last = items.at(-1);
   return { items, nextCursor: rows.length > pageSize && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null };
 }

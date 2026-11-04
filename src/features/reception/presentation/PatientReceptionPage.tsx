@@ -66,7 +66,7 @@ type ClinicalDocumentKind = 'hc' | 'incapacidad' | 'remision';
 type RemisionOption = { id: number; label: string; createdAt: string };
 type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number; documentosClinicos: { hc: boolean; incapacidadCount: number; remisionCount: number; remisiones: RemisionOption[] } };
 type HistoryPage = { items: HistoryItem[]; nextCursor: string | null };
-type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null };
+type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null; rescheduledTo: { id: number; inicioProgramado: string; medicoNombre: string | null; sedeNombre: string | null } | null };
 type MovementPage = { items: Movement[]; nextCursor: string | null };
 
 function csrfToken() {
@@ -859,6 +859,7 @@ export default function PatientReceptionPage() {
               <header><strong>{movementEventLabel(movement.tipoEvento)}</strong><time dateTime={movement.createdAt}>{formatDateTime(movement.createdAt)}</time></header>
               {movement.estadoAnterior || movement.estadoNuevo ? <div className="appointment-movement-card__transition"><span>Estado de la cita</span><div><strong>{enumLabel(movement.estadoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoNuevo)}</strong></div></div> : null}
               {movement.estadoCupoAnterior || movement.estadoCupoNuevo ? <div className="appointment-movement-card__transition"><span>Estado del cupo</span><div><strong>{enumLabel(movement.estadoCupoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoCupoNuevo)}</strong></div></div> : null}
+              {movement.rescheduledTo ? <div className="appointment-movement-card__transition"><span>Nueva cita</span><div className="appointment-movement-card__target"><strong>{formatDateTime(movement.rescheduledTo.inicioProgramado)}</strong>{movement.rescheduledTo.medicoNombre ? <small>{movement.rescheduledTo.medicoNombre}{movement.rescheduledTo.sedeNombre ? ` · ${movement.rescheduledTo.sedeNombre}` : ''}</small> : null}</div></div> : null}
               {movementReason(movement.metadata) ? <p className="appointment-movement-card__reason"><span>Motivo:</span> {movementReason(movement.metadata)}</p> : null}
             </article>
           </li>)}</ol> : <div className="appointment-movements-dialog__message">Esta cita todavía no tiene movimientos registrados.</div>}
