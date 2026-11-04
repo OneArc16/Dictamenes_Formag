@@ -55,6 +55,7 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedOption = useMemo(
     () => options.find((o) => o.value === value) ?? null,
@@ -91,6 +92,11 @@ export function SearchableSelect({
       currentIndex >= visibleOptions.length ? -1 : currentIndex
     ));
   }, [visibleOptions.length]);
+
+  useEffect(() => {
+    if (!open || highlightedIndex < 0) return;
+    optionRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex, open, visibleOptions.length]);
 
   // `onSearch` suele recrearse en cada render del padre: se guarda en una ref para que el
   // debounce dependa solo del texto escrito. Si dependiera de su identidad, cada búsqueda
@@ -201,6 +207,7 @@ export function SearchableSelect({
                     <button
                       type="button"
                       id={`${listboxId}-option-${idx}`}
+                      ref={(element) => { optionRefs.current[idx] = element; }}
                       role="option"
                       aria-selected={opt.value === value}
                       className={cn('w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none', highlightedIndex === idx && 'bg-blue-50')}
@@ -224,7 +231,8 @@ export function SearchableSelect({
                 <li key={`${opt.value}-${idx}`}>
                   <button
                     type="button"
-                      id={`${listboxId}-option-${idx}`}
+                    id={`${listboxId}-option-${idx}`}
+                    ref={(element) => { optionRefs.current[idx] = element; }}
                     role="option"
                     aria-selected={opt.value === value}
                       className={cn('w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none', highlightedIndex === idx && 'bg-blue-50')}
