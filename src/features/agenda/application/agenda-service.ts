@@ -48,7 +48,6 @@ type DoctorCalculation = {
   candidates: SlotCandidate[];
   newSlots: SlotCandidate[];
   omitted: number;
-  conflicts: number;
   preview: AgendaPreviewDoctor;
 };
 
@@ -108,6 +107,9 @@ function normalizeGenerationInput(input: AgendaGenerationInput): AgendaGeneratio
                   left.horaInicio.localeCompare(right.horaInicio) ||
                   left.horaFin.localeCompare(right.horaFin),
               ),
+            ...(date.duracionMinutos === undefined
+              ? {}
+              : { duracionMinutos: date.duracionMinutos }),
           }))
           .sort((left, right) => left.fecha.localeCompare(right.fecha)),
       }))
@@ -122,18 +124,16 @@ function createFingerprint(input: AgendaGenerationInput, scheduleVersions: strin
 }
 
 /**
- * Un cupo idéntico de la misma modalidad se omite; cualquier cruce con otro
- * cupo del médico, incluido uno idéntico de otra modalidad, es conflicto.
+ * Los cupos ya ocupados por el médico se conservan. Una nueva generación solo
+ * crea los intervalos sin cruce y omite los demás, sin reemplazarlos.
  */
-function classifyCandidates(
+export function classifyCandidates(
   candidates: SlotCandidate[],
   existing: ExistingSlot[],
   now: Date,
-  modalidadId: number,
 ) {
   const newSlots: SlotCandidate[] = [];
   let omitted = 0;
-  let conflicts = 0;
 
   for (const candidate of candidates) {
     if (candidate.inicio <= now) {
@@ -142,26 +142,15 @@ function classifyCandidates(
     }
 
     const doctorSlots = existing.filter((slot) => slot.medicoId === candidate.medicoId);
-    const exact = doctorSlots.some(
-      (slot) =>
-        slot.modalidadId === modalidadId &&
-        slot.inicio.getTime() === candidate.inicio.getTime() &&
-        slot.fin.getTime() === candidate.fin.getTime(),
-    );
-    if (exact) {
-      omitted += 1;
-      continue;
-    }
-
     if (doctorSlots.some((slot) => intervalsOverlap(candidate, slot))) {
-      conflicts += 1;
+      omitted += 1;
       continue;
     }
 
     newSlots.push(candidate);
   }
 
-  return { newSlots, omitted, conflicts };
+  return { newSlots, omitted };
 }
 
 function assertGenerationRange(input: AgendaGenerationInput, now: Date) {
@@ -261,7 +250,7 @@ export async function calculateAgenda(
   const customSchedulesByDoctor = new Map(
     input.horariosPersonalizados.map((item) => [
       item.medicoId,
-      new Map(item.fechas.map((date) => [date.fecha, date.bloques])),
+      new Map(item.fechas.map((date) => [date.fecha, date])),
     ]),
   );
   const dates = eachDateInclusive(input.fechaInicial, input.fechaFinal);
@@ -303,7 +292,8 @@ export async function calculateAgenda(
     for (const date of dates) {
       if (!schedule) continue;
       const day = isoDayOfWeek(date);
-      const customBlocks = customDates?.get(date);
+      const customDate = customDates?.get(date);
+      const customBlocks = customDate?.bloques;
       if (
         publicHolidays.has(date) &&
         !globallyEnabledDates.has(date) &&
@@ -330,7 +320,8 @@ export async function calculateAgenda(
           horarioLaboralId: schedule.id,
           fecha: date,
           zonaHoraria: schedule.zonaHoraria,
-          duracionMinutos: consultationDuration,
+          duracionMinutos:
+            customDate?.duracionMinutos ?? consultationDuration,
           bloques: dateBlocks,
         }),
       );
@@ -339,7 +330,7 @@ export async function calculateAgenda(
     if (candidates.length > 25_000) {
       doctorErrors.add('La cantidad de cupos excede el límite operativo de 25.000. Divide la generación.');
     }
-    const classification = classifyCandidates(candidates, existing, now, input.modalidadId);
+    const classification = classifyCandidates(candidates, existing, now);
     const uniqueSchedules = [...usedSchedules.values()];
     const primarySchedule = uniqueSchedules[0] ?? null;
     const names = uniqueSchedules.map((schedule) => schedule.nombre);
@@ -353,7 +344,6 @@ export async function calculateAgenda(
       candidates,
       newSlots: classification.newSlots,
       omitted: classification.omitted,
-      conflicts: classification.conflicts,
       preview: {
         medicoId,
         medicoNombre: doctor.nombre,
@@ -371,7 +361,6 @@ export async function calculateAgenda(
         totalCandidatos: candidates.length,
         totalNuevos: classification.newSlots.length,
         totalOmitidos: classification.omitted,
-        totalConflictos: classification.conflicts,
         errores: [...doctorErrors],
       },
     });
@@ -379,8 +368,6 @@ export async function calculateAgenda(
 
   const totalCandidates = doctorCalculations.reduce((sum, item) => sum + item.candidates.length, 0);
   if (totalCandidates > 25_000) errors.add('La operación supera 25.000 cupos libres. Divide el periodo o los médicos.');
-  const totalConflicts = doctorCalculations.reduce((sum, item) => sum + item.conflicts, 0);
-  if (totalConflicts > 0) errors.add('Existen cupos superpuestos con otra duración o con la agenda de otra modalidad. Ajusta el periodo o cancela la disponibilidad previa.');
   const zone = schedules[0]?.zonaHoraria ?? 'America/Bogota';
 
   const preview: AgendaPreview = {
@@ -397,7 +384,6 @@ export async function calculateAgenda(
     totalCandidatos: totalCandidates,
     totalNuevos: doctorCalculations.reduce((sum, item) => sum + item.newSlots.length, 0),
     totalOmitidos: doctorCalculations.reduce((sum, item) => sum + item.omitted, 0),
-    totalConflictos: totalConflicts,
     fechasLaboralesEvaluadas: [...evaluatedWorkDates].sort(),
     bloqueado: errors.size > 0,
     errores: [...errors],
@@ -414,7 +400,6 @@ function generationResult(generation: {
   totalCandidatos: number;
   totalCreados: number;
   totalOmitidos: number;
-  totalConflictos: number;
 }) {
   return {
     generacionId: generation.id,
@@ -423,7 +408,6 @@ function generationResult(generation: {
     totalCandidatos: generation.totalCandidatos,
     totalCreados: generation.totalCreados,
     totalOmitidos: generation.totalOmitidos,
-    totalConflictos: generation.totalConflictos,
   };
 }
 
@@ -446,7 +430,7 @@ export async function confirmAgendaGeneration(
 
         const calculation = await calculateAgenda(normalized, tx);
         if (calculation.preview.bloqueado) {
-          throw new AgendaApplicationError(calculation.preview.errores[0] ?? 'La agenda tiene conflictos.', 409);
+          throw new AgendaApplicationError(calculation.preview.errores[0] ?? 'La agenda no se puede confirmar.', 409);
         }
         if (input.previewFingerprint && input.previewFingerprint !== calculation.preview.fingerprint) {
           throw new AgendaApplicationError('La configuración cambió desde la vista previa. Revísala nuevamente.', 409);
@@ -467,7 +451,6 @@ export async function confirmAgendaGeneration(
             totalCandidatos: calculation.preview.totalCandidatos,
             totalCreados: calculation.preview.totalNuevos,
             totalOmitidos: totalOmitted,
-            totalConflictos: calculation.preview.totalConflictos,
             completedAt: new Date(),
             createdBy: actor,
           },
@@ -483,7 +466,6 @@ export async function confirmAgendaGeneration(
               totalCandidatos: doctor.candidates.length,
               totalCreados: doctor.newSlots.length,
               totalOmitidos: doctor.omitted,
-              totalConflictos: doctor.conflicts,
             };
           }),
         });

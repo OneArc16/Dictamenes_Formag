@@ -45,6 +45,8 @@ type AgendaDoctorScheduleDialogProps = {
   periodDates: string[];
   globallyExcludedDates: string[];
   doctorExcludedDates: string[];
+  defaultDuration: number;
+  duration?: number;
   override?: DoctorDateScheduleOverride[];
   onChange: (dates?: DoctorDateScheduleOverride[]) => void;
   disabled?: boolean;
@@ -56,6 +58,8 @@ type ScheduleEditorProps = {
   periodDates: string[];
   globallyExcludedDates: string[];
   doctorExcludedDates: string[];
+  defaultDuration: number;
+  duration?: number;
   initialDates: DoctorDateScheduleOverride[];
   onSave: (dates?: DoctorDateScheduleOverride[]) => void;
 };
@@ -66,6 +70,8 @@ function ScheduleEditor({
   periodDates,
   globallyExcludedDates,
   doctorExcludedDates,
+  defaultDuration,
+  duration,
   initialDates,
   onSave,
 }: ScheduleEditorProps) {
@@ -97,11 +103,25 @@ function ScheduleEditor({
   const selectedBlocks =
     selectedOverride?.bloques ??
     (selectedDate ? defaultBlocksForDate(schedule, selectedDate) : []);
+  const selectedDuration = selectedOverride?.duracionMinutos ?? duration ?? defaultDuration;
 
   const updateSelectedBlocks = (blocks: TimeBlock[]) => {
     if (!selectedDate) return;
     setDates((current) =>
-      upsertDateOverride(current, selectedDate, blocks),
+      upsertDateOverride(
+        current,
+        selectedDate,
+        blocks,
+        selectedOverride?.duracionMinutos,
+      ),
+    );
+    setError('');
+  };
+
+  const updateSelectedDuration = (durationMinutes: number) => {
+    if (!selectedDate) return;
+    setDates((current) =>
+      upsertDateOverride(current, selectedDate, selectedBlocks, durationMinutes),
     );
     setError('');
   };
@@ -122,6 +142,9 @@ function ScheduleEditor({
       parsed.data.map((item) => ({
         fecha: item.fecha,
         bloques: item.bloques.map((block) => ({ ...block })),
+        ...(item.duracionMinutos === undefined
+          ? {}
+          : { duracionMinutos: item.duracionMinutos }),
       })),
     );
   };
@@ -163,10 +186,12 @@ function ScheduleEditor({
             doctorId={doctorId}
             selectedDate={selectedDate}
             blocks={selectedBlocks}
+            durationMinutes={selectedDuration}
             customized={Boolean(selectedOverride)}
             holidayName={holidaysByDate.get(selectedDate)?.name}
             excluded={exclusions.has(selectedDate)}
             onBlocksChange={updateSelectedBlocks}
+            onDurationChange={updateSelectedDuration}
             onResetDate={() => {
               setDates((current) =>
                 current.filter((item) => item.fecha !== selectedDate),
@@ -216,6 +241,8 @@ export function AgendaDoctorScheduleDialog({
   periodDates,
   globallyExcludedDates,
   doctorExcludedDates,
+  defaultDuration,
+  duration,
   override,
   onChange,
   disabled = false,
@@ -301,6 +328,8 @@ export function AgendaDoctorScheduleDialog({
             periodDates={periodDates}
             globallyExcludedDates={globallyExcludedDates}
             doctorExcludedDates={doctorExcludedDates}
+            defaultDuration={defaultDuration}
+            duration={duration}
             initialDates={override ?? []}
             onSave={(dates) => {
               onChange(dates);

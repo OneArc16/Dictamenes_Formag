@@ -40,7 +40,6 @@ export async function GET(request: Request) {
         totalCandidatos: true,
         totalCreados: true,
         totalOmitidos: true,
-        totalConflictos: true,
         createdAt: true,
         createdBy: true,
         sede: { select: { nombre: true } },

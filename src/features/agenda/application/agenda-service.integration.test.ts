@@ -104,6 +104,10 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   assert.equal(first.generacionId, repeated.generacionId);
   assert.equal(await prisma.cupoMedico.count(), 16);
 
+  const existingPreview = await calculateAgenda(input);
+  assert.equal(existingPreview.preview.totalNuevos, 0);
+  assert.equal(existingPreview.preview.totalOmitidos, 16);
+
   const firstSlot = await prisma.cupoMedico.findFirstOrThrow({ orderBy: { inicio: 'asc' } });
   await assert.rejects(
     prisma.cupoMedico.create({
@@ -119,6 +123,16 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
       },
     }),
   );
+
+  await prisma.cupoMedico.delete({ where: { id: firstSlot.id } });
+  const refillPreview = await calculateAgenda(input);
+  assert.equal(refillPreview.preview.totalNuevos, 1);
+  assert.equal(refillPreview.preview.totalOmitidos, 15);
+  await confirmAgendaGeneration(
+    { ...input, idempotencyKey: crypto.randomUUID(), previewFingerprint: refillPreview.preview.fingerprint },
+    'integration-test',
+  );
+  assert.equal(await prisma.cupoMedico.count({ where: { estado: 'DISPONIBLE' } }), 16);
 
   await prisma.cupoMedico.updateMany({
     data: {
@@ -172,6 +186,25 @@ test('preview, confirmación idempotente y restricción de superposición', { sk
   assert.equal(customized.preview.totalNuevos, 6);
   assert.equal(customized.preview.medicos[0].horarioOrigen, 'PERSONALIZADO');
 
+  const customizedDateDuration = await calculateAgenda({
+    ...input,
+    fechaInicial: '2030-01-14',
+    fechaFinal: '2030-01-21',
+    horariosPersonalizados: [
+      {
+        medicoId: doctor.id,
+        fechas: [
+          {
+            fecha: '2030-01-14',
+            bloques: [{ horaInicio: '10:00', horaFin: '11:00' }],
+            duracionMinutos: 60,
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(customizedDateDuration.preview.totalNuevos, 5);
+
   const unchanged = await calculateAgenda({
     ...input,
     fechaInicial: '2030-01-14',
@@ -210,13 +243,12 @@ test('la teleconsulta usa el horario compartido sin cruzarse con la agenda prese
     horariosPersonalizados: [],
   };
 
-  // El 2030-02-04 ya tiene cupos presenciales de 08:00 a 12:00: los cupos idénticos
-  // del horario particular (09:00-11:00) son conflicto, no se omiten.
+  // El 2030-02-04 ya tiene cupos presenciales de 08:00 a 12:00. La nueva
+  // generación no los reemplaza ni bloquea la confirmación: los omite.
   const crossing = await calculateAgenda(input);
   assert.equal(crossing.preview.medicos[0].horarioOrigen, 'PARTICULAR');
-  assert.equal(crossing.preview.totalConflictos, 4);
-  assert.equal(crossing.preview.totalOmitidos, 0);
-  assert.equal(crossing.preview.bloqueado, true);
+  assert.equal(crossing.preview.totalOmitidos, 4);
+  assert.equal(crossing.preview.bloqueado, false);
 
   // En una fecha libre el mismo horario genera la agenda de teleconsulta.
   const freeDay = { ...input, fechaInicial: '2030-02-11', fechaFinal: '2030-02-11' };

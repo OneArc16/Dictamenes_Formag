@@ -53,12 +53,6 @@ function DoctorPreviewMobileCard({ doctor }: { doctor: AgendaPreviewDoctor }) {
             {doctor.totalOmitidos}
           </dd>
         </div>
-        <div className="rounded-lg bg-amber-50 p-2">
-          <dt className="text-xs text-amber-700">Conflictos</dt>
-          <dd className="mt-1 font-semibold tabular-nums text-amber-900">
-            {doctor.totalConflictos}
-          </dd>
-        </div>
       </dl>
     </article>
   );
@@ -79,7 +73,6 @@ function PreviewContent({
     { label: 'Cupos libres', value: preview.totalCandidatos, tone: 'slate' },
     { label: 'Nuevos', value: preview.totalNuevos, tone: 'emerald' },
     { label: 'Omitidos', value: preview.totalOmitidos, tone: 'slate' },
-    { label: 'Conflictos', value: preview.totalConflictos, tone: 'amber' },
   ] as const;
 
   return (
@@ -114,16 +107,14 @@ function PreviewContent({
         </div>
       )}
 
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <div
             key={metric.label}
             className={
               metric.tone === 'emerald'
                 ? 'rounded-xl border border-emerald-200 bg-emerald-50 p-3'
-                : metric.tone === 'amber'
-                  ? 'rounded-xl border border-amber-200 bg-amber-50 p-3'
-                  : 'rounded-xl border border-slate-200 bg-slate-50 p-3'
+                : 'rounded-xl border border-slate-200 bg-slate-50 p-3'
             }
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -152,7 +143,6 @@ function PreviewContent({
               <th scope="col" className="p-3 text-right">Laborales</th>
               <th scope="col" className="p-3 text-right">Nuevos</th>
               <th scope="col" className="p-3 text-right">Omitidos</th>
-              <th scope="col" className="p-3 text-right">Conflictos</th>
             </tr>
           </thead>
           <tbody>
@@ -173,7 +163,6 @@ function PreviewContent({
                 <td className="p-3 text-right tabular-nums">{doctor.fechasLaborales}</td>
                 <td className="p-3 text-right tabular-nums">{doctor.totalNuevos}</td>
                 <td className="p-3 text-right tabular-nums">{doctor.totalOmitidos}</td>
-                <td className="p-3 text-right tabular-nums">{doctor.totalConflictos}</td>
               </tr>
             ))}
           </tbody>
@@ -202,7 +191,7 @@ export function AgendaPreviewPanel({ process, onRetry }: AgendaPreviewPanelProps
           Vista previa
         </h2>
         <p className="mt-1 text-sm leading-5 text-slate-600">
-          El servidor volverá a validar horarios y conflictos al confirmar.
+          El servidor volverá a validar horarios y disponibilidad al confirmar.
         </p>
       </div>
 
@@ -216,7 +205,7 @@ export function AgendaPreviewPanel({ process, onRetry }: AgendaPreviewPanelProps
             className="h-5 w-5 animate-spin text-sky-700 motion-reduce:animate-none"
             aria-hidden="true"
           />
-          Calculando disponibilidad y conflictos…
+          Calculando disponibilidad…
         </div>
       ) : null}
 
@@ -238,7 +227,7 @@ export function AgendaPreviewPanel({ process, onRetry }: AgendaPreviewPanelProps
             La configuración cambió
           </div>
           <p className="mt-1 leading-5">
-            Calcula nuevamente la agenda para actualizar cupos y conflictos.
+            Calcula nuevamente la agenda para actualizar los cupos disponibles.
           </p>
           <p className="mt-2 text-xs text-sky-800">
             El cálculo anterior estimaba {process.preview.totalNuevos} cupos nuevos.

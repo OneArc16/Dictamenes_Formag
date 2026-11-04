@@ -98,11 +98,21 @@ export const timeBlocksSchema = z
     }
   });
 
+export const consultationDurationSchema = z
+  .number()
+  .int('La duración debe ser un número entero.')
+  .min(5, 'La duración mínima es de 5 minutos.')
+  .max(240, 'La duración máxima es de 240 minutos.')
+  .refine((value) => value % 5 === 0, {
+    message: 'La duración debe ser múltiplo de 5 minutos.',
+  });
+
 export const dateScheduleOverridesSchema = z
   .array(
     z.object({
       fecha: dateOnlySchema,
       bloques: timeBlocksSchema,
+      duracionMinutos: consultationDurationSchema.optional(),
     }),
   )
   .min(1)
@@ -125,15 +135,6 @@ const customScheduleSchema = z.object({
   medicoId: z.number().int().positive(),
   fechas: dateScheduleOverridesSchema,
 });
-
-export const consultationDurationSchema = z
-  .number()
-  .int('La duración debe ser un número entero.')
-  .min(5, 'La duración mínima es de 5 minutos.')
-  .max(240, 'La duración máxima es de 240 minutos.')
-  .refine((value) => value % 5 === 0, {
-    message: 'La duración debe ser múltiplo de 5 minutos.',
-  });
 
 const doctorDurationSchema = z.object({
   medicoId: z.number().int().positive(),

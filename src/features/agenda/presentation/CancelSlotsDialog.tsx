@@ -62,7 +62,7 @@ export default function CancelSlotsDialog({
             </span>
             <div className="min-w-0">
               <AlertDialogTitle className="text-base font-semibold text-slate-950">
-                ¿Cancelar {count} {label}?
+                ¿Bloquear {count} {label}?
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-slate-600">
                 Dejarán de estar libres para nuevas citas. Podrás revertirlo después.
@@ -72,7 +72,7 @@ export default function CancelSlotsDialog({
 
           <div className="space-y-1 px-5 py-4">
             <Label htmlFor="cancel-slots-reason" className="text-sm font-medium text-slate-800">
-              Motivo de la cancelación <span className="text-rose-600">*</span>
+              Motivo del bloqueo <span className="text-rose-600">*</span>
             </Label>
             <Textarea
               id="cancel-slots-reason"
@@ -121,7 +121,7 @@ export default function CancelSlotsDialog({
               ) : (
                 <Ban aria-hidden="true" />
               )}
-              {isPending ? 'Cancelando…' : `Cancelar ${count} ${label}`}
+              {isPending ? 'Bloqueando…' : `Bloquear ${count} ${label}`}
             </Button>
           </div>
         </form>

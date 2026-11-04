@@ -62,7 +62,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       totalCandidatos: row.totalCandidatos,
       totalCreados: row.totalCreados,
       totalOmitidos: row.totalOmitidos,
-      totalConflictos: row.totalConflictos,
       createdAt: row.createdAt.toISOString(),
       createdBy: row.createdBy,
       medicos: row.medicos.map((item) => ({
@@ -73,7 +72,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         totalCandidatos: item.totalCandidatos,
         totalCreados: item.totalCreados,
         totalOmitidos: item.totalOmitidos,
-        totalConflictos: item.totalConflictos,
       })),
       fechasExcluidas: row.fechasExcluidas.map((item) => ({
         medicoId: item.medicoId,

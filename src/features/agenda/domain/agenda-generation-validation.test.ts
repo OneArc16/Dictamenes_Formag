@@ -102,6 +102,29 @@ test('acepta una duración particular válida para un médico seleccionado', () 
   assert.equal(result.success, true);
 });
 
+test('valida la duración particular de una fecha personalizada', () => {
+  const result = agendaGenerationSchema.safeParse({
+    ...validInput,
+    horariosPersonalizados: [
+      {
+        medicoId: 12,
+        fechas: [
+          {
+            fecha: '2026-07-31',
+            bloques: [{ horaInicio: '08:00', horaFin: '12:00' }],
+            duracionMinutos: 42,
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.match(JSON.stringify(result.error.issues), /múltiplo de 5/);
+  }
+});
+
 test('rechaza duraciones particulares duplicadas o de médicos no seleccionados', () => {
   const duplicated = agendaGenerationSchema.safeParse({
     ...validInput,
