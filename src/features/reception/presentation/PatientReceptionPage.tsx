@@ -150,6 +150,14 @@ const HISTORY_STATE_OPTIONS = [
   { value: 'CANCELADA', label: 'Cancelada', dotClassName: 'bg-rose-500' },
 ];
 
+function historyStatusClass(status: string) {
+  if (status === 'ASIGNADA') return 'border-blue-200 bg-blue-50 text-blue-800';
+  if (status === 'ATENDIDA') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+  if (status === 'REPROGRAMADA') return 'border-amber-200 bg-amber-50 text-amber-900';
+  if (status === 'CANCELADA') return 'border-rose-200 bg-rose-50 text-rose-800';
+  return 'border-slate-200 bg-slate-100 text-slate-700';
+}
+
 function PatientDataForm({
   patient,
   creating,
@@ -268,7 +276,7 @@ function PatientDataForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 shrink-0 border-slate-300 bg-white text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-10 w-10 shrink-0 border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800 disabled:bg-slate-100 disabled:text-slate-400"
                 aria-label={clearButtonLabel}
                 aria-describedby="patient-clear-profile-tooltip"
                 disabled={saving}
@@ -282,7 +290,7 @@ function PatientDataForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 shrink-0 border-slate-300 bg-white text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-10 w-10 shrink-0 border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800 disabled:bg-slate-100 disabled:text-slate-400"
                 aria-label={saveButtonLabel}
                 aria-describedby="patient-save-profile-tooltip"
                 disabled={(!creating && !profileChanged) || !validProfile || saving}
@@ -778,7 +786,7 @@ export default function PatientReceptionPage() {
           </div>
           <HistoryStateFilter values={historyStates} onChange={setHistoryStates} />
         </CardHeader>
-        <CardContent className="p-4">{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium">{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><div className="appointment-card-actions" role="group" aria-label={`Acciones de la cita de ${item.especialidadNombre}`}>
+      <CardContent className="p-4">{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${historyStatusClass(item.estado)}`}>{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><div className="appointment-card-actions" role="group" aria-label={`Acciones de la cita de ${item.especialidadNombre}`}>
           <AppointmentIconAction id={`appointment-${item.id}-movements`} label="Ver movimientos" icon={<History aria-hidden="true" />} onClick={() => setMovementAppointment(item)} />
           {item.estado === 'ASIGNADA' ? <>
             <AppointmentIconAction id={`appointment-${item.id}-activate`} label={item.activadaAt ? 'Cita activada' : 'Activar cita'} tone="success" icon={<CircleCheck aria-hidden="true" />} disabled={!!item.activadaAt || act.isPending} onClick={() => act.mutate({ id: item.id, version: item.lockVersion, action: 'activate' })} />
