@@ -74,6 +74,12 @@ export function formatHora(value: string | null | undefined) {
     .format(new Date(value));
 }
 
+export function formatHoraMeridiana(value: string | null | undefined) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hourCycle: 'h12', timeZone: TIME_ZONE })
+    .format(new Date(value));
+}
+
 export function formatFechaHora(value: string | null | undefined) {
   return value ? `${formatFecha(value)} ${formatHora(value)}` : '';
 }
