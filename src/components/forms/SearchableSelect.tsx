@@ -31,6 +31,12 @@ function norm(s: string) {
     .trim();
 }
 
+export function nextHighlightedIndex(currentIndex: number, direction: -1 | 1, optionCount: number) {
+  if (optionCount <= 0) return -1;
+  if (currentIndex < 0) return direction === 1 ? 0 : optionCount - 1;
+  return (currentIndex + direction + optionCount) % optionCount;
+}
+
 export function SearchableSelect({
   value,
   options = [],
@@ -48,6 +54,7 @@ export function SearchableSelect({
   const listboxId = `${inputId}-listbox`;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const selectedOption = useMemo(
     () => options.find((o) => o.value === value) ?? null,
@@ -73,6 +80,17 @@ export function SearchableSelect({
 
     return options.filter((o) => norm(o.label).includes(q));
   }, [options, onSearch, query]);
+
+  const visibleOptions = useMemo(() => {
+    if (onSearch && query.trim().length < minSearchLength) return [];
+    return onSearch ? options : clientFilteredOptions;
+  }, [clientFilteredOptions, minSearchLength, onSearch, options, query]);
+
+  useEffect(() => {
+    setHighlightedIndex((currentIndex) => (
+      currentIndex >= visibleOptions.length ? -1 : currentIndex
+    ));
+  }, [visibleOptions.length]);
 
   // `onSearch` suele recrearse en cada render del padre: se guarda en una ref para que el
   // debounce dependa solo del texto escrito. Si dependiera de su identidad, cada búsqueda
@@ -111,6 +129,7 @@ export function SearchableSelect({
   const handleSelect = (opt: SearchableOption) => {
     onChange(opt.value);
     setOpen(false);
+    setHighlightedIndex(-1);
     setQuery(opt.label);
   };
 
@@ -126,10 +145,34 @@ export function SearchableSelect({
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          setHighlightedIndex(-1);
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
-        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setOpen(false);
+            setHighlightedIndex(-1);
+            return;
+          }
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            if (visibleOptions.length === 0) return;
+            event.preventDefault();
+            setOpen(true);
+            setHighlightedIndex((currentIndex) => nextHighlightedIndex(
+              currentIndex,
+              event.key === 'ArrowDown' ? 1 : -1,
+              visibleOptions.length,
+            ));
+            return;
+          }
+          if (event.key === 'Enter' && open && highlightedIndex >= 0) {
+            const option = visibleOptions[highlightedIndex];
+            if (!option) return;
+            event.preventDefault();
+            handleSelect(option);
+          }
+        }}
         disabled={disabled}
         placeholder={placeholder}
         id={inputId}
@@ -137,6 +180,7 @@ export function SearchableSelect({
         aria-autocomplete="list"
         aria-expanded={open && !disabled}
         aria-controls={listboxId}
+        aria-activedescendant={highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined}
         autoComplete="off"
         className={cn('h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500', className)}
       />
@@ -156,9 +200,11 @@ export function SearchableSelect({
                   <li key={`${opt.value}-${idx}`}>
                     <button
                       type="button"
+                      id={`${listboxId}-option-${idx}`}
                       role="option"
                       aria-selected={opt.value === value}
-                      className="w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                      className={cn('w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none', highlightedIndex === idx && 'bg-blue-50')}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         handleSelect(opt);
@@ -178,9 +224,11 @@ export function SearchableSelect({
                 <li key={`${opt.value}-${idx}`}>
                   <button
                     type="button"
+                      id={`${listboxId}-option-${idx}`}
                     role="option"
                     aria-selected={opt.value === value}
-                    className="w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                      className={cn('w-full cursor-pointer px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none', highlightedIndex === idx && 'bg-blue-50')}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleSelect(opt);
