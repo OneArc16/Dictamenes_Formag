@@ -65,20 +65,12 @@ function formatFecha(value: string | Date | null | undefined) {
 function getEstadoStyles(estado: string | undefined) {
   const normalized = String(estado ?? '').toUpperCase();
 
-  if (normalized === 'PENDIENTE') {
+  if (normalized === 'PENDIENTE' || normalized === 'BORRADOR' || normalized === 'HABILITADO') {
     return 'border border-amber-100 bg-amber-50 text-amber-700';
   }
 
   if (normalized === 'REABIERTO') {
     return 'border border-sky-100 bg-sky-50 text-sky-700';
-  }
-
-  if (normalized === 'BORRADOR') {
-    return 'border border-amber-200 bg-amber-50 text-amber-800';
-  }
-
-  if (normalized === 'HABILITADO') {
-    return 'border border-sky-200 bg-sky-50 text-sky-800';
   }
 
   return 'border border-emerald-100 bg-emerald-50 text-emerald-700';
@@ -87,10 +79,9 @@ function getEstadoStyles(estado: string | undefined) {
 function getEstadoLabel(estado: string | undefined) {
   const normalized = String(estado ?? '').toUpperCase();
 
-  if (normalized === 'PENDIENTE') return 'Pendiente';
+  // Same buckets as the panel filters: draft origin and enabled PCL are both still pending.
+  if (normalized === 'PENDIENTE' || normalized === 'BORRADOR' || normalized === 'HABILITADO') return 'Pendiente';
   if (normalized === 'REABIERTO') return 'Reabierto';
-  if (normalized === 'BORRADOR') return 'Borrador';
-  if (normalized === 'HABILITADO') return 'Habilitado';
   return 'Cerrado';
 }
 
