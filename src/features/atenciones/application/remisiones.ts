@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type TipoDictamen } from '@prisma/client';
 
 import { employeeFullName } from '@/features/agenda/infrastructure/schedulable-doctors';
 import { ReceptionError } from '@/features/reception/application/errors';
@@ -95,6 +95,70 @@ export function aperturaCasoBloqueada(auth: AuthorizationContext) {
     : 'No tienes permiso para abrir casos en Dictamen; la remisión se guardó sin abrir el caso.';
 }
 
+type JuntaRemision = { id: number; tipoDictamen: TipoDictamen; codigos: Array<string | null | undefined> };
+
+/** Opens the Dictamen case of one junta remission; returns a warning instead when it cannot. */
+async function abrirCasoJunta(
+  tx: Prisma.TransactionClient,
+  auth: AuthorizationContext,
+  citaId: number,
+  usuarioId: number,
+  remision: JuntaRemision,
+): Promise<{ dictamenId: number | null; aviso: string | null }> {
+  const bloqueo = aperturaCasoBloqueada(auth);
+  if (bloqueo) return { dictamenId: null, aviso: bloqueo };
+  const [docente, diagnosticosAtencion] = await Promise.all([
+    tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { identificacion: true } }),
+    tx.atencionDiagnostico.findMany({ where: { citaId }, select: { cie10Codigo: true, tipo: true } }),
+  ]);
+  try {
+    const caso = await abrirCasoDictamen(tx, {
+      usuarioId,
+      identificacion: docente.identificacion,
+      empleadoId: auth.empleadoId,
+      tipoDictamen: remision.tipoDictamen,
+      // La recalificación arranca directo en PCL; la primera vez, en el formulario de origen.
+      documentoInicial: remision.tipoDictamen === 'RECALIFICACION' ? 'PCL' : 'ORIGEN',
+      remisionId: remision.id,
+      diagnosticos: diagnosticosCasoJunta(remision.codigos, diagnosticosAtencion),
+    });
+    return { dictamenId: caso.dictamenId, aviso: null };
+  } catch (error) {
+    if (!(error instanceof ApplicationError)) throw error;
+    if (error.code !== 'ACTIVE_CASE_EXISTS') throw new ReceptionError(error.code, error.message, error.status);
+    return { dictamenId: null, aviso: `${error.message} No se abrió un caso nuevo en Dictamen.` };
+  }
+}
+
+export type CasoJuntaAbierto = { remisionId: number; dictamenId: number; tipoDictamen: TipoDictamen };
+
+/** On "Finalizar atención": opens the Dictamen case of every junta remission still without one. */
+export async function abrirCasosJuntaPendientes(
+  tx: Prisma.TransactionClient,
+  auth: AuthorizationContext,
+  citaId: number,
+  usuarioId: number,
+): Promise<{ casos: CasoJuntaAbierto[]; avisos: string[] }> {
+  const pendientes = await tx.atencionRemision.findMany({
+    where: { citaId, tipoDictamen: { not: null }, dictamen: null },
+    orderBy: { id: 'asc' },
+    select: { id: true, cupsCodigo: true, tipoDictamen: true, diagnosticoCodigo: true, relacionado2Codigo: true, relacionado3Codigo: true },
+  });
+  const casos: CasoJuntaAbierto[] = [];
+  const avisos: string[] = [];
+  for (const remision of pendientes) {
+    if (!remision.tipoDictamen || !esJuntaMedica(remision.cupsCodigo)) continue;
+    const apertura = await abrirCasoJunta(tx, auth, citaId, usuarioId, {
+      id: remision.id,
+      tipoDictamen: remision.tipoDictamen,
+      codigos: [remision.diagnosticoCodigo, remision.relacionado2Codigo, remision.relacionado3Codigo],
+    });
+    if (apertura.dictamenId) casos.push({ remisionId: remision.id, dictamenId: apertura.dictamenId, tipoDictamen: remision.tipoDictamen });
+    if (apertura.aviso) avisos.push(apertura.aviso);
+  }
+  return { casos, avisos };
+}
+
 export async function createRemision(
   auth: AuthorizationContext,
   citaId: number,
@@ -141,35 +205,16 @@ export async function createRemision(
       }
 
       let aviso: string | null = null;
-      const bloqueo = junta ? aperturaCasoBloqueada(auth) : null;
-      if (bloqueo) aviso = bloqueo;
-      else if (junta && input.tipoDictamen) {
-        // La junta abre el caso en el panel de Dictamen del médico que atiende.
-        const docente = await tx.usuario.findUniqueOrThrow({
-          where: { id: cita.usuarioId },
-          select: { identificacion: true },
+      // While the attention is open the junta case waits for "Finalizar atención", so a mistaken
+      // remission can still be removed. Once finalized, a late junta opens its case right away.
+      if (junta && input.tipoDictamen && cita.estado === 'ATENDIDA') {
+        const apertura = await abrirCasoJunta(tx, auth, citaId, cita.usuarioId, {
+          id: created.id,
+          tipoDictamen: input.tipoDictamen,
+          codigos: diagnosticos,
         });
-        const diagnosticosAtencion = await tx.atencionDiagnostico.findMany({
-          where: { citaId },
-          select: { cie10Codigo: true, tipo: true },
-        });
-        try {
-          const caso = await abrirCasoDictamen(tx, {
-            usuarioId: cita.usuarioId,
-            identificacion: docente.identificacion,
-            empleadoId: auth.empleadoId,
-            tipoDictamen: input.tipoDictamen,
-            // La recalificación arranca directo en PCL; la primera vez, en el formulario de origen.
-            documentoInicial: input.tipoDictamen === 'RECALIFICACION' ? 'PCL' : 'ORIGEN',
-            remisionId: created.id,
-            diagnosticos: diagnosticosCasoJunta(diagnosticos, diagnosticosAtencion),
-          });
-          created = { ...created, dictamen: { id: caso.dictamenId } };
-        } catch (error) {
-          if (!(error instanceof ApplicationError)) throw error;
-          if (error.code !== 'ACTIVE_CASE_EXISTS') throw new ReceptionError(error.code, error.message, error.status);
-          aviso = `${error.message} No se abrió un caso nuevo en Dictamen.`;
-        }
+        aviso = apertura.aviso;
+        if (apertura.dictamenId) created = { ...created, dictamen: { id: apertura.dictamenId } };
       }
 
       return { ...(await toRemisiones(tx, [created]))[0], aviso };

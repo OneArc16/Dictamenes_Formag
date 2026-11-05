@@ -50,9 +50,17 @@ export function AtencionRightPanel({
       if (!response.ok || !data?.ok) {
         throw new Error(data?.message ?? 'No fue posible finalizar la atención.');
       }
+      return data.data as { casosDictamen?: Array<{ dictamenId: number }>; avisos?: string[] } | undefined;
     },
-    onSuccess: () => {
-      toast.success('Atención finalizada.');
+    onSuccess: (result) => {
+      const casos = result?.casosDictamen ?? [];
+      toast.success(
+        casos.length
+          ? `Atención finalizada. Se abrió el caso ${casos.map((caso) => `#${caso.dictamenId}`).join(', ')} en tu panel de Dictamen.`
+          : 'Atención finalizada.',
+        { duration: casos.length ? 6000 : 4000 },
+      );
+      for (const aviso of result?.avisos ?? []) toast(aviso, { icon: '⚠️', duration: 7000 });
       setConfirming(false);
       onFinalized();
     },

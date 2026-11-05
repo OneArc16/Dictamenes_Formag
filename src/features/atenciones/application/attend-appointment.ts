@@ -17,6 +17,7 @@ import { markAppointmentAttendedInTransaction } from '@/features/reception/appli
 import { hasAbility, type AuthorizationContext } from '@/lib/auth/authorization';
 
 import { attendBlocker, editBlocker } from './attend-blocker';
+import { abrirCasosJuntaPendientes } from './remisiones';
 import { prisma } from '@/lib/prisma';
 
 /** Origen con el que el módulo de Atenciones registra el encuentro clínico de la cita. */
@@ -85,11 +86,14 @@ export async function attendAppointment(auth: AuthorizationContext, appointmentI
           updatedBy: auth.empleadoId,
         },
       });
-      return markAppointmentAttendedInTransaction(tx, auth, appointmentId, {
+      const attended = await markAppointmentAttendedInTransaction(tx, auth, appointmentId, {
         source: ATENCIONES_ENCOUNTER_SOURCE,
         id: `cita-${appointmentId}`,
         occurredAt: new Date(),
       });
+      // Junta remissions open their Dictamen case only now, so mistakes made during the attention can be undone.
+      const juntas = await abrirCasosJuntaPendientes(tx, auth, appointmentId, cita.usuarioId);
+      return { ...attended, casosDictamen: juntas.casos, avisos: juntas.avisos };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );

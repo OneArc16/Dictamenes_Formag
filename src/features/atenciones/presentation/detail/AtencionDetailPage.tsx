@@ -229,6 +229,7 @@ export default function AtencionDetailPage({ detalle }: { detalle: AtencionDetal
                   atajos={detalle.remisionAtajos}
                   diagnosticos={diagnosticosOpciones}
                   readOnly={!editable}
+                  atencionAbierta={detalle.estado === 'ACTIVADA'}
                   agregando={remisiones.agregar.isPending}
                   quitandoId={remisiones.quitar.isPending ? (remisiones.quitar.variables ?? null) : null}
                   onAgregar={(input) => remisiones.agregar.mutateAsync(input)}

@@ -40,6 +40,11 @@ export function useRemisiones(citaId: number, initial: Remision[]) {
           `Remisión agregada. Se abrió el caso #${remision.dictamenId} (${tipoJuntaLabel(remision.tipoDictamen)}) en tu panel de Dictamen.`,
           { duration: 6000 },
         );
+      } else if (remision.tipoDictamen && !aviso) {
+        toast.success(
+          `Remisión agregada. El caso (${tipoJuntaLabel(remision.tipoDictamen)}) se abrirá en tu panel de Dictamen al finalizar la atención.`,
+          { duration: 6000 },
+        );
       } else {
         toast.success(`Remisión agregada: ${remision.cups.nombre}`);
       }

@@ -30,11 +30,14 @@ function RemisionCard({
   highlighted,
   onQuitar,
   quitando,
+  casoPendiente,
 }: {
   remision: Remision;
   highlighted: boolean;
   onQuitar?: () => void;
   quitando: boolean;
+  /** The attention is still open: junta cases open when it is finalized. */
+  casoPendiente: boolean;
 }) {
   return (
     <li
@@ -61,6 +64,8 @@ function RemisionCard({
                 >
                   Caso #{remision.dictamenId} en Dictamen
                 </Link>
+              ) : casoPendiente ? (
+                <span className="text-[11px] text-slate-500">El caso se abrirá al finalizar la atención</span>
               ) : null}
             </div>
           ) : null}
@@ -106,6 +111,7 @@ export function RemisionesTab({
   atajos,
   diagnosticos,
   readOnly,
+  atencionAbierta,
   agregando,
   quitandoId,
   onAgregar,
@@ -118,6 +124,8 @@ export function RemisionesTab({
   /** Diagnósticos de la atención; el primero es el principal. */
   diagnosticos: DiagnosticoOpcion[];
   readOnly: boolean;
+  /** The attention has not been finalized yet. */
+  atencionAbierta: boolean;
   agregando: boolean;
   quitandoId: number | null;
   onAgregar: (input: CreateRemisionCommand) => Promise<unknown>;
@@ -302,6 +310,7 @@ export function RemisionesTab({
                 remision={remision}
                 highlighted={highlightId === remision.id}
                 quitando={quitandoId === remision.id}
+                casoPendiente={atencionAbierta}
                 onQuitar={readOnly || remision.dictamenId ? undefined : () => onQuitar(remision.id)}
               />
             ))}
@@ -325,7 +334,7 @@ export function RemisionesTab({
           ) : (
             <ul className="space-y-2">
               {historial.map((remision) => (
-                <RemisionCard key={remision.id} remision={remision} highlighted={false} quitando={false} />
+                <RemisionCard key={remision.id} remision={remision} highlighted={false} quitando={false} casoPendiente={false} />
               ))}
             </ul>
           )}
@@ -337,7 +346,7 @@ export function RemisionesTab({
           <DialogHeader>
             <DialogTitle>Junta médica</DialogTitle>
             <DialogDescription>
-              ¿Es primera vez o recalificación? El caso se abrirá en tu panel de Dictamen para hacer la PCL.
+              ¿Es primera vez o recalificación? Al finalizar la atención, el caso se abrirá en tu panel de Dictamen para hacer la PCL.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 sm:grid-cols-2">
