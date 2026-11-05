@@ -208,6 +208,8 @@ export type AbrirCasoDictamenParams = {
   remisionId?: number;
   /** Diagnoses the case starts with (origin form, and the PCL dictamen when it starts in PCL). */
   diagnosticos?: DiagnosticoCaso[];
+  /** Clinical background the PCL starts with (the attention's "Enfermedad actual"). */
+  antecedentesClinicos?: string | null;
 };
 
 /**
@@ -250,6 +252,7 @@ export async function abrirCasoDictamen(tx: Tx, params: AbrirCasoDictamenParams)
       flujoVersion: 'ORIGEN_PREVIO',
       operacionId: params.operacionId,
       remisionId: params.remisionId,
+      antecedentesClinicos: params.antecedentesClinicos?.trim() || null,
       ...(startsWithPcl
         ? {
             numeroDictamen: originNumber,

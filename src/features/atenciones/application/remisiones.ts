@@ -107,9 +107,10 @@ async function abrirCasoJunta(
 ): Promise<{ dictamenId: number | null; aviso: string | null }> {
   const bloqueo = aperturaCasoBloqueada(auth);
   if (bloqueo) return { dictamenId: null, aviso: bloqueo };
-  const [docente, diagnosticosAtencion] = await Promise.all([
+  const [docente, diagnosticosAtencion, atencion] = await Promise.all([
     tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { identificacion: true } }),
     tx.atencionDiagnostico.findMany({ where: { citaId }, select: { cie10Codigo: true, tipo: true } }),
+    tx.atencion.findUnique({ where: { citaId }, select: { enfermedadActual: true } }),
   ]);
   try {
     const caso = await abrirCasoDictamen(tx, {
@@ -121,6 +122,7 @@ async function abrirCasoJunta(
       documentoInicial: remision.tipoDictamen === 'RECALIFICACION' ? 'PCL' : 'ORIGEN',
       remisionId: remision.id,
       diagnosticos: diagnosticosCasoJunta(remision.codigos, diagnosticosAtencion),
+      antecedentesClinicos: atencion?.enfermedadActual,
     });
     return { dictamenId: caso.dictamenId, aviso: null };
   } catch (error) {
