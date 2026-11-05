@@ -24,6 +24,12 @@ import {
 } from '@/lib/module-navigation';
 import { cn } from '@/lib/utils';
 
+/**
+ * Whether the pointer was over the desktop sidebar. Each module route has its own layout, so a
+ * click in the sidebar remounts the shell; this module-level flag survives that remount.
+ */
+const sidebarHover = { active: false };
+
 type ModuleAppShellProps = {
   children: ReactNode;
   moduleKey: NavigationModuleKey;
@@ -38,8 +44,32 @@ export default function ModuleAppShell({
   const pathname = usePathname() || '';
   const currentModule = getModuleByKey(moduleKey);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(() => sidebarHover.active);
   const mainRef = useRef<HTMLElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  // While the pointer is over the sidebar it stays open, even when focus moves elsewhere
+  // (navigating sends focus to the main content); it closes only when the pointer leaves.
+  const hoveringRef = useRef(sidebarHover.active);
+  const setHovering = (value: boolean) => {
+    hoveringRef.current = value;
+    sidebarHover.active = value;
+    setPreview(value);
+  };
+
+  useEffect(() => {
+    // Reopened from a previous mount: confirm on the first pointer move that the pointer is
+    // really still over the sidebar, otherwise close it.
+    if (!sidebarHover.active) return;
+    const verify = (event: PointerEvent) => {
+      if (!asideRef.current?.contains(event.target as Node)) {
+        hoveringRef.current = false;
+        sidebarHover.active = false;
+        setPreview(false);
+      }
+    };
+    document.addEventListener('pointermove', verify, { once: true });
+    return () => document.removeEventListener('pointermove', verify);
+  }, []);
   const previousPathname = useRef(pathname);
   const storageKey = `dictamy:sidebar:pinned:${user.id}`;
   const { pinned, togglePinned } = usePinnedSidebar(storageKey);
@@ -72,7 +102,7 @@ export default function ModuleAppShell({
   const ModuleIcon = navigationIconMap[currentModule.iconKey];
 
   const handleBlur = (event: FocusEvent<HTMLElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) {
+    if (!hoveringRef.current && !event.currentTarget.contains(event.relatedTarget)) {
       setPreview(false);
     }
   };
@@ -123,8 +153,12 @@ export default function ModuleAppShell({
             'relative hidden shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block',
             expanded ? 'w-64' : 'w-[72px]',
           )}
-          onMouseEnter={() => setPreview(true)}
-          onMouseLeave={() => setPreview(false)}
+          ref={asideRef}
+          onMouseEnter={() => setHovering(true)}
+          onPointerMove={() => {
+            if (!hoveringRef.current) setHovering(true);
+          }}
+          onMouseLeave={() => setHovering(false)}
           onFocusCapture={() => setPreview(true)}
           onBlurCapture={handleBlur}
           onKeyDown={handleKeyDown}
