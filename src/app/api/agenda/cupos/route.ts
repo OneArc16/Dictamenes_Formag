@@ -47,6 +47,7 @@ export async function GET(request: Request) {
           select: {
             id: true,
             estado: true,
+            activadaAt: true,
             paciente: { select: { ...nameSelect, identificacion: true } },
           },
         },
@@ -91,7 +92,7 @@ export async function GET(request: Request) {
         inicio: row.inicio.toISOString(),
         fin: row.fin.toISOString(),
         duracionMinutos: row.duracionMinutos,
-        estado: viewStatus(row.estado, cita?.estado),
+        estado: viewStatus(row.estado, cita?.estado, cita?.activadaAt ?? null),
         generacionId: row.generacionAgendaId,
         cancelacion:
           row.estado === 'CANCELADO'

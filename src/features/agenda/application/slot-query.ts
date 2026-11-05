@@ -8,18 +8,24 @@ export const AGENDA_TIME_ZONE = 'America/Bogota';
 /**
  * Estados que ve el usuario. No son los del cupo en BD: "atendido" vive en la cita (el cupo
  * sigue ASIGNADO al atenderla) y RESERVADO no lo asigna ningún flujo, así que cuenta como asignado.
+ * "Activado" es una cita asignada que recepción ya activó (el paciente llegó) y aún no se atiende.
  */
-export const SLOT_STATUSES = ['LIBRE', 'ASIGNADO', 'ATENDIDO', 'CANCELADO'] as const;
+export const SLOT_STATUSES = ['LIBRE', 'ASIGNADO', 'ACTIVADO', 'ATENDIDO', 'CANCELADO'] as const;
 export type SlotStatus = (typeof SLOT_STATUSES)[number];
 
 const attendedAppointment: Prisma.CupoMedicoWhereInput = { citas: { some: { estado: 'ATENDIDA' } } };
+const activatedAppointment: Prisma.CupoMedicoWhereInput = {
+  citas: { some: { estado: 'ASIGNADA', activadaAt: { not: null } } },
+};
 
 export function statusWhere(status: SlotStatus): Prisma.CupoMedicoWhereInput {
   switch (status) {
     case 'LIBRE':
       return { estado: 'DISPONIBLE' };
     case 'ASIGNADO':
-      return { estado: { in: ['ASIGNADO', 'RESERVADO'] }, NOT: attendedAppointment };
+      return { estado: { in: ['ASIGNADO', 'RESERVADO'] }, NOT: [attendedAppointment, activatedAppointment] };
+    case 'ACTIVADO':
+      return { estado: { in: ['ASIGNADO', 'RESERVADO'] }, ...activatedAppointment, NOT: attendedAppointment };
     case 'ATENDIDO':
       return { estado: { in: ['ASIGNADO', 'RESERVADO'] }, ...attendedAppointment };
     case 'CANCELADO':
@@ -27,10 +33,15 @@ export function statusWhere(status: SlotStatus): Prisma.CupoMedicoWhereInput {
   }
 }
 
-export function viewStatus(slotStatus: string, appointmentStatus: string | null | undefined): SlotStatus {
+export function viewStatus(
+  slotStatus: string,
+  appointmentStatus: string | null | undefined,
+  activadaAt: Date | null = null,
+): SlotStatus {
   if (slotStatus === 'DISPONIBLE') return 'LIBRE';
   if (slotStatus === 'CANCELADO') return 'CANCELADO';
-  return appointmentStatus === 'ATENDIDA' ? 'ATENDIDO' : 'ASIGNADO';
+  if (appointmentStatus === 'ATENDIDA') return 'ATENDIDO';
+  return appointmentStatus === 'ASIGNADA' && activadaAt ? 'ACTIVADO' : 'ASIGNADO';
 }
 
 const MAX_RANGE_DAYS = 90;

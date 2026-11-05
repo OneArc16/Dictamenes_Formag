@@ -2,7 +2,7 @@ import { dateInTimeZone } from '@/features/agenda/domain/date-time';
 
 export const AGENDA_VIEW_TIME_ZONE = 'America/Bogota';
 
-export type SlotStatus = 'LIBRE' | 'ASIGNADO' | 'ATENDIDO' | 'CANCELADO';
+export type SlotStatus = 'LIBRE' | 'ASIGNADO' | 'ACTIVADO' | 'ATENDIDO' | 'CANCELADO';
 
 export type AgendaSlotRow = {
   id: number;

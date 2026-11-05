@@ -85,6 +85,14 @@ const STATUS_META: Record<
     bar: 'bg-sky-500',
     dot: 'bg-sky-500',
   },
+  ACTIVADO: {
+    label: 'Activados',
+    singular: 'Activado',
+    chip: 'data-[active=true]:border-amber-300 data-[active=true]:bg-amber-50 data-[active=true]:text-amber-900',
+    badge: 'border-amber-200 bg-amber-50 text-amber-800',
+    bar: 'bg-amber-500',
+    dot: 'bg-amber-500',
+  },
   ATENDIDO: {
     label: 'Atendidos',
     singular: 'Atendido',
@@ -103,7 +111,7 @@ const STATUS_META: Record<
   },
 };
 
-const STATUS_ORDER: SlotStatus[] = ['LIBRE', 'ASIGNADO', 'ATENDIDO', 'CANCELADO'];
+const STATUS_ORDER: SlotStatus[] = ['LIBRE', 'ASIGNADO', 'ACTIVADO', 'ATENDIDO', 'CANCELADO'];
 
 function useDebounced<T>(value: T, ms = 300) {
   const [debounced, setDebounced] = useState(value);

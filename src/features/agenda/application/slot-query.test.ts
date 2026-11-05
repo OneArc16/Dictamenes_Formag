@@ -56,9 +56,19 @@ test('traduce el estado del cupo y de la cita al estado de la vista', () => {
   assert.equal(viewStatus('CANCELADO', 'ATENDIDA'), 'CANCELADO');
 });
 
-test('asignado y atendido se distinguen por la cita atendida', () => {
+test('una cita asignada que recepción ya activó se ve como activada', () => {
+  const activadaAt = new Date('2026-11-09T12:30:00.000Z');
+  assert.equal(viewStatus('ASIGNADO', 'ASIGNADA', activadaAt), 'ACTIVADO');
+  assert.equal(viewStatus('ASIGNADO', 'ASIGNADA', null), 'ASIGNADO');
+  assert.equal(viewStatus('ASIGNADO', 'ATENDIDA', activadaAt), 'ATENDIDO');
+  assert.equal(viewStatus('CANCELADO', 'ASIGNADA', activadaAt), 'CANCELADO');
+});
+
+test('asignado, activado y atendido se distinguen por la cita', () => {
   const attended = { citas: { some: { estado: 'ATENDIDA' } } };
-  assert.deepEqual(statusWhere('ASIGNADO'), { estado: { in: ['ASIGNADO', 'RESERVADO'] }, NOT: attended });
+  const activated = { citas: { some: { estado: 'ASIGNADA', activadaAt: { not: null } } } };
+  assert.deepEqual(statusWhere('ASIGNADO'), { estado: { in: ['ASIGNADO', 'RESERVADO'] }, NOT: [attended, activated] });
+  assert.deepEqual(statusWhere('ACTIVADO'), { estado: { in: ['ASIGNADO', 'RESERVADO'] }, ...activated, NOT: attended });
   assert.deepEqual(statusWhere('ATENDIDO'), { estado: { in: ['ASIGNADO', 'RESERVADO'] }, ...attended });
   assert.deepEqual(statusWhere('LIBRE'), { estado: 'DISPONIBLE' });
 });
