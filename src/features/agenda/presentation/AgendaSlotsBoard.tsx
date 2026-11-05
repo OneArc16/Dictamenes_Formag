@@ -657,7 +657,7 @@ export default function AgendaSlotsBoard({
               disabled={cancellation.isPending}
               className="min-h-10 rounded-xl bg-rose-600 text-white hover:bg-rose-700"
             >
-              <Ban aria-hidden="true" /> Cancelar cupos
+              <Ban aria-hidden="true" /> Bloquear cupos
             </Button>
           </div>
         </div>

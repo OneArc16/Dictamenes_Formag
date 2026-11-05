@@ -53,6 +53,9 @@ export function buildAgendaCreationPayload(
                   left.horaInicio.localeCompare(right.horaInicio) ||
                   left.horaFin.localeCompare(right.horaFin),
               ),
+            ...(item.duracionMinutos === undefined
+              ? {}
+              : { duracionMinutos: item.duracionMinutos }),
           }))
           .sort((left, right) => left.fecha.localeCompare(right.fecha)),
       }))

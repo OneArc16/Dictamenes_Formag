@@ -230,6 +230,9 @@ export function agendaCreationReducer(
         doctorScheduleOverrides[action.doctorId] = action.dates.map((item) => ({
           fecha: item.fecha,
           bloques: item.bloques.map((block) => ({ ...block })),
+          ...(item.duracionMinutos === undefined
+            ? {}
+            : { duracionMinutos: item.duracionMinutos }),
         }));
       } else {
         delete doctorScheduleOverrides[action.doctorId];

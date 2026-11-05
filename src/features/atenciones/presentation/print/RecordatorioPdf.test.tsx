@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { RecordatorioPdf, type RecordatorioDocumento } from './RecordatorioPdf';
+import { formatHoraMeridiana } from './documento-clinico-model';
 
 const doc: RecordatorioDocumento = {
   encabezado: {
@@ -16,6 +17,13 @@ const doc: RecordatorioDocumento = {
 };
 
 describe('RecordatorioPdf', () => {
+  it('formats the appointment time with its meridiem', () => {
+    const formatted = formatHoraMeridiana('2026-11-20T16:30:00.000Z')
+      .replace(/\s/g, ' ');
+
+    assert.match(formatted, /11:30.*a\.\s*m\./i);
+  });
+
   it('renders a one-page PDF', async () => {
     const bytes = await renderToBuffer(React.createElement(RecordatorioPdf, { doc, logoSrc: null }) as never);
     assert.equal(bytes.subarray(0, 4).toString(), '%PDF');

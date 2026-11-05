@@ -66,7 +66,7 @@ type ClinicalDocumentKind = 'hc' | 'incapacidad' | 'remision';
 type RemisionOption = { id: number; label: string; createdAt: string };
 type HistoryItem = { id: number; estado: string; inicioProgramado: string; sedeNombre: string; medicoNombre: string; especialidadId: number; especialidadNombre: string; modalidadId: number; modalidadNombre: string; medioSolicitud: string; activadaAt: string | null; lockVersion: number; documentosClinicos: { hc: boolean; incapacidadCount: number; remisionCount: number; remisiones: RemisionOption[] } };
 type HistoryPage = { items: HistoryItem[]; nextCursor: string | null };
-type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null };
+type Movement = { id: number; tipoEvento: string; estadoAnterior: string | null; estadoNuevo: string | null; estadoCupoAnterior: string | null; estadoCupoNuevo: string | null; createdAt: string; metadata: Record<string, unknown> | null; rescheduledTo: { id: number; inicioProgramado: string; medicoNombre: string | null; sedeNombre: string | null } | null };
 type MovementPage = { items: Movement[]; nextCursor: string | null };
 
 function csrfToken() {
@@ -149,6 +149,14 @@ const HISTORY_STATE_OPTIONS = [
   { value: 'REPROGRAMADA', label: 'Reprogramada', dotClassName: 'bg-amber-500' },
   { value: 'CANCELADA', label: 'Cancelada', dotClassName: 'bg-rose-500' },
 ];
+
+function historyStatusClass(status: string) {
+  if (status === 'ASIGNADA') return 'border-blue-200 bg-blue-50 text-blue-800';
+  if (status === 'ATENDIDA') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+  if (status === 'REPROGRAMADA') return 'border-amber-200 bg-amber-50 text-amber-900';
+  if (status === 'CANCELADA') return 'border-rose-200 bg-rose-50 text-rose-800';
+  return 'border-slate-200 bg-slate-100 text-slate-700';
+}
 
 function PatientDataForm({
   patient,
@@ -268,7 +276,7 @@ function PatientDataForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 shrink-0 border-slate-300 bg-white text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-10 w-10 shrink-0 border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800 disabled:bg-slate-100 disabled:text-slate-400"
                 aria-label={clearButtonLabel}
                 aria-describedby="patient-clear-profile-tooltip"
                 disabled={saving}
@@ -282,7 +290,7 @@ function PatientDataForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 shrink-0 border-slate-300 bg-white text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-10 w-10 shrink-0 border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800 disabled:bg-slate-100 disabled:text-slate-400"
                 aria-label={saveButtonLabel}
                 aria-describedby="patient-save-profile-tooltip"
                 disabled={(!creating && !profileChanged) || !validProfile || saving}
@@ -778,7 +786,7 @@ export default function PatientReceptionPage() {
           </div>
           <HistoryStateFilter values={historyStates} onChange={setHistoryStates} />
         </CardHeader>
-        <CardContent className="p-4">{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium">{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><div className="appointment-card-actions" role="group" aria-label={`Acciones de la cita de ${item.especialidadNombre}`}>
+      <CardContent className="p-4">{history.isLoading ? <p className="text-sm text-slate-500">Cargando historial…</p> : history.isError ? <div className="space-y-2 text-sm text-red-700" role="alert"><p>No fue posible cargar el historial.</p><Button size="sm" variant="outline" onClick={() => history.refetch()}>Reintentar</Button></div> : historyItems.length ? <div className="space-y-3">{historyItems.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.especialidadNombre}</strong><span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${historyStatusClass(item.estado)}`}>{item.estado}</span></div><p className="mt-1 text-sm text-slate-600">{formatDateTime(item.inicioProgramado)} · {item.medicoNombre}</p><p className="text-xs text-slate-500">{item.sedeNombre} · {item.modalidadNombre}</p><div className="appointment-card-actions" role="group" aria-label={`Acciones de la cita de ${item.especialidadNombre}`}>
           <AppointmentIconAction id={`appointment-${item.id}-movements`} label="Ver movimientos" icon={<History aria-hidden="true" />} onClick={() => setMovementAppointment(item)} />
           {item.estado === 'ASIGNADA' ? <>
             <AppointmentIconAction id={`appointment-${item.id}-activate`} label={item.activadaAt ? 'Cita activada' : 'Activar cita'} tone="success" icon={<CircleCheck aria-hidden="true" />} disabled={!!item.activadaAt || act.isPending} onClick={() => act.mutate({ id: item.id, version: item.lockVersion, action: 'activate' })} />
@@ -851,6 +859,7 @@ export default function PatientReceptionPage() {
               <header><strong>{movementEventLabel(movement.tipoEvento)}</strong><time dateTime={movement.createdAt}>{formatDateTime(movement.createdAt)}</time></header>
               {movement.estadoAnterior || movement.estadoNuevo ? <div className="appointment-movement-card__transition"><span>Estado de la cita</span><div><strong>{enumLabel(movement.estadoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoNuevo)}</strong></div></div> : null}
               {movement.estadoCupoAnterior || movement.estadoCupoNuevo ? <div className="appointment-movement-card__transition"><span>Estado del cupo</span><div><strong>{enumLabel(movement.estadoCupoAnterior)}</strong><ArrowRight aria-hidden="true" /><strong>{enumLabel(movement.estadoCupoNuevo)}</strong></div></div> : null}
+              {movement.rescheduledTo ? <div className="appointment-movement-card__transition"><span>Nueva cita</span><div className="appointment-movement-card__target"><strong>{formatDateTime(movement.rescheduledTo.inicioProgramado)}</strong>{movement.rescheduledTo.medicoNombre ? <small>{movement.rescheduledTo.medicoNombre}{movement.rescheduledTo.sedeNombre ? ` · ${movement.rescheduledTo.sedeNombre}` : ''}</small> : null}</div></div> : null}
               {movementReason(movement.metadata) ? <p className="appointment-movement-card__reason"><span>Motivo:</span> {movementReason(movement.metadata)}</p> : null}
             </article>
           </li>)}</ol> : <div className="appointment-movements-dialog__message">Esta cita todavía no tiene movimientos registrados.</div>}

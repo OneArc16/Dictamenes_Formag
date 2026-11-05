@@ -109,6 +109,8 @@ export function SelectedDoctorCard({
             periodDates={periodDates}
             globallyExcludedDates={globallyExcludedDates}
             doctorExcludedDates={excludedDates}
+            defaultDuration={defaultDuration}
+            duration={durationOverride}
             onChange={onScheduleOverrideChange}
             disabled={disabled}
           />

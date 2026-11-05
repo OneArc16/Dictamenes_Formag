@@ -14,6 +14,7 @@ export type TimeBlock = {
 export type DoctorDateScheduleOverride = {
   fecha: DateOnly;
   bloques: TimeBlock[];
+  duracionMinutos?: number;
 };
 
 export type SlotCandidate = {
@@ -62,7 +63,6 @@ export type AgendaPreviewDoctor = {
   totalCandidatos: number;
   totalNuevos: number;
   totalOmitidos: number;
-  totalConflictos: number;
   errores: string[];
 };
 
@@ -94,7 +94,6 @@ export type AgendaPreview = {
   totalCandidatos: number;
   totalNuevos: number;
   totalOmitidos: number;
-  totalConflictos: number;
   fechasLaboralesEvaluadas: DateOnly[];
   bloqueado: boolean;
   errores: string[];

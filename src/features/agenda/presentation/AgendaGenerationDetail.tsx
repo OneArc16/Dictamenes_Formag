@@ -47,7 +47,6 @@ type GenerationDetail = {
   totalCandidatos: number;
   totalCreados: number;
   totalOmitidos: number;
-  totalConflictos: number;
   createdAt: string;
   createdBy: string;
   medicos: Array<{
@@ -57,7 +56,6 @@ type GenerationDetail = {
     totalCandidatos: number;
     totalCreados: number;
     totalOmitidos: number;
-    totalConflictos: number;
   }>;
   fechasExcluidas: Array<{ medicoId: number | null; fecha: string; motivo: string | null }>;
   cupos: Array<{ id: number; medicoId: number; inicio: string; fin: string; estado: string }>;
@@ -248,8 +246,8 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
                   id={`agenda-cancel-selected-slots-${generation.id}`}
                   label={
                     selectedCancellableIds.length > 0
-                      ? `Cancelar ${selectedCancellableIds.length} cupos`
-                      : 'Selecciona cupos para cancelar'
+                      ? `Bloquear ${selectedCancellableIds.length} cupos`
+                      : 'Selecciona cupos para bloquear'
                   }
                   align="right"
                 >
@@ -263,8 +261,8 @@ export default function AgendaGenerationDetail({ id, canCancel }: { id: number; 
                     }
                     aria-label={
                       cancellation.isPending
-                        ? 'Cancelando cupos seleccionados'
-                        : `Cancelar ${selectedCancellableIds.length} cupos seleccionados`
+                        ? 'Bloqueando cupos seleccionados'
+                        : `Bloquear ${selectedCancellableIds.length} cupos seleccionados`
                     }
                     aria-describedby={`agenda-cancel-selected-slots-${generation.id}`}
                     onClick={openCancelDialog}

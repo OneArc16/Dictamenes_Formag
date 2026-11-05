@@ -18,10 +18,12 @@ type AgendaDoctorDateEditorProps = {
   doctorId: number;
   selectedDate: string;
   blocks: TimeBlock[];
+  durationMinutes: number;
   customized: boolean;
   holidayName?: string;
   excluded: boolean;
   onBlocksChange: (blocks: TimeBlock[]) => void;
+  onDurationChange: (durationMinutes: number) => void;
   onResetDate: () => void;
 };
 
@@ -51,10 +53,12 @@ export function AgendaDoctorDateEditor({
   doctorId,
   selectedDate,
   blocks,
+  durationMinutes,
   customized,
   holidayName,
   excluded,
   onBlocksChange,
+  onDurationChange,
   onResetDate,
 }: AgendaDoctorDateEditorProps) {
   const nextBlock = nextBlockSuggestion(blocks);
@@ -234,6 +238,28 @@ export function AgendaDoctorDateEditor({
               </Button>
             </div>
           </fieldset>
+
+          <div className="mt-5 border-t border-slate-100 pt-5">
+            <Label
+              htmlFor={`agenda-${doctorId}-${selectedDate}-duration`}
+              className="text-sm font-semibold text-slate-900"
+            >
+              Minutos por consulta
+            </Label>
+            <p className="mt-1 text-xs text-slate-600">
+              Esta duración se aplicará solo a los cupos de esta fecha.
+            </p>
+            <Input
+              id={`agenda-${doctorId}-${selectedDate}-duration`}
+              type="number"
+              min={5}
+              max={240}
+              step={5}
+              value={durationMinutes}
+              onChange={(event) => onDurationChange(Number(event.target.value))}
+              className="mt-3 min-h-11 max-w-44 tabular-nums"
+            />
+          </div>
         </>
       ) : (
         <div className="flex min-h-60 items-center justify-center text-center text-sm text-slate-600">

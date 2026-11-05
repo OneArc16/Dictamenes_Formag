@@ -5,7 +5,7 @@ import React from 'react';
 
 import { datosRegistroActuales } from '@/features/atenciones/application/datos-registro';
 import { INSTITUCION, logoDataUrl } from '@/features/atenciones/application/documentos-clinicos-print';
-import { formatFecha, formatFechaHora, formatHora } from '@/features/atenciones/presentation/print/documento-clinico-model';
+import { formatFecha, formatFechaHora, formatHoraMeridiana } from '@/features/atenciones/presentation/print/documento-clinico-model';
 import { RecordatorioPdf, type RecordatorioDocumento } from '@/features/atenciones/presentation/print/RecordatorioPdf';
 
 import { prisma } from '@/lib/prisma';
@@ -92,7 +92,7 @@ export async function renderReminderDocument(auth: AuthorizationContext, appoint
     encabezado: { institucion: { ...INSTITUCION, ...registro.sede }, generadoEn: formatFechaHora(snapshot.generatedAt) },
     codigo: snapshot.appointmentCode,
     paciente: { nombre: snapshot.patientName, documento: snapshot.documentNumber },
-    cita: { fecha: formatFecha(snapshot.start), hora: formatHora(snapshot.start), sede: snapshot.siteName, especialidad: snapshot.specialtyName, medico: snapshot.doctorName, modalidad: snapshot.modalityName },
+    cita: { fecha: formatFecha(snapshot.start), hora: formatHoraMeridiana(snapshot.start), sede: snapshot.siteName, especialidad: snapshot.specialtyName, medico: snapshot.doctorName, modalidad: snapshot.modalityName },
   };
   return Buffer.from(await renderToBuffer(React.createElement(RecordatorioPdf, { doc, logoSrc }) as never));
 }

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const prisma = new PrismaClient();
 const AUDIT_USER = 'seed-rbac';
 
 const permissions = [
@@ -133,7 +134,7 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
   ],
 };
 
-async function resolveProfile(aliases: readonly string[]) {
+async function resolveProfile(prisma: PrismaClient, aliases: readonly string[]) {
   return prisma.perfil.findFirst({
     where: {
       OR: aliases.map((alias) => ({
@@ -144,7 +145,7 @@ async function resolveProfile(aliases: readonly string[]) {
   });
 }
 
-async function main() {
+export async function syncRbac(prisma: PrismaClient) {
   for (const permission of permissions) {
     await prisma.permiso.upsert({
       where: { codigo: permission.codigo },
@@ -178,7 +179,7 @@ async function main() {
   for (const [profileKey, aliases] of Object.entries(PROFILE_ALIASES) as Array<
     [keyof typeof PROFILE_ALIASES, readonly string[]]
   >) {
-    const profile = await resolveProfile(aliases);
+    const profile = await resolveProfile(prisma, aliases);
 
     if (!profile) {
       throw new Error(
@@ -237,11 +238,20 @@ async function main() {
   console.log('RBAC seed ejecutado correctamente');
 }
 
-main()
-  .catch((error) => {
-    console.error('Error ejecutando seed RBAC:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
+async function main() {
+  const prisma = new PrismaClient();
+
+  try {
+    await syncRbac(prisma);
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+    .catch((error) => {
+      console.error('Error ejecutando seed RBAC:', error);
+      process.exit(1);
+    });
+}

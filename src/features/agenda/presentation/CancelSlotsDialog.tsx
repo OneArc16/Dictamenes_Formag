@@ -25,6 +25,12 @@ type CancelSlotsDialogProps = {
   open: boolean;
 };
 
+const BLOCKING_REASON_SHORTCUTS = [
+  'Médico solicitó permiso',
+  'Capacitación',
+  'Reunión institucional',
+] as const;
+
 function slotLabel(count: number) {
   return count === 1 ? 'cupo' : 'cupos';
 }
@@ -62,7 +68,7 @@ export default function CancelSlotsDialog({
             </span>
             <div className="min-w-0">
               <AlertDialogTitle className="text-base font-semibold text-slate-950">
-                ¿Cancelar {count} {label}?
+                ¿Bloquear {count} {label}?
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-slate-600">
                 Dejarán de estar libres para nuevas citas. Podrás revertirlo después.
@@ -72,7 +78,7 @@ export default function CancelSlotsDialog({
 
           <div className="space-y-1 px-5 py-4">
             <Label htmlFor="cancel-slots-reason" className="text-sm font-medium text-slate-800">
-              Motivo de la cancelación <span className="text-rose-600">*</span>
+              Motivo del bloqueo <span className="text-rose-600">*</span>
             </Label>
             <Textarea
               id="cancel-slots-reason"
@@ -86,6 +92,24 @@ export default function CancelSlotsDialog({
               onChange={(event) => setReason(event.target.value)}
               className="resize-none rounded-xl border-slate-300 text-sm"
             />
+            <div className="pt-2">
+              <p className="text-xs font-medium text-slate-700">Atajos</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {BLOCKING_REASON_SHORTCUTS.map((shortcut) => (
+                  <Button
+                    key={shortcut}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isPending}
+                    className="min-h-9 border-slate-300 text-slate-700 hover:bg-slate-100"
+                    onClick={() => setReason(shortcut)}
+                  >
+                    {shortcut}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <p id="cancel-slots-reason-hint" className="flex justify-between text-xs text-slate-500">
               <span>
                 {tooShort
@@ -121,7 +145,7 @@ export default function CancelSlotsDialog({
               ) : (
                 <Ban aria-hidden="true" />
               )}
-              {isPending ? 'Cancelando…' : `Cancelar ${count} ${label}`}
+              {isPending ? 'Bloqueando…' : `Bloquear ${count} ${label}`}
             </Button>
           </div>
         </form>

@@ -48,7 +48,6 @@ const preview: AgendaPreview = {
   totalCandidatos: 10,
   totalNuevos: 10,
   totalOmitidos: 0,
-  totalConflictos: 0,
   fechasLaboralesEvaluadas: ['2026-07-28'],
   bloqueado: false,
   errores: [],
@@ -298,6 +297,7 @@ test('personaliza y restablece el horario de un médico sin alterar otros datos'
       {
         fecha: '2026-07-31',
         bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+        duracionMinutos: 45,
       },
     ],
   });
@@ -306,6 +306,7 @@ test('personaliza y restablece el horario de un médico sin alterar otros datos'
     {
       fecha: '2026-07-31',
       bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+      duracionMinutos: 45,
     },
   ]);
   assert.deepEqual(buildAgendaCreationPayload(context.site.id, 2, state).horariosPersonalizados, [
@@ -315,6 +316,7 @@ test('personaliza y restablece el horario de un médico sin alterar otros datos'
         {
           fecha: '2026-07-31',
           bloques: [{ horaInicio: '09:00', horaFin: '12:00' }],
+          duracionMinutos: 45,
         },
       ],
     },
