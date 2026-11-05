@@ -27,7 +27,7 @@ export default function AdjuntarDocumentosButton({ dictamenId, isCerrado, docent
           type="button"
           aria-label="Documentos adjuntos"
           onClick={() => setOpen(true)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-white text-blue-700 transition hover:bg-blue-50 active:bg-blue-100"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-50 active:bg-amber-100"
         >
           <Paperclip className="h-4 w-4" aria-hidden="true" />
         </button>
