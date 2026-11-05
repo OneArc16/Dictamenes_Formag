@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { inputClassName } from './FormField';
 
@@ -31,6 +31,7 @@ export function AsyncCatalogInput({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [searchFailed, setSearchFailed] = useState(false);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const query = value.trim();
 
   useEffect(() => {
@@ -105,6 +106,11 @@ export function AsyncCatalogInput({
           : `${options.length} ${
               options.length === 1 ? 'opción disponible' : 'opciones disponibles'
             }.`;
+
+  useEffect(() => {
+    if (!showListbox || activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, options.length, showListbox]);
 
   return (
     <div className="relative">
@@ -187,6 +193,7 @@ export function AsyncCatalogInput({
                 id={`${listboxId}-option-${index}`}
                 type="button"
                 role="option"
+                ref={(element) => { optionRefs.current[index] = element; }}
                 aria-selected={activeIndex === index}
                 onMouseEnter={() => setActiveIndex(index)}
                 onMouseDown={(event) => {
