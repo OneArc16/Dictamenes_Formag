@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import {
@@ -172,6 +173,14 @@ export default function TabTituloIII({
 
   const [search, setSearch] = useState('');
   const [onlyPending, setOnlyPending] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const [openMetodologia, setOpenMetodologia] = useState(false);
   const [savingFactor, setSavingFactor] = useState<FactorKey | null>(null);
 
@@ -444,15 +453,40 @@ export default function TabTituloIII({
               </div>
             </Card>
           ) : (
-            filteredGroups.map((group) => (
-              <details key={group.key} open className="bg-white border shadow-sm border-slate-200 rounded-xl">
-                <summary className="px-4 py-3 border-b cursor-pointer select-none border-slate-200 bg-slate-50 rounded-t-xl">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">{group.label}</div>
-                    <SmallMuted>{group.factors.length} factor(es)</SmallMuted>
-                  </div>
-                </summary>
+            filteredGroups.map((group) => {
+              const isOpen = !collapsedGroups.has(group.key);
+              const done = group.factors.filter((factor) => naSet.has(factor) || itemsMap.has(factor)).length;
+              const complete = done === group.factors.length;
+              const panelId = `titulo3-group-${group.key}`;
+              return (
+              <section key={group.key} className="overflow-hidden bg-white border shadow-sm border-slate-200 rounded-xl">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={panelId}
+                  onClick={() => toggleGroup(group.key)}
+                  className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors bg-slate-50 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 ${isOpen ? 'border-b border-slate-200' : ''}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={`h-4 w-4 text-slate-500 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? '' : '-rotate-90'}`}
+                    />
+                    <span className="text-sm font-semibold text-slate-900">{group.label}</span>
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${complete ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}`}
+                  >
+                    {done}/{group.factors.length} listos
+                  </span>
+                </button>
 
+                <div
+                  id={panelId}
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                  inert={!isOpen}
+                >
+                <div className="min-h-0 overflow-hidden">
                 <div className="px-4 pt-2 pb-4">
                   <div className="overflow-x-auto">
                     <div className="min-w-[560px]">
@@ -520,8 +554,11 @@ export default function TabTituloIII({
                     </div>
                   </div>
                 </div>
-              </details>
-            ))
+                </div>
+                </div>
+              </section>
+              );
+            })
           )}
         </div>
       </div>
