@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { edadPaciente, fechaBogota } from '@/lib/edad';
 import { parseDatosRegistro } from '@/features/atenciones/domain/datos-registro';
 import { pacienteRegistro } from './datos-registro';
+import { visibleActivadaAt } from './activation-visibility';
 
 import { esMujer } from '../domain/antecedentes-ginecobstetricos';
 import type { DiagnosticoAtencion } from '../domain/diagnosticos';
@@ -155,7 +156,7 @@ export async function getAtencionDetalle(auth: AuthorizationContext, citaId: num
     estado: activada ? 'ACTIVADA' : 'ATENDIDA',
     inicioProgramado: cita.inicioProgramado.toISOString(),
     finProgramado: cita.finProgramado.toISOString(),
-    activadaAt: cita.activadaAt?.toISOString() ?? null,
+    activadaAt: visibleActivadaAt(auth, cita.activadaAt),
     sedeNombre: cita.sedeNombre,
     especialidadNombre: cita.especialidadNombre,
     modalidadNombre: cita.modalidadNombre,

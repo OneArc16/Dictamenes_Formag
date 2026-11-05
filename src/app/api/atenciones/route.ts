@@ -5,6 +5,7 @@ import {
   buildAtencionesWhere,
   parseAtencionesQuery,
 } from '@/features/atenciones/application/atenciones-query';
+import { visibleActivadaAt } from '@/features/atenciones/application/activation-visibility';
 import { requireMedicoApi } from '@/lib/auth/api-guards';
 import { prisma } from '@/lib/prisma';
 
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
       estado: cita.estado === 'ATENDIDA' ? 'ATENDIDA' : 'ACTIVADA',
       inicioProgramado: cita.inicioProgramado.toISOString(),
       finProgramado: cita.finProgramado.toISOString(),
-      activadaAt: cita.activadaAt?.toISOString() ?? null,
+      activadaAt: visibleActivadaAt(authResult.auth, cita.activadaAt),
       docenteDocumento: cita.paciente.identificacion,
       docenteNombre: toNombreCompleto(
         cita.paciente.primerNombre,

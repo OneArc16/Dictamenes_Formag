@@ -27,6 +27,7 @@ const permissions = [
   { codigo: 'appointment.reschedule', nombre: 'Reprogramar citas', modulo: 'appointment' },
   { codigo: 'appointment.reminder.print', nombre: 'Generar e imprimir recordatorios de cita', modulo: 'appointment' },
   { codigo: 'appointment.attend', nombre: 'Marcar citas como atendidas desde flujo clínico', modulo: 'appointment' },
+  { codigo: 'appointment.activation.view', nombre: 'Ver fecha y hora de activación de citas', modulo: 'appointment' },
 
   { codigo: 'admin.dashboard.read', nombre: 'Ver dashboard administrativo', modulo: 'admin' },
   { codigo: 'admin.empleados.read', nombre: 'Ver empleados', modulo: 'admin' },
@@ -110,6 +111,7 @@ const PROFILE_PERMISSION_CODES: Record<keyof typeof PROFILE_ALIASES, string[]> =
     'module.agenda.access',
     'agenda.read.own',
     'appointment.attend',
+    'appointment.activation.view',
 
     'dictamen.read',
     'dictamen.create',
