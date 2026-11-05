@@ -6,13 +6,9 @@ import { useState } from 'react';
 
 import ModulePageLayout from '@/components/module-shell/ModulePageLayout';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AgendaModality } from '@/features/agenda/infrastructure/modalities';
 import { AgendaModalityPicker } from './AgendaModalityPicker';
 import AgendaSlotsBoard from './AgendaSlotsBoard';
-
-const triggerClass =
-  'min-h-10 gap-2 rounded-lg px-4 text-sm data-[state=active]:bg-white data-[state=active]:text-sky-800 data-[state=active]:shadow-sm';
 
 export default function AgendaHome({
   canCreate,
@@ -23,7 +19,6 @@ export default function AgendaHome({
   canCancel: boolean;
   modalities: AgendaModality[];
 }) {
-  const [tab, setTab] = useState('cupos');
   // Cada modalidad es una agenda distinta con sus propios horarios y cupos.
   const [modalityId, setModalityId] = useState<number | null>(modalities[0]?.id ?? null);
 
@@ -43,13 +38,11 @@ export default function AgendaHome({
         ) : undefined
       }
     >
-      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <TabsList className="h-auto rounded-xl bg-slate-100 p-1">
-            <TabsTrigger value="cupos" className={triggerClass}>
-              <LayoutList className="h-4 w-4" aria-hidden="true" /> Cupos
-            </TabsTrigger>
-          </TabsList>
+      <section aria-labelledby="agenda-cupos-title" className="space-y-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <h2 id="agenda-cupos-title" className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <LayoutList className="h-4 w-4 text-sky-700" aria-hidden="true" /> Cupos
+          </h2>
           <AgendaModalityPicker
             modalities={modalities}
             modalityId={modalityId}
@@ -57,10 +50,8 @@ export default function AgendaHome({
             bordered={false}
           />
         </div>
-        <TabsContent value="cupos" className="mt-0">
-          <AgendaSlotsBoard canCancel={canCancel} modalityId={modalityId} />
-        </TabsContent>
-      </Tabs>
+        <AgendaSlotsBoard canCancel={canCancel} modalityId={modalityId} />
+      </section>
     </ModulePageLayout>
   );
 }
