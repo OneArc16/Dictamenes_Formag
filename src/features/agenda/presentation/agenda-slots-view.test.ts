@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   chunk,
   formatDayHeading,
+  formatSlotDate,
   formatTime,
   groupSlotsByDay,
   initials,
@@ -62,4 +63,9 @@ test('formatea fechas, horas e iniciales', () => {
 
 test('divide en lotes', () => {
   assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+});
+
+test('formatSlotDate muestra el día del cupo en formato corto', () => {
+  assert.equal(formatSlotDate('2026-11-09'), 'Lun 09/11/2026');
+  assert.equal(formatSlotDate('2026-11-01'), 'Dom 01/11/2026');
 });

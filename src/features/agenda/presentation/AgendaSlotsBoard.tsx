@@ -35,6 +35,7 @@ import {
   DATE_PRESETS,
   chunk,
   formatDayHeading,
+  formatSlotDate,
   formatTime,
   groupSlotsByDay,
   initials,
@@ -557,6 +558,7 @@ export default function AgendaSlotsBoard({
                             <span className="text-sm font-semibold tabular-nums text-slate-900 md:col-auto">
                               {formatTime(slot.inicio)}
                               <span className="font-normal text-slate-400"> – {formatTime(slot.fin)}</span>
+                              <span className="block text-[11px] font-normal text-slate-500">{formatSlotDate(group.date)}</span>
                             </span>
 
                             <span className="flex items-center gap-2 justify-self-end md:order-last">

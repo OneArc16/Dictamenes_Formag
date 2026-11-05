@@ -87,6 +87,16 @@ export function formatDayHeading(date: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+/** Short day label for a slot row, e.g. "Lun 09/11/2026". */
+export function formatSlotDate(date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`);
+  const weekday = new Intl.DateTimeFormat('es-CO', { weekday: 'short', timeZone: 'UTC' })
+    .format(day)
+    .replace('.', '');
+  const [year, month, dayOfMonth] = date.split('-');
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayOfMonth}/${month}/${year}`;
+}
+
 export function formatTime(value: string, timeZone = AGENDA_VIEW_TIME_ZONE) {
   return new Intl.DateTimeFormat('es-CO', {
     hour: '2-digit',
