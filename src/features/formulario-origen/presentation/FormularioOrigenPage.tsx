@@ -14,6 +14,7 @@ import { FormularioOrigenCenterPanel } from './FormularioOrigenCenterPanel';
 import { FormularioOrigenLeftPanel } from './FormularioOrigenLeftPanel';
 import { FormularioOrigenRightPanel } from './FormularioOrigenRightPanel';
 import type { FormularioOrigenDto, OriginTab, ValidationIssue } from './types';
+import { withUnfilledSupportsAsNotApplicable } from './supports';
 
 const TABS: OriginTab[] = [
   'descripcion',
@@ -138,7 +139,7 @@ export default function FormularioOrigenPage() {
           fechaOcurrencia: current.fechaOcurrencia,
           horaOcurrencia: current.horaOcurrencia,
           jornadaEvento: current.jornadaEvento,
-          soportes: current.soportes.map((support) => ({
+          soportes: withUnfilledSupportsAsNotApplicable(current.soportes).map((support) => ({
             tipo: support.tipo,
             estado: support.estado,
             fechaDocumento: support.fechaDocumento,

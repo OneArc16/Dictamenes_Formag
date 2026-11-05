@@ -13,17 +13,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getDiaSemanaBogota } from '../../domain/date';
 import { FormField, inputClassName, SectionActions } from '../FormField';
+import { FIXED_SUPPORTS } from '../supports';
 import type { SoporteRow, ValidationIssue } from '../types';
 
-const FIXED_SUPPORTS: Array<{ type: SoporteRow['tipo']; label: string }> = [
-  { type: 'REPORTE_ACCIDENTE_TRABAJO', label: 'Reporte de Accidente de Trabajo' },
-  { type: 'DESCRIPCION_EVENTO', label: 'Descripción del Evento Ocurrido' },
-  { type: 'EPICRISIS_RESUMEN_HISTORIA', label: 'Epicrisis o Resumen de Historia Clínica' },
-  { type: 'CERTIFICADO_DEFUNCION', label: 'Certificado de Defunción' },
-  { type: 'ANALISIS_PUESTO_TRABAJO', label: 'Análisis de Puesto de Trabajo' },
-  { type: 'EXAMENES_PREOCUPACIONALES', label: 'Exámenes Preocupacionales' },
-  { type: 'INVESTIGACION_ACCIDENTE', label: 'Investigación del Accidente Realizada' },
-];
 
 const STATE_LABELS = {
   APORTADO: 'Aportado',
