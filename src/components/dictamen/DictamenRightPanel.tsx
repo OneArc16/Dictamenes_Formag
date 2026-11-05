@@ -362,7 +362,7 @@ export default function DictamenRightPanel({
             </div>
 
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
-              <p className="text-[11px] text-slate-500">Total Base PCL (T1 + T2)</p>
+              <p className="text-[11px] text-slate-500">Total Base PCL (T I + T II)</p>
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-semibold text-slate-900">{basePclLabel}</p>
                 <p className="text-[11px] text-slate-500">

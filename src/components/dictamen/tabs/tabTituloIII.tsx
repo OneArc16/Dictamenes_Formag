@@ -354,7 +354,7 @@ export default function TabTituloIII({
           subtitle={
             <div className="flex flex-wrap gap-2 mt-2">
               <Badge>Procedimiento: A</Badge>
-              <Badge>Base PCL (T1 + T2 Cap.2): {basePcl.toFixed(2)}%</Badge>
+              <Badge>Base PCL (T I + T II Cap. 2): {basePcl.toFixed(2)}%</Badge>
               <Badge>Pendiente vs 100%: {faltante.toFixed(2)}%</Badge>
               <Badge>No aplica</Badge>
             </div>
@@ -391,7 +391,7 @@ export default function TabTituloIII({
             subtitle={
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge>Procedimiento: A</Badge>
-                <Badge>Base PCL (T1 + T2 Cap.2): {basePcl.toFixed(2)}%</Badge>
+                <Badge>Base PCL (T I + T II Cap. 2): {basePcl.toFixed(2)}%</Badge>
                 <Badge>Pendiente vs 100%: {faltante.toFixed(2)}%</Badge>
               </div>
             }
@@ -604,7 +604,7 @@ export default function TabTituloIII({
               <div className="h-px my-2 bg-slate-100" />
 
               <div className="flex items-center justify-between">
-                <span className="text-slate-600">Base PCL (T1 + T2 Cap.2)</span>
+                <span className="text-slate-600">Base PCL (T I + T II Cap. 2)</span>
                 <span className="font-semibold text-slate-900">{basePcl.toFixed(2)}%</span>
               </div>
 
@@ -646,7 +646,7 @@ export default function TabTituloIII({
             <SmallMuted>
               - “N/A” no cuenta en la sumatoria. <br />
               - “Pendiente” = sin selección y sin N/A. <br />
-              - El incremento se calcula sobre la Base PCL (T1 + T2 Cap.2).
+              - El incremento se calcula sobre la Base PCL (T I + T II Cap. 2).
             </SmallMuted>
           </div>
         </Card>
