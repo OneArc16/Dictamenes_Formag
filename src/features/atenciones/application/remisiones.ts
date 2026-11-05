@@ -9,6 +9,7 @@ import { ApplicationError } from '@/features/formulario-origen/application/error
 import { abrirCasoDictamen } from '@/features/formulario-origen/application/registrar-caso-dictamen';
 
 import {
+  diagnosticosCasoJunta,
   esJuntaMedica,
   type CreateRemisionCommand,
   type Remision,
@@ -148,6 +149,10 @@ export async function createRemision(
           where: { id: cita.usuarioId },
           select: { identificacion: true },
         });
+        const diagnosticosAtencion = await tx.atencionDiagnostico.findMany({
+          where: { citaId },
+          select: { cie10Codigo: true, tipo: true },
+        });
         try {
           const caso = await abrirCasoDictamen(tx, {
             usuarioId: cita.usuarioId,
@@ -157,6 +162,7 @@ export async function createRemision(
             // La recalificación arranca directo en PCL; la primera vez, en el formulario de origen.
             documentoInicial: input.tipoDictamen === 'RECALIFICACION' ? 'PCL' : 'ORIGEN',
             remisionId: created.id,
+            diagnosticos: diagnosticosCasoJunta(diagnosticos, diagnosticosAtencion),
           });
           created = { ...created, dictamen: { id: caso.dictamenId } };
         } catch (error) {

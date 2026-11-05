@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { parseColombiaDate } from '../domain/date';
 import { buildNumeroDictamen } from '../domain/numero-dictamen';
 import { registrarCasoDictamenSchema } from '../domain/schemas';
+import type { DiagnosticoCaso } from '@/features/atenciones/domain/remisiones';
 import { ApplicationError } from './errors';
 
 type Input = z.infer<typeof registrarCasoDictamenSchema>;
@@ -205,6 +206,8 @@ export type AbrirCasoDictamenParams = {
   operacionId?: string;
   /** Remisión a junta médica que originó el caso, si viene de una atención. */
   remisionId?: number;
+  /** Diagnoses the case starts with (origin form, and the PCL dictamen when it starts in PCL). */
+  diagnosticos?: DiagnosticoCaso[];
 };
 
 /**
@@ -234,6 +237,7 @@ export async function abrirCasoDictamen(tx: Tx, params: AbrirCasoDictamenParams)
   const date = parseColombiaDate(today);
   const originNumber = buildNumeroDictamen(today, params.identificacion);
   const startsWithPcl = params.documentoInicial === 'PCL';
+  const diagnosticos = params.diagnosticos ?? [];
 
   const dictamen = await tx.dictamen.create({
     data: {
@@ -250,12 +254,16 @@ export async function abrirCasoDictamen(tx: Tx, params: AbrirCasoDictamenParams)
         ? {
             numeroDictamen: originNumber,
             pclIniciadoEn: new Date(),
+            ...(diagnosticos.length
+              ? { diagnosticos: { create: diagnosticos.map(({ cie10Codigo, tipo }) => ({ cie10Codigo, tipo })) } }
+              : {}),
           }
         : {}),
       formularioOrigen: {
         create: {
           fechaDictamenOrigen: date,
           numeroDictamenOrigen: originNumber,
+          ...(diagnosticos.length ? { diagnosticos: { create: diagnosticos } } : {}),
           historial: {
             create: {
               actorId: params.empleadoId,

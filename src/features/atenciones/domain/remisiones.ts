@@ -71,3 +71,30 @@ export function estadoAtajos(atajos: RemisionAtajo[], remisiones: Pick<Remision,
   const cargados = new Set(remisiones.map((remision) => remision.cups.codigo));
   return atajos.map((atajo) => ({ ...atajo, cargado: cargados.has(atajo.cupsCodigo) }));
 }
+
+type TipoDiagnosticoCaso = 'CONFIRMADO_NUEVO' | 'IMPRESION_DIAGNOSTICA' | 'CONFIRMADO_REPETIDO';
+
+export type DiagnosticoCaso = {
+  cie10Codigo: string;
+  tipo: TipoDiagnosticoCaso;
+  esPrincipal: boolean;
+  orden: number;
+};
+
+/**
+ * Diagnoses a junta case starts with: the remission's principal and related codes, in that
+ * order and without repeats. Each keeps the type recorded in the attention when present.
+ */
+export function diagnosticosCasoJunta(
+  codigosRemision: Array<string | null | undefined>,
+  diagnosticosAtencion: Array<{ cie10Codigo: string; tipo: TipoDiagnosticoCaso }>,
+): DiagnosticoCaso[] {
+  const tipos = new Map(diagnosticosAtencion.map((diagnostico) => [diagnostico.cie10Codigo, diagnostico.tipo]));
+  const codigos = [...new Set(codigosRemision.filter((codigo): codigo is string => Boolean(codigo)))];
+  return codigos.map((cie10Codigo, index) => ({
+    cie10Codigo,
+    tipo: tipos.get(cie10Codigo) ?? 'IMPRESION_DIAGNOSTICA',
+    esPrincipal: index === 0,
+    orden: index + 1,
+  }));
+}

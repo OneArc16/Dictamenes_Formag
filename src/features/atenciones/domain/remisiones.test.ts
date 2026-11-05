@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CUPS_JUNTA_MEDICA, createRemisionSchema, esJuntaMedica, estadoAtajos } from './remisiones';
+import { CUPS_JUNTA_MEDICA, createRemisionSchema, diagnosticosCasoJunta, esJuntaMedica, estadoAtajos } from './remisiones';
 
 test('la remisión exige servicio CUPS y diagnóstico; los relacionados son opcionales', () => {
   assert.equal(createRemisionSchema.safeParse({ cupsCodigo: '890264', diagnosticoCodigo: 'i10x' }).success, true);
@@ -46,4 +46,21 @@ test('la junta médica exige primera vez o recalificación; los demás servicios
   );
   assert.equal(esJuntaMedica(' 890502 '), true);
   assert.equal(esJuntaMedica('890362'), false);
+});
+
+test('diagnosticosCasoJunta carries the junta remission diagnoses in order, principal first', () => {
+  const result = diagnosticosCasoJunta(['M545', 'F329', 'J00'], [
+    { cie10Codigo: 'F329', tipo: 'CONFIRMADO_NUEVO' },
+    { cie10Codigo: 'M545', tipo: 'CONFIRMADO_REPETIDO' },
+  ]);
+  assert.deepEqual(result, [
+    { cie10Codigo: 'M545', tipo: 'CONFIRMADO_REPETIDO', esPrincipal: true, orden: 1 },
+    { cie10Codigo: 'F329', tipo: 'CONFIRMADO_NUEVO', esPrincipal: false, orden: 2 },
+    { cie10Codigo: 'J00', tipo: 'IMPRESION_DIAGNOSTICA', esPrincipal: false, orden: 3 },
+  ]);
+});
+
+test('diagnosticosCasoJunta skips empty and repeated codes', () => {
+  const result = diagnosticosCasoJunta(['M545', null, 'M545', undefined], []);
+  assert.deepEqual(result, [{ cie10Codigo: 'M545', tipo: 'IMPRESION_DIAGNOSTICA', esPrincipal: true, orden: 1 }]);
 });
