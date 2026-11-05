@@ -255,7 +255,7 @@ export function RemisionesTab({
               </div>
               <div className="md:col-span-2">
                 <label htmlFor="remision-motivo" className="text-[11px] font-semibold text-slate-700">
-                  Motivo de la remisión
+                  Observaciones
                 </label>
                 <textarea
                   id="remision-motivo"

@@ -31,7 +31,7 @@ export function RemisionPdf({ doc, logoSrc }: { doc: RemisionesDocumento; logoSr
               <Field label="Código CUPS" value={remision.cupsCodigo} width="20%" />
               <Field label="Procedimiento / servicio" value={remision.cupsNombre} width="80%" />
             </View>
-            <Paragraph title="Motivo de la remisión" text={remision.motivo || 'No registrado.'} />
+            <Paragraph title="Observaciones" text={remision.motivo || 'Sin observaciones.'} />
           </Section>
 
           <Firma encabezado={doc} nota={`Remisión emitida el ${remision.fecha}`} />
