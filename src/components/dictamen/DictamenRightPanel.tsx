@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useDictamenDeficienciasPanel';
 import { useCerrarDictamen } from '@/hooks/useCerrarDictamen';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { capPcl } from '@/lib/dictamen/pcl-cap';
 
 type Props = {
   dictamenId?: number;
@@ -241,7 +242,7 @@ export default function DictamenRightPanel({
   const totalTitulo3Label = proc !== 'A' ? 'No aplica' : formatPercent(totalTitulo3Raw);
 
   const basePcl = (totalTitulo1Raw ?? 0) + (proc === 'B' ? (totalCap1Raw ?? 0) : 0) + (totalCap2Raw ?? 0);
-  const pclFinal = proc === 'A' ? basePcl + (totalTitulo3Raw ?? 0) : basePcl;
+  const pclFinal = capPcl(proc === 'A' ? basePcl + (totalTitulo3Raw ?? 0) : basePcl);
 
   const basePclLabel = formatPercent(basePcl);
   const pclFinalLabel = formatPercent(pclFinal);

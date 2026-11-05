@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from '@react-pdf/renderer';
 import { Bar, Stack, Sub, T, Tbl, Td, Tr, TPL } from '../components/Tpl';
+import { capPcl } from '@/lib/dictamen/pcl-cap';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -75,7 +76,7 @@ export default function PorcentajePclBlock({ dictamen }: Props) {
     return hasAny ? sum : null;
   })();
 
-  const totalPcl = toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? totalCalculado);
+  const totalPcl = capPcl(toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? totalCalculado));
 
   const rows: Array<{ label: string; a: string; b: string; bold?: boolean }> = [
     {

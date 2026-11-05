@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { Bar, Tbl, Td, Tr, TPL } from '../components/Tpl';
+import { capPcl } from '@/lib/dictamen/pcl-cap';
 
 type DictamenLike = {
   [key: string]: unknown;
@@ -59,7 +60,7 @@ export default function ProcedimientoBlock({ dictamen }: Props) {
   })();
 
   const baseMasTitulo3 = base != null && totalTitulo3 != null ? base + totalTitulo3 : null;
-  const totalFinal = toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasTitulo3);
+  const totalFinal = capPcl(toNumber(dictamen?.totalPcl ?? dictamen?.pclTotal ?? baseMasTitulo3));
 
   const line = { fontSize: 8, lineHeight: 1.2, marginBottom: 3 } as const;
   const bold = { fontWeight: 700 } as const;

@@ -1,3 +1,5 @@
+import { capPcl } from './pcl-cap';
+
 // src/lib/dictamen/titulo3.ts
 
 export type GravedadAnalisisKey = 'CERO' | 'I' | 'II' | 'III' | 'IV';
@@ -332,7 +334,8 @@ export function computeTitulo3Summary(params: {
 
   const porcentajeAdd = claseFinal ? GRAVEDAD_PORCENTAJE[claseFinal] : 0;
   const incrementoTitulo3 = claseFinal ? round2((basePcl * porcentajeAdd) / 100) : 0;
-  const pclFinal = round2(basePcl + incrementoTitulo3);
+  // The Title III increment is reported as computed; only the final PCL is capped at 100%.
+  const pclFinal = capPcl(round2(basePcl + incrementoTitulo3));
 
   return {
     basePcl: round2(basePcl),
