@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-export const ATENCION_TEXT_MAX = 5000;
-
 /** Campos de texto propios de la atención (columnas de atenciones), en el orden de sus pestañas. */
 export const ATENCION_FIELDS = ['motivoConsulta', 'enfermedadActual', 'analisis', 'plan', 'tratamiento'] as const;
 
@@ -20,7 +18,8 @@ export function atencionFormFromRecord(record: Partial<Record<AtencionField, str
   return Object.fromEntries(ATENCION_FIELDS.map((field) => [field, record?.[field] ?? ''])) as AtencionForm;
 }
 
-const text = z.string().max(ATENCION_TEXT_MAX, `Máximo ${ATENCION_TEXT_MAX.toLocaleString('es-CO')} caracteres.`);
+// No length cap: columns are Postgres text and physicians write long histories.
+const text = z.string();
 
 /** Guardado parcial: cada pestaña envía solo sus campos. */
 export const saveAtencionSchema = z

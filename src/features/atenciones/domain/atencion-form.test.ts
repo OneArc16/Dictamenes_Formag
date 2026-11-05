@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  ATENCION_TEXT_MAX,
   EMPTY_ATENCION_FORM,
   atencionFormFromRecord,
   atencionPendientes,
@@ -26,12 +25,15 @@ test('enfermedad actual y tratamiento son obligatorios para finalizar; motivo, a
   );
 });
 
-test('el guardado acepta campos parciales y rechaza vacíos, desconocidos o demasiado largos', () => {
+test('el guardado acepta campos parciales y rechaza vacíos o desconocidos', () => {
   assert.equal(saveAtencionSchema.safeParse({ motivoConsulta: 'Control' }).success, true);
   assert.equal(saveAtencionSchema.safeParse({ plan: 'Control en 3 meses' }).success, true);
   assert.equal(saveAtencionSchema.safeParse({}).success, false);
   assert.equal(saveAtencionSchema.safeParse({ diagnostico: 'x' }).success, false);
-  assert.equal(saveAtencionSchema.safeParse({ tratamiento: 'a'.repeat(ATENCION_TEXT_MAX + 1) }).success, false);
+});
+
+test('el guardado no limita la cantidad de caracteres', () => {
+  assert.equal(saveAtencionSchema.safeParse({ enfermedadActual: 'a'.repeat(50_000) }).success, true);
 });
 
 test('lee los campos guardados y deja vacío lo que no existe', () => {

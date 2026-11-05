@@ -1,8 +1,7 @@
 import { FormField, inputClassName } from '@/features/formulario-origen/presentation/FormField';
-import { ATENCION_TEXT_MAX, type AtencionForm } from '@/features/atenciones/domain/atencion-form';
+import type { AtencionForm } from '@/features/atenciones/domain/atencion-form';
 
 import { FIELD_LOCATION } from '../atencion-tabs';
-import { CharacterCount } from './MotivoConsultaTab';
 
 const CAMPOS: Array<{
   field: 'analisis' | 'plan' | 'tratamiento';
@@ -36,14 +35,11 @@ export function AnalisisPlanTab({
               value={form[field]}
               readOnly={readOnly}
               rows={rows}
-              maxLength={ATENCION_TEXT_MAX}
               aria-required={required || undefined}
               placeholder={readOnly ? undefined : placeholder}
               onChange={(event) => onChange(field, event.target.value)}
-              aria-describedby={`${id}-count`}
               className={`${inputClassName} resize-y`}
             />
-            <CharacterCount id={`${id}-count`} value={form[field]} />
           </FormField>
         );
       })}
